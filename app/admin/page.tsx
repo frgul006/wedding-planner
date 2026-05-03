@@ -78,10 +78,16 @@ export default async function AdminPage() {
         </div>
 
         <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-200">
-          <h2 className="text-xl font-semibold text-zinc-950">Next up</h2>
+          <h2 className="text-xl font-semibold text-zinc-950">Guest management</h2>
           <p className="mt-2 text-zinc-600">
-            Admin guest CRUD will be added next according to the PRD build order.
+            Add, edit, search, and archive invitees.
           </p>
+          <a
+            className="mt-6 inline-flex rounded-full bg-zinc-950 px-5 py-3 font-medium text-white transition hover:bg-zinc-800"
+            href="/admin/guests"
+          >
+            Manage guests
+          </a>
         </div>
       </section>
     </main>

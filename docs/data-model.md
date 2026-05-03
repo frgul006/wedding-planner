@@ -55,10 +55,10 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
   - Validation rule: at least one of `email` or `phone` must be set.
 - `side_id` (UUID, optional) -> relation to `CoupleMember`
 - `notes` (string, optional)
-- `is_archived` (bool)
 - `deleted_at` (datetime, nullable)
+  - Admin delete is implemented as soft delete by setting this timestamp. Normal admin lists exclude deleted guests.
 - `invite_status` (`not replied | opened | rsvp yes | rsvp no | rsvp maybe`)
-- `created_at`, `updated_at`, `archived_at`
+- `created_at`, `updated_at`
 
 ### InviteToken
 

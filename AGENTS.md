@@ -8,6 +8,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - Local development setup: [`docs/local-development.md`](docs/local-development.md)
 - Admin authentication notes: [`docs/admin-auth.md`](docs/admin-auth.md)
+- Admin guest management notes: [`docs/admin-guests.md`](docs/admin-guests.md)
 
 ## Validation
 
