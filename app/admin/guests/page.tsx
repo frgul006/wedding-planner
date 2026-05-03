@@ -14,10 +14,10 @@ export const metadata: Metadata = {
 
 type GuestsPageProps = {
   searchParams: Promise<{
-    error?: string;
-    q?: string;
-    sort?: string;
-    status?: string;
+    error?: string | string[];
+    q?: string | string[];
+    sort?: string | string[];
+    status?: string | string[];
   }>;
 };
 
@@ -40,6 +40,10 @@ const inviteStatuses = [
   "rsvp maybe",
 ];
 
+function getFirstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 function getRsvpStatus(inviteStatus: string) {
   if (inviteStatus.startsWith("rsvp ")) {
     return inviteStatus.replace("rsvp ", "");
@@ -49,27 +53,34 @@ function getRsvpStatus(inviteStatus: string) {
 }
 
 function getMessage(searchParams: Awaited<GuestsPageProps["searchParams"]>) {
-  if (searchParams.error === "missing-name") {
+  const error = getFirstParam(searchParams.error);
+  const status = getFirstParam(searchParams.status);
+
+  if (error === "missing-name") {
     return { tone: "error", text: "Full name is required." };
   }
 
-  if (searchParams.error === "missing-contact") {
+  if (error === "missing-contact") {
     return { tone: "error", text: "Add at least an email or phone number." };
   }
 
-  if (searchParams.error) {
+  if (error === "not-found") {
+    return { tone: "error", text: "Guest was not found or is already archived." };
+  }
+
+  if (error) {
     return { tone: "error", text: "Something went wrong. Please try again." };
   }
 
-  if (searchParams.status === "created") {
+  if (status === "created") {
     return { tone: "success", text: "Guest added." };
   }
 
-  if (searchParams.status === "updated") {
+  if (status === "updated") {
     return { tone: "success", text: "Guest updated." };
   }
 
-  if (searchParams.status === "deleted") {
+  if (status === "deleted") {
     return { tone: "success", text: "Guest archived." };
   }
 
@@ -112,9 +123,12 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
   const params = await searchParams;
   const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
-  const query = (params.q ?? "").trim();
-  const sort = sortOptions.has(params.sort ?? "") ? params.sort : "name";
-  const status = inviteStatuses.includes(params.status ?? "") ? params.status : "";
+  const rawQuery = getFirstParam(params.q);
+  const rawSort = getFirstParam(params.sort);
+  const rawStatus = getFirstParam(params.status);
+  const query = (rawQuery ?? "").trim();
+  const sort = sortOptions.has(rawSort ?? "") ? rawSort : "name";
+  const status = inviteStatuses.includes(rawStatus ?? "") ? rawStatus : "";
 
   let guestsQuery = supabase
     .from("guests")

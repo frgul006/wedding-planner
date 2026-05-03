@@ -57,19 +57,26 @@ export async function createGuestAction(formData: FormData) {
 }
 
 export async function updateGuestAction(guestId: string, formData: FormData) {
-  await requireActiveAdminProfile();
+  const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
   const payload = getGuestPayload(formData);
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("guests")
     .update(payload)
     .eq("id", guestId)
-    .is("deleted_at", null);
+    .eq("wedding_id", adminProfile.wedding_id)
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("Failed to update guest", error);
     redirect("/admin/guests?error=update-failed");
+  }
+
+  if (!data) {
+    redirect("/admin/guests?error=not-found");
   }
 
   revalidatePath("/admin/guests");
@@ -77,18 +84,25 @@ export async function updateGuestAction(guestId: string, formData: FormData) {
 }
 
 export async function softDeleteGuestAction(guestId: string) {
-  await requireActiveAdminProfile();
+  const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("guests")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", guestId)
-    .is("deleted_at", null);
+    .eq("wedding_id", adminProfile.wedding_id)
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("Failed to delete guest", error);
     redirect("/admin/guests?error=delete-failed");
+  }
+
+  if (!data) {
+    redirect("/admin/guests?error=not-found");
   }
 
   revalidatePath("/admin/guests");
