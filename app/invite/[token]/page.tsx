@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 
 import { validateInviteToken } from "@/lib/invite-tokens";
 
+import { InvalidInviteMessage } from "../_components/invalid-invite-message";
+
 export const metadata: Metadata = {
   title: "Invite | Wedding Planner",
 };
@@ -88,21 +90,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
   const result = await validateInviteToken(token);
 
   if (!result.isValid) {
-    return (
-      <main className="flex min-h-dvh items-center justify-center bg-zinc-50 px-6 py-10">
-        <section className="w-full max-w-xl rounded-3xl bg-white p-8 text-center shadow-sm ring-1 ring-zinc-200">
-          <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">
-            Wedding Planner
-          </p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-950">
-            Invite link not valid
-          </h1>
-          <p className="mt-3 text-zinc-600">
-            This invite link is invalid or no longer active.
-          </p>
-        </section>
-      </main>
-    );
+    return <InvalidInviteMessage />;
   }
 
   const { guest, wedding } = result;
@@ -191,6 +179,17 @@ export default async function InvitePage({ params }: InvitePageProps) {
           ) : (
             <p>{comingSoon}</p>
           )}
+        </DetailCard>
+
+        <DetailCard title="Updates">
+          <div className="flex flex-col gap-2">
+            <p className="text-2xl font-semibold tracking-tight text-zinc-950">
+              Updates coming soon
+            </p>
+            <p className="text-zinc-600">
+              Wedding-day notes and schedule changes will appear here in a future update.
+            </p>
+          </div>
         </DetailCard>
 
         <section className="rounded-[2rem] bg-zinc-950 p-8 text-white shadow-sm">

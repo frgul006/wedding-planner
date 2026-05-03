@@ -22,10 +22,10 @@ On `/admin/guests`:
 
 ## Public validation
 
-`/invite/[token]` validates a token by hashing the path token and looking up an active `invite_tokens` row.
+`/invite/[token]` validates a token by hashing the path token and looking up an active `invite_tokens` row. `/invite` without a token does not validate anything and renders the same safe invalid-link page.
 
 - Valid active token: displays the guest name and wedding event information from the linked `weddings` row.
-- Invalid, inactive, or archived-guest token: displays a generic invalid-link message without guest or wedding data.
+- Invalid, inactive, archived-guest, or missing token: displays a generic invalid-link message without guest or wedding data.
 
 ## Guest-facing event information
 
@@ -40,7 +40,7 @@ Valid invite pages show the current wedding settings:
 - gift information
 - Spotify playlist link when a safe `http` or `https` URL is configured
 
-Missing optional text or list fields show `Coming soon`; missing map or playlist URLs show non-clickable coming-soon text. RSVP and wedding update feeds remain out of scope for this PR, with RSVP represented by an `RSVP coming soon` placeholder.
+Missing optional text or list fields show `Coming soon`; missing map or playlist URLs show non-clickable coming-soon text. Valid invite pages also show non-interactive `RSVP coming soon` and `Updates coming soon` placeholders. RSVP form submission remains build item 7, and the real invite updates feed remains build item 11.
 
 ## Local validation
 

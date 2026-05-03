@@ -18,6 +18,7 @@ Guests need one simple place to open their invite and see all wedding details.
 
 ## Functional requirements
 - Public route format: `/invite/:token`.
+- `/invite` without a token must render the same safe invalid-link page as an invalid token.
 - Show a clear event summary (names, date/time, venue).
 - Show a base details section driven from wedding settings:
   - Venue and Google Maps link
@@ -27,7 +28,9 @@ Guests need one simple place to open their invite and see all wedding details.
   - Spotify playlist link
 - Wedding settings are defined in `wedding-event-settings.md` (single source of truth).
 - If token is invalid or missing, show: "Invite link not valid".
-- If token is valid, show RSVP area and update feed section.
+- Invalid or missing-token pages must not show guest names, wedding names, or other wedding data.
+- If token is valid, show an RSVP area with "RSVP coming soon".
+- If token is valid, show an Updates placeholder with "Updates coming soon"; the real updates feed is deferred to build item 11.
 - The page can be used without login.
 
 ## Non-functional requirements
@@ -38,8 +41,12 @@ Guests need one simple place to open their invite and see all wedding details.
 ## Acceptance criteria
 - Valid token opens the invite page quickly.
 - Invalid token never shows guest PII.
+- Missing-token `/invite` shows the generic invalid-link page and no guest or wedding data.
 - Wedding details section is visible before RSVP form.
+- Valid invite pages include non-interactive RSVP and Updates coming-soon placeholders.
 
 ## Out of scope
 - Guest login or account management
 - Multiple wedding pages in one link
+- RSVP form submission, which is build item 7
+- Real invite updates feed, which is build item 11
