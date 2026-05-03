@@ -88,16 +88,18 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
 
 ### RSVPResponse (single current response per guest)
 
+Implemented in `public.rsvp_responses`.
+
 - `id` (UUID)
 - `wedding_id` (UUID)
 - `guest_id` (UUID, unique)
 - `attendance` (`yes | no | maybe`)
 - `extra_guests` (int, >= 0)
-- `food_preference` (string)
-- `allergy_notes` (string)
-- `updated_via_token_id` (UUID, nullable)
+- `food_preference` (string, optional)
+- `allergy_notes` (string, optional)
+- `updated_via_token_id` (UUID, nullable) -> latest invite token used to submit
 - `last_submitted_at` (datetime)
-- `updated_at`
+- `created_at`, `updated_at`
 
 ### InviteEvent
 
@@ -196,7 +198,8 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
 - On first valid invite page view: set `invite_status = opened` only if the current status is `not replied`.
 - Opening an invite must never downgrade an existing RSVP status back to `opened`.
 - On RSVP submit/update: status becomes `rsvp yes|no|maybe` (one of these only).
-- No duplicate RSVP rows for the same guest (update in place).
+- No duplicate RSVP rows for the same guest (update in place by `guest_id`).
+- RSVP submission by invite token must resolve the active token first and save the response against that token's `guest_id` and `wedding_id`.
 
 ## 5) Open questions for your modeling session
 

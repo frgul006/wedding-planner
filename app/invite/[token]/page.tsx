@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { validateInviteToken } from "@/lib/invite-tokens";
 
 import { InvalidInviteMessage } from "../_components/invalid-invite-message";
+import { submitRsvpAction } from "./actions";
 
 export const metadata: Metadata = {
   title: "Invite | Wedding Planner",
@@ -13,6 +14,10 @@ export const metadata: Metadata = {
 type InvitePageProps = {
   params: Promise<{
     token: string;
+  }>;
+  searchParams: Promise<{
+    rsvp_error?: string | string[];
+    rsvp_status?: string | string[];
   }>;
 };
 
@@ -41,6 +46,39 @@ function formatWeddingDate(value: string | null) {
 function getDisplayText(value: string | null) {
   const text = value?.trim();
   return text ? text : comingSoon;
+}
+
+function getFirstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function getRsvpMessage(searchParams: Awaited<InvitePageProps["searchParams"]>) {
+  const error = getFirstParam(searchParams.rsvp_error);
+  const status = getFirstParam(searchParams.rsvp_status);
+
+  if (error === "attendance") {
+    return { tone: "error", text: "Choose Yes, No, or Maybe before submitting." };
+  }
+
+  if (error === "extra-guests") {
+    return {
+      tone: "error",
+      text: "Extra guest count must be a whole number of 0 or more.",
+    };
+  }
+
+  if (error) {
+    return {
+      tone: "error",
+      text: "We could not save your RSVP. Please check the form and try again.",
+    };
+  }
+
+  if (status === "submitted") {
+    return { tone: "success", text: "Thank you — your RSVP has been submitted." };
+  }
+
+  return null;
 }
 
 function getSafeExternalUrl(value: string | null) {
@@ -83,10 +121,10 @@ function DetailCard({ children, title }: { children: ReactNode; title: string })
   );
 }
 
-export default async function InvitePage({ params }: InvitePageProps) {
+export default async function InvitePage({ params, searchParams }: InvitePageProps) {
   await connection();
 
-  const { token } = await params;
+  const [{ token }, queryParams] = await Promise.all([params, searchParams]);
   const result = await validateInviteToken(token);
 
   if (!result.isValid) {
@@ -97,6 +135,8 @@ export default async function InvitePage({ params }: InvitePageProps) {
   const weddingDate = formatWeddingDate(wedding.wedding_date);
   const mapsUrl = getSafeExternalUrl(wedding.google_maps_url);
   const spotifyUrl = getSafeExternalUrl(wedding.spotify_playlist_url);
+  const submitRsvpWithToken = submitRsvpAction.bind(null, token);
+  const rsvpMessage = getRsvpMessage(queryParams);
 
   return (
     <main className="min-h-dvh bg-zinc-50 px-6 py-10">
@@ -196,10 +236,105 @@ export default async function InvitePage({ params }: InvitePageProps) {
           <p className="text-sm font-medium uppercase tracking-wide text-zinc-400">
             RSVP
           </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight">RSVP coming soon</h2>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight">
+            Let us know if you can make it
+          </h2>
           <p className="mt-3 max-w-2xl text-zinc-300">
-            Your invite link is ready. The RSVP form will be added here in a future update.
+            Please send your answer and any food or allergy notes so we can plan the day.
           </p>
+
+          {rsvpMessage ? (
+            <p
+              aria-live="polite"
+              className={`mt-6 rounded-2xl px-5 py-4 text-sm font-medium ${
+                rsvpMessage.tone === "error"
+                  ? "bg-red-50 text-red-700"
+                  : "bg-emerald-50 text-emerald-700"
+              }`}
+              role={rsvpMessage.tone === "error" ? "alert" : "status"}
+            >
+              {rsvpMessage.text}
+            </p>
+          ) : null}
+
+          <form action={submitRsvpWithToken} className="mt-8 grid gap-6">
+            <fieldset className="grid gap-3">
+              <legend className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
+                Attendance
+              </legend>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  ["yes", "Yes", "I will be there"],
+                  ["no", "No", "I cannot attend"],
+                  ["maybe", "Maybe", "I will confirm later"],
+                ].map(([value, label, description]) => (
+                  <label
+                    className="flex cursor-pointer gap-3 rounded-2xl bg-white/10 p-4 ring-1 ring-white/15 transition hover:bg-white/15"
+                    key={value}
+                  >
+                    <input
+                      className="mt-1 h-4 w-4 accent-white"
+                      name="attendance"
+                      required
+                      type="radio"
+                      value={value}
+                    />
+                    <span>
+                      <span className="block font-semibold">{label}</span>
+                      <span className="mt-1 block text-sm text-zinc-300">{description}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <label className="flex flex-col gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-400">
+                Extra guest count
+                <input
+                  className="rounded-2xl border border-white/20 bg-white px-4 py-3 font-normal tracking-normal text-zinc-950 outline-none transition focus:border-white focus:ring-2 focus:ring-white/40"
+                  defaultValue="0"
+                  min="0"
+                  name="extra_guests"
+                  required
+                  step="1"
+                  type="number"
+                />
+              </label>
+
+              <label className="flex flex-col gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-400">
+                Food preference
+                <select
+                  className="rounded-2xl border border-white/20 bg-white px-4 py-3 font-normal tracking-normal text-zinc-950 outline-none transition focus:border-white focus:ring-2 focus:ring-white/40"
+                  defaultValue=""
+                  name="food_preference"
+                >
+                  <option value="">No preference</option>
+                  <option value="Vegetarian">Vegetarian</option>
+                  <option value="Vegan">Vegan</option>
+                  <option value="Fish">Fish</option>
+                  <option value="Meat">Meat</option>
+                  <option value="Other">Other / see notes</option>
+                </select>
+              </label>
+            </div>
+
+            <label className="flex flex-col gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-400">
+              Allergy / special notes
+              <textarea
+                className="min-h-28 rounded-2xl border border-white/20 bg-white px-4 py-3 font-normal tracking-normal text-zinc-950 outline-none transition focus:border-white focus:ring-2 focus:ring-white/40"
+                name="allergy_notes"
+                placeholder="Tell us about allergies, accessibility needs, or anything else we should know."
+              />
+            </label>
+
+            <button
+              className="rounded-full bg-white px-5 py-3 font-medium text-zinc-950 transition hover:bg-zinc-200 sm:w-fit"
+              type="submit"
+            >
+              Submit RSVP
+            </button>
+          </form>
         </section>
       </div>
     </main>
