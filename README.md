@@ -1,5 +1,7 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+Production app: https://wedding-planner-gamma-lovat.vercel.app/
+
 Project-specific local development notes are in [`docs/local-development.md`](docs/local-development.md).
 
 ## Getting Started
