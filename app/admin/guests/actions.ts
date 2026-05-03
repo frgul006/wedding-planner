@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
+import { regenerateInviteToken } from "@/lib/invite-tokens";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function cleanOptionalText(value: FormDataEntryValue | null) {
@@ -14,6 +15,12 @@ function cleanOptionalText(value: FormDataEntryValue | null) {
 function cleanRequiredText(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
 }
+
+export type GenerateInviteLinkState = {
+  error?: string;
+  guestId?: string;
+  inviteUrl?: string;
+};
 
 function getGuestPayload(formData: FormData) {
   const fullName = cleanRequiredText(formData.get("full_name"));
@@ -81,6 +88,46 @@ export async function updateGuestAction(guestId: string, formData: FormData) {
 
   revalidatePath("/admin/guests");
   redirect("/admin/guests?status=updated");
+}
+
+export async function generateInviteLinkAction(
+  guestId: string,
+  previousState: GenerateInviteLinkState,
+): Promise<GenerateInviteLinkState> {
+  void previousState;
+  const adminProfile = await requireActiveAdminProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const { data: guest, error: guestError } = await supabase
+    .from("guests")
+    .select("id")
+    .eq("id", guestId)
+    .eq("wedding_id", adminProfile.wedding_id)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (guestError) {
+    console.error("Failed to verify guest before invite token generation", guestError);
+    return { guestId, error: "Could not generate invite link." };
+  }
+
+  if (!guest) {
+    return { guestId, error: "Guest was not found or is already archived." };
+  }
+
+  try {
+    const { inviteUrl } = await regenerateInviteToken({
+      guestId,
+      supabase,
+      weddingId: adminProfile.wedding_id,
+    });
+
+    revalidatePath("/admin/guests");
+    return { guestId, inviteUrl };
+  } catch (error) {
+    console.error("Failed to generate invite token", error);
+    return { guestId, error: "Could not generate invite link." };
+  }
 }
 
 export async function softDeleteGuestAction(guestId: string) {

@@ -33,6 +33,7 @@ Normal admin lists only show guests where `deleted_at is null`.
 - Filter by invite status
 - Sort by name, status, or newest
 - Delete with browser confirmation; delete sets `deleted_at` instead of hard-deleting
+- Generate or regenerate private invite links; raw links are shown only immediately after generation
 
 ## Local validation
 

@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 import { createGuestAction, updateGuestAction } from "./actions";
 import { DeleteGuestButton } from "./delete-guest-button";
+import { InviteLinkButton } from "./invite-link-button";
 
 export const metadata: Metadata = {
   title: "Guests | Wedding Planner",
@@ -29,6 +30,7 @@ type Guest = {
   notes: string | null;
   invite_status: string;
   created_at: string;
+  hasActiveToken: boolean;
 };
 
 const sortOptions = new Set(["name", "name-desc", "status", "newest"]);
@@ -159,7 +161,23 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
   }
 
   const { data, error } = await guestsQuery;
-  const guests = (data ?? []) as Guest[];
+  const guestRows = (data ?? []) as Omit<Guest, "hasActiveToken">[];
+  const guestIds = guestRows.map((guest) => guest.id);
+  const { data: activeTokens } = guestIds.length
+    ? await supabase
+        .from("invite_tokens")
+        .select("guest_id")
+        .eq("wedding_id", adminProfile.wedding_id)
+        .eq("is_active", true)
+        .in("guest_id", guestIds)
+    : { data: [] };
+  const guestsWithActiveTokens = new Set(
+    (activeTokens ?? []).map((token) => token.guest_id as string),
+  );
+  const guests = guestRows.map((guest) => ({
+    ...guest,
+    hasActiveToken: guestsWithActiveTokens.has(guest.id),
+  }));
   const message = getMessage(params);
 
   return (
@@ -344,6 +362,11 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                       <td className="rounded-r-2xl bg-zinc-50 p-3 text-right">
                         <form action={updateGuestWithId} id={`guest-${guest.id}`} />
                         <div className="flex justify-end gap-2">
+                          <InviteLinkButton
+                            guestId={guest.id}
+                            guestName={guest.full_name}
+                            hasActiveToken={guest.hasActiveToken}
+                          />
                           <button
                             className="rounded-full bg-zinc-950 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
                             form={`guest-${guest.id}`}
