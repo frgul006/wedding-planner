@@ -11,6 +11,16 @@ type GuestRelation = {
   full_name: string | null;
 };
 
+type RsvpAttendance = "yes" | "no" | "maybe";
+
+export type InviteRsvpResponse = {
+  allergy_notes: string | null;
+  attendance: RsvpAttendance;
+  extra_guests: number;
+  food_preference: string | null;
+  last_submitted_at: string;
+};
+
 type InviteWedding = {
   gift_info: string | null;
   google_maps_url: string | null;
@@ -29,8 +39,14 @@ type WeddingRelation = Omit<InviteWedding, "name" | "time_plan"> & {
 };
 
 type InviteTokenRow = {
+  guest_id: string;
   guests: GuestRelation | GuestRelation[] | null;
+  wedding_id: string;
   weddings: WeddingRelation | WeddingRelation[] | null;
+};
+
+type RsvpResponseRow = Omit<InviteRsvpResponse, "attendance"> & {
+  attendance: string | null;
 };
 
 export type InviteTokenValidationResult =
@@ -39,6 +55,7 @@ export type InviteTokenValidationResult =
       guest: {
         full_name: string;
       };
+      rsvpResponse: InviteRsvpResponse | null;
       wedding: InviteWedding;
     }
   | { isValid: false };
@@ -55,6 +72,34 @@ function normalizeTimePlan(value: unknown) {
   return value
     .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
     .filter(Boolean);
+}
+
+function normalizeRsvpAttendance(value: string | null): RsvpAttendance | null {
+  if (value === "yes" || value === "no" || value === "maybe") {
+    return value;
+  }
+
+  return null;
+}
+
+function normalizeRsvpResponse(row: RsvpResponseRow | null): InviteRsvpResponse | null {
+  if (!row) {
+    return null;
+  }
+
+  const attendance = normalizeRsvpAttendance(row.attendance);
+
+  if (!attendance) {
+    return null;
+  }
+
+  return {
+    allergy_notes: row.allergy_notes,
+    attendance,
+    extra_guests: row.extra_guests,
+    food_preference: row.food_preference,
+    last_submitted_at: row.last_submitted_at,
+  };
 }
 
 export function generateRawInviteToken() {
@@ -128,6 +173,8 @@ export async function validateInviteToken(
     .from("invite_tokens")
     .select(
       `
+        guest_id,
+        wedding_id,
         guests!invite_tokens_guest_wedding_fk!inner(
           deleted_at,
           full_name
@@ -165,11 +212,23 @@ export async function validateInviteToken(
     return { isValid: false };
   }
 
+  const { data: rsvpData, error: rsvpError } = await supabase
+    .from("rsvp_responses")
+    .select("allergy_notes, attendance, extra_guests, food_preference, last_submitted_at")
+    .eq("guest_id", row.guest_id)
+    .eq("wedding_id", row.wedding_id)
+    .maybeSingle();
+
+  if (rsvpError) {
+    console.error("Failed to load RSVP response for invite token", rsvpError);
+  }
+
   return {
     isValid: true,
     guest: {
       full_name: guest.full_name,
     },
+    rsvpResponse: normalizeRsvpResponse((rsvpData as RsvpResponseRow | null) ?? null),
     wedding: {
       gift_info: wedding.gift_info,
       google_maps_url: wedding.google_maps_url,

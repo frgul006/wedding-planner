@@ -1,7 +1,7 @@
 # PRD: RSVP View and Update
 
 **Version:** 0.1
-**Status:** Draft
+**Status:** Implemented
 **Date:** 2026-05-03
 **Scope:** Re-open and edit RSVP by invite token
 
@@ -36,6 +36,13 @@ Guests may want to change their answer later.
 - Reopening a link shows latest saved answer.
 - Multiple updates do not create duplicate records.
 - Updated answer is visible in admin next view.
+
+## Implementation notes
+
+- Valid `/invite/[token]` pages load the linked guest's current `public.rsvp_responses` row, if one exists.
+- Existing RSVP values are shown in a current-answer summary and pre-filled into the same RSVP form.
+- The submit action continues to use `public.submit_rsvp_response`, which upserts by `guest_id`, updates `last_submitted_at`, and keeps the guest `invite_status` aligned with the latest attendance.
+- Invalid token and missing-token pages still show only the generic invalid-link message.
 
 ## Out of scope
 
