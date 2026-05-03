@@ -2,7 +2,7 @@
 
 This project is a Next.js App Router app deployed on Vercel at:
 
-- Production preview: https://wedding-planner-gamma-lovat.vercel.app/
+- Production: https://wedding-planner-gamma-lovat.vercel.app/
 
 ## Current stack
 
