@@ -1,6 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+type AdminProfile = {
+  id: string;
+  wedding_id: string;
+  is_active: boolean;
+};
+
 export async function updateSupabaseSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -38,5 +44,18 @@ export async function updateSupabaseSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  return { response, user };
+  let adminProfile: AdminProfile | null = null;
+
+  if (user) {
+    const { data } = await supabase
+      .from("admin_profiles")
+      .select("id, wedding_id, is_active")
+      .eq("id", user.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    adminProfile = data;
+  }
+
+  return { response, user, adminProfile };
 }

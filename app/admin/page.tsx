@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -17,6 +18,21 @@ export default async function AdminPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { data: adminProfile } = await supabase
+    .from("admin_profiles")
+    .select("email, display_name, role, wedding_id, weddings(name)")
+    .eq("id", user?.id ?? "")
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (!user || !adminProfile) {
+    redirect("/admin/unauthorized");
+  }
+
+  const wedding = Array.isArray(adminProfile.weddings)
+    ? adminProfile.weddings[0]
+    : adminProfile.weddings;
+
   return (
     <main className="min-h-dvh bg-zinc-50 px-6 py-10">
       <section className="mx-auto flex max-w-4xl flex-col gap-8">
@@ -29,7 +45,7 @@ export default async function AdminPage() {
               Admin dashboard
             </h1>
             <p className="mt-2 text-zinc-600">
-              Signed in as {user?.email ?? "unknown admin"}.
+              Signed in as {adminProfile.display_name || user.email || "admin"}.
             </p>
           </div>
 
@@ -44,9 +60,27 @@ export default async function AdminPage() {
         </div>
 
         <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-200">
+          <h2 className="text-xl font-semibold text-zinc-950">Access</h2>
+          <dl className="mt-4 grid gap-4 text-sm text-zinc-700 sm:grid-cols-2">
+            <div>
+              <dt className="font-medium text-zinc-950">Wedding</dt>
+              <dd>{wedding?.name ?? "Unknown wedding"}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-zinc-950">Role</dt>
+              <dd>{adminProfile.role}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-zinc-950">Email</dt>
+              <dd>{adminProfile.email}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-200">
           <h2 className="text-xl font-semibold text-zinc-950">Next up</h2>
           <p className="mt-2 text-zinc-600">
-            Admin feature pages will be added here as we implement the PRD build order.
+            Admin guest CRUD will be added next according to the PRD build order.
           </p>
         </div>
       </section>
