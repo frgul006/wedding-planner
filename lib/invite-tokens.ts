@@ -6,14 +6,56 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 const TOKEN_BYTES = 32;
 
+type GuestRelation = {
+  deleted_at: string | null;
+  full_name: string | null;
+};
+
+type InviteWedding = {
+  gift_info: string | null;
+  google_maps_url: string | null;
+  name: string;
+  policy: string | null;
+  spotify_playlist_url: string | null;
+  time_plan: string[];
+  venue_address: string | null;
+  venue_name: string | null;
+  wedding_date: string | null;
+};
+
+type WeddingRelation = Omit<InviteWedding, "name" | "time_plan"> & {
+  name: string | null;
+  time_plan: unknown;
+};
+
+type InviteTokenRow = {
+  guests: GuestRelation | GuestRelation[] | null;
+  weddings: WeddingRelation | WeddingRelation[] | null;
+};
+
 export type InviteTokenValidationResult =
   | {
       isValid: true;
       guest: {
         full_name: string;
       };
+      wedding: InviteWedding;
     }
   | { isValid: false };
+
+function getSingleRelation<T>(relation: T | T[] | null | undefined) {
+  return Array.isArray(relation) ? relation[0] : relation;
+}
+
+function normalizeTimePlan(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+    .filter(Boolean);
+}
 
 export function generateRawInviteToken() {
   return randomBytes(TOKEN_BYTES).toString("base64url");
@@ -84,7 +126,25 @@ export async function validateInviteToken(
   const tokenHash = hashInviteToken(rawToken);
   const { data, error } = await supabase
     .from("invite_tokens")
-    .select("guests!invite_tokens_guest_wedding_fk!inner(full_name)")
+    .select(
+      `
+        guests!invite_tokens_guest_wedding_fk!inner(
+          deleted_at,
+          full_name
+        ),
+        weddings!inner(
+          gift_info,
+          google_maps_url,
+          name,
+          policy,
+          spotify_playlist_url,
+          time_plan,
+          venue_address,
+          venue_name,
+          wedding_date
+        )
+      `,
+    )
     .eq("token_hash", tokenHash)
     .eq("is_active", true)
     .maybeSingle();
@@ -97,9 +157,11 @@ export async function validateInviteToken(
     return { isValid: false };
   }
 
-  const guest = Array.isArray(data.guests) ? data.guests[0] : data.guests;
+  const row = data as InviteTokenRow;
+  const guest = getSingleRelation(row.guests);
+  const wedding = getSingleRelation(row.weddings);
 
-  if (!guest?.full_name) {
+  if (!guest?.full_name || guest.deleted_at || !wedding?.name) {
     return { isValid: false };
   }
 
@@ -107,6 +169,17 @@ export async function validateInviteToken(
     isValid: true,
     guest: {
       full_name: guest.full_name,
+    },
+    wedding: {
+      gift_info: wedding.gift_info,
+      google_maps_url: wedding.google_maps_url,
+      name: wedding.name,
+      policy: wedding.policy,
+      spotify_playlist_url: wedding.spotify_playlist_url,
+      time_plan: normalizeTimePlan(wedding.time_plan),
+      venue_address: wedding.venue_address,
+      venue_name: wedding.venue_name,
+      wedding_date: wedding.wedding_date,
     },
   };
 }
