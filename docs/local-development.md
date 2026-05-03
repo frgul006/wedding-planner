@@ -97,6 +97,14 @@ Reset local DB after migrations/seeds exist:
 supabase db reset
 ```
 
+The local seed creates a default wedding row with id:
+
+```txt
+00000000-0000-0000-0000-000000000001
+```
+
+Admin login requires both a Supabase Auth user and a matching `admin_profiles` row. See `docs/admin-auth.md`.
+
 ## Environment variables
 
 Create local env file:

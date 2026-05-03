@@ -32,25 +32,18 @@ Start with one wedding in one app install, but include `wedding_id` on child tab
 - `label` (string, optional, e.g. "Brud"/"Brudgumma"/"Partner 1")
 - `sort_order` (int)
 
-### AdminUser
+### AdminProfile
 
-- `id` (UUID)
+Admin authentication is handled by Supabase Auth. The app stores only wedding-specific authorization/profile data.
+
+- `id` (UUID) -> references `auth.users.id`
 - `wedding_id` (UUID)
 - `email` (string, unique)
-- `username` (string, unique, optional)
-- `name` (string)
-- `password_hash` (string)
+- `display_name` (string, optional)
 - `role` (`admin`) for now
-- `must_change_password` (bool)
 - `is_active` (bool)
-- `is_seed` (bool, first admin only)
-- `failed_login_count` (int)
-- `locked_until` (datetime, nullable)
-- `invited_by_admin_id` (UUID, nullable)
-- `invite_accepted_at` (datetime, nullable)
-- `created_by_admin_id` (UUID, nullable)
+- `invited_by_admin_id` (UUID, nullable) -> relation to `AdminProfile`
 - `created_at`, `updated_at`
-- `last_login_at` (datetime)
 
 ### Guest
 
@@ -77,17 +70,6 @@ Start with one wedding in one app install, but include `wedding_id` on child tab
 - Raw token is not stored. If an admin needs to copy a link again, generate a new token and invalidate the previous active token.
 - `created_at`, `regenerated_at`
 - `invalidated_at` (datetime, nullable)
-
-### AdminSession
-
-- `id` (UUID)
-- `wedding_id` (UUID)
-- `admin_user_id` (UUID)
-- `session_hash` (string, unique)
-- `created_at`
-- `last_seen_at`
-- `expires_at`
-- `revoked_at` (datetime, nullable)
 
 ### GuestNavigationSession
 
@@ -192,8 +174,7 @@ Start with one wedding in one app install, but include `wedding_id` on child tab
 ## 3) Relations (simple)
 
 - Wedding `1`—`N` CoupleMember
-- Wedding `1`—`N` AdminUser
-- AdminUser `1`—`N` AdminSession
+- Wedding `1`—`N` AdminProfile
 - Wedding `1`—`N` Guest
 - Wedding `1`—`N` WeddingUpdate
 - Wedding `1`—`N` MessageBlast

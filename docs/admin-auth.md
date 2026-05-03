@@ -8,6 +8,7 @@ Routes:
 
 - `/admin/login` - login page
 - `/admin` - protected admin dashboard placeholder
+- `/admin/unauthorized` - signed-in Supabase user without app admin access
 
 Files:
 
@@ -15,6 +16,7 @@ Files:
 - `app/admin/login/login-form.tsx` - client form with `useActionState`
 - `app/admin/login/actions.ts` - server actions for sign in/sign out
 - `app/admin/page.tsx` - protected admin dashboard placeholder
+- `app/admin/unauthorized/page.tsx` - unauthorized admin fallback
 - `proxy.ts` - route guard for `/admin/:path*`
 - `lib/supabase/server.ts` - server-side Supabase clients
 - `lib/supabase/client.ts` - browser Supabase client
@@ -33,12 +35,14 @@ matcher: ["/admin/:path*"]
 Rules:
 
 - Unauthenticated `/admin/*` requests redirect to `/admin/login?next=...`, preserving the original path and query string.
-- Authenticated users visiting `/admin/login` redirect to `/admin`.
+- Authenticated users need an active `admin_profiles` row to access admin pages.
+- Authenticated users without an active `admin_profiles` row redirect to `/admin/unauthorized`.
+- Authenticated admins visiting `/admin/login` redirect to `/admin`.
 - Server actions still verify auth where needed; proxy is not the only authorization layer.
 
 ## Local admin user
 
-For local development, create an admin user in Supabase Studio:
+For local development, create a Supabase Auth user and then grant app admin access with an `admin_profiles` row:
 
 1. Start Supabase:
 
@@ -54,7 +58,20 @@ For local development, create an admin user in Supabase Studio:
 
 3. Go to Authentication → Users.
 4. Create a user with email/password.
-5. Use that email/password at:
+5. Copy the created user's UUID.
+6. Go to SQL Editor and create an admin profile for the seeded local wedding:
+
+   ```sql
+   insert into public.admin_profiles (id, wedding_id, email, display_name)
+   values (
+     '<auth-user-uuid>',
+     '00000000-0000-0000-0000-000000000001',
+     '<admin-email>',
+     '<admin-name>'
+   );
+   ```
+
+7. Use that email/password at:
 
    ```txt
    http://localhost:3000/admin/login
@@ -77,5 +94,5 @@ SUPABASE_SECRET_KEY=...
 Before production use:
 
 - Set Supabase URL and keys in Vercel environment variables. The app does not require these variables at build-time, but admin/auth routes need them at runtime.
-- Decide whether any Supabase Auth user can be an admin or whether admin access requires a profile/role table.
+- Create the production wedding row and first `admin_profiles` row after the migration is applied.
 - Keep admin authorization checks in server actions and route handlers, not only in proxy.
