@@ -1,7 +1,7 @@
 # PRD: RSVP Form Submission
 
 **Version:** 0.1
-**Status:** Draft
+**Status:** Implemented
 **Date:** 2026-05-03
 **Scope:** One-time response submission
 
@@ -43,6 +43,14 @@ Guests need an easy way to answer attendance and food needs.
 - Guest can submit RSVP in 3 taps (simple path).
 - Submitted values are linked to the correct token.
 - Form blocks invalid data clearly.
+
+## Implementation notes
+
+- Valid `/invite/[token]` pages render the RSVP form; `/invite` and invalid token URLs keep the generic invalid-link behavior.
+- Submissions are handled by a server action that validates form data and calls `public.submit_rsvp_response` with the hashed invite token.
+- The database function validates the active token and atomically upserts `public.rsvp_responses` by `guest_id`, keeping one current RSVP per guest.
+- Each saved response records `wedding_id`, `guest_id`, `updated_via_token_id`, attendance, extra guest count, food preference, allergy/special notes, and submit timestamps.
+- Guest `invite_status` is updated to match the latest attendance: `rsvp yes`, `rsvp no`, or `rsvp maybe`.
 
 ## Out of scope
 

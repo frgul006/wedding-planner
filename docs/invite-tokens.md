@@ -40,7 +40,20 @@ Valid invite pages show the current wedding settings:
 - gift information
 - Spotify playlist link when a safe `http` or `https` URL is configured
 
-Missing optional text or list fields show `Coming soon`; missing map or playlist URLs show non-clickable coming-soon text. Valid invite pages also show non-interactive `RSVP coming soon` and `Updates coming soon` placeholders. RSVP form submission remains build item 7, and the real invite updates feed remains build item 11.
+Missing optional text or list fields show `Coming soon`; missing map or playlist URLs show non-clickable coming-soon text. Valid invite pages also show an interactive RSVP form and a non-interactive `Updates coming soon` placeholder. The real invite updates feed remains build item 11.
+
+## RSVP submission
+
+Valid `/invite/[token]` pages let the linked guest submit:
+
+- attendance: `yes`, `no`, or `maybe`
+- extra guest count, defaulting to `0`
+- optional food preference
+- optional allergy / special notes
+
+Submission is handled by a server action that hashes the raw URL token and calls the `public.submit_rsvp_response` database function. That function revalidates the active invite token and atomically upserts the response into `public.rsvp_responses` for the token's `guest_id` and `wedding_id`, with `updated_via_token_id` set to the active invite token. The linked guest's `invite_status` is updated in the same transaction to `rsvp yes`, `rsvp no`, or `rsvp maybe` to match the latest submitted attendance.
+
+Invalid, inactive, archived-guest, or missing-token pages keep rendering the generic invalid-link message and never show the RSVP form.
 
 ## Local validation
 
@@ -51,4 +64,6 @@ pnpm lint
 pnpm build
 ```
 
-Then log in as the seeded admin, generate a link for a seeded guest, visit it, regenerate, and verify the old link becomes invalid while the new link remains valid.
+Then log in as the seeded admin, generate a link for a seeded guest, visit it, submit an RSVP, and verify the guest row moves to the matching `rsvp yes/no/maybe` status. Regenerate the link and verify the old link becomes invalid while the new link remains valid.
+
+For the guest-facing RSVP flow, also run the local app and capture a `playwright-cli snapshot` after a successful `/invite/[token]` submission.
