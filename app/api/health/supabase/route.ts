@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { supabaseAdmin } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export async function GET() {
+  const supabaseAdmin = createSupabaseAdminClient();
   const { data, error } = await supabaseAdmin.auth.admin.listUsers({
     page: 1,
     perPage: 1,

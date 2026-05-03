@@ -12,11 +12,15 @@ function requireEnv(name: string): string {
   return value;
 }
 
-const supabaseUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
-const supabasePublishableKey = requireEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
-const supabaseSecretKey = requireEnv("SUPABASE_SECRET_KEY");
+function getSupabasePublicEnv() {
+  return {
+    supabaseUrl: requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
+    supabasePublishableKey: requireEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
+  };
+}
 
 export async function createSupabaseServerClient() {
+  const { supabaseUrl, supabasePublishableKey } = getSupabasePublicEnv();
   const cookieStore = await cookies();
 
   return createServerClient(supabaseUrl, supabasePublishableKey, {
@@ -38,9 +42,14 @@ export async function createSupabaseServerClient() {
   });
 }
 
-export const supabaseAdmin = createClient(supabaseUrl, supabaseSecretKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
-});
+export function createSupabaseAdminClient() {
+  const supabaseUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const supabaseSecretKey = requireEnv("SUPABASE_SECRET_KEY");
+
+  return createClient(supabaseUrl, supabaseSecretKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}

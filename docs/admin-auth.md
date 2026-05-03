@@ -32,7 +32,7 @@ matcher: ["/admin/:path*"]
 
 Rules:
 
-- Unauthenticated `/admin/*` requests redirect to `/admin/login?next=...`.
+- Unauthenticated `/admin/*` requests redirect to `/admin/login?next=...`, preserving the original path and query string.
 - Authenticated users visiting `/admin/login` redirect to `/admin`.
 - Server actions still verify auth where needed; proxy is not the only authorization layer.
 
@@ -76,6 +76,6 @@ SUPABASE_SECRET_KEY=...
 
 Before production use:
 
-- Set Supabase URL and keys in Vercel environment variables.
+- Set Supabase URL and keys in Vercel environment variables. The app does not require these variables at build-time, but admin/auth routes need them at runtime.
 - Decide whether any Supabase Auth user can be an admin or whether admin access requires a profile/role table.
 - Keep admin authorization checks in server actions and route handlers, not only in proxy.

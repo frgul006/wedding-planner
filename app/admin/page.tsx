@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -9,6 +10,8 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminPage() {
+  await connection();
+
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },

@@ -1,17 +1,18 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+function requireEnv(name: string): string {
+  const value = process.env[name];
 
-if (!supabaseUrl) {
-  throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
+  if (!value) {
+    throw new Error(`Missing ${name}`);
+  }
+
+  return value;
 }
 
-if (!supabasePublishableKey) {
-  throw new Error("Missing NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
+export function createSupabaseBrowserClient() {
+  return createClient(
+    requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
+    requireEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
+  );
 }
-
-export const supabaseBrowser = createClient(
-  supabaseUrl,
-  supabasePublishableKey,
-);
