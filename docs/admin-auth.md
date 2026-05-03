@@ -42,7 +42,19 @@ Rules:
 
 ## Local admin user
 
-For local development, create a Supabase Auth user and then grant app admin access with an `admin_profiles` row:
+For fastest local setup after `supabase db reset`, run:
+
+```bash
+pnpm seed:local
+```
+
+This creates an example admin user:
+
+```txt
+admin@example.com / password123456
+```
+
+Manual setup is also possible. Create a Supabase Auth user and then grant app admin access with an `admin_profiles` row:
 
 1. Start Supabase:
 
