@@ -97,11 +97,27 @@ Reset local DB after migrations/seeds exist:
 supabase db reset
 ```
 
-The local seed creates a default wedding row with id:
+The SQL seed creates a default wedding row with id:
 
 ```txt
 00000000-0000-0000-0000-000000000001
 ```
+
+For faster iteration on a fresh local database, seed example auth/admin/guest data:
+
+```bash
+pnpm seed:local
+```
+
+This creates/updates:
+
+- example wedding: `Alex & Sam`
+- admin user: `admin@example.com`
+- admin password: `password123456`
+- matching `admin_profiles` row
+- a few example guests
+
+Then log in at `http://localhost:3000/admin/login`.
 
 Admin login requires both a Supabase Auth user and a matching `admin_profiles` row. See `docs/admin-auth.md`.
 

@@ -9,7 +9,8 @@
     "lint": "eslint",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
-    "supabase:status": "supabase status"
+    "supabase:status": "supabase status",
+    "seed:local": "node scripts/seed-local.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
