@@ -1,7 +1,7 @@
 # PRD: Invite Token Generation and Security
 
 **Version:** 0.1
-**Status:** Draft
+**Status:** Implemented
 **Date:** 2026-05-03
 **Scope:** Invite link creation and protection
 
