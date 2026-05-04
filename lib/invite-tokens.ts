@@ -157,6 +157,22 @@ export function buildInviteUrl(rawToken: string) {
   return new URL(`/invite/${rawToken}`, siteUrl).toString();
 }
 
+export async function markInviteOpened(rawToken: string) {
+  if (!rawToken) {
+    return;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const tokenHash = hashInviteToken(rawToken);
+  const { error } = await supabase.rpc("mark_invite_opened", {
+    p_token_hash: tokenHash,
+  });
+
+  if (error) {
+    console.error("Failed to mark invite opened", error);
+  }
+}
+
 export async function regenerateInviteToken({
   guestId,
   supabase,
