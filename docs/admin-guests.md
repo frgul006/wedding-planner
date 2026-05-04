@@ -32,6 +32,7 @@ Normal admin lists only show guests where `deleted_at is null`.
 - Search by partial name or phone
 - Filter by invite status
 - Sort by name, status, or newest
+- Show current RSVP details when submitted, including extra guest count, food preference, allergy/special notes, and latest submission time
 - Delete with browser confirmation; delete sets `deleted_at` instead of hard-deleting
 - Generate or regenerate private invite links; raw links are shown only immediately after generation
 

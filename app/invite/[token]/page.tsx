@@ -22,9 +22,22 @@ type InvitePageProps = {
 };
 
 const comingSoon = "Coming soon";
+const foodPreferenceOptions = [
+  { label: "Vegetarian", value: "Vegetarian" },
+  { label: "Vegan", value: "Vegan" },
+  { label: "Fish", value: "Fish" },
+  { label: "Meat", value: "Meat" },
+  { label: "Other / see notes", value: "Other" },
+] as const;
 
 const weddingDateFormatter = new Intl.DateTimeFormat("sv-SE", {
   dateStyle: "full",
+  timeStyle: "short",
+  timeZone: "Europe/Stockholm",
+});
+
+const rsvpSubmittedFormatter = new Intl.DateTimeFormat("sv-SE", {
+  dateStyle: "medium",
   timeStyle: "short",
   timeZone: "Europe/Stockholm",
 });
@@ -41,6 +54,20 @@ function formatWeddingDate(value: string | null) {
   }
 
   return weddingDateFormatter.format(date);
+}
+
+function formatRsvpSubmittedAt(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return rsvpSubmittedFormatter.format(date);
 }
 
 function getDisplayText(value: string | null) {
@@ -75,10 +102,30 @@ function getRsvpMessage(searchParams: Awaited<InvitePageProps["searchParams"]>) 
   }
 
   if (status === "submitted") {
-    return { tone: "success", text: "Thank you — your RSVP has been submitted." };
+    return { tone: "success", text: "Thank you — your RSVP has been saved." };
   }
 
   return null;
+}
+
+function getAttendanceSummary(attendance: "yes" | "no" | "maybe") {
+  if (attendance === "yes") {
+    return "Yes, I will be there";
+  }
+
+  if (attendance === "no") {
+    return "No, I cannot attend";
+  }
+
+  return "Maybe, I will confirm later";
+}
+
+function getCustomFoodPreference(value: string | null | undefined) {
+  if (!value || foodPreferenceOptions.some((option) => option.value === value)) {
+    return null;
+  }
+
+  return value;
 }
 
 function getSafeExternalUrl(value: string | null) {
@@ -131,12 +178,16 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
     return <InvalidInviteMessage />;
   }
 
-  const { guest, wedding } = result;
+  const { guest, rsvpResponse, wedding } = result;
   const weddingDate = formatWeddingDate(wedding.wedding_date);
   const mapsUrl = getSafeExternalUrl(wedding.google_maps_url);
   const spotifyUrl = getSafeExternalUrl(wedding.spotify_playlist_url);
   const submitRsvpWithToken = submitRsvpAction.bind(null, token);
   const rsvpMessage = getRsvpMessage(queryParams);
+  const rsvpSubmittedAt = formatRsvpSubmittedAt(
+    rsvpResponse?.last_submitted_at ?? null,
+  );
+  const customFoodPreference = getCustomFoodPreference(rsvpResponse?.food_preference);
 
   return (
     <main className="min-h-dvh bg-zinc-50 px-6 py-10">
@@ -237,10 +288,12 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
             RSVP
           </p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight">
-            Let us know if you can make it
+            {rsvpResponse ? "Review or update your RSVP" : "Let us know if you can make it"}
           </h2>
           <p className="mt-3 max-w-2xl text-zinc-300">
-            Please send your answer and any food or allergy notes so we can plan the day.
+            {rsvpResponse
+              ? "We have your latest answer. You can update it below if your plans or notes change."
+              : "Please send your answer and any food or allergy notes so we can plan the day."}
           </p>
 
           {rsvpMessage ? (
@@ -255,6 +308,27 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
             >
               {rsvpMessage.text}
             </p>
+          ) : null}
+
+          {rsvpResponse ? (
+            <div className="mt-6 rounded-3xl bg-white/10 p-5 ring-1 ring-white/15">
+              <p className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
+                Current RSVP
+              </p>
+              <p className="mt-2 text-xl font-semibold">
+                {getAttendanceSummary(rsvpResponse.attendance)}
+              </p>
+              <div className="mt-3 grid gap-2 text-sm text-zinc-300 sm:grid-cols-2">
+                <p>Extra guests: {rsvpResponse.extra_guests}</p>
+                <p>Food preference: {rsvpResponse.food_preference ?? "No preference"}</p>
+                {rsvpSubmittedAt ? <p>Last updated: {rsvpSubmittedAt}</p> : null}
+              </div>
+              {rsvpResponse.allergy_notes ? (
+                <p className="mt-3 whitespace-pre-line text-sm text-zinc-300">
+                  Notes: {rsvpResponse.allergy_notes}
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           <form action={submitRsvpWithToken} className="mt-8 grid gap-6">
@@ -274,6 +348,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
                   >
                     <input
                       className="mt-1 h-4 w-4 accent-white"
+                      defaultChecked={rsvpResponse?.attendance === value}
                       name="attendance"
                       required
                       type="radio"
@@ -293,7 +368,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
                 Extra guest count
                 <input
                   className="rounded-2xl border border-white/20 bg-white px-4 py-3 font-normal tracking-normal text-zinc-950 outline-none transition focus:border-white focus:ring-2 focus:ring-white/40"
-                  defaultValue="0"
+                  defaultValue={rsvpResponse?.extra_guests ?? 0}
                   min="0"
                   name="extra_guests"
                   required
@@ -306,15 +381,18 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
                 Food preference
                 <select
                   className="rounded-2xl border border-white/20 bg-white px-4 py-3 font-normal tracking-normal text-zinc-950 outline-none transition focus:border-white focus:ring-2 focus:ring-white/40"
-                  defaultValue=""
+                  defaultValue={rsvpResponse?.food_preference ?? ""}
                   name="food_preference"
                 >
                   <option value="">No preference</option>
-                  <option value="Vegetarian">Vegetarian</option>
-                  <option value="Vegan">Vegan</option>
-                  <option value="Fish">Fish</option>
-                  <option value="Meat">Meat</option>
-                  <option value="Other">Other / see notes</option>
+                  {foodPreferenceOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                  {customFoodPreference ? (
+                    <option value={customFoodPreference}>{customFoodPreference}</option>
+                  ) : null}
                 </select>
               </label>
             </div>
@@ -323,6 +401,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
               Allergy / special notes
               <textarea
                 className="min-h-28 rounded-2xl border border-white/20 bg-white px-4 py-3 font-normal tracking-normal text-zinc-950 outline-none transition focus:border-white focus:ring-2 focus:ring-white/40"
+                defaultValue={rsvpResponse?.allergy_notes ?? ""}
                 name="allergy_notes"
                 placeholder="Tell us about allergies, accessibility needs, or anything else we should know."
               />
@@ -332,7 +411,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
               className="rounded-full bg-white px-5 py-3 font-medium text-zinc-950 transition hover:bg-zinc-200 sm:w-fit"
               type="submit"
             >
-              Submit RSVP
+              {rsvpResponse ? "Update RSVP" : "Submit RSVP"}
             </button>
           </form>
         </section>

@@ -22,6 +22,14 @@ type GuestsPageProps = {
   }>;
 };
 
+type RsvpResponse = {
+  guest_id: string;
+  allergy_notes: string | null;
+  extra_guests: number;
+  food_preference: string | null;
+  last_submitted_at: string | null;
+};
+
 type Guest = {
   id: string;
   full_name: string;
@@ -31,6 +39,7 @@ type Guest = {
   invite_status: string;
   created_at: string;
   hasActiveToken: boolean;
+  rsvpResponse: RsvpResponse | null;
 };
 
 const sortOptions = new Set(["name", "name-desc", "status", "newest"]);
@@ -42,6 +51,12 @@ const inviteStatuses = [
   "rsvp maybe",
 ];
 
+const rsvpSubmittedFormatter = new Intl.DateTimeFormat("sv-SE", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Europe/Stockholm",
+});
+
 function getFirstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -52,6 +67,20 @@ function getRsvpStatus(inviteStatus: string) {
   }
 
   return "not submitted";
+}
+
+function formatRsvpSubmittedAt(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return rsvpSubmittedFormatter.format(date);
 }
 
 function getMessage(searchParams: Awaited<GuestsPageProps["searchParams"]>) {
@@ -161,22 +190,38 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
   }
 
   const { data, error } = await guestsQuery;
-  const guestRows = (data ?? []) as Omit<Guest, "hasActiveToken">[];
+  const guestRows = (data ?? []) as Omit<Guest, "hasActiveToken" | "rsvpResponse">[];
   const guestIds = guestRows.map((guest) => guest.id);
-  const { data: activeTokens } = guestIds.length
-    ? await supabase
-        .from("invite_tokens")
-        .select("guest_id")
-        .eq("wedding_id", adminProfile.wedding_id)
-        .eq("is_active", true)
-        .in("guest_id", guestIds)
-    : { data: [] };
+  const [activeTokensResult, rsvpResponsesResult] = guestIds.length
+    ? await Promise.all([
+        supabase
+          .from("invite_tokens")
+          .select("guest_id")
+          .eq("wedding_id", adminProfile.wedding_id)
+          .eq("is_active", true)
+          .in("guest_id", guestIds),
+        supabase
+          .from("rsvp_responses")
+          .select(
+            "guest_id, allergy_notes, extra_guests, food_preference, last_submitted_at",
+          )
+          .eq("wedding_id", adminProfile.wedding_id)
+          .in("guest_id", guestIds),
+      ])
+    : [{ data: [] }, { data: [], error: null }];
   const guestsWithActiveTokens = new Set(
-    (activeTokens ?? []).map((token) => token.guest_id as string),
+    (activeTokensResult.data ?? []).map((token) => token.guest_id as string),
+  );
+  const rsvpResponsesByGuest = new Map(
+    ((rsvpResponsesResult.data ?? []) as RsvpResponse[]).map((response) => [
+      response.guest_id,
+      response,
+    ]),
   );
   const guests = guestRows.map((guest) => ({
     ...guest,
     hasActiveToken: guestsWithActiveTokens.has(guest.id),
+    rsvpResponse: rsvpResponsesByGuest.get(guest.id) ?? null,
   }));
   const message = getMessage(params);
 
@@ -293,14 +338,14 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
             </form>
           </div>
 
-          {error ? (
+          {error || rsvpResponsesResult.error ? (
             <p className="mt-8 rounded-2xl bg-red-50 px-5 py-4 text-sm font-medium text-red-700 ring-1 ring-red-100">
               Could not load guests. Please try again.
             </p>
           ) : null}
 
           <div className="mt-8 overflow-x-auto">
-            <table className="w-full min-w-[960px] border-separate border-spacing-y-3 text-left text-sm">
+            <table className="w-full min-w-[1240px] border-separate border-spacing-y-3 text-left text-sm">
               <thead className="text-xs uppercase tracking-wide text-zinc-500">
                 <tr>
                   <th className="px-4">Name</th>
@@ -308,7 +353,8 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                   <th className="px-4">Phone</th>
                   <th className="px-4">Invite status</th>
                   <th className="px-4">RSVP status</th>
-                  <th className="px-4">Notes</th>
+                  <th className="px-4">RSVP details</th>
+                  <th className="px-4">Guest notes</th>
                   <th className="px-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -351,6 +397,28 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                       <td className="bg-zinc-50 p-3 capitalize text-zinc-700">
                         {getRsvpStatus(guest.invite_status)}
                       </td>
+                      <td className="bg-zinc-50 p-3 text-zinc-700">
+                        {guest.rsvpResponse ? (
+                          <div className="grid gap-1">
+                            <p>Extra guests: {guest.rsvpResponse.extra_guests}</p>
+                            <p>
+                              Food: {guest.rsvpResponse.food_preference ?? "No preference"}
+                            </p>
+                            {guest.rsvpResponse.allergy_notes ? (
+                              <p className="max-w-56 whitespace-pre-line">
+                                Notes: {guest.rsvpResponse.allergy_notes}
+                              </p>
+                            ) : null}
+                            {formatRsvpSubmittedAt(guest.rsvpResponse.last_submitted_at) ? (
+                              <p className="text-xs text-zinc-500">
+                                Updated {formatRsvpSubmittedAt(guest.rsvpResponse.last_submitted_at)}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-zinc-500">No RSVP details</span>
+                        )}
+                      </td>
                       <td className="bg-zinc-50 p-3">
                         <textarea
                           className="min-h-20 w-full rounded-xl border border-zinc-200 px-3 py-2 text-zinc-950 outline-none focus:border-zinc-950"
@@ -384,7 +452,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
             </table>
           </div>
 
-          {!guests.length && !error ? (
+          {!guests.length && !error && !rsvpResponsesResult.error ? (
             <p className="mt-8 rounded-2xl bg-zinc-50 px-5 py-4 text-sm text-zinc-600">
               No guests found. Add the first guest above.
             </p>
