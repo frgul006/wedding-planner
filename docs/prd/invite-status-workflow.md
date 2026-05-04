@@ -1,7 +1,7 @@
 # PRD: Invite and RSVP Status Tracking
 
 **Version:** 0.1
-**Status:** Draft
+**Status:** Implemented
 **Date:** 2026-05-03
 **Scope:** Invite progress states
 
@@ -44,6 +44,14 @@ Admins need quick status for every invite.
 - Opening invite updates status to `opened` without manual action.
 - Final status always matches latest RSVP answer and is one of: `rsvp yes`, `rsvp no`, `rsvp maybe`.
 - Status appears in admin list consistently.
+
+## Implementation notes
+
+- Guest rows default `invite_status` to `not replied`.
+- A valid `/invite/[token]` page load calls `public.mark_invite_opened(p_guest_id, p_wedding_id)` after token validation.
+- `public.mark_invite_opened` only updates `not replied` guests to `opened`; it never overwrites `opened` or `rsvp yes/no/maybe`.
+- RSVP submission continues to call `public.submit_rsvp_response`, which upserts the current response and sets `invite_status` to `rsvp yes`, `rsvp no`, or `rsvp maybe`.
+- `/admin/guests` shows, filters, and sorts by `invite_status`.
 
 ## Out of scope
 

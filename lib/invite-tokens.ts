@@ -53,6 +53,8 @@ type RsvpResponseRow = Omit<InviteRsvpResponse, "attendance"> & {
 export type InviteTokenValidationResult =
   | {
       isValid: true;
+      guestId: string;
+      weddingId: string;
       guest: {
         full_name: string;
       };
@@ -157,15 +159,17 @@ export function buildInviteUrl(rawToken: string) {
   return new URL(`/invite/${rawToken}`, siteUrl).toString();
 }
 
-export async function markInviteOpened(rawToken: string) {
-  if (!rawToken) {
-    return;
-  }
-
+export async function markInviteOpened({
+  guestId,
+  weddingId,
+}: {
+  guestId: string;
+  weddingId: string;
+}) {
   const supabase = createSupabaseAdminClient();
-  const tokenHash = hashInviteToken(rawToken);
   const { error } = await supabase.rpc("mark_invite_opened", {
-    p_token_hash: tokenHash,
+    p_guest_id: guestId,
+    p_wedding_id: weddingId,
   });
 
   if (error) {
@@ -293,6 +297,8 @@ export async function validateInviteToken(
 
   return {
     isValid: true,
+    guestId: row.guest_id,
+    weddingId: row.wedding_id,
     guest: {
       full_name: guest.full_name,
     },

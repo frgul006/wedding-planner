@@ -178,7 +178,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
     return <InvalidInviteMessage />;
   }
 
-  await markInviteOpened(token);
+  await markInviteOpened({ guestId: result.guestId, weddingId: result.weddingId });
 
   const { guest, rsvpResponse, wedding } = result;
   const weddingDate = formatWeddingDate(wedding.wedding_date);
