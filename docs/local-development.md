@@ -12,6 +12,7 @@ This project is a Next.js App Router app deployed on Vercel at:
 - React: 19.2.4
 - Supabase CLI: installed locally on the machine
 - Playwright CLI wrapper: `playwright-cli`
+- Typed linting: `oxlint` with type-aware rules via `oxlint-tsgolint`
 
 ## Prerequisites
 
@@ -55,7 +56,7 @@ Useful checks:
 
 ```bash
 curl -I http://localhost:3000
-pnpm lint
+pnpm lint # ESLint plus type-aware oxlint checks
 pnpm build
 ```
 

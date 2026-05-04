@@ -6,20 +6,23 @@ import { redirect } from "next/navigation";
 import { hashInviteToken } from "@/lib/invite-tokens";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
-const attendanceValues = ["yes", "no", "maybe"] as const;
-type Attendance = (typeof attendanceValues)[number];
+type Attendance = "yes" | "no" | "maybe";
 
 function cleanOptionalText(value: FormDataEntryValue | null) {
   const text = typeof value === "string" ? value.trim() : "";
   return text.length > 0 ? text : null;
 }
 
+function isAttendance(value: string): value is Attendance {
+  return value === "yes" || value === "no" || value === "maybe";
+}
+
 function parseAttendance(value: FormDataEntryValue | null): Attendance | null {
-  if (typeof value !== "string") {
+  if (typeof value !== "string" || !isAttendance(value)) {
     return null;
   }
 
-  return attendanceValues.includes(value as Attendance) ? (value as Attendance) : null;
+  return value;
 }
 
 function parseExtraGuests(value: FormDataEntryValue | null) {

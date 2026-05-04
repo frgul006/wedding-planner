@@ -4,6 +4,7 @@ import { connection } from "next/server";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isNullableString, isRecord, isStringArray } from "@/lib/type-guards";
 
 import { updateWeddingSettingsAction } from "./actions";
 
@@ -137,6 +138,36 @@ function TextArea({
   );
 }
 
+function toWedding(value: unknown): Wedding | null {
+  if (
+    !isRecord(value) ||
+    typeof value.name !== "string" ||
+    !isNullableString(value.wedding_date) ||
+    !isNullableString(value.venue_name) ||
+    !isNullableString(value.venue_address) ||
+    !isNullableString(value.google_maps_url) ||
+    !isNullableString(value.policy) ||
+    !isNullableString(value.gift_info) ||
+    !isNullableString(value.spotify_playlist_url) ||
+    typeof value.allow_anonymous_hub_upload !== "boolean"
+  ) {
+    return null;
+  }
+
+  return {
+    allow_anonymous_hub_upload: value.allow_anonymous_hub_upload,
+    gift_info: value.gift_info,
+    google_maps_url: value.google_maps_url,
+    name: value.name,
+    policy: value.policy,
+    spotify_playlist_url: value.spotify_playlist_url,
+    time_plan: isStringArray(value.time_plan) ? value.time_plan : [],
+    venue_address: value.venue_address,
+    venue_name: value.venue_name,
+    wedding_date: value.wedding_date,
+  };
+}
+
 export default async function SettingsPage({ searchParams }: SettingsPageProps) {
   await connection();
 
@@ -150,7 +181,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
     )
     .eq("id", adminProfile.wedding_id)
     .maybeSingle();
-  const wedding = data as Wedding | null;
+  const wedding = toWedding(data);
   const message = getMessage(params);
 
   return (

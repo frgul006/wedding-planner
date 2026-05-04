@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { isNullableString, isRecord } from "@/lib/type-guards";
 
 const TOKEN_BYTES = 32;
 
@@ -40,9 +41,9 @@ type WeddingRelation = Omit<InviteWedding, "name" | "time_plan"> & {
 
 type InviteTokenRow = {
   guest_id: string;
-  guests: GuestRelation | GuestRelation[] | null;
+  guests: unknown;
   wedding_id: string;
-  weddings: WeddingRelation | WeddingRelation[] | null;
+  weddings: unknown;
 };
 
 type RsvpResponseRow = Omit<InviteRsvpResponse, "attendance"> & {
@@ -60,8 +61,49 @@ export type InviteTokenValidationResult =
     }
   | { isValid: false };
 
-function getSingleRelation<T>(relation: T | T[] | null | undefined) {
+function getSingleRelation(relation: unknown) {
   return Array.isArray(relation) ? relation[0] : relation;
+}
+
+function isGuestRelation(value: unknown): value is GuestRelation {
+  return (
+    isRecord(value) &&
+    isNullableString(value.deleted_at) &&
+    isNullableString(value.full_name)
+  );
+}
+
+function isWeddingRelation(value: unknown): value is WeddingRelation {
+  return (
+    isRecord(value) &&
+    isNullableString(value.gift_info) &&
+    isNullableString(value.google_maps_url) &&
+    isNullableString(value.name) &&
+    isNullableString(value.policy) &&
+    isNullableString(value.spotify_playlist_url) &&
+    isNullableString(value.venue_address) &&
+    isNullableString(value.venue_name) &&
+    isNullableString(value.wedding_date)
+  );
+}
+
+function isInviteTokenRow(value: unknown): value is InviteTokenRow {
+  return (
+    isRecord(value) &&
+    typeof value.guest_id === "string" &&
+    typeof value.wedding_id === "string"
+  );
+}
+
+function isRsvpResponseRow(value: unknown): value is RsvpResponseRow {
+  return (
+    isRecord(value) &&
+    isNullableString(value.allergy_notes) &&
+    isNullableString(value.attendance) &&
+    typeof value.extra_guests === "number" &&
+    isNullableString(value.food_preference) &&
+    typeof value.last_submitted_at === "string"
+  );
 }
 
 function normalizeTimePlan(value: unknown) {
@@ -82,23 +124,23 @@ function normalizeRsvpAttendance(value: string | null): RsvpAttendance | null {
   return null;
 }
 
-function normalizeRsvpResponse(row: RsvpResponseRow | null): InviteRsvpResponse | null {
-  if (!row) {
+function normalizeRsvpResponse(value: unknown): InviteRsvpResponse | null {
+  if (!isRsvpResponseRow(value)) {
     return null;
   }
 
-  const attendance = normalizeRsvpAttendance(row.attendance);
+  const attendance = normalizeRsvpAttendance(value.attendance);
 
   if (!attendance) {
     return null;
   }
 
   return {
-    allergy_notes: row.allergy_notes,
+    allergy_notes: value.allergy_notes,
     attendance,
-    extra_guests: row.extra_guests,
-    food_preference: row.food_preference,
-    last_submitted_at: row.last_submitted_at,
+    extra_guests: value.extra_guests,
+    food_preference: value.food_preference,
+    last_submitted_at: value.last_submitted_at,
   };
 }
 
@@ -204,11 +246,21 @@ export async function validateInviteToken(
     return { isValid: false };
   }
 
-  const row = data as InviteTokenRow;
+  if (!isInviteTokenRow(data)) {
+    return { isValid: false };
+  }
+
+  const row = data;
   const guest = getSingleRelation(row.guests);
   const wedding = getSingleRelation(row.weddings);
 
-  if (!guest?.full_name || guest.deleted_at || !wedding?.name) {
+  if (
+    !isGuestRelation(guest) ||
+    !isWeddingRelation(wedding) ||
+    !guest.full_name ||
+    guest.deleted_at ||
+    !wedding.name
+  ) {
     return { isValid: false };
   }
 
@@ -228,7 +280,7 @@ export async function validateInviteToken(
     guest: {
       full_name: guest.full_name,
     },
-    rsvpResponse: normalizeRsvpResponse((rsvpData as RsvpResponseRow | null) ?? null),
+    rsvpResponse: normalizeRsvpResponse(rsvpData),
     wedding: {
       gift_info: wedding.gift_info,
       google_maps_url: wedding.google_maps_url,
