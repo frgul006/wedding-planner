@@ -22,6 +22,13 @@ type InvitePageProps = {
 };
 
 const comingSoon = "Coming soon";
+const foodPreferenceOptions = [
+  { label: "Vegetarian", value: "Vegetarian" },
+  { label: "Vegan", value: "Vegan" },
+  { label: "Fish", value: "Fish" },
+  { label: "Meat", value: "Meat" },
+  { label: "Other / see notes", value: "Other" },
+] as const;
 
 const weddingDateFormatter = new Intl.DateTimeFormat("sv-SE", {
   dateStyle: "full",
@@ -113,6 +120,14 @@ function getAttendanceSummary(attendance: "yes" | "no" | "maybe") {
   return "Maybe, I will confirm later";
 }
 
+function getCustomFoodPreference(value: string | null | undefined) {
+  if (!value || foodPreferenceOptions.some((option) => option.value === value)) {
+    return null;
+  }
+
+  return value;
+}
+
 function getSafeExternalUrl(value: string | null) {
   if (!value) {
     return null;
@@ -172,6 +187,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   const rsvpSubmittedAt = formatRsvpSubmittedAt(
     rsvpResponse?.last_submitted_at ?? null,
   );
+  const customFoodPreference = getCustomFoodPreference(rsvpResponse?.food_preference);
 
   return (
     <main className="min-h-dvh bg-zinc-50 px-6 py-10">
@@ -369,11 +385,14 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
                   name="food_preference"
                 >
                   <option value="">No preference</option>
-                  <option value="Vegetarian">Vegetarian</option>
-                  <option value="Vegan">Vegan</option>
-                  <option value="Fish">Fish</option>
-                  <option value="Meat">Meat</option>
-                  <option value="Other">Other / see notes</option>
+                  {foodPreferenceOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                  {customFoodPreference ? (
+                    <option value={customFoodPreference}>{customFoodPreference}</option>
+                  ) : null}
                 </select>
               </label>
             </div>

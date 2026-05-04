@@ -3,7 +3,7 @@
 **Version:** 0.1
 **Status:** Implemented
 **Date:** 2026-05-03
-**Scope:** One-time response submission
+**Scope:** First-time response submission and current-response upsert
 
 ## Why this is needed
 
@@ -31,7 +31,7 @@ Guests need an easy way to answer attendance and food needs.
 - Basic validation:
   - attendance required
   - extra guest count as number
-- Submit button creates one response for the token.
+- Submit button creates or updates one current response for the token.
 
 ## Non-functional requirements
 
@@ -43,6 +43,7 @@ Guests need an easy way to answer attendance and food needs.
 - Guest can submit RSVP in 3 taps (simple path).
 - Submitted values are linked to the correct token.
 - Form blocks invalid data clearly.
+- Repeat submissions update the existing guest response instead of creating duplicates.
 
 ## Implementation notes
 
