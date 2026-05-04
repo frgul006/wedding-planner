@@ -27,6 +27,10 @@ On `/admin/guests`:
 - Valid active token: displays the guest name and wedding event information from the linked `weddings` row.
 - Invalid, inactive, archived-guest, or missing token: displays a generic invalid-link message without guest or wedding data.
 
+## Invite opened status
+
+After `/invite/[token]` successfully validates an active token, the server calls `public.mark_invite_opened(p_guest_id, p_wedding_id)`. The function updates the linked guest from `not replied` to `opened` only when that is still the current status. Existing `opened` and `rsvp yes/no/maybe` statuses are left unchanged, so reopening an invite after RSVP never downgrades the admin-visible status.
+
 ## Guest-facing event information
 
 Valid invite pages show the current wedding settings:
@@ -66,6 +70,13 @@ pnpm lint
 pnpm build
 ```
 
-Then log in as the seeded admin, generate a link for a seeded guest, visit it, submit an RSVP, reopen the same link, and verify the saved answer is shown and pre-filled. Update the RSVP and verify the guest row moves to the matching `rsvp yes/no/maybe` status without creating duplicate response rows. Regenerate the link and verify the old link becomes invalid while the new link remains valid.
+Then log in as the seeded admin and validate the invite status workflow:
+
+1. Visit a fresh valid invite link and verify the guest row moves from `not replied` to `opened`.
+2. Reopen the same invite before RSVP and verify the guest row remains `opened`.
+3. Submit an RSVP and verify the guest row moves to the matching `rsvp yes/no/maybe` status without creating duplicate response rows.
+4. Reopen the invite after RSVP and verify the status stays `rsvp yes/no/maybe` instead of downgrading to `opened`.
+5. Update the RSVP and verify the guest row moves to the latest matching RSVP status.
+6. Regenerate the link and verify the old link becomes invalid while the new link remains valid.
 
 For the guest-facing RSVP flow, also run the local app and capture a `playwright-cli snapshot` after reopening a successful `/invite/[token]` submission.
