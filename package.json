@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint && pnpm lint:oxlint",
+    "lint:oxlint": "oxlint --type-aware --quiet .",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
@@ -26,6 +27,8 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "oxlint": "1.62.0",
+    "oxlint-tsgolint": "0.22.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   },

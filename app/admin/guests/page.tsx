@@ -4,6 +4,7 @@ import { connection } from "next/server";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isNullableString, isRecord } from "@/lib/type-guards";
 
 import { createGuestAction, updateGuestAction } from "./actions";
 import { DeleteGuestButton } from "./delete-guest-button";
@@ -40,6 +41,12 @@ type Guest = {
   created_at: string;
   hasActiveToken: boolean;
   rsvpResponse: RsvpResponse | null;
+};
+
+type GuestRow = Omit<Guest, "hasActiveToken" | "rsvpResponse">;
+
+type ActiveInviteTokenRow = {
+  guest_id: string;
 };
 
 const sortOptions = new Set(["name", "name-desc", "status", "newest"]);
@@ -148,6 +155,34 @@ function Field({
   );
 }
 
+function isGuestRow(value: unknown): value is GuestRow {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.full_name === "string" &&
+    isNullableString(value.email) &&
+    isNullableString(value.phone) &&
+    isNullableString(value.notes) &&
+    typeof value.invite_status === "string" &&
+    typeof value.created_at === "string"
+  );
+}
+
+function isActiveInviteTokenRow(value: unknown): value is ActiveInviteTokenRow {
+  return isRecord(value) && typeof value.guest_id === "string";
+}
+
+function isRsvpResponse(value: unknown): value is RsvpResponse {
+  return (
+    isRecord(value) &&
+    typeof value.guest_id === "string" &&
+    isNullableString(value.allergy_notes) &&
+    typeof value.extra_guests === "number" &&
+    isNullableString(value.food_preference) &&
+    isNullableString(value.last_submitted_at)
+  );
+}
+
 export default async function GuestsPage({ searchParams }: GuestsPageProps) {
   await connection();
 
@@ -190,7 +225,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
   }
 
   const { data, error } = await guestsQuery;
-  const guestRows = (data ?? []) as Omit<Guest, "hasActiveToken" | "rsvpResponse">[];
+  const guestRows = (data ?? []).filter(isGuestRow);
   const guestIds = guestRows.map((guest) => guest.id);
   const [activeTokensResult, rsvpResponsesResult] = guestIds.length
     ? await Promise.all([
@@ -210,13 +245,14 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
       ])
     : [{ data: [] }, { data: [], error: null }];
   const guestsWithActiveTokens = new Set(
-    (activeTokensResult.data ?? []).map((token) => token.guest_id as string),
+    (activeTokensResult.data ?? [])
+      .filter(isActiveInviteTokenRow)
+      .map((token) => token.guest_id),
   );
   const rsvpResponsesByGuest = new Map(
-    ((rsvpResponsesResult.data ?? []) as RsvpResponse[]).map((response) => [
-      response.guest_id,
-      response,
-    ]),
+    (rsvpResponsesResult.data ?? [])
+      .filter(isRsvpResponse)
+      .map((response) => [response.guest_id, response]),
   );
   const guests = guestRows.map((guest) => ({
     ...guest,

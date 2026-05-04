@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "typescript/no-explicit-any": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+    "typescript/no-unsafe-type-assertion": "error"
+  },
+  "ignorePatterns": [
+    ".next/**",
+    "build/**",
+    "node_modules/**",
+    "out/**",
+    "next-env.d.ts"
+  ]
+}

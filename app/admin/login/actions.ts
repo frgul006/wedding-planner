@@ -8,13 +8,18 @@ export type LoginState = {
   error?: string;
 };
 
+function getFormString(formData: FormData, name: string) {
+  const value = formData.get(name);
+  return typeof value === "string" ? value : "";
+}
+
 export async function loginAction(
   _previousState: LoginState,
   formData: FormData,
 ): Promise<LoginState> {
-  const email = String(formData.get("email") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
-  const next = String(formData.get("next") ?? "/admin");
+  const email = getFormString(formData, "email").trim();
+  const password = getFormString(formData, "password");
+  const next = getFormString(formData, "next") || "/admin";
 
   if (!email || !password) {
     return { error: "Email and password are required." };
