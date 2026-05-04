@@ -111,11 +111,12 @@ pnpm seed:local
 
 This creates/updates:
 
-- example wedding: `Alex & Sam`
+- example wedding: `Fredrik <3 Matilda`
 - admin user: `admin@example.com`
 - admin password: `password123456`
 - matching `admin_profiles` row
 - a few example guests
+- stable local RSVP test links for first-time and existing-response flows
 
 Then log in at `http://localhost:3000/admin/login`.
 

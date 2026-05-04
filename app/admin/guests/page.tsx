@@ -25,7 +25,6 @@ type GuestsPageProps = {
 type RsvpResponse = {
   guest_id: string;
   allergy_notes: string | null;
-  attendance: string;
   extra_guests: number;
   food_preference: string | null;
   last_submitted_at: string | null;
@@ -204,7 +203,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
         supabase
           .from("rsvp_responses")
           .select(
-            "guest_id, allergy_notes, attendance, extra_guests, food_preference, last_submitted_at",
+            "guest_id, allergy_notes, extra_guests, food_preference, last_submitted_at",
           )
           .eq("wedding_id", adminProfile.wedding_id)
           .in("guest_id", guestIds),
