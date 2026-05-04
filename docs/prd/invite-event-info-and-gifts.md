@@ -1,7 +1,7 @@
 # PRD: Invite Page Event Info and Gift Details
 
 **Version:** 0.1
-**Status:** Draft
+**Status:** Implemented
 **Date:** 2026-05-03
 **Scope:** Public invite content and admin-managed wedding details
 

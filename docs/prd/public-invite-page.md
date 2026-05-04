@@ -1,7 +1,7 @@
 # PRD: Public Invite Page
 
 **Version:** 0.1
-**Status:** Draft
+**Status:** Implemented
 **Date:** 2026-05-03
 **Scope:** Guest-facing invite landing page
 
