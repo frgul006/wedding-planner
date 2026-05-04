@@ -51,13 +51,16 @@ Missing optional text or list fields show `Coming soon`; missing map or playlist
 Valid `/invite/[token]` pages let the linked guest submit or update:
 
 - attendance: `yes`, `no`, or `maybe`
+- optional phone number, using country-code format like `+46701234567`
 - extra guest count, defaulting to `0`
 - optional food preference
 - optional allergy / special notes
 
-When the linked guest already has an RSVP response, the invite page shows the current answer, `last_submitted_at`, and pre-fills the form so the guest can update the same response from the same link.
+The phone input is pre-filled from the linked `guests.phone` value. Blank phone is allowed; any provided phone must match strict country-code format with a leading `+` and digits only, for example `+46701234567`. Invalid phone values redirect back to the invite with a clear validation error.
 
-Submission is handled by a server action that hashes the raw URL token and calls the `public.submit_rsvp_response` database function. That function revalidates the active invite token and atomically upserts the response into `public.rsvp_responses` for the token's `guest_id` and `wedding_id`, with `updated_via_token_id` set to the active invite token. The linked guest's `invite_status` is updated in the same transaction to `rsvp yes`, `rsvp no`, or `rsvp maybe` to match the latest submitted attendance.
+When the linked guest already has an RSVP response, the invite page shows the current answer, `last_submitted_at`, and pre-fills the form so the guest can update the same response from the same link. Reopening an invite also pre-fills the latest linked guest phone so the guest can change it on a later RSVP update.
+
+Submission is handled by a server action that hashes the raw URL token and calls the `public.submit_rsvp_response` database function. That function revalidates the active invite token and atomically upserts the response into `public.rsvp_responses` for the token's `guest_id` and `wedding_id`, with `updated_via_token_id` set to the active invite token. The linked guest's `phone` is saved to `public.guests.phone`, and the linked guest's `invite_status` is updated in the same transaction to `rsvp yes`, `rsvp no`, or `rsvp maybe` to match the latest submitted attendance.
 
 Invalid, inactive, archived-guest, or missing-token pages keep rendering the generic invalid-link message and never show the RSVP form.
 
@@ -77,6 +80,10 @@ Then log in as the seeded admin and validate the invite status workflow:
 3. Submit an RSVP and verify the guest row moves to the matching `rsvp yes/no/maybe` status without creating duplicate response rows.
 4. Reopen the invite after RSVP and verify the status stays `rsvp yes/no/maybe` instead of downgrading to `opened`.
 5. Update the RSVP and verify the guest row moves to the latest matching RSVP status.
-6. Regenerate the link and verify the old link becomes invalid while the new link remains valid.
+6. Submit without a phone and verify the RSVP still saves.
+7. Submit an invalid phone and verify the invite shows the phone-format validation error.
+8. Submit a valid phone and verify it appears in the admin guest row.
+9. Reopen the invite and verify the saved phone pre-fills and can be updated.
+10. Regenerate the link and verify the old link becomes invalid while the new link remains valid.
 
 For the guest-facing RSVP flow, also run the local app and capture a `playwright-cli snapshot` after reopening a successful `/invite/[token]` submission.

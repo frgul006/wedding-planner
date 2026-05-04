@@ -3,6 +3,11 @@ import { connection } from "next/server";
 import type { ReactNode } from "react";
 
 import { markInviteOpened, validateInviteToken } from "@/lib/invite-tokens";
+import {
+  PHONE_FORMAT_EXAMPLE,
+  PHONE_INPUT_PATTERN,
+  PHONE_VALIDATION_MESSAGE,
+} from "@/lib/phone";
 
 import { InvalidInviteMessage } from "../_components/invalid-invite-message";
 import { submitRsvpAction } from "./actions";
@@ -91,6 +96,13 @@ function getRsvpMessage(searchParams: Awaited<InvitePageProps["searchParams"]>) 
     return {
       tone: "error",
       text: "Extra guest count must be a whole number of 0 or more.",
+    };
+  }
+
+  if (error === "phone") {
+    return {
+      tone: "error",
+      text: `Phone must use country-code format, e.g. ${PHONE_FORMAT_EXAMPLE}.`,
     };
   }
 
@@ -333,7 +345,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
             </div>
           ) : null}
 
-          <form action={submitRsvpWithToken} className="mt-8 grid gap-6">
+          <form action={submitRsvpWithToken} className="mt-8 grid gap-6" noValidate>
             <fieldset className="grid gap-3">
               <legend className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
                 Attendance
@@ -365,7 +377,24 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
               </div>
             </fieldset>
 
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-3">
+              <label className="flex flex-col gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-400">
+                Phone (optional)
+                <input
+                  className="rounded-2xl border border-white/20 bg-white px-4 py-3 font-normal tracking-normal text-zinc-950 outline-none transition focus:border-white focus:ring-2 focus:ring-white/40"
+                  defaultValue={guest.phone ?? ""}
+                  inputMode="tel"
+                  name="phone"
+                  pattern={PHONE_INPUT_PATTERN}
+                  placeholder={PHONE_FORMAT_EXAMPLE}
+                  title={PHONE_VALIDATION_MESSAGE}
+                  type="tel"
+                />
+                <span className="text-xs font-normal normal-case tracking-normal text-zinc-300">
+                  {PHONE_VALIDATION_MESSAGE}
+                </span>
+              </label>
+
               <label className="flex flex-col gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-400">
                 Extra guest count
                 <input

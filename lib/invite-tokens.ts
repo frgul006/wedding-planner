@@ -10,6 +10,7 @@ const TOKEN_BYTES = 32;
 type GuestRelation = {
   deleted_at: string | null;
   full_name: string | null;
+  phone: string | null;
 };
 
 type RsvpAttendance = "yes" | "no" | "maybe";
@@ -57,6 +58,7 @@ export type InviteTokenValidationResult =
       weddingId: string;
       guest: {
         full_name: string;
+        phone: string | null;
       };
       rsvpResponse: InviteRsvpResponse | null;
       wedding: InviteWedding;
@@ -71,7 +73,8 @@ function isGuestRelation(value: unknown): value is GuestRelation {
   return (
     isRecord(value) &&
     isNullableString(value.deleted_at) &&
-    isNullableString(value.full_name)
+    isNullableString(value.full_name) &&
+    isNullableString(value.phone)
   );
 }
 
@@ -239,7 +242,8 @@ export async function validateInviteToken(
         wedding_id,
         guests!invite_tokens_guest_wedding_fk!inner(
           deleted_at,
-          full_name
+          full_name,
+          phone
         ),
         weddings!inner(
           gift_info,
@@ -301,6 +305,7 @@ export async function validateInviteToken(
     weddingId: row.wedding_id,
     guest: {
       full_name: guest.full_name,
+      phone: guest.phone,
     },
     rsvpResponse: normalizeRsvpResponse(rsvpData),
     wedding: {
