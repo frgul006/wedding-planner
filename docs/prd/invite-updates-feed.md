@@ -1,7 +1,7 @@
 # PRD: Invite Updates Feed
 
 **Version:** 0.1
-**Status:** Draft
+**Status:** Implemented
 **Date:** 2026-05-03
 **Scope:** Public updates for all guests
 
@@ -45,6 +45,15 @@ Static wedding info (venue, times, child policy, gifts, Spotify link) is managed
 - Admin post appears on guest invite page within 60 seconds.
 - Guest sees at least the latest 5 updates.
 - Link opens in a new tab/device browser flow safely.
+
+## Implementation notes
+
+- Admin updates are managed at `/admin/updates` and linked from the dashboard.
+- Updates are stored in `public.wedding_updates` with admin-scoped RLS.
+- Server actions create and edit title, message, optional `http`/`https` link, and status.
+- Only `published` updates show on valid invite pages; `draft` and `archived` updates stay admin-only.
+- Valid invite pages show the latest five published updates in reverse `updated_at` order.
+- Guest-facing update links are sanitized before rendering and open in a new tab with `rel="noopener noreferrer"`.
 
 ## Out of scope
 
