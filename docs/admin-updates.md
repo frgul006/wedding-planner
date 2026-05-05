@@ -44,3 +44,9 @@ http://localhost:3000/admin/updates
 ```
 
 Create a published update, then open a valid invite link and confirm the update appears in the Updates section. Change the update to draft or archived and confirm it no longer appears to guests.
+
+Also validate basic errors:
+
+- Blank title shows `Short title is required.`
+- Blank message shows `Message text is required.`
+- A non-`http`/`https` link shows `Link must be a full http or https URL.`

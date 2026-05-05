@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 
+import type { WeddingUpdateStatus } from "../../lib/wedding-update-status";
+
 import { createE2eSupabaseAdminClient } from "./supabase";
 import { SEEDED_WEDDING_ID } from "./test-data";
 
 export const E2E_UPDATE_PREFIX = "E2E Update";
-
-type WeddingUpdateStatus = "draft" | "published" | "archived";
 
 type CreateWeddingUpdateOptions = {
   linkUrl?: string | null;
