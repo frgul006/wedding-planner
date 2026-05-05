@@ -204,6 +204,33 @@ playwright-cli close-all
 playwright-cli kill-all
 ```
 
+## Automated Playwright e2e regression tests
+
+The automated e2e suite uses Playwright Test. Test files and helpers live in `e2e/`.
+
+Prepare local data before running the suite:
+
+```bash
+pnpm supabase:start
+supabase db reset
+pnpm seed:local
+```
+
+Run the suite:
+
+```bash
+pnpm test:e2e
+```
+
+Useful variants:
+
+```bash
+pnpm test:e2e:headed
+pnpm test:e2e:ui
+```
+
+By default, Playwright starts the Next.js dev server on `http://127.0.0.1:3000`. Set `PLAYWRIGHT_SKIP_WEB_SERVER=1` and `PLAYWRIGHT_BASE_URL` to target an already-running app.
+
 ## How the coding agent can spin up local dev
 
 From repo root:
