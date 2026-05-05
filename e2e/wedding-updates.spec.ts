@@ -2,11 +2,13 @@ import { expect, test } from "@playwright/test";
 
 import { deleteE2eGuests } from "./support/admin-guests";
 import { signInAsSeededAdmin } from "./support/auth";
+import { createE2eSupabaseAdminClient } from "./support/supabase";
 import {
   createInviteTestGuest,
   uniqueInviteToken,
   uniqueRsvpGuestName,
 } from "./support/invite-test-data";
+import { SEEDED_ADMIN } from "./support/test-data";
 import { invitePathForToken } from "./support/urls";
 import {
   createWeddingUpdate,
@@ -84,6 +86,44 @@ test.describe("invite updates feed", () => {
       0,
     );
     await expect(updatesSection.getByText("No updates yet")).toBeVisible();
+  });
+
+  test("keeps update creator provenance immutable", async () => {
+    const supabase = createE2eSupabaseAdminClient();
+    const title = uniqueWeddingUpdateTitle("Immutable Creator");
+    const { data: adminProfile, error: adminProfileError } = await supabase
+      .from("admin_profiles")
+      .select("id")
+      .eq("email", SEEDED_ADMIN.email)
+      .single();
+
+    expect(adminProfileError).toBeNull();
+
+    if (!adminProfile || typeof adminProfile.id !== "string") {
+      throw new Error("Expected seeded admin profile to exist.");
+    }
+
+    const updateId = await createWeddingUpdate({
+      createdByAdminId: adminProfile.id,
+      message: "E2E creator provenance must not change.",
+      title,
+    });
+
+    const { error: updateError } = await supabase
+      .from("wedding_updates")
+      .update({ created_by_admin_id: null })
+      .eq("id", updateId);
+
+    expect(updateError?.message).toContain("created_by_admin_id cannot be changed");
+
+    const { data: weddingUpdate, error: reloadError } = await supabase
+      .from("wedding_updates")
+      .select("created_by_admin_id")
+      .eq("id", updateId)
+      .single();
+
+    expect(reloadError).toBeNull();
+    expect(weddingUpdate?.created_by_admin_id).toBe(adminProfile.id);
   });
 
   test("shows the latest five published updates and hides draft or archived items", async ({

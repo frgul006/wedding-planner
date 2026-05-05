@@ -122,6 +122,7 @@ Implemented in `public.rsvp_responses`.
 - `status` (`draft | published | archived`)
   - Only `published` updates appear on invite pages.
 - `created_by_admin_id` (UUID, nullable)
+  - Set at creation time and immutable afterward.
 - `created_at`, `updated_at`
 
 ### MessageBlast

@@ -19,6 +19,25 @@ on public.wedding_updates(wedding_id, status, updated_at desc);
 create index wedding_updates_wedding_updated_idx
 on public.wedding_updates(wedding_id, updated_at desc);
 
+create or replace function public.prevent_wedding_update_creator_change()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.created_by_admin_id is distinct from old.created_by_admin_id then
+    raise exception 'created_by_admin_id cannot be changed' using errcode = '42501';
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger prevent_wedding_update_creator_change
+before update on public.wedding_updates
+for each row
+execute function public.prevent_wedding_update_creator_change();
+
 create trigger set_wedding_updates_updated_at
 before update on public.wedding_updates
 for each row

@@ -8,6 +8,7 @@ import { SEEDED_WEDDING_ID } from "./test-data";
 export const E2E_UPDATE_PREFIX = "E2E Update";
 
 type CreateWeddingUpdateOptions = {
+  createdByAdminId?: string | null;
   linkUrl?: string | null;
   message: string;
   status?: WeddingUpdateStatus;
@@ -29,6 +30,7 @@ export async function deleteE2eWeddingUpdates() {
 }
 
 export async function createWeddingUpdate({
+  createdByAdminId = null,
   linkUrl = null,
   message,
   status = "published",
@@ -37,6 +39,7 @@ export async function createWeddingUpdate({
 }: CreateWeddingUpdateOptions) {
   const supabase = createE2eSupabaseAdminClient();
   const insertValues = {
+    created_by_admin_id: createdByAdminId,
     link_url: linkUrl,
     message,
     status,

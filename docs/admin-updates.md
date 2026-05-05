@@ -22,7 +22,7 @@ Important fields:
 - `message` is the guest-facing body text
 - `link_url` is optional and must be a full `http` or `https` URL when provided
 - `status` is `draft`, `published`, or `archived`
-- `created_by_admin_id` records the admin who created the item
+- `created_by_admin_id` records the admin who created the item and cannot be changed after insert
 - `updated_at` changes automatically when an item is edited
 
 ## Features
