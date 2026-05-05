@@ -231,6 +231,8 @@ pnpm test:e2e:ui
 
 By default, Playwright starts the Next.js dev server on `http://127.0.0.1:3000`. Set `PLAYWRIGHT_SKIP_WEB_SERVER=1` and `PLAYWRIGHT_BASE_URL` to target an already-running app.
 
+In CI, the `E2E regression` GitHub Actions job starts local Supabase, writes `.env.local` from `supabase status -o env`, resets/seeds the database, runs `pnpm test:e2e`, and uploads Playwright artifacts on failure.
+
 ## How the coding agent can spin up local dev
 
 From repo root:
