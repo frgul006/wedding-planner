@@ -44,6 +44,10 @@ The Playwright config starts the Next.js dev server on `http://127.0.0.1:3000` b
 - `PLAYWRIGHT_WEB_SERVER_COMMAND` — replace the default `pnpm exec next dev ...` command.
 - `PORT` — change the default local port.
 
+## CI
+
+GitHub Actions runs the same suite in the `E2E regression` job. The job installs the Supabase CLI, starts local Supabase, writes `.env.local` from `supabase status -o env`, resets/seeds the local database, runs `pnpm test:e2e`, and uploads `playwright-report/` plus `test-results/` when the suite fails.
+
 ## Seeded data helpers
 
 Shared helpers in `e2e/support` expose the deterministic local seed values from `scripts/seed-local.mjs`, including:
