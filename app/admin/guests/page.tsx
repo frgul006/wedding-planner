@@ -6,6 +6,7 @@ import { requireActiveAdminProfile } from "@/lib/admin-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isNullableString, isRecord } from "@/lib/type-guards";
 
+import { AdminField } from "../_components/form-controls";
 import { createGuestAction, updateGuestAction } from "./actions";
 import { DeleteGuestButton } from "./delete-guest-button";
 import { InviteLinkButton } from "./invite-link-button";
@@ -123,36 +124,6 @@ function getMessage(searchParams: Awaited<GuestsPageProps["searchParams"]>) {
   }
 
   return null;
-}
-
-function Field({
-  defaultValue,
-  label,
-  name,
-  placeholder,
-  required = false,
-  type = "text",
-}: {
-  defaultValue?: string | null;
-  label: string;
-  name: string;
-  placeholder?: string;
-  required?: boolean;
-  type?: string;
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700">
-      {label}
-      <input
-        className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950"
-        defaultValue={defaultValue ?? ""}
-        name={name}
-        placeholder={placeholder}
-        required={required}
-        type={type}
-      />
-    </label>
-  );
 }
 
 function isGuestRow(value: unknown): value is GuestRow {
@@ -299,9 +270,9 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
         <section className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-200">
           <h2 className="text-xl font-semibold text-zinc-950">Add guest</h2>
           <form action={createGuestAction} className="mt-6 grid gap-4 lg:grid-cols-4">
-            <Field label="Full name" name="full_name" placeholder="Ada Lovelace" required />
-            <Field label="Email" name="email" placeholder="ada@example.com" type="email" />
-            <Field label="Phone" name="phone" placeholder="+46 70 123 45 67" type="tel" />
+            <AdminField label="Full name" name="full_name" placeholder="Ada Lovelace" required />
+            <AdminField label="Email" name="email" placeholder="ada@example.com" type="email" />
+            <AdminField label="Phone" name="phone" placeholder="+46 70 123 45 67" type="tel" />
             <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700 lg:col-span-4">
               Notes
               <textarea

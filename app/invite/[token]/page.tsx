@@ -8,6 +8,8 @@ import {
   PHONE_INPUT_PATTERN,
   PHONE_VALIDATION_MESSAGE,
 } from "@/lib/phone";
+import { getSafeHttpUrl } from "@/lib/safe-url";
+import { getPublishedWeddingUpdates } from "@/lib/wedding-updates";
 
 import { InvalidInviteMessage } from "../_components/invalid-invite-message";
 import { submitRsvpAction } from "./actions";
@@ -47,6 +49,12 @@ const rsvpSubmittedFormatter = new Intl.DateTimeFormat("sv-SE", {
   timeZone: "Europe/Stockholm",
 });
 
+const updatePublishedFormatter = new Intl.DateTimeFormat("sv-SE", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Europe/Stockholm",
+});
+
 function formatWeddingDate(value: string | null) {
   if (!value) {
     return comingSoon;
@@ -73,6 +81,16 @@ function formatRsvpSubmittedAt(value: string | null) {
   }
 
   return rsvpSubmittedFormatter.format(date);
+}
+
+function formatPublishedUpdateAt(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return updatePublishedFormatter.format(date);
 }
 
 function getDisplayText(value: string | null) {
@@ -140,24 +158,6 @@ function getCustomFoodPreference(value: string | null | undefined) {
   return value;
 }
 
-function getSafeExternalUrl(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const url = new URL(value);
-
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      return null;
-    }
-
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
-
 function ExternalLink({ children, href }: { children: ReactNode; href: string }) {
   return (
     <a
@@ -192,10 +192,11 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
 
   await markInviteOpened({ guestId: result.guestId, weddingId: result.weddingId });
 
+  const updates = await getPublishedWeddingUpdates({ weddingId: result.weddingId });
   const { guest, rsvpResponse, wedding } = result;
   const weddingDate = formatWeddingDate(wedding.wedding_date);
-  const mapsUrl = getSafeExternalUrl(wedding.google_maps_url);
-  const spotifyUrl = getSafeExternalUrl(wedding.spotify_playlist_url);
+  const mapsUrl = getSafeHttpUrl(wedding.google_maps_url);
+  const spotifyUrl = getSafeHttpUrl(wedding.spotify_playlist_url);
   const submitRsvpWithToken = submitRsvpAction.bind(null, token);
   const rsvpMessage = getRsvpMessage(queryParams);
   const rsvpSubmittedAt = formatRsvpSubmittedAt(
@@ -287,14 +288,47 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
         </DetailCard>
 
         <DetailCard title="Updates">
-          <div className="flex flex-col gap-2">
-            <p className="text-2xl font-semibold tracking-tight text-zinc-950">
-              Updates coming soon
-            </p>
-            <p className="text-zinc-600">
-              Wedding-day notes and schedule changes will appear here in a future update.
-            </p>
-          </div>
+          {updates.length ? (
+            <ol className="grid gap-4">
+              {updates.map((update) => {
+                const updateLink = getSafeHttpUrl(update.link_url);
+                const publishedAt = formatPublishedUpdateAt(update.updated_at);
+
+                return (
+                  <li className="rounded-2xl bg-zinc-50 p-4" key={update.id}>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                      <h3 className="text-xl font-semibold text-zinc-950">{update.title}</h3>
+                      {publishedAt ? (
+                        <time
+                          className="text-sm text-zinc-500"
+                          dateTime={update.updated_at}
+                        >
+                          {publishedAt}
+                        </time>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 whitespace-pre-line text-zinc-700">
+                      {update.message}
+                    </p>
+                    {updateLink ? (
+                      <div className="mt-4">
+                        <ExternalLink href={updateLink}>Open update link</ExternalLink>
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ol>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <p className="text-2xl font-semibold tracking-tight text-zinc-950">
+                No updates yet
+              </p>
+              <p className="text-zinc-600">
+                Wedding-day notes and schedule changes will appear here when published.
+              </p>
+            </div>
+          )}
         </DetailCard>
 
         <section className="rounded-[2rem] bg-zinc-950 p-8 text-white shadow-sm">

@@ -118,11 +118,11 @@ Implemented in `public.rsvp_responses`.
 - `wedding_id` (UUID)
 - `title` (string)
 - `message` (string)
-- `link` (string, optional)
+- `link_url` (string, optional, full `http` or `https` URL)
 - `status` (`draft | published | archived`)
-- `created_by_admin_id` (UUID)
-- `visible_from` (datetime)
-- `visible_to` (datetime, optional)
+  - Only `published` updates appear on invite pages.
+- `created_by_admin_id` (UUID, nullable)
+  - Set at creation time and immutable afterward.
 - `created_at`, `updated_at`
 
 ### MessageBlast

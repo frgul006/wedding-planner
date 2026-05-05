@@ -44,7 +44,7 @@ Valid invite pages show the current wedding settings:
 - gift information
 - Spotify playlist link when a safe `http` or `https` URL is configured
 
-Missing optional text or list fields show `Coming soon`; missing map or playlist URLs show non-clickable coming-soon text. Valid invite pages also show an interactive RSVP form and a non-interactive `Updates coming soon` placeholder. The real invite updates feed remains build item 11.
+Missing optional text or list fields show `Coming soon`; missing map or playlist URLs show non-clickable coming-soon text. Valid invite pages also show an interactive RSVP form and the latest five published wedding updates in reverse edit order. If no updates are published, guests see a simple empty-state message.
 
 ## RSVP submission
 
@@ -84,6 +84,8 @@ Then log in as the seeded admin and validate the invite status workflow:
 7. Submit an invalid phone and verify the invite shows the phone-format validation error.
 8. Submit a valid phone and verify it appears in the admin guest row.
 9. Reopen the invite and verify the saved phone pre-fills and can be updated.
-10. Regenerate the link and verify the old link becomes invalid while the new link remains valid.
+10. Create a published update in `/admin/updates` and verify it appears in the invite Updates section.
+11. Change the update to draft or archived and verify it is hidden from the invite page.
+12. Regenerate the link and verify the old link becomes invalid while the new link remains valid.
 
-For the guest-facing RSVP flow, also run the local app and capture a `playwright-cli snapshot` after reopening a successful `/invite/[token]` submission.
+For the guest-facing RSVP and updates flow, also run the local app and capture a `playwright-cli snapshot` after reopening a successful `/invite/[token]` submission.

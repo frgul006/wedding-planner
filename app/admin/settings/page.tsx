@@ -6,6 +6,7 @@ import { requireActiveAdminProfile } from "@/lib/admin-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isNullableString, isRecord, isStringArray } from "@/lib/type-guards";
 
+import { AdminField, AdminTextArea } from "../_components/form-controls";
 import { updateWeddingSettingsAction } from "./actions";
 
 export const metadata: Metadata = {
@@ -76,66 +77,6 @@ function formatDateTimeLocal(value: string | null) {
 
   const offsetMs = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
-}
-
-function Field({
-  defaultValue,
-  label,
-  name,
-  placeholder,
-  required = false,
-  type = "text",
-}: {
-  defaultValue?: string | null;
-  label: string;
-  name: string;
-  placeholder?: string;
-  required?: boolean;
-  type?: string;
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700">
-      {label}
-      <input
-        className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950"
-        defaultValue={defaultValue ?? ""}
-        name={name}
-        placeholder={placeholder}
-        required={required}
-        type={type}
-      />
-    </label>
-  );
-}
-
-function TextArea({
-  defaultValue,
-  helpText,
-  label,
-  name,
-  placeholder,
-  rows = 4,
-}: {
-  defaultValue?: string | null;
-  helpText?: string;
-  label: string;
-  name: string;
-  placeholder?: string;
-  rows?: number;
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700">
-      {label}
-      <textarea
-        className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950"
-        defaultValue={defaultValue ?? ""}
-        name={name}
-        placeholder={placeholder}
-        rows={rows}
-      />
-      {helpText ? <span className="text-xs font-normal text-zinc-500">{helpText}</span> : null}
-    </label>
-  );
 }
 
 function toWedding(value: unknown): Wedding | null {
@@ -238,39 +179,39 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field
+              <AdminField
                 defaultValue={wedding.name}
                 label="Wedding name"
                 name="name"
                 placeholder="Alex & Sam"
                 required
               />
-              <Field
+              <AdminField
                 defaultValue={formatDateTimeLocal(wedding.wedding_date)}
                 label="Wedding date and time"
                 name="wedding_date"
                 type="datetime-local"
               />
-              <Field
+              <AdminField
                 defaultValue={wedding.venue_name}
                 label="Venue name"
                 name="venue_name"
                 placeholder="Example Manor"
               />
-              <Field
+              <AdminField
                 defaultValue={wedding.venue_address}
                 label="Venue address"
                 name="venue_address"
                 placeholder="Garden Road 1, Stockholm"
               />
-              <Field
+              <AdminField
                 defaultValue={wedding.google_maps_url}
                 label="Google Maps URL"
                 name="google_maps_url"
                 placeholder="https://maps.google.com/..."
                 type="url"
               />
-              <Field
+              <AdminField
                 defaultValue={wedding.spotify_playlist_url}
                 label="Spotify playlist URL"
                 name="spotify_playlist_url"
@@ -279,7 +220,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
               />
             </div>
 
-            <TextArea
+            <AdminTextArea
               defaultValue={(wedding.time_plan ?? []).join("\n")}
               helpText="One timeline item per line. Blank lines are ignored."
               label="Time plan"
@@ -287,13 +228,13 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
               placeholder={"15:00 - Ceremony\n17:00 - Dinner\n21:00 - Dancing"}
               rows={5}
             />
-            <TextArea
+            <AdminTextArea
               defaultValue={wedding.policy}
               label="Policy / dress code"
               name="policy"
               placeholder="Dress code, children policy, transport notes, or other important details."
             />
-            <TextArea
+            <AdminTextArea
               defaultValue={wedding.gift_info}
               label="Gift information"
               name="gift_info"

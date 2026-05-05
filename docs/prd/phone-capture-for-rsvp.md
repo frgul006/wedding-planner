@@ -1,7 +1,7 @@
 # PRD: Phone Capture on RSVP
 
 **Version:** 0.1
-**Status:** Draft
+**Status:** Implemented
 **Date:** 2026-05-03
 **Scope:** Guest contact data for updates
 
@@ -36,6 +36,13 @@ Guests can receive SMS updates only if they leave a phone number.
 - Valid phone number saves with country code.
 - RSVP can be submitted without phone.
 - Invalid number shows clear error.
+
+## Implementation notes
+
+- The RSVP form includes an optional phone input with strict country-code format guidance.
+- Valid numbers are saved to the linked `public.guests.phone` record through `public.submit_rsvp_response`.
+- Blank phone values remain allowed so RSVP submission is not blocked.
+- Invalid phone values redirect back to the invite with a clear validation error.
 
 ## Out of scope
 
