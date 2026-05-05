@@ -1,9 +1,8 @@
-import { randomUUID } from "node:crypto";
-
 import type { WeddingUpdateStatus } from "../../lib/wedding-update-status";
 
 import { createE2eSupabaseAdminClient } from "./supabase";
 import { SEEDED_WEDDING_ID } from "./test-data";
+import { uniqueE2eValue } from "./unique";
 
 export const E2E_UPDATE_PREFIX = "E2E Update";
 
@@ -65,5 +64,5 @@ export async function createWeddingUpdate({
 }
 
 export function uniqueWeddingUpdateTitle(label: string) {
-  return `${E2E_UPDATE_PREFIX} ${label} ${Date.now()} ${randomUUID()}`;
+  return uniqueE2eValue(E2E_UPDATE_PREFIX, label);
 }

@@ -1,6 +1,6 @@
 # E2E regression tests
 
-This directory contains the Playwright Test foundation for guest-facing and admin-facing regression flows. The initial foundation spec verifies the harness against the public app shell; PRD-specific regression coverage is added in follow-up PRs.
+This directory contains the Playwright Test foundation for guest-facing and admin-facing regression flows. Smoke specs verify the harness and seeded local data, while focused specs cover admin guests, RSVP, wedding settings, and updates.
 
 ## Local prerequisites
 
@@ -56,4 +56,4 @@ Shared helpers in `e2e/support` expose the deterministic local seed values from 
 - first-time RSVP token: `local-ada-first-time-rsvp`
 - existing RSVP token: `local-alan-existing-rsvp`
 
-Future specs should prefer accessible locators (`getByRole`, `getByLabel`, headings, button names). Add app selectors only when a row-level control cannot be targeted reliably by accessible name.
+Future specs should prefer accessible locators (`getByRole`, `getByLabel`, headings, button names). Add app selectors only when a row-level control cannot be targeted reliably by accessible name. Use the shared cleanup fixtures in `e2e/support/fixtures.ts` and `uniqueE2eValue()` for generated test data.

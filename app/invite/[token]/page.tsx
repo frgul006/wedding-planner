@@ -9,6 +9,7 @@ import {
   PHONE_VALIDATION_MESSAGE,
 } from "@/lib/phone";
 import { getSafeHttpUrl } from "@/lib/safe-url";
+import { RSVP_ATTENDANCE, type RsvpAttendance } from "@/lib/rsvp-attendance";
 import { getPublishedWeddingUpdates } from "@/lib/wedding-updates";
 
 import { InvalidInviteMessage } from "../_components/invalid-invite-message";
@@ -138,12 +139,12 @@ function getRsvpMessage(searchParams: Awaited<InvitePageProps["searchParams"]>) 
   return null;
 }
 
-function getAttendanceSummary(attendance: "yes" | "no" | "maybe") {
-  if (attendance === "yes") {
+function getAttendanceSummary(attendance: RsvpAttendance) {
+  if (attendance === RSVP_ATTENDANCE.yes) {
     return "Yes, I will be there";
   }
 
-  if (attendance === "no") {
+  if (attendance === RSVP_ATTENDANCE.no) {
     return "No, I cannot attend";
   }
 
@@ -386,9 +387,9 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
               </legend>
               <div className="grid gap-3 sm:grid-cols-3">
                 {[
-                  ["yes", "Yes", "I will be there"],
-                  ["no", "No", "I cannot attend"],
-                  ["maybe", "Maybe", "I will confirm later"],
+                  [RSVP_ATTENDANCE.yes, "Yes", "I will be there"],
+                  [RSVP_ATTENDANCE.no, "No", "I cannot attend"],
+                  [RSVP_ATTENDANCE.maybe, "Maybe", "I will confirm later"],
                 ].map(([value, label, description]) => (
                   <label
                     className="flex cursor-pointer gap-3 rounded-2xl bg-white/10 p-4 ring-1 ring-white/15 transition hover:bg-white/15"

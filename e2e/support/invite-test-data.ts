@@ -1,29 +1,26 @@
-import { createHash, randomUUID } from "node:crypto";
+import { hashInviteToken } from "../../lib/invite-token-crypto";
+import { INVITE_STATUS, type InviteStatus } from "../../lib/invite-status";
+import type { RsvpAttendance } from "../../lib/rsvp-attendance";
 
 import { E2E_GUEST_PREFIX } from "./admin-guests";
 import { createE2eSupabaseAdminClient } from "./supabase";
 import { SEEDED_WEDDING_ID } from "./test-data";
-
-type Attendance = "yes" | "no" | "maybe";
+import { uniqueE2eValue } from "./unique";
 
 type CreateInviteTestGuestOptions = {
-  attendance?: Attendance;
+  attendance?: RsvpAttendance;
   email?: string;
   extraGuests?: number;
   foodPreference?: string | null;
   fullName: string;
-  inviteStatus?: "not replied" | "opened" | "rsvp yes" | "rsvp no" | "rsvp maybe";
+  inviteStatus?: InviteStatus;
   notes?: string | null;
   phone?: string | null;
   token: string;
 };
 
-export function hashInviteToken(rawToken: string) {
-  return createHash("sha256").update(rawToken, "utf8").digest("hex");
-}
-
 export function uniqueInviteToken(label: string) {
-  return `e2e-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}-${randomUUID()}`;
+  return uniqueE2eValue("e2e", label, { slug: true });
 }
 
 export async function createInviteTestGuest({
@@ -32,7 +29,7 @@ export async function createInviteTestGuest({
   extraGuests = 0,
   foodPreference = null,
   fullName,
-  inviteStatus = "not replied",
+  inviteStatus = INVITE_STATUS.notReplied,
   notes = null,
   phone = null,
   token,
@@ -126,5 +123,5 @@ export async function getRsvpResponseCountForGuest(guestId: string) {
 }
 
 export function uniqueRsvpGuestName(label: string) {
-  return `${E2E_GUEST_PREFIX} RSVP ${label} ${Date.now()} ${randomUUID()}`;
+  return uniqueE2eValue(`${E2E_GUEST_PREFIX} RSVP`, label);
 }
