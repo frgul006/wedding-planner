@@ -8,6 +8,7 @@ import {
   PHONE_INPUT_PATTERN,
   PHONE_VALIDATION_MESSAGE,
 } from "@/lib/phone";
+import { getSafeHttpUrl } from "@/lib/safe-url";
 import { getPublishedWeddingUpdates } from "@/lib/wedding-updates";
 
 import { InvalidInviteMessage } from "../_components/invalid-invite-message";
@@ -157,24 +158,6 @@ function getCustomFoodPreference(value: string | null | undefined) {
   return value;
 }
 
-function getSafeExternalUrl(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const url = new URL(value);
-
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      return null;
-    }
-
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
-
 function ExternalLink({ children, href }: { children: ReactNode; href: string }) {
   return (
     <a
@@ -212,8 +195,8 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   const updates = await getPublishedWeddingUpdates({ weddingId: result.weddingId });
   const { guest, rsvpResponse, wedding } = result;
   const weddingDate = formatWeddingDate(wedding.wedding_date);
-  const mapsUrl = getSafeExternalUrl(wedding.google_maps_url);
-  const spotifyUrl = getSafeExternalUrl(wedding.spotify_playlist_url);
+  const mapsUrl = getSafeHttpUrl(wedding.google_maps_url);
+  const spotifyUrl = getSafeHttpUrl(wedding.spotify_playlist_url);
   const submitRsvpWithToken = submitRsvpAction.bind(null, token);
   const rsvpMessage = getRsvpMessage(queryParams);
   const rsvpSubmittedAt = formatRsvpSubmittedAt(
@@ -308,7 +291,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
           {updates.length ? (
             <ol className="grid gap-4">
               {updates.map((update) => {
-                const updateLink = getSafeExternalUrl(update.link_url);
+                const updateLink = getSafeHttpUrl(update.link_url);
                 const publishedAt = formatPublishedUpdateAt(update.updated_at);
 
                 return (

@@ -25,7 +25,7 @@ Static wedding info (venue, times, child policy, gifts, Spotify link) is managed
 
 ## Functional requirements
 
-- Admin page in `/admin` to create/update feed items.
+- Admin page linked from `/admin` at `/admin/updates` to create/update feed items.
 - Feed item fields:
   - Short title
   - Message text

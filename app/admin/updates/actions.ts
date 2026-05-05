@@ -4,50 +4,20 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
+import { parseOptionalHttpUrl } from "@/lib/safe-url";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-const updateStatuses = ["draft", "published", "archived"] as const;
-type WeddingUpdateStatus = (typeof updateStatuses)[number];
+import { isWeddingUpdateStatus } from "@/lib/wedding-update-status";
 
 function cleanRequiredText(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function cleanOptionalText(value: FormDataEntryValue | null) {
-  const text = typeof value === "string" ? value.trim() : "";
-  return text.length > 0 ? text : null;
-}
-
-function isWeddingUpdateStatus(value: string): value is WeddingUpdateStatus {
-  return updateStatuses.some((status) => status === value);
-}
-
 function parseStatus(value: FormDataEntryValue | null) {
-  if (typeof value !== "string" || !isWeddingUpdateStatus(value)) {
+  if (!isWeddingUpdateStatus(value)) {
     return null;
   }
 
   return value;
-}
-
-function parseOptionalHttpUrl(value: FormDataEntryValue | null) {
-  const rawUrl = cleanOptionalText(value);
-
-  if (!rawUrl) {
-    return { isValid: true, url: null };
-  }
-
-  try {
-    const url = new URL(rawUrl);
-
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      return { isValid: false, url: null };
-    }
-
-    return { isValid: true, url: url.toString() };
-  } catch {
-    return { isValid: false, url: null };
-  }
 }
 
 function revalidateUpdatePaths() {

@@ -74,7 +74,10 @@ test.describe("valid invite smoke", () => {
       .toHaveAttribute("target", "_blank");
     await expect(page.getByRole("link", { name: "Open Spotify playlist" }))
       .toHaveAttribute("target", "_blank");
-    await expect(page.getByText("Updates coming soon")).toBeVisible();
+    const updatesSection = page.locator("section", {
+      has: page.getByRole("heading", { name: "Updates" }),
+    });
+    await expect(updatesSection.getByText("No updates yet")).toBeVisible();
     await expect(page.getByRole("button", { name: "Submit RSVP" })).toBeVisible();
   });
 });

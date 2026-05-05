@@ -5,7 +5,13 @@ import { connection } from "next/server";
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isNullableString, isRecord } from "@/lib/type-guards";
+import {
+  isWeddingUpdateStatus,
+  WEDDING_UPDATE_STATUSES,
+  type WeddingUpdateStatus,
+} from "@/lib/wedding-update-status";
 
+import { AdminField, AdminTextArea } from "../_components/form-controls";
 import { createWeddingUpdateAction, updateWeddingUpdateAction } from "./actions";
 
 export const metadata: Metadata = {
@@ -18,9 +24,6 @@ type UpdatesPageProps = {
     status?: string | string[];
   }>;
 };
-
-const updateStatuses = ["draft", "published", "archived"] as const;
-type WeddingUpdateStatus = (typeof updateStatuses)[number];
 
 type WeddingUpdate = {
   id: string;
@@ -40,10 +43,6 @@ const updatedAtFormatter = new Intl.DateTimeFormat("sv-SE", {
 
 function getFirstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
-}
-
-function isWeddingUpdateStatus(value: string): value is WeddingUpdateStatus {
-  return updateStatuses.some((status) => status === value);
 }
 
 function isWeddingUpdate(value: unknown): value is WeddingUpdate {
@@ -109,64 +108,6 @@ function formatUpdatedAt(value: string) {
   return updatedAtFormatter.format(date);
 }
 
-function Field({
-  defaultValue,
-  label,
-  name,
-  placeholder,
-  required = false,
-  type = "text",
-}: {
-  defaultValue?: string | null;
-  label: string;
-  name: string;
-  placeholder?: string;
-  required?: boolean;
-  type?: string;
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700">
-      {label}
-      <input
-        className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950"
-        defaultValue={defaultValue ?? ""}
-        name={name}
-        placeholder={placeholder}
-        required={required}
-        type={type}
-      />
-    </label>
-  );
-}
-
-function TextArea({
-  defaultValue,
-  label,
-  name,
-  placeholder,
-  rows = 4,
-}: {
-  defaultValue?: string | null;
-  label: string;
-  name: string;
-  placeholder?: string;
-  rows?: number;
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700">
-      {label}
-      <textarea
-        className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950"
-        defaultValue={defaultValue ?? ""}
-        name={name}
-        placeholder={placeholder}
-        required
-        rows={rows}
-      />
-    </label>
-  );
-}
-
 function StatusSelect({ defaultValue }: { defaultValue: WeddingUpdateStatus }) {
   return (
     <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700">
@@ -177,7 +118,7 @@ function StatusSelect({ defaultValue }: { defaultValue: WeddingUpdateStatus }) {
         name="status"
         required
       >
-        {updateStatuses.map((status) => (
+        {WEDDING_UPDATE_STATUSES.map((status) => (
           <option className="capitalize" key={status} value={status}>
             {status}
           </option>
@@ -246,7 +187,7 @@ export default async function UpdatesPage({ searchParams }: UpdatesPageProps) {
           </p>
           <form action={createWeddingUpdateAction} className="mt-6 grid gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field
+              <AdminField
                 label="Short title"
                 name="title"
                 placeholder="Transport update"
@@ -254,12 +195,13 @@ export default async function UpdatesPage({ searchParams }: UpdatesPageProps) {
               />
               <StatusSelect defaultValue="published" />
             </div>
-            <TextArea
+            <AdminTextArea
               label="Message text"
               name="message"
               placeholder="Shuttle buses leave the hotel at 14:15."
+              required
             />
-            <Field
+            <AdminField
               label="Optional link"
               name="link_url"
               placeholder="https://example.com/details"
@@ -320,7 +262,7 @@ export default async function UpdatesPage({ searchParams }: UpdatesPageProps) {
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <Field
+                      <AdminField
                         defaultValue={update.title}
                         label="Short title"
                         name="title"
@@ -328,12 +270,13 @@ export default async function UpdatesPage({ searchParams }: UpdatesPageProps) {
                       />
                       <StatusSelect defaultValue={update.status} />
                     </div>
-                    <TextArea
+                    <AdminTextArea
                       defaultValue={update.message}
                       label="Message text"
                       name="message"
+                      required
                     />
-                    <Field
+                    <AdminField
                       defaultValue={update.link_url}
                       label="Optional link"
                       name="link_url"
