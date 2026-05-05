@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { hashInviteToken } from "@/lib/invite-tokens";
+import { parseOptionalPhone } from "@/lib/phone";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 type Attendance = "yes" | "no" | "maybe";
@@ -49,6 +50,7 @@ function redirectToInvite(rawToken: string, params: Record<string, string>) {
 export async function submitRsvpAction(rawToken: string, formData: FormData) {
   const attendance = parseAttendance(formData.get("attendance"));
   const extraGuests = parseExtraGuests(formData.get("extra_guests"));
+  const phone = parseOptionalPhone(formData.get("phone"));
   const foodPreference = cleanOptionalText(formData.get("food_preference"));
   const allergyNotes = cleanOptionalText(formData.get("allergy_notes"));
 
@@ -60,6 +62,10 @@ export async function submitRsvpAction(rawToken: string, formData: FormData) {
     redirectToInvite(rawToken, { rsvp_error: "extra-guests" });
   }
 
+  if (!phone.isValid) {
+    redirectToInvite(rawToken, { rsvp_error: "phone" });
+  }
+
   const supabase = createSupabaseAdminClient();
   const tokenHash = hashInviteToken(rawToken);
   const { error: submitError } = await supabase.rpc("submit_rsvp_response", {
@@ -67,6 +73,7 @@ export async function submitRsvpAction(rawToken: string, formData: FormData) {
     p_attendance: attendance,
     p_extra_guests: extraGuests,
     p_food_preference: foodPreference,
+    p_phone: phone.phone,
     p_token_hash: tokenHash,
   });
 
