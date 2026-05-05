@@ -1,9 +1,10 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+
+import { INVITE_STATUS } from "../lib/invite-status";
 
 import { signInAsSeededAdmin } from "./support/auth";
 import {
   addGuest,
-  deleteE2eGuests,
   deleteGuestRow,
   expectGuestRowHidden,
   expectGuestRowVisible,
@@ -13,17 +14,10 @@ import {
   saveGuestRow,
   uniqueGuestName,
 } from "./support/admin-guests";
+import { testWithGuests as test } from "./support/fixtures";
 import { pathFromAbsoluteUrl } from "./support/urls";
 
 test.describe("admin guest CRUD", () => {
-  test.beforeEach(async () => {
-    await deleteE2eGuests();
-  });
-
-  test.afterEach(async () => {
-    await deleteE2eGuests();
-  });
-
   test("adds, validates, searches, sorts, edits, and archives guests", async ({ page }) => {
     const firstGuestName = uniqueGuestName("Admin CRUD A");
     const secondGuestName = uniqueGuestName("Admin CRUD Z");
@@ -57,7 +51,7 @@ test.describe("admin guest CRUD", () => {
     await expectGuestRowHidden(page, secondGuestName);
 
     await page.getByLabel("Search name or phone").fill("E2E Guest Admin CRUD");
-    await page.locator('select[name="status"]').selectOption("not replied");
+    await page.locator('select[name="status"]').selectOption(INVITE_STATUS.notReplied);
     await page.locator('select[name="sort"]').selectOption("name-desc");
     await page.getByRole("button", { name: "Apply" }).click();
     await expect(page.getByText("Showing 2 active guests.")).toBeVisible();
@@ -100,14 +94,6 @@ test.describe("admin guest CRUD", () => {
 });
 
 test.describe("admin invite token links", () => {
-  test.beforeEach(async () => {
-    await deleteE2eGuests();
-  });
-
-  test.afterEach(async () => {
-    await deleteE2eGuests();
-  });
-
   test("generates private invite links and invalidates old links on regeneration", async ({
     page,
   }) => {

@@ -1,6 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 
-import { deleteE2eGuests } from "./support/admin-guests";
 import { signInAsSeededAdmin } from "./support/auth";
 import { createE2eSupabaseAdminClient } from "./support/supabase";
 import {
@@ -8,25 +7,15 @@ import {
   uniqueInviteToken,
   uniqueRsvpGuestName,
 } from "./support/invite-test-data";
+import { testWithUpdates as test } from "./support/fixtures";
 import { SEEDED_ADMIN } from "./support/test-data";
 import { invitePathForToken } from "./support/urls";
 import {
   createWeddingUpdate,
-  deleteE2eWeddingUpdates,
   uniqueWeddingUpdateTitle,
 } from "./support/wedding-updates";
 
 test.describe("invite updates feed", () => {
-  test.beforeEach(async () => {
-    await deleteE2eGuests();
-    await deleteE2eWeddingUpdates();
-  });
-
-  test.afterEach(async () => {
-    await deleteE2eGuests();
-    await deleteE2eWeddingUpdates();
-  });
-
   test("publishes admin-created updates to invite pages and hides drafts", async ({
     page,
   }) => {

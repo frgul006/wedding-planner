@@ -1,32 +1,23 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 
-import { deleteE2eGuests } from "./support/admin-guests";
 import { signInAsSeededAdmin } from "./support/auth";
 import {
   createInviteTestGuest,
   uniqueInviteToken,
   uniqueRsvpGuestName,
 } from "./support/invite-test-data";
+import { testWithWeddingSettings as test } from "./support/fixtures";
 import { invitePathForToken } from "./support/urls";
-import { resetWeddingSettings, updateWeddingSettings } from "./support/wedding-settings";
+import { uniqueE2eValue } from "./support/unique";
+import { updateWeddingSettings } from "./support/wedding-settings";
 
 test.describe("wedding settings propagation", () => {
-  test.beforeEach(async () => {
-    await deleteE2eGuests();
-    await resetWeddingSettings();
-  });
-
-  test.afterEach(async () => {
-    await deleteE2eGuests();
-    await resetWeddingSettings();
-  });
-
   test("saves admin-managed wedding details and shows them on fresh invite loads", async ({
     page,
   }) => {
     const guestName = uniqueRsvpGuestName("Settings Propagation");
     const token = uniqueInviteToken("settings-propagation");
-    const weddingName = `E2E Wedding ${Date.now()}`;
+    const weddingName = uniqueE2eValue("E2E Wedding", "Settings Propagation");
     await createInviteTestGuest({
       email: "e2e-settings-propagation@example.com",
       fullName: guestName,

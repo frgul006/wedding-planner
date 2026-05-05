@@ -1,19 +1,18 @@
-import { createHash, randomBytes } from "node:crypto";
-
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  generateRawInviteToken,
+  hashInviteToken,
+} from "@/lib/invite-token-crypto";
+import { isRsvpAttendance, type RsvpAttendance } from "@/lib/rsvp-attendance";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { isNullableString, isRecord } from "@/lib/type-guards";
-
-const TOKEN_BYTES = 32;
 
 type GuestRelation = {
   deleted_at: string | null;
   full_name: string | null;
   phone: string | null;
 };
-
-type RsvpAttendance = "yes" | "no" | "maybe";
 
 export type InviteRsvpResponse = {
   allergy_notes: string | null;
@@ -121,40 +120,22 @@ function normalizeTimePlan(value: unknown) {
     .filter(Boolean);
 }
 
-function normalizeRsvpAttendance(value: string | null): RsvpAttendance | null {
-  if (value === "yes" || value === "no" || value === "maybe") {
-    return value;
-  }
-
-  return null;
-}
-
 function normalizeRsvpResponse(value: unknown): InviteRsvpResponse | null {
   if (!isRsvpResponseRow(value)) {
     return null;
   }
 
-  const attendance = normalizeRsvpAttendance(value.attendance);
-
-  if (!attendance) {
+  if (!isRsvpAttendance(value.attendance)) {
     return null;
   }
 
   return {
     allergy_notes: value.allergy_notes,
-    attendance,
+    attendance: value.attendance,
     extra_guests: value.extra_guests,
     food_preference: value.food_preference,
     last_submitted_at: value.last_submitted_at,
   };
-}
-
-export function generateRawInviteToken() {
-  return randomBytes(TOKEN_BYTES).toString("base64url");
-}
-
-export function hashInviteToken(rawToken: string) {
-  return createHash("sha256").update(rawToken, "utf8").digest("hex");
 }
 
 export function buildInviteUrl(rawToken: string) {

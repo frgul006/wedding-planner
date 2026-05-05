@@ -3,6 +3,11 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
+import {
+  INVITE_STATUSES,
+  isInviteStatus,
+  type InviteStatus,
+} from "@/lib/invite-status";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isNullableString, isRecord } from "@/lib/type-guards";
 
@@ -38,7 +43,7 @@ type Guest = {
   email: string | null;
   phone: string | null;
   notes: string | null;
-  invite_status: string;
+  invite_status: InviteStatus;
   created_at: string;
   hasActiveToken: boolean;
   rsvpResponse: RsvpResponse | null;
@@ -51,14 +56,6 @@ type ActiveInviteTokenRow = {
 };
 
 const sortOptions = new Set(["name", "name-desc", "status", "newest"]);
-const inviteStatuses = [
-  "not replied",
-  "opened",
-  "rsvp yes",
-  "rsvp no",
-  "rsvp maybe",
-];
-
 const rsvpSubmittedFormatter = new Intl.DateTimeFormat("sv-SE", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -69,7 +66,7 @@ function getFirstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function getRsvpStatus(inviteStatus: string) {
+function getRsvpStatus(inviteStatus: InviteStatus) {
   if (inviteStatus.startsWith("rsvp ")) {
     return inviteStatus.replace("rsvp ", "");
   }
@@ -134,7 +131,7 @@ function isGuestRow(value: unknown): value is GuestRow {
     isNullableString(value.email) &&
     isNullableString(value.phone) &&
     isNullableString(value.notes) &&
-    typeof value.invite_status === "string" &&
+    isInviteStatus(value.invite_status) &&
     typeof value.created_at === "string"
   );
 }
@@ -165,7 +162,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
   const rawStatus = getFirstParam(params.status);
   const query = (rawQuery ?? "").trim();
   const sort = sortOptions.has(rawSort ?? "") ? rawSort : "name";
-  const status = inviteStatuses.includes(rawStatus ?? "") ? rawStatus : "";
+  const status = isInviteStatus(rawStatus) ? rawStatus : "";
 
   let guestsQuery = supabase
     .from("guests")
@@ -316,7 +313,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                   name="status"
                 >
                   <option value="">All</option>
-                  {inviteStatuses.map((inviteStatus) => (
+                  {INVITE_STATUSES.map((inviteStatus) => (
                     <option key={inviteStatus} value={inviteStatus}>
                       {inviteStatus}
                     </option>

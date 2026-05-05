@@ -3,23 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { hashInviteToken } from "@/lib/invite-tokens";
+import { hashInviteToken } from "@/lib/invite-token-crypto";
 import { parseOptionalPhone } from "@/lib/phone";
+import { isRsvpAttendance, type RsvpAttendance } from "@/lib/rsvp-attendance";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-
-type Attendance = "yes" | "no" | "maybe";
 
 function cleanOptionalText(value: FormDataEntryValue | null) {
   const text = typeof value === "string" ? value.trim() : "";
   return text.length > 0 ? text : null;
 }
 
-function isAttendance(value: string): value is Attendance {
-  return value === "yes" || value === "no" || value === "maybe";
-}
-
-function parseAttendance(value: FormDataEntryValue | null): Attendance | null {
-  if (typeof value !== "string" || !isAttendance(value)) {
+function parseAttendance(value: FormDataEntryValue | null): RsvpAttendance | null {
+  if (typeof value !== "string" || !isRsvpAttendance(value)) {
     return null;
   }
 

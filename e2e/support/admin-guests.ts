@@ -2,6 +2,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 
 import { createE2eSupabaseAdminClient } from "./supabase";
 import { SEEDED_WEDDING_ID } from "./test-data";
+import { uniqueE2eValue } from "./unique";
 
 export const E2E_GUEST_PREFIX = "E2E Guest";
 
@@ -50,7 +51,7 @@ export async function getInviteTokenRowsForGuest(guestId: string) {
 }
 
 export function uniqueGuestName(label: string) {
-  return `${E2E_GUEST_PREFIX} ${label} ${Date.now()}`;
+  return uniqueE2eValue(E2E_GUEST_PREFIX, label);
 }
 
 export async function addGuest(page: Page, guest: {

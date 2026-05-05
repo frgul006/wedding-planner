@@ -1,6 +1,9 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
-import { deleteE2eGuests, getGuestByName, guestRowByName } from "./support/admin-guests";
+import { INVITE_STATUS } from "../lib/invite-status";
+import { RSVP_ATTENDANCE, type RsvpAttendance } from "../lib/rsvp-attendance";
+
+import { getGuestByName, guestRowByName } from "./support/admin-guests";
 import { signInAsSeededAdmin } from "./support/auth";
 import {
   createInviteTestGuest,
@@ -9,21 +12,22 @@ import {
   uniqueInviteToken,
   uniqueRsvpGuestName,
 } from "./support/invite-test-data";
+import { testWithGuests as test } from "./support/fixtures";
 import { invitePathForToken } from "./support/urls";
 
-async function chooseAttendance(page: Page, attendance: "yes" | "no" | "maybe") {
-  const names = {
-    maybe: /^Maybe\b/,
-    no: /^No\b/,
-    yes: /^Yes\b/,
-  } as const;
+async function chooseAttendance(page: Page, attendance: RsvpAttendance) {
+  const names: Record<RsvpAttendance, RegExp> = {
+    [RSVP_ATTENDANCE.maybe]: /^Maybe\b/,
+    [RSVP_ATTENDANCE.no]: /^No\b/,
+    [RSVP_ATTENDANCE.yes]: /^Yes\b/,
+  };
 
   await page.getByRole("radio", { name: names[attendance] }).check();
 }
 
 async function submitRsvp(page: Page, options: {
   allergyNotes?: string;
-  attendance?: "yes" | "no" | "maybe";
+  attendance?: RsvpAttendance;
   extraGuests?: string;
   foodPreference?: string;
   phone?: string;
@@ -58,14 +62,6 @@ async function submitRsvp(page: Page, options: {
 }
 
 test.describe("RSVP, invite status, and phone capture", () => {
-  test.beforeEach(async () => {
-    await deleteE2eGuests();
-  });
-
-  test.afterEach(async () => {
-    await deleteE2eGuests();
-  });
-
   test("submits a first-time RSVP, updates invite status, and shows details in admin", async ({
     page,
   }) => {
@@ -78,17 +74,19 @@ test.describe("RSVP, invite status, and phone capture", () => {
       token,
     });
 
-    expect((await getGuestByName(guestName))?.invite_status).toBe("not replied");
+    expect((await getGuestByName(guestName))?.invite_status).toBe(
+      INVITE_STATUS.notReplied,
+    );
 
     await page.goto(invitePathForToken(token));
     await expect(page.getByText(`Private invite for ${guestName}`)).toBeVisible();
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
-      .toBe("opened");
+      .toBe(INVITE_STATUS.opened);
 
     await submitRsvp(page, {
       allergyNotes: "Peanuts and sesame.",
-      attendance: "yes",
+      attendance: RSVP_ATTENDANCE.yes,
       extraGuests: "2",
       foodPreference: "Vegan",
       phone: "",
@@ -101,12 +99,12 @@ test.describe("RSVP, invite status, and phone capture", () => {
 
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
-      .toBe("rsvp yes");
+      .toBe(INVITE_STATUS.rsvpYes);
     expect((await getGuestByName(guestName))?.phone).toBeNull();
     expect(await getRsvpResponseCountForGuest(guestId)).toBe(1);
     expect(await getRsvpResponseForGuest(guestId)).toMatchObject({
       allergy_notes: "Peanuts and sesame.",
-      attendance: "yes",
+      attendance: RSVP_ATTENDANCE.yes,
       extra_guests: 2,
       food_preference: "Vegan",
     });
@@ -116,7 +114,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await page.getByLabel("Search name or phone").fill(guestName);
     await page.getByRole("button", { name: "Apply" }).click();
     const row = await guestRowByName(page, guestName);
-    await expect(row.getByText("rsvp yes", { exact: true })).toBeVisible();
+    await expect(row.getByText(INVITE_STATUS.rsvpYes, { exact: true })).toBeVisible();
     await expect(row.getByText("Extra guests: 2")).toBeVisible();
     await expect(row.getByText("Food: Vegan")).toBeVisible();
     await expect(row.getByText("Notes: Peanuts and sesame.")).toBeVisible();
@@ -137,13 +135,13 @@ test.describe("RSVP, invite status, and phone capture", () => {
       page.getByText("Choose Yes, No, or Maybe before submitting."),
     ).toBeVisible();
 
-    await submitRsvp(page, { attendance: "yes", extraGuests: "-1" });
+    await submitRsvp(page, { attendance: RSVP_ATTENDANCE.yes, extraGuests: "-1" });
     await expect(
       page.getByText("Extra guest count must be a whole number of 0 or more."),
     ).toBeVisible();
 
     await submitRsvp(page, {
-      attendance: "yes",
+      attendance: RSVP_ATTENDANCE.yes,
       extraGuests: "0",
       phone: "0701234567",
     });
@@ -158,12 +156,12 @@ test.describe("RSVP, invite status, and phone capture", () => {
     const guestName = uniqueRsvpGuestName("Update Existing");
     const token = uniqueInviteToken("update-existing-rsvp");
     const { guestId } = await createInviteTestGuest({
-      attendance: "yes",
+      attendance: RSVP_ATTENDANCE.yes,
       email: "e2e-rsvp-update@example.com",
       extraGuests: 1,
       foodPreference: "Meat",
       fullName: guestName,
-      inviteStatus: "rsvp yes",
+      inviteStatus: INVITE_STATUS.rsvpYes,
       notes: "No shellfish.",
       phone: "+46700000000",
       token,
@@ -175,11 +173,11 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await expect(page.getByPlaceholder("+46701234567")).toHaveValue("+46700000000");
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
-      .toBe("rsvp yes");
+      .toBe(INVITE_STATUS.rsvpYes);
 
     await submitRsvp(page, {
       allergyNotes: "Updated notes.",
-      attendance: "maybe",
+      attendance: RSVP_ATTENDANCE.maybe,
       extraGuests: "0",
       foodPreference: "Fish",
       phone: "+46708889999",
@@ -189,12 +187,12 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await expect(page.getByText("Maybe, I will confirm later")).toBeVisible();
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
-      .toBe("rsvp maybe");
+      .toBe(INVITE_STATUS.rsvpMaybe);
     expect((await getGuestByName(guestName))?.phone).toBe("+46708889999");
     expect(await getRsvpResponseCountForGuest(guestId)).toBe(1);
     expect(await getRsvpResponseForGuest(guestId)).toMatchObject({
       allergy_notes: "Updated notes.",
-      attendance: "maybe",
+      attendance: RSVP_ATTENDANCE.maybe,
       extra_guests: 0,
       food_preference: "Fish",
     });
