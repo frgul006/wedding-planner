@@ -14,13 +14,27 @@
 10. Phone capture for RSVP
 11. Invite updates feed
 12. Admin messaging system
+    - Keep the merged 46elks SMS work before starting photo admin screens, because both areas touch admin navigation and may add database migrations.
 13. QR code setup for guest hub
-14. Wedding hub upload flow (public)
-15. Photo moderation and export
+14. Guest session attribution foundation
+    - Opening a valid personal invite link creates/refreshes a secure guest navigation cookie.
+    - This can be built after messaging and before public photo upload so QR uploads can be attributed when possible.
+15. Photo storage and settings foundation
+    - Supabase Storage private bucket setup.
+    - `PhotoUpload` metadata table/model.
+    - `photo_upload_requires_review` wedding setting, default off/open.
+    - Confirm `allow_anonymous_hub_upload` remains default on.
+16. Wedding hub upload flow (public)
+    - Direct signed browser uploads to Supabase Storage.
+    - Anonymous QR uploads by default, with same-device guest inference from the secure cookie when available.
+17. Photo moderation and export
 
 ## Why this order
 
 - Start with protected admin core and guest data.
 - Add secure invite access + event page next.
 - Build RSVP loop and status tracking before adding messaging.
-- Add event-day shared QR flow near the end, with moderation last.
+- Keep SMS messaging before photo admin work to avoid admin UI and migration conflicts.
+- Add event-day shared QR flow near the end.
+- Build guest attribution and storage foundations before public uploads, so uploads have the right privacy, moderation, and metadata behavior on day one.
+- Keep moderation/export last because it depends on uploaded photo metadata and review status.
