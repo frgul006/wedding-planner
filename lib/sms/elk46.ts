@@ -24,7 +24,6 @@ export type SendElk46SmsInput = {
 
 export type SendElk46SmsResult = {
   cost: number | null;
-  deliveredAt: string | null;
   parts: number | null;
   providerMessageId: string | null;
 };
@@ -131,7 +130,6 @@ export async function sendElk46Sms({ message, to }: SendElk46SmsInput): Promise<
   if (config.mockSend) {
     return {
       cost: 0,
-      deliveredAt: null,
       parts: 1,
       providerMessageId: `mock-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     };
@@ -181,7 +179,6 @@ export async function sendElk46Sms({ message, to }: SendElk46SmsInput): Promise<
 
   return {
     cost: getNullableNumber(responseJson.cost),
-    deliveredAt: getNullableString(responseJson.delivered),
     parts: getNullableNumber(responseJson.parts),
     providerMessageId: getNullableString(responseJson.id),
   };

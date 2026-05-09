@@ -47,7 +47,7 @@ type MessageBlastRow = {
   title: string | null;
 };
 
-type MessageDeliveryStatus = "delivered" | "failed" | "queued" | "sent";
+type MessageDeliveryStatus = "failed" | "queued" | "sent";
 
 type MessageDeliveryRow = {
   delivery_status: MessageDeliveryStatus;
@@ -157,7 +157,7 @@ function isSendStatus(value: unknown): value is MessageBlastRow["send_status"] {
 }
 
 function isDeliveryStatus(value: unknown): value is MessageDeliveryStatus {
-  return value === "queued" || value === "sent" || value === "delivered" || value === "failed";
+  return value === "queued" || value === "sent" || value === "failed";
 }
 
 function isMessageBlastRow(value: unknown): value is MessageBlastRow {
@@ -210,7 +210,6 @@ function getAudienceCounts(guestRows: GuestMessagingRow[]) {
 
 function createEmptyDeliveryCounts(): DeliveryCounts {
   return {
-    delivered: 0,
     failed: 0,
     queued: 0,
     sent: 0,
@@ -457,7 +456,7 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
                     </span>
                   </div>
                   <p className="mt-4 whitespace-pre-line text-sm text-zinc-700">{blast.body}</p>
-                  <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-4">
+                  <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
                     <div>
                       <dt className="font-medium text-zinc-950">Queued</dt>
                       <dd className="text-zinc-600">{counts.queued}</dd>
@@ -465,10 +464,6 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
                     <div>
                       <dt className="font-medium text-zinc-950">Sent</dt>
                       <dd className="text-zinc-600">{counts.sent}</dd>
-                    </div>
-                    <div>
-                      <dt className="font-medium text-zinc-950">Delivered</dt>
-                      <dd className="text-zinc-600">{counts.delivered}</dd>
                     </div>
                     <div>
                       <dt className="font-medium text-zinc-950">Failed</dt>

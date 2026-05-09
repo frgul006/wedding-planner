@@ -149,7 +149,7 @@ Implemented in `public.rsvp_responses`.
 - `guest_id` (UUID)
 - `phone` (string)
 - `provider_message_id` (string, optional)
-- `delivery_status` (`queued | sent | delivered | failed`)
+- `delivery_status` (`queued | sent | failed`)
 - `error_text` (string, optional)
 - `created_at`
 

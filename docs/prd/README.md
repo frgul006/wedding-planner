@@ -35,4 +35,9 @@
 15. **Photo moderation and export**
    - `photo-review-and-export.md`
 
+## Future / optional
+
+- **SMS delivery reports**
+  - `sms-delivery-reports.md`
+
 All files are written in simple, ELI5-friendly structure and wording.

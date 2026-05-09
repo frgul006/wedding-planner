@@ -24,7 +24,7 @@ create table public.message_deliveries (
   guest_id uuid not null,
   phone text not null check (phone ~ '^[+][1-9][0-9]{7,14}$'),
   provider_message_id text,
-  delivery_status text not null default 'queued' check (delivery_status in ('queued', 'sent', 'delivered', 'failed')),
+  delivery_status text not null default 'queued' check (delivery_status in ('queued', 'sent', 'failed')),
   error_text text,
   created_at timestamptz not null default now(),
   constraint message_deliveries_blast_wedding_fk
