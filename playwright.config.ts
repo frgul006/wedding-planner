@@ -28,6 +28,13 @@ export default defineConfig({
     ? undefined
     : {
         command: webServerCommand,
+        env: {
+          ...process.env,
+          ELK46_FROM: process.env.ELK46_FROM ?? "Wedding",
+          ELK46_MOCK_SEND: "1",
+          ELK46_PASSWORD: process.env.ELK46_PASSWORD ?? "e2e-password",
+          ELK46_USER: process.env.ELK46_USER ?? "e2e-user",
+        },
         reuseExistingServer: !isCI,
         timeout: 120_000,
         url: baseURL,

@@ -38,6 +38,7 @@ Admins need a quick way to send SMS updates.
 ## Acceptance criteria
 
 - Admin sends a message to any audience in one flow.
+- Only guests with SMS opt-in and valid E.164 phone numbers are included.
 - Sent message history is stored and visible.
 - Message failures show clear error.
 

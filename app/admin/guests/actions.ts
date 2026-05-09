@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
 import { regenerateInviteToken } from "@/lib/invite-tokens";
+import { isE164PhoneNumber } from "@/lib/phone";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function cleanOptionalText(value: FormDataEntryValue | null) {
@@ -27,6 +28,7 @@ function getGuestPayload(formData: FormData) {
   const email = cleanOptionalText(formData.get("email"));
   const phone = cleanOptionalText(formData.get("phone"));
   const notes = cleanOptionalText(formData.get("notes"));
+  const smsOptIn = formData.get("sms_opt_in") === "on";
 
   if (!fullName) {
     redirect("/admin/guests?error=missing-name");
@@ -36,11 +38,16 @@ function getGuestPayload(formData: FormData) {
     redirect("/admin/guests?error=missing-contact");
   }
 
+  if (smsOptIn && (!phone || !isE164PhoneNumber(phone))) {
+    redirect("/admin/guests?error=invalid-sms-phone");
+  }
+
   return {
     full_name: fullName,
     email,
-    phone,
     notes,
+    phone,
+    sms_opt_in: smsOptIn,
   };
 }
 
@@ -48,9 +55,12 @@ export async function createGuestAction(formData: FormData) {
   const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
   const payload = getGuestPayload(formData);
+  const now = new Date().toISOString();
 
   const { error } = await supabase.from("guests").insert({
     ...payload,
+    sms_opted_in_at: payload.sms_opt_in ? now : null,
+    sms_opted_out_at: null,
     wedding_id: adminProfile.wedding_id,
   });
 
@@ -67,10 +77,40 @@ export async function updateGuestAction(guestId: string, formData: FormData) {
   const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
   const payload = getGuestPayload(formData);
+  const { data: currentGuest, error: currentGuestError } = await supabase
+    .from("guests")
+    .select("id, sms_opt_in, sms_opted_in_at, sms_opted_out_at")
+    .eq("id", guestId)
+    .eq("wedding_id", adminProfile.wedding_id)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (currentGuestError) {
+    console.error("Failed to load guest before update", currentGuestError);
+    redirect("/admin/guests?error=update-failed");
+  }
+
+  if (!currentGuest) {
+    redirect("/admin/guests?error=not-found");
+  }
+
+  const now = new Date().toISOString();
+  const smsOptedInAt = payload.sms_opt_in
+    ? currentGuest.sms_opted_in_at ?? now
+    : currentGuest.sms_opted_in_at;
+  const smsOptedOutAt = payload.sms_opt_in
+    ? null
+    : currentGuest.sms_opt_in
+      ? now
+      : currentGuest.sms_opted_out_at;
 
   const { data, error } = await supabase
     .from("guests")
-    .update(payload)
+    .update({
+      ...payload,
+      sms_opted_in_at: smsOptedInAt,
+      sms_opted_out_at: smsOptedOutAt,
+    })
     .eq("id", guestId)
     .eq("wedding_id", adminProfile.wedding_id)
     .is("deleted_at", null)

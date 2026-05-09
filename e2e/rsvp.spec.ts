@@ -31,6 +31,7 @@ async function submitRsvp(page: Page, options: {
   extraGuests?: string;
   foodPreference?: string;
   phone?: string;
+  smsOptIn?: boolean;
 }) {
   if (options.attendance) {
     await chooseAttendance(page, options.attendance);
@@ -38,6 +39,16 @@ async function submitRsvp(page: Page, options: {
 
   if (options.phone !== undefined) {
     await page.getByPlaceholder("+46701234567").fill(options.phone);
+  }
+
+  if (options.smsOptIn !== undefined) {
+    const smsCheckbox = page.getByLabel(/Send me important SMS updates/);
+
+    if (options.smsOptIn) {
+      await smsCheckbox.check();
+    } else {
+      await smsCheckbox.uncheck();
+    }
   }
 
   if (options.extraGuests !== undefined) {
@@ -100,7 +111,9 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
       .toBe(INVITE_STATUS.rsvpYes);
-    expect((await getGuestByName(guestName))?.phone).toBeNull();
+    const guestAfterRsvp = await getGuestByName(guestName);
+    expect(guestAfterRsvp?.phone).toBeNull();
+    expect(guestAfterRsvp?.sms_opt_in).toBe(false);
     expect(await getRsvpResponseCountForGuest(guestId)).toBe(1);
     expect(await getRsvpResponseForGuest(guestId)).toMatchObject({
       allergy_notes: "Peanuts and sesame.",
@@ -146,7 +159,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
       phone: "0701234567",
     });
     await expect(page.locator('p[role="alert"]')).toHaveText(
-      "Phone must use country-code format, e.g. +46701234567.",
+      "Phone must use country-code format, e.g. +46701234567. It is required for SMS updates.",
     );
   });
 
@@ -181,6 +194,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
       extraGuests: "0",
       foodPreference: "Fish",
       phone: "+46708889999",
+      smsOptIn: true,
     });
 
     await expect(page.getByText("Thank you — your RSVP has been saved.")).toBeVisible();
@@ -188,7 +202,11 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
       .toBe(INVITE_STATUS.rsvpMaybe);
-    expect((await getGuestByName(guestName))?.phone).toBe("+46708889999");
+    const guestAfterUpdate = await getGuestByName(guestName);
+    expect(guestAfterUpdate?.phone).toBe("+46708889999");
+    expect(guestAfterUpdate?.sms_opt_in).toBe(true);
+    expect(guestAfterUpdate?.sms_opted_in_at).toEqual(expect.any(String));
+    expect(guestAfterUpdate?.sms_opted_out_at).toBeNull();
     expect(await getRsvpResponseCountForGuest(guestId)).toBe(1);
     expect(await getRsvpResponseForGuest(guestId)).toMatchObject({
       allergy_notes: "Updated notes.",
@@ -201,5 +219,6 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await expect(page.getByText("Maybe, I will confirm later")).toBeVisible();
     await expect(page.getByRole("radio", { name: /^Maybe\b/ })).toBeChecked();
     await expect(page.getByPlaceholder("+46701234567")).toHaveValue("+46708889999");
+    await expect(page.getByLabel(/Send me important SMS updates/)).toBeChecked();
   });
 });

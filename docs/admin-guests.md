@@ -28,7 +28,7 @@ Normal admin lists only show guests where `deleted_at is null`.
 ## Features
 
 - Add guest
-- Edit name, email, phone, and notes inline
+- Edit name, email, phone, SMS update consent, and notes inline
 - Search by partial name or phone
 - Filter by invite status
 - Sort by name, status, or newest

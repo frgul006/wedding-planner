@@ -46,6 +46,7 @@ export async function submitRsvpAction(rawToken: string, formData: FormData) {
   const attendance = parseAttendance(formData.get("attendance"));
   const extraGuests = parseExtraGuests(formData.get("extra_guests"));
   const phone = parseOptionalPhone(formData.get("phone"));
+  const smsOptIn = formData.get("sms_opt_in") === "on";
   const foodPreference = cleanOptionalText(formData.get("food_preference"));
   const allergyNotes = cleanOptionalText(formData.get("allergy_notes"));
 
@@ -57,7 +58,7 @@ export async function submitRsvpAction(rawToken: string, formData: FormData) {
     redirectToInvite(rawToken, { rsvp_error: "extra-guests" });
   }
 
-  if (!phone.isValid) {
+  if (!phone.isValid || (smsOptIn && !phone.phone)) {
     redirectToInvite(rawToken, { rsvp_error: "phone" });
   }
 
@@ -69,6 +70,7 @@ export async function submitRsvpAction(rawToken: string, formData: FormData) {
     p_extra_guests: extraGuests,
     p_food_preference: foodPreference,
     p_phone: phone.phone,
+    p_sms_opt_in: smsOptIn,
     p_token_hash: tokenHash,
   });
 
