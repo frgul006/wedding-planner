@@ -121,7 +121,7 @@ function getRsvpMessage(searchParams: Awaited<InvitePageProps["searchParams"]>) 
   if (error === "phone") {
     return {
       tone: "error",
-      text: `Phone must use country-code format, e.g. ${PHONE_FORMAT_EXAMPLE}.`,
+      text: `Phone must use country-code format, e.g. ${PHONE_FORMAT_EXAMPLE}. It is required for SMS updates.`,
     };
   }
 
@@ -462,6 +462,19 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
                 </select>
               </label>
             </div>
+
+            <label className="flex gap-3 rounded-2xl bg-white/10 p-4 text-sm font-medium text-white ring-1 ring-white/15">
+              <input
+                className="mt-1 h-4 w-4 accent-white"
+                defaultChecked={guest.sms_opt_in}
+                name="sms_opt_in"
+                type="checkbox"
+              />
+              <span>
+                Send me important SMS updates about the wedding. You can uncheck this
+                later from the same invite link.
+              </span>
+            </label>
 
             <label className="flex flex-col gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-400">
               Allergy / special notes

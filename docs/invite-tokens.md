@@ -52,15 +52,16 @@ Valid `/invite/[token]` pages let the linked guest submit or update:
 
 - attendance: `yes`, `no`, or `maybe`
 - optional phone number, using country-code format like `+46701234567`
+- optional SMS updates opt-in, which requires a valid phone number
 - extra guest count, defaulting to `0`
 - optional food preference
 - optional allergy / special notes
 
-The phone input is pre-filled from the linked `guests.phone` value. Blank phone is allowed; any provided phone must match strict country-code format with a leading `+` and digits only, for example `+46701234567`. Invalid phone values redirect back to the invite with a clear validation error.
+The phone input is pre-filled from the linked `guests.phone` value. Blank phone is allowed unless SMS updates opt-in is selected; any provided phone must match strict country-code format with a leading `+` and digits only, for example `+46701234567`. Invalid phone values redirect back to the invite with a clear validation error.
 
 When the linked guest already has an RSVP response, the invite page shows the current answer, `last_submitted_at`, and pre-fills the form so the guest can update the same response from the same link. Reopening an invite also pre-fills the latest linked guest phone so the guest can change it on a later RSVP update.
 
-Submission is handled by a server action that hashes the raw URL token and calls the `public.submit_rsvp_response` database function. That function revalidates the active invite token and atomically upserts the response into `public.rsvp_responses` for the token's `guest_id` and `wedding_id`, with `updated_via_token_id` set to the active invite token. The linked guest's `phone` is saved to `public.guests.phone`, and the linked guest's `invite_status` is updated in the same transaction to `rsvp yes`, `rsvp no`, or `rsvp maybe` to match the latest submitted attendance.
+Submission is handled by a server action that hashes the raw URL token and calls the `public.submit_rsvp_response` database function. That function revalidates the active invite token and atomically upserts the response into `public.rsvp_responses` for the token's `guest_id` and `wedding_id`, with `updated_via_token_id` set to the active invite token. The linked guest's `phone`, `sms_opt_in`, and opt-in/out timestamps are saved to `public.guests`, and the linked guest's `invite_status` is updated in the same transaction to `rsvp yes`, `rsvp no`, or `rsvp maybe` to match the latest submitted attendance.
 
 Invalid, inactive, archived-guest, or missing-token pages keep rendering the generic invalid-link message and never show the RSVP form.
 
@@ -83,9 +84,10 @@ Then log in as the seeded admin and validate the invite status workflow:
 6. Submit without a phone and verify the RSVP still saves.
 7. Submit an invalid phone and verify the invite shows the phone-format validation error.
 8. Submit a valid phone and verify it appears in the admin guest row.
-9. Reopen the invite and verify the saved phone pre-fills and can be updated.
-10. Create a published update in `/admin/updates` and verify it appears in the invite Updates section.
-11. Change the update to draft or archived and verify it is hidden from the invite page.
-12. Regenerate the link and verify the old link becomes invalid while the new link remains valid.
+9. Submit with SMS opt-in and verify the guest is eligible for SMS message counts.
+10. Reopen the invite and verify the saved phone and SMS opt-in pre-fill and can be updated.
+11. Create a published update in `/admin/updates` and verify it appears in the invite Updates section.
+12. Change the update to draft or archived and verify it is hidden from the invite page.
+13. Regenerate the link and verify the old link becomes invalid while the new link remains valid.
 
 For the guest-facing RSVP and updates flow, also run the local app and capture a `playwright-cli snapshot` after reopening a successful `/invite/[token]` submission.

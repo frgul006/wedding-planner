@@ -23,7 +23,7 @@ export async function getGuestByName(fullName: string) {
   const supabase = createE2eSupabaseAdminClient();
   const { data, error } = await supabase
     .from("guests")
-    .select("id, deleted_at, email, full_name, invite_status, phone")
+    .select("id, deleted_at, email, full_name, invite_status, phone, sms_opt_in, sms_opted_in_at, sms_opted_out_at")
     .eq("wedding_id", SEEDED_WEDDING_ID)
     .eq("full_name", fullName)
     .maybeSingle();
@@ -59,10 +59,16 @@ export async function addGuest(page: Page, guest: {
   fullName: string;
   notes?: string;
   phone?: string;
+  smsOptIn?: boolean;
 }) {
   await page.getByLabel("Full name", { exact: true }).fill(guest.fullName);
   await page.getByLabel("Email", { exact: true }).fill(guest.email ?? "");
   await page.getByLabel("Phone", { exact: true }).fill(guest.phone ?? "");
+
+  if (guest.smsOptIn) {
+    await page.getByLabel("SMS updates approved for this guest").check();
+  }
+
   await page.getByLabel("Notes", { exact: true }).fill(guest.notes ?? "");
   await page.getByRole("button", { name: "Add guest" }).click();
   await expect(page.getByText("Guest added.")).toBeVisible();

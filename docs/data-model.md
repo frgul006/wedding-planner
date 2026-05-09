@@ -53,6 +53,10 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
 - `email` (string, optional)
 - `phone` (string, optional)
   - Validation rule: at least one of `email` or `phone` must be set.
+- `sms_opt_in` (bool)
+  - Guests are included in SMS blasts only when this is true and a valid E.164 phone is present.
+- `sms_opted_in_at` (datetime, nullable)
+- `sms_opted_out_at` (datetime, nullable)
 - `side_id` (UUID, optional) -> relation to `CoupleMember`
 - `notes` (string, optional)
 - `deleted_at` (datetime, nullable)
