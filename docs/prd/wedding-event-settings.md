@@ -1,9 +1,9 @@
 # PRD: Wedding Event Settings (Source of Truth)
 
-**Version:** 0.1
+**Version:** 0.2
 **Status:** Draft
-**Date:** 2026-05-03
-**Scope:** Core wedding details that appear on guest pages and QR hub
+**Date:** 2026-05-09
+**Scope:** Core wedding details and guest hub behavior settings
 
 ## Why this is needed
 The wedding page and QR hub must show one consistent set of details, so they should come from one shared settings record.
@@ -29,6 +29,8 @@ The wedding page and QR hub must show one consistent set of details, so they sho
   - Child policy text (for example: child-free)
   - Gift info text
   - Spotify playlist link (optional)
+  - Allow anonymous QR hub uploads (default on; if off, upload requires a valid guest navigation cookie)
+  - Require photo review before showing uploads (default off/open)
 - Settings are reused by:
   - `/invite/:token` page
   - QR wedding hub page
@@ -43,6 +45,8 @@ The wedding page and QR hub must show one consistent set of details, so they sho
 - Admin can update one settings field without affecting invite links.
 - Guest sees updated settings after refresh.
 - The same venue/map/playlist details are identical on invite page and QR hub.
+- Anonymous QR hub upload is allowed by default, and disabling it makes photo upload require a valid guest navigation cookie.
+- Photo review is off by default, so uploaded photos can appear without manual approval until an admin enables review.
 
 ## Out of scope
 - Multi-wedding management in one install
