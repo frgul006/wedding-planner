@@ -25,7 +25,7 @@ Staff need control over what photos to keep, whether new photos appear immediate
 ## Functional requirements
 
 - Admin photo list in `/admin`.
-- Admin setting: `Require photo review before showing uploads`.
+- Admin setting: `Require photo review before showing uploads` (`photo_upload_requires_review`).
   - Default is off/open.
   - When off, new uploads are automatically `approved` and can show immediately.
   - When on, new uploads start as `pending` and must be approved before showing.
@@ -40,7 +40,7 @@ Staff need control over what photos to keep, whether new photos appear immediate
 ## Non-functional requirements
 
 - Handles many uploads without slowing admin screen.
-- Admin previews should use thumbnails or signed read URLs instead of exposing permanent public storage URLs.
+- Admin previews should use short-lived signed read URLs instead of exposing permanent public storage URLs; generated thumbnails can be added later if performance requires them.
 
 ## Acceptance criteria
 

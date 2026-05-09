@@ -1,4 +1,4 @@
-# Wedding App Data Modeling (Draft v0.1)
+# Wedding App Data Modeling (Draft v0.2)
 
 This is a simple shared model for the current PRDs.
 
@@ -168,10 +168,9 @@ Implemented in `public.rsvp_responses`.
 - `guest_id` (UUID, nullable) -> relation to `Guest`
   - Best-effort inferred from `GuestNavigationSession` when a valid secure guest cookie is present.
   - Null for anonymous QR uploads.
-- `storage_bucket` (string, default private bucket `wedding-photos`)
 - `storage_path` (string)
   - Supabase Storage object path for the original upload.
-- `thumbnail_storage_path` (string, optional)
+  - Bucket is the configured private photo bucket (for example `wedding-photos`) and does not need to vary per row for the MVP.
 - `original_filename` (string, optional)
 - `mime_type` (string)
 - `size_bytes` (int)

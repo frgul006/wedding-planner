@@ -33,7 +33,7 @@ Guests can share photos quickly and also add songs during the wedding. The uploa
   - Store uploaded originals in a private Supabase Storage bucket, for example `wedding-photos`.
   - Use direct browser upload with short-lived signed upload URLs created by the app after server-side validation.
   - Do not stream large photo bodies through Vercel server routes.
-  - Store file metadata in `PhotoUpload`, including storage path, filename, MIME type, size, optional note, session id, and inferred guest id when available.
+  - Store file metadata in `PhotoUpload`, including storage path, MIME type, size, optional original filename, optional note, session id, and inferred guest id when available.
 - Upload flow (uses shared route and shared settings):
   - Allow one or many image files.
   - Validate file size and image format before creating signed upload URLs.
