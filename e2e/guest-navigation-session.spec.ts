@@ -36,6 +36,20 @@ async function getGuestNavigationSessionByCookieValue(cookieValue: string) {
   return data;
 }
 
+async function getGuestNavigationSessionCountForGuest(guestId: string) {
+  const supabase = createE2eSupabaseAdminClient();
+  const { count, error } = await supabase
+    .from("guest_navigation_sessions")
+    .select("id", { count: "exact", head: true })
+    .eq("guest_id", guestId);
+
+  if (error) {
+    throw error;
+  }
+
+  return count ?? 0;
+}
+
 test.describe("guest navigation session attribution", () => {
   test("creates a secure opaque guest navigation cookie for a valid invite", async ({
     page,
@@ -74,6 +88,13 @@ test.describe("guest navigation session attribution", () => {
       wedding_id: SEEDED_WEDDING_ID,
     });
     expect(session?.cookie_hash).not.toBe(cookie.value);
+
+    await page.goto(invitePathForToken(token));
+    await expect(page.getByText(`Private invite for ${guestName}`)).toBeVisible();
+    expect(await getGuestNavigationCookie(page)).toMatchObject({
+      value: cookie.value,
+    });
+    expect(await getGuestNavigationSessionCountForGuest(guestId)).toBe(1);
   });
 
   test("does not set a guest navigation cookie for invalid or missing invites", async ({
@@ -90,5 +111,42 @@ test.describe("guest navigation session attribution", () => {
       page.getByRole("heading", { name: "Invite link not valid" }),
     ).toBeVisible();
     expect(await getGuestNavigationCookie(page)).toBeUndefined();
+  });
+
+  test("does not overwrite an existing guest navigation cookie on invalid invites", async ({
+    page,
+  }) => {
+    const guestName = uniqueRsvpGuestName("Invalid Keeps Cookie");
+    const token = uniqueInviteToken("invalid-keeps-guest-navigation-cookie");
+    const { guestId } = await createInviteTestGuest({
+      email: "e2e-guest-navigation-invalid@example.com",
+      fullName: guestName,
+      token,
+    });
+
+    await page.goto(invitePathForToken(token));
+    await expect(page.getByText(`Private invite for ${guestName}`)).toBeVisible();
+    const originalCookie = await getGuestNavigationCookie(page);
+
+    if (!originalCookie) {
+      throw new Error("Expected valid invite to set a guest navigation cookie.");
+    }
+
+    await page.goto("/invite/not-a-real-invite-token");
+    await expect(
+      page.getByRole("heading", { name: "Invite link not valid" }),
+    ).toBeVisible();
+    expect(await getGuestNavigationCookie(page)).toMatchObject({
+      value: originalCookie.value,
+    });
+
+    await page.goto("/invite");
+    await expect(
+      page.getByRole("heading", { name: "Invite link not valid" }),
+    ).toBeVisible();
+    expect(await getGuestNavigationCookie(page)).toMatchObject({
+      value: originalCookie.value,
+    });
+    expect(await getGuestNavigationSessionCountForGuest(guestId)).toBe(1);
   });
 });
