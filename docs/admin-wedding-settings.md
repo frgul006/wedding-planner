@@ -39,7 +39,11 @@ Editable fields:
 - Edit policy or dress code notes
 - Edit gift information
 - Edit Spotify playlist link
-- Toggle future anonymous wedding hub uploads
+- Toggle anonymous wedding hub uploads
+
+## Planned photo upload setting
+
+The photo upload PRDs add a future `photo_upload_requires_review` wedding setting. It is not part of the current implemented settings page until the photo upload/review feature is built.
 
 ## Local validation
 

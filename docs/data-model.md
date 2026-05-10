@@ -1,4 +1,4 @@
-# Wedding App Data Modeling (Draft v0.1)
+# Wedding App Data Modeling (Draft v0.2)
 
 This is a simple shared model for the current PRDs.
 
@@ -21,7 +21,11 @@ Start with one wedding in one app install, but include `wedding_id` on child tab
 - `policy` (string)
 - `gift_info` (string)
 - `spotify_playlist_url` (string, optional)
-- `allow_anonymous_hub_upload` (bool)
+- `allow_anonymous_hub_upload` (bool, default `true`)
+  - QR hub visitors can upload without a guest cookie when this is true.
+  - If false, photo upload requires a valid `GuestNavigationSession` cookie match.
+- `photo_upload_requires_review` (bool, default `false`)
+  - Default open behavior: uploads are automatically `approved` after server-side upload verification unless this is true.
 - `created_at`, `updated_at`
 
 ### CoupleMember
@@ -79,11 +83,14 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
 
 - `id` (UUID)
 - `wedding_id` (UUID)
-- `invite_token_id` (UUID, nullable)
+- `guest_id` (UUID, nullable) -> relation to `Guest`
   - Set when the session was created from a valid invite link.
   - Null for anonymous wedding hub visitors.
+- `invite_token_id` (UUID, nullable)
+  - Set when the session was created from a valid invite link, for audit/debugging.
+  - Null for anonymous wedding hub visitors.
 - `cookie_hash` (string, unique)
-  - Store a hash of an opaque secure cookie value, not the raw invite token.
+  - Store a hash of an opaque secure cookie value, not the raw invite token or PII.
 - `is_anonymous` (bool)
 - `created_at`
 - `last_seen_at`
@@ -157,12 +164,28 @@ Implemented in `public.rsvp_responses`.
 
 - `id` (UUID)
 - `wedding_id` (UUID)
-- `session_id` (UUID, nullable)
-- `file_url` (string)
-- `thumb_url` (string, optional)
+- `session_id` (UUID, nullable) -> relation to `GuestNavigationSession`
+- `guest_id` (UUID, nullable) -> relation to `Guest`
+  - Best-effort inferred from `GuestNavigationSession` when a valid secure guest cookie is present.
+  - Null for anonymous QR uploads.
+- `storage_path` (string)
+  - Supabase Storage object path for the original upload.
+  - Bucket is the configured private photo bucket (for example `wedding-photos`) and does not need to vary per row for the MVP.
+- `original_filename` (string, optional)
+  - Client-declared display metadata only; never trusted for validation.
+- `mime_type` (string)
+  - Server-verified/normalized MIME type after finalize; client-declared value is provisional only.
+- `size_bytes` (int)
+  - Server-observed stored object size after finalize.
 - `note` (string, optional)
+- `verification_status` (`pending | verified | rejected`)
+  - Starts as `pending` after the browser reports storage upload success.
+  - Becomes `verified` only after the server-side post-upload verification/finalize step confirms the stored object is an allowed image within size limits.
+  - Rejected uploads are not displayed/exported and their storage object should be deleted when safe.
 - `moderation_status` (`pending | approved | hidden`)
-  - Accepted photos for export are `approved` photos only.
+  - Accepted photos for export are verified + approved photos only.
+  - New verified uploads default to `approved` when `Wedding.photo_upload_requires_review = false`.
+  - New verified uploads default to `pending` when `Wedding.photo_upload_requires_review = true`.
 - `created_at`
 - `deleted_at` (datetime, nullable)
 
@@ -189,12 +212,13 @@ Implemented in `public.rsvp_responses`.
 - Guest `1`—`1` InviteToken (active)
 - Guest `1`—`N` InviteToken (history, only one active)
 - InviteToken `1`—`N` InviteEvent
-- InviteToken `1`—`1` GuestNavigationSession (current, latest one if present)
+- InviteToken `1`—`N` GuestNavigationSession (one per browser/device, latest one may be current)
 - Guest `1`—`1` RSVPResponse (current answer)
 - Guest `1`—`N` MessageDelivery
 - MessageBlast `1`—`N` MessageDelivery
 - GuestNavigationSession `1`—`N` PhotoUpload
-- Guest `1`—`N` PhotoUpload (through `PhotoUpload.session_id` -> `GuestNavigationSession.invite_token_id` -> `InviteToken.guest_id` when linked to token)
+- Guest `1`—`N` GuestNavigationSession
+- Guest `1`—`N` PhotoUpload (direct nullable `PhotoUpload.guest_id`, set by secure cookie inference when available)
 
 ## 4) Important status rule
 
@@ -205,9 +229,17 @@ Implemented in `public.rsvp_responses`.
 - No duplicate RSVP rows for the same guest (update in place by `guest_id`).
 - RSVP submission by invite token must resolve the active token first and save the response against that token's `guest_id` and `wedding_id`.
 
-## 5) Open questions for your modeling session
+## 5) Photo upload/session decisions
 
-- Should `allow_anonymous_hub_upload = false` mean guest must have a session from invite link (cookie) before upload?
-- Should uploads require a `GuestNavigationSession` when anonymous is off?
+- QR hub photo upload is anonymous-capable by default (`allow_anonymous_hub_upload = true`).
+- Uploads do not require a `GuestNavigationSession` when anonymous upload is allowed.
+- If anonymous upload is disabled (`allow_anonymous_hub_upload = false`), photo upload requires a valid `GuestNavigationSession` cookie match and otherwise returns a clear rejection.
+- Opening a valid personal invite link creates or refreshes a secure opaque guest navigation cookie and stores only its hash.
+- QR hub upload should look up that cookie server-side and set `PhotoUpload.session_id`/`guest_id` when it matches; otherwise the upload remains anonymous.
+- Direct-to-storage uploads must run a server-side post-upload verification/finalize step before they can be approved, displayed, or exported.
+- Photo review is open by default (`photo_upload_requires_review = false`), so new verified uploads are `approved` unless an admin enables review.
+
+## 6) Open questions for your modeling session
+
 - Should `side` label be strictly one of two roles, or can we keep it free text in `CoupleMember.label`?
 - Should message blasts be SMS only first, or in-app only for now?
