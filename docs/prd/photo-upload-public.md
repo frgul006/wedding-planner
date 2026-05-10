@@ -31,14 +31,19 @@ Guests can share photos quickly and also add songs during the wedding. The uploa
   - "Add songs" button/link to Spotify playlist from wedding settings
 - Storage:
   - Store uploaded originals in a private Supabase Storage bucket, for example `wedding-photos`.
-  - Use direct browser upload with short-lived signed upload URLs created by the app after server-side validation.
+  - Use direct browser upload with short-lived signed upload URLs created by the app after server-side request validation.
+  - Pre-upload validation may use client-declared filename, MIME type, and size only as an early rejection gate; it must not be the only validation gate.
   - Do not stream large photo bodies through Vercel server routes.
-  - Store file metadata in `PhotoUpload`, including storage path, MIME type, size, optional original filename, optional note, session id, and inferred guest id when available.
+  - After storage upload succeeds, the app must run a server-side finalize/verification step before the photo can be displayed, approved, or exported.
+  - Post-upload verification should confirm the stored object exists, matches expected size limits using storage-observed metadata, and is an allowed image type using a bounded server-side content check; deeper validation can run in a background job or Supabase Edge Function if needed.
+  - Store file metadata in `PhotoUpload`, including storage path, server-verified MIME type and size, optional original filename, optional note, verification status, session id, and inferred guest id when available.
 - Upload flow (uses shared route and shared settings):
   - Allow one or many image files.
-  - Validate file size and image format before creating signed upload URLs.
+  - Validate declared file size and image type before creating signed upload URLs.
   - Show upload progress and completion/error states.
-  - Save one `PhotoUpload` row per uploaded file after storage upload succeeds.
+  - Save one `PhotoUpload` row per uploaded file after storage upload succeeds, initially with `verification_status = pending`.
+  - Finalize each upload server-side and set `verification_status = verified` only after post-upload verification succeeds.
+  - If post-upload verification fails, set `verification_status = rejected`, do not display/export the file, and delete the Supabase Storage object when safe.
 - Attribution:
   - When a secure guest navigation cookie exists, hash/lookup the cookie server-side and associate uploads with the matching `GuestNavigationSession` and guest.
   - The cookie value must be opaque, signed/unguessable, `HttpOnly`, `Secure`, and `SameSite=Lax`; it must not contain raw invite tokens or PII.
@@ -46,8 +51,9 @@ Guests can share photos quickly and also add songs during the wedding. The uploa
   - If no matching cookie exists and anonymous hub upload is disabled, reject the upload with a clear message.
 - Review behavior:
   - Admins can toggle whether uploaded photos require review before showing.
-  - Default is open/no review required: new uploads are saved with `moderation_status = approved` and can appear immediately.
-  - When review is required, new uploads are saved with `moderation_status = pending` until an admin approves or hides them.
+  - Default is open/no review required: new verified uploads are saved with `moderation_status = approved` and can appear after verification succeeds.
+  - When review is required, new verified uploads are saved with `moderation_status = pending` until an admin approves or hides them.
+  - Review-off/open mode must not bypass post-upload verification.
 - Allow optional short text note with upload.
 
 ## Non-functional requirements
@@ -62,11 +68,13 @@ Guests can share photos quickly and also add songs during the wedding. The uploa
 - A guest who only has the shared QR code can upload without logging in while anonymous hub upload is enabled, which is the default.
 - A guest who previously opened a personal invite link on the same device has uploads associated with their guest record when the cookie is still valid.
 - If anonymous hub upload is disabled, a guest without a valid cookie cannot upload and sees a clear message.
-- Invalid files are rejected with clear message before storage upload starts.
+- Invalid declared files are rejected with clear message before storage upload starts when possible.
+- Files that fail server-side post-upload verification are not approved, displayed, or exported.
 - Upload progress is visible during transfer.
 - Uploaded files are stored in Supabase Storage and have matching `PhotoUpload` metadata rows.
-- With review disabled by default, valid uploads are immediately marked `approved`.
-- With review enabled, valid uploads are marked `pending` and do not show until approved.
+- Uploaded files must pass server-side post-upload verification before they can be displayed, approved, or exported.
+- With review disabled by default, verified valid uploads are marked `approved` without manual review.
+- With review enabled, verified valid uploads are marked `pending` and do not show until approved.
 - Spotify action is visible on the same page as upload.
 
 ## Out of scope

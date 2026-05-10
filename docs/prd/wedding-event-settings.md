@@ -46,7 +46,7 @@ The wedding page and QR hub must show one consistent set of details, so they sho
 - Guest sees updated settings after refresh.
 - The same venue/map/playlist details are identical on invite page and QR hub.
 - Anonymous QR hub upload is allowed by default, and disabling it makes photo upload require a valid guest navigation cookie.
-- Photo review is off by default, so uploaded photos can appear without manual approval until an admin enables review.
+- Photo review is off by default, so verified uploaded photos can appear without manual approval until an admin enables review.
 
 ## Out of scope
 - Multi-wedding management in one install

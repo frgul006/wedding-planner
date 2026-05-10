@@ -21,7 +21,7 @@
     - This can be built after messaging and before public photo upload so QR uploads can be attributed when possible.
 15. Photo storage and settings foundation
     - Supabase Storage private bucket setup.
-    - `PhotoUpload` metadata table/model.
+    - `PhotoUpload` metadata table/model, including upload verification status.
     - `photo_upload_requires_review` wedding setting, default off/open.
     - Confirm `allow_anonymous_hub_upload` remains default on.
 16. Wedding hub upload flow (public)

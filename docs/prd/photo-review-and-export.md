@@ -27,15 +27,17 @@ Staff need control over what photos to keep, whether new photos appear immediate
 - Admin photo list in `/admin`.
 - Admin setting: `Require photo review before showing uploads` (`photo_upload_requires_review`).
   - Default is off/open.
-  - When off, new uploads are automatically `approved` and can show immediately.
-  - When on, new uploads start as `pending` and must be approved before showing.
+  - When off, new uploads are automatically `approved` after server-side upload verification succeeds.
+  - When on, new verified uploads start as `pending` and must be approved before showing.
+  - Upload verification is required in both modes; review-off/open mode must not approve unverified objects.
 - Show upload time, optional guest note, inferred guest name when available, and anonymous marker when not available.
-- States: `pending` / `approved` / `hidden`.
+- Show upload verification state when an upload is still being verified or was rejected.
+- Moderation states: `pending` / `approved` / `hidden`.
 - Actions: approve, hide, delete.
 - Delete should remove or tombstone the metadata row and remove the Supabase Storage object when safe.
 - Export button to download all accepted photos as zip.
-- Accepted photos are photos with `moderation_status = approved` and no `deleted_at` value.
-- Hidden, pending, and deleted photos are excluded from public display and export.
+- Accepted photos are photos with `verification_status = verified`, `moderation_status = approved`, and no `deleted_at` value.
+- Hidden, pending, unverified/rejected, and deleted photos are excluded from public display and export.
 
 ## Non-functional requirements
 
@@ -46,8 +48,9 @@ Staff need control over what photos to keep, whether new photos appear immediate
 
 - Admin can view new uploads in near real time.
 - Admin can turn review requirement on or off from settings.
-- With review off, a new upload appears as approved without manual action.
-- With review on, a new upload appears as pending and is hidden from public display/export until approved.
+- With review off, a verified new upload appears as approved without manual action.
+- With review on, a verified new upload appears as pending and is hidden from public display/export until approved.
+- Unverified or rejected uploads are never included in public display or export.
 - Hidden/deleted photos are not included in shared export.
 - Zip export works for a set of approved photos.
 
