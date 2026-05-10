@@ -31,6 +31,12 @@ On `/admin/guests`:
 
 After `/invite/[token]` successfully validates an active token, the server calls `public.mark_invite_opened(p_guest_id, p_wedding_id)`. The function updates the linked guest from `not replied` to `opened` only when that is still the current status. Existing `opened` and `rsvp yes/no/maybe` statuses are left unchanged, so reopening an invite after RSVP never downgrades the admin-visible status.
 
+## Guest navigation session
+
+Opening a valid `/invite/[token]` route creates or refreshes the `wp_guest_navigation` cookie before the invite page renders. The cookie is opaque 32-byte random data, not the raw invite token or guest PII. It is set as `HttpOnly`, `Secure`, `SameSite=Lax`, path `/`, with a 180-day expiry.
+
+Only a SHA-256 hash of the cookie value is stored in `public.guest_navigation_sessions`, linked to the wedding, guest, and invite token that created the session. Invalid, inactive, archived-guest, and missing-token invite pages do not set or refresh this cookie. The cookie is for later same-device QR/photo attribution only; it does not grant invite access by itself.
+
 ## Guest-facing event information
 
 Valid invite pages show the current wedding settings:
@@ -72,6 +78,7 @@ supabase db reset
 pnpm seed:local
 pnpm lint
 pnpm build
+PORT=3100 pnpm test:e2e e2e/guest-navigation-session.spec.ts e2e/rsvp.spec.ts
 ```
 
 Then log in as the seeded admin and validate the invite status workflow:
@@ -89,5 +96,7 @@ Then log in as the seeded admin and validate the invite status workflow:
 11. Create a published update in `/admin/updates` and verify it appears in the invite Updates section.
 12. Change the update to draft or archived and verify it is hidden from the invite page.
 13. Regenerate the link and verify the old link becomes invalid while the new link remains valid.
+14. Open a valid invite and verify the browser receives the secure `wp_guest_navigation` cookie.
+15. Open `/invite` and an invalid `/invite/:token` URL in a clean browser context and verify neither sets `wp_guest_navigation`.
 
-For the guest-facing RSVP and updates flow, also run the local app and capture a `playwright-cli snapshot` after reopening a successful `/invite/[token]` submission.
+For the guest-facing RSVP, updates, and guest navigation session flow, also run the local app and capture a `playwright-cli snapshot` after opening a valid `/invite/[token]` page.

@@ -5,7 +5,7 @@ import {
   hashInviteToken,
 } from "@/lib/invite-token-crypto";
 import { isRsvpAttendance, type RsvpAttendance } from "@/lib/rsvp-attendance";
-import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isNullableString, isRecord } from "@/lib/type-guards";
 
 type GuestRelation = {
@@ -13,6 +13,16 @@ type GuestRelation = {
   full_name: string | null;
   phone: string | null;
   sms_opt_in: boolean;
+};
+
+type InviteTokenIdentityGuestRelation = {
+  deleted_at: string | null;
+};
+
+export type InviteTokenIdentity = {
+  guestId: string;
+  inviteTokenId: string;
+  weddingId: string;
 };
 
 export type InviteRsvpResponse = {
@@ -40,10 +50,14 @@ type WeddingRelation = Omit<InviteWedding, "name" | "time_plan"> & {
   time_plan: unknown;
 };
 
-type InviteTokenRow = {
+type InviteTokenIdentityRow = {
+  id: string;
   guest_id: string;
   guests: unknown;
   wedding_id: string;
+};
+
+type InviteTokenRow = InviteTokenIdentityRow & {
   weddings: unknown;
 };
 
@@ -55,6 +69,7 @@ export type InviteTokenValidationResult =
   | {
       isValid: true;
       guestId: string;
+      inviteTokenId: string;
       weddingId: string;
       guest: {
         full_name: string;
@@ -94,12 +109,23 @@ function isWeddingRelation(value: unknown): value is WeddingRelation {
   );
 }
 
-function isInviteTokenRow(value: unknown): value is InviteTokenRow {
+function isInviteTokenIdentityGuestRelation(
+  value: unknown,
+): value is InviteTokenIdentityGuestRelation {
+  return isRecord(value) && isNullableString(value.deleted_at);
+}
+
+function isInviteTokenIdentityRow(value: unknown): value is InviteTokenIdentityRow {
   return (
     isRecord(value) &&
+    typeof value.id === "string" &&
     typeof value.guest_id === "string" &&
     typeof value.wedding_id === "string"
   );
+}
+
+function isInviteTokenRow(value: unknown): value is InviteTokenRow {
+  return isInviteTokenIdentityRow(value);
 }
 
 function isRsvpResponseRow(value: unknown): value is RsvpResponseRow {
@@ -144,6 +170,57 @@ function normalizeRsvpResponse(value: unknown): InviteRsvpResponse | null {
 export function buildInviteUrl(rawToken: string) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   return new URL(`/invite/${rawToken}`, siteUrl).toString();
+}
+
+export async function getActiveInviteTokenIdentity(
+  rawToken: string,
+  supabase?: SupabaseClient,
+): Promise<InviteTokenIdentity | null> {
+  if (!rawToken) {
+    return null;
+  }
+
+  const client = supabase ?? createSupabaseAdminClient();
+  const tokenHash = hashInviteToken(rawToken);
+  const { data, error } = await client
+    .from("invite_tokens")
+    .select(
+      `
+        id,
+        guest_id,
+        wedding_id,
+        guests!invite_tokens_guest_wedding_fk!inner(
+          deleted_at
+        )
+      `,
+    )
+    .eq("token_hash", tokenHash)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error || !data) {
+    if (error) {
+      console.error("Failed to load invite token identity", error);
+    }
+
+    return null;
+  }
+
+  if (!isInviteTokenIdentityRow(data)) {
+    return null;
+  }
+
+  const guest = getSingleRelation(data.guests);
+
+  if (!isInviteTokenIdentityGuestRelation(guest) || guest.deleted_at) {
+    return null;
+  }
+
+  return {
+    guestId: data.guest_id,
+    inviteTokenId: data.id,
+    weddingId: data.wedding_id,
+  };
 }
 
 export async function markInviteOpened({
@@ -222,6 +299,7 @@ export async function validateInviteToken(
     .from("invite_tokens")
     .select(
       `
+        id,
         guest_id,
         wedding_id,
         guests!invite_tokens_guest_wedding_fk!inner(
@@ -287,6 +365,7 @@ export async function validateInviteToken(
   return {
     isValid: true,
     guestId: row.guest_id,
+    inviteTokenId: row.id,
     weddingId: row.wedding_id,
     guest: {
       full_name: guest.full_name,

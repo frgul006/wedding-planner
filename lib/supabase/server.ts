@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+
+export { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -38,18 +39,6 @@ export async function createSupabaseServerClient() {
           // Actions handle session refresh/write paths.
         }
       },
-    },
-  });
-}
-
-export function createSupabaseAdminClient() {
-  const supabaseUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const supabaseSecretKey = requireEnv("SUPABASE_SECRET_KEY");
-
-  return createClient(supabaseUrl, supabaseSecretKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
     },
   });
 }
