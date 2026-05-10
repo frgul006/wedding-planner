@@ -17,12 +17,16 @@ Production: https://wedding-planner-gamma-lovat.vercel.app/
 ```bash
 pnpm install
 cp .env.example .env.local
+pnpm supabase:start
+pnpm supabase:status
+# Copy the local Supabase URL and keys into .env.local, then:
+pnpm seed:local
 pnpm dev
 ```
 
 Open http://localhost:3000.
 
-For local Supabase setup, seed data, and testing notes, see [`docs/local-development.md`](docs/local-development.md).
+For detailed local setup, seed data, and testing notes, see [`docs/local-development.md`](docs/local-development.md).
 
 ## Useful commands
 
