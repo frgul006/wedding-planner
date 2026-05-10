@@ -29,8 +29,9 @@
 12. **Admin messaging system**
    - `admin-messaging-system.md`
    - Keep the merged 46elks SMS work before photo admin screens to reduce admin navigation and migration conflicts.
-13. **QR code setup for guest hub**
+13. **QR code setup for guest hub shell**
    - `qr-code-generation.md`
+   - Download/print the QR and open the shared hub route; real photo upload is item 16.
 14. **Guest session attribution foundation**
    - `invite-token-security.md`
    - `public-invite-page.md`
@@ -42,6 +43,7 @@
    - `../data-model.md`
 16. **Wedding hub upload flow (public)**
    - `photo-upload-public.md`
+   - Turns the item 13 photo entry point into working Supabase Storage uploads.
 17. **Photo moderation and export**
    - `photo-review-and-export.md`
 

@@ -137,12 +137,19 @@ Variables planned for the app:
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 SUPABASE_SECRET_KEY=...
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+WEDDING_ID=00000000-0000-0000-0000-000000000001
 ```
+
+QR hub notes:
+
+- `NEXT_PUBLIC_SITE_URL` is optional locally, but helps generated QR links use a stable public origin. Vercel deployments can fall back to `VERCEL_URL` when `NEXT_PUBLIC_SITE_URL` is not set.
+- `WEDDING_ID` selects the wedding row used by the public shared `/wedding-hub`. It is optional only while the database has exactly one wedding row; set it when multiple wedding rows may exist.
 
 Rules:
 
 - `NEXT_PUBLIC_*` values are safe to expose to browser code.
-- `SUPABASE_SECRET_KEY` is server-only and must never be imported into client components.
+- `SUPABASE_SECRET_KEY` and `WEDDING_ID` are server-only and must never be imported into client components.
 - `.env.local` is ignored by git.
 
 ## Browser navigation with `playwright-cli`
