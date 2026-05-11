@@ -388,12 +388,11 @@ export function WeddingHubClient({
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const primaryActionsRef = useRef<HTMLElement>(null);
   const selectedPhotosRef = useRef<SelectedPhoto[]>([]);
+  const [isPrimaryActionsVisible, setIsPrimaryActionsVisible] = useState(true);
 
   const canUpload = Boolean(context?.uploadAllowed);
-  const reviewCopy = wedding.photo_upload_requires_review
-    ? "Bilderna läggs först i granskning och visas när de har godkänts."
-    : "Bilderna visas i flödet efter teknisk verifiering.";
   const uploadBanner = useMemo(() => {
     if (context?.uploadAllowed) {
       return "Ladda upp dina bilder här."
@@ -433,6 +432,27 @@ export function WeddingHubClient({
   useEffect(() => {
     selectedPhotosRef.current = selectedPhotos;
   }, [selectedPhotos]);
+
+  useEffect(() => {
+    const node = primaryActionsRef.current;
+
+    if (!node || typeof IntersectionObserver === "undefined") {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsPrimaryActionsVisible(entry.isIntersecting);
+      },
+      { threshold: 0 },
+    );
+
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   useEffect(() => () => {
     for (const photo of selectedPhotosRef.current) {
@@ -755,7 +775,7 @@ export function WeddingHubClient({
           <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-[#6b6358]">{uploadBanner}</p>
         </section>
 
-        <section className="grid grid-cols-2 gap-3 px-5 py-3">
+        <section ref={primaryActionsRef} className="grid grid-cols-2 gap-3 px-5 py-3">
           <button
             aria-label="Ladda upp bilder"
             className={`min-h-34 flex min-w-0 flex-col items-center justify-center gap-3 border px-4 py-6 text-center disabled:cursor-not-allowed ${
@@ -784,11 +804,11 @@ export function WeddingHubClient({
           </a>
         </section>
 
-        <p className="mx-5 my-2 border-l-2 border-[#b34a2c] bg-[#b34a2c]/5 px-3 py-2 font-serif text-sm italic text-[#b34a2c]">
-          {canUpload
-            ? reviewCopy
-            : "Gästuppladdning är avstängd. Använd en aktiv inbjudningssida för uppladdning."}
-        </p>
+        {!canUpload ? (
+          <p className="mx-5 my-2 border-l-2 border-[#b34a2c] bg-[#b34a2c]/5 px-3 py-2 font-serif text-sm italic text-[#b34a2c]">
+            Gästuppladdning är avstängd. Använd en aktiv inbjudningssida för uppladdning.
+          </p>
+        ) : null}
 
         {fileSelectionMessage ? (
           <p className="mx-5 my-2 border-l-2 border-[#8a2b18] bg-[#8a2b18]/5 px-3 py-2 text-sm text-[#8a2b18]" role="alert">
@@ -802,8 +822,8 @@ export function WeddingHubClient({
             <p className="mt-1 font-mono text-[0.6rem] uppercase tracking-[0.32em] text-[#6b6358]">Bilder</p>
           </div>
           <div className="border-l border-[#15130f]/15 py-3 text-center">
-            <p className="font-serif text-3xl leading-none">{context?.wedding?.photo_upload_requires_review ? "⧖" : "✶"}</p>
-            <p className="mt-1 font-mono text-[0.6rem] uppercase tracking-[0.32em] text-[#6b6358]">Visning</p>
+            <div className="h-9" aria-hidden="true" />
+            <p className="mt-1 font-mono text-[0.6rem] uppercase tracking-[0.32em] text-[#6b6358]">TODO</p>
           </div>
         </section>
 
@@ -887,11 +907,19 @@ export function WeddingHubClient({
               <div className="grid gap-3">
                 {feed.map((entry) => (
                   <div key={entry.id} className="grid grid-cols-[2.75rem_1fr] gap-3 border-b border-[#15130f]/20 pb-4">
-                    <img
-                      src={entry.thumbnailUrl}
-                      alt=""
-                      className="h-11 w-11 border border-[#15130f]/20 bg-[#e6dcc7] object-cover"
-                    />
+                    <a
+                      aria-label={`Öppna foto från ${entry.who}`}
+                      className="block h-11 w-11 border border-[#15130f]/20 bg-[#e6dcc7]"
+                      href={entry.photoUrl}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      <img
+                        src={entry.thumbnailUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    </a>
                     <div>
                       <p className="text-sm font-medium">
                         {entry.who} laddade upp en bild
@@ -935,32 +963,34 @@ export function WeddingHubClient({
         </section>
       </section>
 
-      <div className="fixed inset-x-0 bottom-0 border-t-2 border-[#b34a2c] bg-[#15130f]/95 px-5 py-4 backdrop-blur">
-        <div className="mx-auto grid max-w-md grid-cols-2 gap-3">
-          <button
-            className="bg-[#b34a2c] px-3 py-4 text-center font-mono text-[0.75rem] font-semibold uppercase tracking-[0.28em] text-[#f1eadc] disabled:opacity-65"
-            disabled={!canUpload || isUploading}
-            onClick={selectedPhotos.length > 0 ? onUpload : onSelectFileClick}
-            type="button"
-          >
-            {selectedPhotos.length > 0 ? "↑ Ladda upp" : "↑ Välj bilder"}
-          </button>
-          {spotifyEnabled ? (
-            <a
-              className="border border-white/25 px-3 py-4 text-center font-mono text-[0.75rem] font-semibold uppercase tracking-[0.28em] text-[#f1eadc] no-underline"
-              href={wedding.spotify_playlist_url ?? ""}
-              rel="noopener noreferrer"
-              target="_blank"
+      {!isPrimaryActionsVisible ? (
+        <div className="fixed inset-x-0 bottom-0 border-t-2 border-[#b34a2c] bg-[#15130f]/95 px-5 py-4 backdrop-blur">
+          <div className="mx-auto grid max-w-md grid-cols-2 gap-3">
+            <button
+              className="bg-[#b34a2c] px-3 py-4 text-center font-mono text-[0.75rem] font-semibold uppercase tracking-[0.28em] text-[#f1eadc] disabled:opacity-65"
+              disabled={!canUpload || isUploading}
+              onClick={selectedPhotos.length > 0 ? onUpload : onSelectFileClick}
+              type="button"
             >
-              ♪ Lägg till låt
-            </a>
-          ) : (
-            <button className="border border-white/25 px-3 py-4 text-center font-mono text-[0.75rem] font-semibold uppercase tracking-[0.28em] text-[#f1eadc] opacity-65" type="button" disabled>
-              ♪ Saknas
+              {selectedPhotos.length > 0 ? "↑ Ladda upp" : "↑ Välj bilder"}
             </button>
-          )}
+            {spotifyEnabled ? (
+              <a
+                className="border border-white/25 px-3 py-4 text-center font-mono text-[0.75rem] font-semibold uppercase tracking-[0.28em] text-[#f1eadc] no-underline"
+                href={wedding.spotify_playlist_url ?? ""}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                ♪ Lägg till låt
+              </a>
+            ) : (
+              <button className="border border-white/25 px-3 py-4 text-center font-mono text-[0.75rem] font-semibold uppercase tracking-[0.28em] text-[#f1eadc] opacity-65" type="button" disabled>
+                ♪ Saknas
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <input
         accept={PHOTO_UPLOAD_ACCEPT}
