@@ -26,10 +26,6 @@ function parseSignUploads(body: unknown): UploadFileInput[] | null {
     return null;
   }
 
-  if (rawUploads.length < 1 || rawUploads.length > MAX_HUB_FILES_PER_REQUEST) {
-    return null;
-  }
-
   const normalized: UploadFileInput[] = [];
 
   for (const raw of rawUploads) {

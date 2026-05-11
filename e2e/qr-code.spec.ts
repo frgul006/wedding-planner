@@ -2,6 +2,7 @@ import { expect, type Page } from "@playwright/test";
 
 import { GUEST_NAVIGATION_COOKIE_NAME } from "../lib/guest-navigation-session";
 import { PHOTO_UPLOAD_BUCKET } from "../lib/photo-upload";
+import { MAX_HUB_FILES_PER_REQUEST } from "../lib/wedding-hub-photo-upload";
 
 import { signInAsSeededAdmin } from "./support/auth";
 import {
@@ -314,6 +315,28 @@ test.describe("wedding hub QR", () => {
       uploadAllowed: false,
       uploadIntents: [],
     });
+  });
+
+  test("sign endpoint returns clear file-count errors", async ({
+    page,
+  }) => {
+    const response = await page.request.post("/api/wedding-hub/photos/sign", {
+      data: JSON.stringify({
+        uploads: Array.from({ length: MAX_HUB_FILES_PER_REQUEST + 1 }, (_, index) => ({
+          clientId: `too-many-${index}`,
+          fileName: `wedding-photo-${index}.jpg`,
+          mimeType: "image/jpeg",
+          sizeBytes: 1024,
+          note: "",
+        })),
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+
+    expect(response.status()).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: "invalid_file_count" });
   });
 
   test("sign endpoint returns upload intents when anonymous uploads are enabled", async ({

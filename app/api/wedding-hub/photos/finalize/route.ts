@@ -20,11 +20,7 @@ function parseFinalizeRequest(body: unknown): FinalizeRequest["uploads"] | null 
   }
 
   const rawUploads = body.uploads;
-  if (
-    !Array.isArray(rawUploads) ||
-    rawUploads.length < 1 ||
-    rawUploads.length > MAX_HUB_FILES_PER_REQUEST
-  ) {
+  if (!Array.isArray(rawUploads)) {
     return null;
   }
 
@@ -71,8 +67,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   }
 
-  if (!uploads.length) {
-    return NextResponse.json({ error: "no_uploads" }, { status: 400 });
+  if (!uploads.length || uploads.length > MAX_HUB_FILES_PER_REQUEST) {
+    return NextResponse.json({ error: "invalid_file_count" }, { status: 400 });
   }
 
   const supabase = createSupabaseAdminClient();
