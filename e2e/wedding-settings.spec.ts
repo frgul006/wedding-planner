@@ -12,6 +12,29 @@ import { uniqueE2eValue } from "./support/unique";
 import { updateWeddingSettings } from "./support/wedding-settings";
 
 test.describe("wedding settings propagation", () => {
+  test("persists photo review setting while anonymous hub uploads stay open by default", async ({
+    page,
+  }) => {
+    await signInAsSeededAdmin(page);
+    await page.getByRole("link", { name: "Manage settings" }).click();
+    await expect(page.getByRole("heading", { name: "Wedding settings" })).toBeVisible();
+
+    const anonymousUploadToggle = page.getByLabel("Allow anonymous wedding hub uploads");
+    const reviewToggle = page.getByLabel("Require photo review before showing uploads");
+
+    await expect(anonymousUploadToggle).toBeChecked();
+    await expect(reviewToggle).not.toBeChecked();
+
+    await reviewToggle.check();
+    await page.getByRole("button", { name: "Save wedding settings" }).click();
+
+    await expect(page.getByText("Wedding settings updated.")).toBeVisible();
+
+    await page.reload();
+    await expect(anonymousUploadToggle).toBeChecked();
+    await expect(reviewToggle).toBeChecked();
+  });
+
   test("saves admin-managed wedding details and shows them on fresh invite loads", async ({
     page,
   }) => {

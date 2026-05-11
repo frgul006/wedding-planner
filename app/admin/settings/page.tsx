@@ -31,6 +31,7 @@ type Wedding = {
   gift_info: string | null;
   spotify_playlist_url: string | null;
   allow_anonymous_hub_upload: boolean;
+  photo_upload_requires_review: boolean;
 };
 
 function getFirstParam(value: string | string[] | undefined) {
@@ -90,7 +91,8 @@ function toWedding(value: unknown): Wedding | null {
     !isNullableString(value.policy) ||
     !isNullableString(value.gift_info) ||
     !isNullableString(value.spotify_playlist_url) ||
-    typeof value.allow_anonymous_hub_upload !== "boolean"
+    typeof value.allow_anonymous_hub_upload !== "boolean" ||
+    typeof value.photo_upload_requires_review !== "boolean"
   ) {
     return null;
   }
@@ -100,6 +102,7 @@ function toWedding(value: unknown): Wedding | null {
     gift_info: value.gift_info,
     google_maps_url: value.google_maps_url,
     name: value.name,
+    photo_upload_requires_review: value.photo_upload_requires_review,
     policy: value.policy,
     spotify_playlist_url: value.spotify_playlist_url,
     time_plan: isStringArray(value.time_plan) ? value.time_plan : [],
@@ -118,7 +121,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   const { data, error } = await supabase
     .from("weddings")
     .select(
-      "name, wedding_date, venue_name, venue_address, google_maps_url, time_plan, policy, gift_info, spotify_playlist_url, allow_anonymous_hub_upload",
+      "name, wedding_date, venue_name, venue_address, google_maps_url, time_plan, policy, gift_info, spotify_playlist_url, allow_anonymous_hub_upload, photo_upload_requires_review",
     )
     .eq("id", adminProfile.wedding_id)
     .maybeSingle();
@@ -241,22 +244,41 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
               placeholder="Tell guests about gifts, registry, or honeymoon contributions."
             />
 
-            <label className="flex items-start gap-3 rounded-2xl bg-zinc-50 p-4 text-sm text-zinc-700">
-              <input
-                className="mt-1 h-4 w-4 rounded border-zinc-300"
-                defaultChecked={wedding.allow_anonymous_hub_upload}
-                name="allow_anonymous_hub_upload"
-                type="checkbox"
-              />
-              <span>
-                <span className="block font-medium text-zinc-950">
-                  Allow anonymous wedding hub uploads
+            <div className="grid gap-3">
+              <label className="flex items-start gap-3 rounded-2xl bg-zinc-50 p-4 text-sm text-zinc-700">
+                <input
+                  className="mt-1 h-4 w-4 rounded border-zinc-300"
+                  defaultChecked={wedding.allow_anonymous_hub_upload}
+                  name="allow_anonymous_hub_upload"
+                  type="checkbox"
+                />
+                <span>
+                  <span className="block font-medium text-zinc-950">
+                    Allow anonymous wedding hub uploads
+                  </span>
+                  <span className="mt-1 block text-zinc-500">
+                    When enabled, future public hub visitors can upload without first opening a private invite link.
+                  </span>
                 </span>
-                <span className="mt-1 block text-zinc-500">
-                  When enabled, future public hub visitors can upload without first opening a private invite link.
+              </label>
+
+              <label className="flex items-start gap-3 rounded-2xl bg-zinc-50 p-4 text-sm text-zinc-700">
+                <input
+                  className="mt-1 h-4 w-4 rounded border-zinc-300"
+                  defaultChecked={wedding.photo_upload_requires_review}
+                  name="photo_upload_requires_review"
+                  type="checkbox"
+                />
+                <span>
+                  <span className="block font-medium text-zinc-950">
+                    Require photo review before showing uploads
+                  </span>
+                  <span className="mt-1 block text-zinc-500">
+                    When enabled, verified uploads stay pending until an admin approves them.
+                  </span>
                 </span>
-              </span>
-            </label>
+              </label>
+            </div>
 
             <button
               className="rounded-full bg-zinc-950 px-5 py-3 font-medium text-white transition hover:bg-zinc-800 sm:w-fit"

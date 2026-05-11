@@ -64,6 +64,7 @@ export async function updateWeddingSettingsAction(formData: FormData) {
       gift_info: cleanOptionalText(formData.get("gift_info")),
       spotify_playlist_url: cleanOptionalText(formData.get("spotify_playlist_url")),
       allow_anonymous_hub_upload: formData.get("allow_anonymous_hub_upload") === "on",
+      photo_upload_requires_review: formData.get("photo_upload_requires_review") === "on",
     })
     .eq("id", adminProfile.wedding_id)
     .select("id")
