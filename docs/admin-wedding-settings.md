@@ -26,7 +26,8 @@ Editable fields:
 - `policy`
 - `gift_info`
 - `spotify_playlist_url`
-- `allow_anonymous_hub_upload`
+- `allow_anonymous_hub_upload` (default `true`)
+- `photo_upload_requires_review` (default `false`)
 
 `time_plan` is edited as one item per textarea line and saved as a JSON array of strings. Blank lines are ignored.
 
@@ -40,10 +41,7 @@ Editable fields:
 - Edit gift information
 - Edit Spotify playlist link
 - Toggle anonymous wedding hub uploads
-
-## Planned photo upload setting
-
-The photo upload PRDs add a future `photo_upload_requires_review` wedding setting. It is not part of the current implemented settings page until the photo upload/review feature is built.
+- Toggle whether verified photo uploads require admin review before showing
 
 ## Local validation
 

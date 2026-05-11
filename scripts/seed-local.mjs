@@ -155,6 +155,7 @@ async function main() {
     gift_info: "Din närvaro är den bästa presenten.",
     spotify_playlist_url: "https://open.spotify.com/",
     allow_anonymous_hub_upload: true,
+    photo_upload_requires_review: false,
   });
 
   if (weddingError) {

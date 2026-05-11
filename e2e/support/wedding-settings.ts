@@ -3,6 +3,7 @@ import { SEEDED_WEDDING_ID } from "./test-data";
 
 export const BASELINE_WEDDING_SETTINGS = {
   allow_anonymous_hub_upload: true,
+  photo_upload_requires_review: false,
   gift_info: "Din närvaro är den bästa presenten.",
   google_maps_url: "https://maps.app.goo.gl/KCgGXBcyeanMhsZx5",
   name: "Fredrik <3 Matilda",
@@ -16,6 +17,7 @@ export const BASELINE_WEDDING_SETTINGS = {
 
 export type WeddingSettingsPatch = Partial<{
   allow_anonymous_hub_upload: boolean;
+  photo_upload_requires_review: boolean;
   gift_info: string | null;
   google_maps_url: string | null;
   name: string;
