@@ -245,10 +245,13 @@ test.describe("wedding hub QR", () => {
   test("public wedding hub shows live upload action and empty state", async ({
     page,
   }) => {
+    await page.setViewportSize({ width: 390, height: 500 });
     await page.goto("/wedding-hub");
 
     await expect(page.getByRole("heading", { name: /Lägg till en låt/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Ladda upp/ })).toBeVisible();
+    await expect(page.getByText("TODO")).toBeVisible();
+    await expect(page.getByText(/teknisk verifiering/)).toHaveCount(0);
     await expect(page.getByText("Inga nya bidrag än")).toBeVisible();
     await page.getByRole("button", { name: "Galleriet" }).click();
     await expect(page.getByText("Galleriet är tomt")).toBeVisible();
@@ -256,10 +259,7 @@ test.describe("wedding hub QR", () => {
       "href",
       BASELINE_WEDDING_SETTINGS.spotify_playlist_url,
     );
-    await expect(page.getByRole("link", { name: /Lägg till låt/ })).toHaveAttribute(
-      "href",
-      BASELINE_WEDDING_SETTINGS.spotify_playlist_url,
-    );
+    await expect(page.getByRole("link", { name: /Lägg till låt/ })).toHaveCount(0);
   });
 
   test("public wedding hub shows clear error for unsupported selected files", async ({
@@ -454,6 +454,13 @@ test.describe("wedding hub QR", () => {
         (photo: { id?: unknown; note?: unknown }) => photo.note === note,
       ),
     ).toBeTruthy();
+
+    await page.goto("/wedding-hub");
+    await expect(page.getByText(note)).toBeVisible();
+    await expect(page.getByRole("link", { name: /Öppna foto från Gäst/ }).first()).toHaveAttribute(
+      "href",
+      /\/storage\/v1\/object\/sign\//,
+    );
   });
 
   test("anonymous guest can upload and finalize a PNG larger than the header verification window", async ({
