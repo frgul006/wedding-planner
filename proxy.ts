@@ -1,8 +1,65 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import {
+  createOrRefreshGuestNavigationSession,
+  getGuestNavigationCookieValue,
+  getGuestNavigationSessionMetadata,
+  setGuestNavigationCookie,
+} from "@/lib/guest-navigation-session";
+import { getActiveInviteTokenIdentity } from "@/lib/invite-tokens";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { updateSupabaseSession } from "@/lib/supabase/proxy";
 
-export async function proxy(request: NextRequest) {
+function getInviteTokenFromPathname(pathname: string) {
+  const match = /^\/invite\/([^/]+)\/?$/.exec(pathname);
+
+  if (!match) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+}
+
+async function addGuestNavigationCookieForInvite(
+  request: NextRequest,
+  response: NextResponse,
+) {
+  if (request.method !== "GET") {
+    return response;
+  }
+
+  const rawToken = getInviteTokenFromPathname(request.nextUrl.pathname);
+
+  if (!rawToken) {
+    return response;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const identity = await getActiveInviteTokenIdentity(rawToken, supabase);
+
+  if (!identity) {
+    return response;
+  }
+
+  const sessionCookie = await createOrRefreshGuestNavigationSession({
+    ...identity,
+    existingCookieValue: getGuestNavigationCookieValue(request),
+    metadata: getGuestNavigationSessionMetadata(request),
+    supabase,
+  });
+
+  if (sessionCookie) {
+    setGuestNavigationCookie({ response, ...sessionCookie });
+  }
+
+  return response;
+}
+
+async function handleAdminProxy(request: NextRequest) {
   const { response, user, adminProfile } = await updateSupabaseSession(request);
   const { pathname, search } = request.nextUrl;
 
@@ -31,6 +88,23 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
+export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith("/admin")) {
+    return handleAdminProxy(request);
+  }
+
+  if (pathname.startsWith("/invite")) {
+    return addGuestNavigationCookieForInvite(
+      request,
+      NextResponse.next({ request }),
+    );
+  }
+
+  return NextResponse.next({ request });
+}
+
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/invite/:path*"],
 };

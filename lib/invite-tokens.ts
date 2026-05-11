@@ -5,7 +5,7 @@ import {
   hashInviteToken,
 } from "@/lib/invite-token-crypto";
 import { isRsvpAttendance, type RsvpAttendance } from "@/lib/rsvp-attendance";
-import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isNullableString, isRecord } from "@/lib/type-guards";
 
 type GuestRelation = {
@@ -13,6 +13,12 @@ type GuestRelation = {
   full_name: string | null;
   phone: string | null;
   sms_opt_in: boolean;
+};
+
+export type InviteTokenIdentity = {
+  guestId: string;
+  inviteTokenId: string;
+  weddingId: string;
 };
 
 export type InviteRsvpResponse = {
@@ -40,7 +46,21 @@ type WeddingRelation = Omit<InviteWedding, "name" | "time_plan"> & {
   time_plan: unknown;
 };
 
+type ValidGuestRelation = GuestRelation & {
+  full_name: string;
+};
+
+type ValidWeddingRelation = WeddingRelation & {
+  name: string;
+};
+
+type ValidInviteTokenContext = InviteTokenIdentity & {
+  guest: ValidGuestRelation;
+  wedding: ValidWeddingRelation;
+};
+
 type InviteTokenRow = {
+  id: string;
   guest_id: string;
   guests: unknown;
   wedding_id: string;
@@ -55,6 +75,7 @@ export type InviteTokenValidationResult =
   | {
       isValid: true;
       guestId: string;
+      inviteTokenId: string;
       weddingId: string;
       guest: {
         full_name: string;
@@ -97,6 +118,7 @@ function isWeddingRelation(value: unknown): value is WeddingRelation {
 function isInviteTokenRow(value: unknown): value is InviteTokenRow {
   return (
     isRecord(value) &&
+    typeof value.id === "string" &&
     typeof value.guest_id === "string" &&
     typeof value.wedding_id === "string"
   );
@@ -144,6 +166,103 @@ function normalizeRsvpResponse(value: unknown): InviteRsvpResponse | null {
 export function buildInviteUrl(rawToken: string) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   return new URL(`/invite/${rawToken}`, siteUrl).toString();
+}
+
+async function resolveValidInviteToken(
+  rawToken: string,
+  supabase?: SupabaseClient,
+): Promise<ValidInviteTokenContext | null> {
+  if (!rawToken) {
+    return null;
+  }
+
+  const client = supabase ?? createSupabaseAdminClient();
+  const tokenHash = hashInviteToken(rawToken);
+  const { data, error } = await client
+    .from("invite_tokens")
+    .select(
+      `
+        id,
+        guest_id,
+        wedding_id,
+        guests!invite_tokens_guest_wedding_fk!inner(
+          deleted_at,
+          full_name,
+          phone,
+          sms_opt_in
+        ),
+        weddings!inner(
+          gift_info,
+          google_maps_url,
+          name,
+          policy,
+          spotify_playlist_url,
+          time_plan,
+          venue_address,
+          venue_name,
+          wedding_date
+        )
+      `,
+    )
+    .eq("token_hash", tokenHash)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error || !data) {
+    if (error) {
+      console.error("Failed to resolve invite token", error);
+    }
+
+    return null;
+  }
+
+  if (!isInviteTokenRow(data)) {
+    return null;
+  }
+
+  const guest = getSingleRelation(data.guests);
+  const wedding = getSingleRelation(data.weddings);
+
+  if (
+    !isGuestRelation(guest) ||
+    !isWeddingRelation(wedding) ||
+    !guest.full_name ||
+    guest.deleted_at ||
+    !wedding.name
+  ) {
+    return null;
+  }
+
+  return {
+    guest: {
+      ...guest,
+      full_name: guest.full_name,
+    },
+    guestId: data.guest_id,
+    inviteTokenId: data.id,
+    wedding: {
+      ...wedding,
+      name: wedding.name,
+    },
+    weddingId: data.wedding_id,
+  };
+}
+
+export async function getActiveInviteTokenIdentity(
+  rawToken: string,
+  supabase?: SupabaseClient,
+): Promise<InviteTokenIdentity | null> {
+  const invite = await resolveValidInviteToken(rawToken, supabase);
+
+  if (!invite) {
+    return null;
+  }
+
+  return {
+    guestId: invite.guestId,
+    inviteTokenId: invite.inviteTokenId,
+    weddingId: invite.weddingId,
+  };
 }
 
 export async function markInviteOpened({
@@ -212,72 +331,19 @@ export async function regenerateInviteToken({
 export async function validateInviteToken(
   rawToken: string,
 ): Promise<InviteTokenValidationResult> {
-  if (!rawToken) {
-    return { isValid: false };
-  }
-
   const supabase = createSupabaseAdminClient();
-  const tokenHash = hashInviteToken(rawToken);
-  const { data, error } = await supabase
-    .from("invite_tokens")
-    .select(
-      `
-        guest_id,
-        wedding_id,
-        guests!invite_tokens_guest_wedding_fk!inner(
-          deleted_at,
-          full_name,
-          phone,
-          sms_opt_in
-        ),
-        weddings!inner(
-          gift_info,
-          google_maps_url,
-          name,
-          policy,
-          spotify_playlist_url,
-          time_plan,
-          venue_address,
-          venue_name,
-          wedding_date
-        )
-      `,
-    )
-    .eq("token_hash", tokenHash)
-    .eq("is_active", true)
-    .maybeSingle();
+  const invite = await resolveValidInviteToken(rawToken, supabase);
 
-  if (error || !data) {
-    if (error) {
-      console.error("Failed to validate invite token", error);
-    }
-
+  if (!invite) {
     return { isValid: false };
   }
 
-  if (!isInviteTokenRow(data)) {
-    return { isValid: false };
-  }
-
-  const row = data;
-  const guest = getSingleRelation(row.guests);
-  const wedding = getSingleRelation(row.weddings);
-
-  if (
-    !isGuestRelation(guest) ||
-    !isWeddingRelation(wedding) ||
-    !guest.full_name ||
-    guest.deleted_at ||
-    !wedding.name
-  ) {
-    return { isValid: false };
-  }
-
+  const { guest, wedding } = invite;
   const { data: rsvpData, error: rsvpError } = await supabase
     .from("rsvp_responses")
     .select("allergy_notes, attendance, extra_guests, food_preference, last_submitted_at")
-    .eq("guest_id", row.guest_id)
-    .eq("wedding_id", row.wedding_id)
+    .eq("guest_id", invite.guestId)
+    .eq("wedding_id", invite.weddingId)
     .maybeSingle();
 
   if (rsvpError) {
@@ -286,8 +352,9 @@ export async function validateInviteToken(
 
   return {
     isValid: true,
-    guestId: row.guest_id,
-    weddingId: row.wedding_id,
+    guestId: invite.guestId,
+    inviteTokenId: invite.inviteTokenId,
+    weddingId: invite.weddingId,
     guest: {
       full_name: guest.full_name,
       phone: guest.phone,
