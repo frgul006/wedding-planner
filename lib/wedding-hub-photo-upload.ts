@@ -3,9 +3,10 @@ import crypto from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
-  PHOTO_UPLOAD_ALLOWED_MIME_TYPES,
   PHOTO_UPLOAD_BUCKET,
   PHOTO_UPLOAD_MAX_FILE_SIZE_BYTES,
+  PHOTO_UPLOAD_THUMBNAIL_MIME_TYPES,
+  isPhotoUploadMimeType,
 } from "@/lib/photo-upload";
 import { isRecord } from "@/lib/type-guards";
 
@@ -15,7 +16,6 @@ export const MAX_HUB_FILES_PER_REQUEST = 8;
 export const MAX_PHOTO_NOTE_LENGTH = 512;
 export const UPLOAD_CLAIM_TTL_SECONDS = 10 * 60;
 
-const UPLOAD_THUMBNAIL_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 const UPLOAD_SIGNING_SECRETS = ["PHOTO_UPLOAD_SIGNING_SECRET", "SUPABASE_SECRET_KEY"] as const;
 
 export type UploadFileInput = {
@@ -119,7 +119,7 @@ function buildUploadClaim(raw: {
 }
 
 function isAllowedUploadMime(value: string) {
-  return PHOTO_UPLOAD_ALLOWED_MIME_TYPES.some((mime) => mime === value);
+  return isPhotoUploadMimeType(value);
 }
 
 function cleanFileName(fileName: string) {
@@ -131,7 +131,7 @@ function cleanFileName(fileName: string) {
 }
 
 export function canGenerateThumbnail(mimeType: string) {
-  return UPLOAD_THUMBNAIL_MIME_TYPES.some((mime) => mime === mimeType);
+  return PHOTO_UPLOAD_THUMBNAIL_MIME_TYPES.some((mime) => mime === mimeType);
 }
 
 export function verifySignedUploadClaim(

@@ -75,7 +75,7 @@ Guests can share photos quickly and also add songs during the wedding. The uploa
 - Upload progress is visible during transfer.
 - Uploaded files are stored in Supabase Storage and have matching `PhotoUpload` metadata rows.
 - Uploaded files must pass server-side post-upload verification before they can be displayed, approved, or exported.
-- Gallery/feed rendering should use generated thumbnails where available; if thumbnail generation/upload is unavailable for a format, fallback behavior remains defined in the implementation.
+- Gallery/feed rendering should use generated thumbnails where available; if `thumbnail_status` is not `ready` or thumbnail URL signing fails, the hub falls back to the signed original photo URL.
 - With review disabled by default, verified valid uploads are marked `approved` without manual review.
 - With review enabled, verified valid uploads are marked `pending` and do not show until approved.
 - Spotify action is visible on the same page as upload.

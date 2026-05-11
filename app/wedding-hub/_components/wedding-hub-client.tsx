@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import {
+  PHOTO_UPLOAD_ALLOWED_MIME_TYPES,
+  PHOTO_UPLOAD_MAX_FILE_SIZE_BYTES,
+  PHOTO_UPLOAD_THUMBNAIL_MIME_TYPES,
+} from "@/lib/photo-upload";
 import { isRecord } from "@/lib/type-guards";
 import type {
   HubFeedItem,
@@ -55,8 +60,31 @@ type WeddingHubClientProps = {
   spotifyEnabled: boolean;
 };
 
-function canUploadFile(file: File) {
-  return ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"].includes(file.type);
+const PHOTO_UPLOAD_ALLOWED_MIME_TYPE_SET = new Set<string>(PHOTO_UPLOAD_ALLOWED_MIME_TYPES);
+const PHOTO_UPLOAD_THUMBNAIL_MIME_TYPE_SET = new Set<string>(PHOTO_UPLOAD_THUMBNAIL_MIME_TYPES);
+const PHOTO_UPLOAD_ACCEPT = PHOTO_UPLOAD_ALLOWED_MIME_TYPES.join(",");
+const READABLE_ALLOWED_IMAGE_TYPES = "JPG, PNG, WEBP, HEIC eller HEIF";
+
+function formatMegabytes(bytes: number) {
+  return `${Math.round(bytes / (1024 * 1024))} MB`;
+}
+
+function validateUploadFile(file: File) {
+  const fileName = file.name || "Filen";
+
+  if (file.size < 1) {
+    return `${fileName} är tom och kan inte laddas upp.`;
+  }
+
+  if (file.size > PHOTO_UPLOAD_MAX_FILE_SIZE_BYTES) {
+    return `${fileName} är för stor. Välj en bild under ${formatMegabytes(PHOTO_UPLOAD_MAX_FILE_SIZE_BYTES)}.`;
+  }
+
+  if (!PHOTO_UPLOAD_ALLOWED_MIME_TYPE_SET.has(file.type)) {
+    return `${fileName} har en filtyp som inte stöds. Välj ${READABLE_ALLOWED_IMAGE_TYPES}.`;
+  }
+
+  return null;
 }
 
 function readableFileError(fileCount: number, maxFiles: number) {
@@ -64,7 +92,37 @@ function readableFileError(fileCount: number, maxFiles: number) {
 }
 
 function isAllowedThumbnailType(mimeType: string) {
-  return ["image/jpeg", "image/png", "image/webp"].includes(mimeType);
+  return PHOTO_UPLOAD_THUMBNAIL_MIME_TYPE_SET.has(mimeType);
+}
+
+function uploadErrorMessage(errorCode: unknown, status: number) {
+  if (status === 403) {
+    return "Uppladdning är avstängd för den här gästen. Öppna en aktiv inbjudningslänk och försök igen.";
+  }
+
+  switch (errorCode) {
+    case "unsupported_mime":
+      return `Filtypen stöds inte. Välj ${READABLE_ALLOWED_IMAGE_TYPES}.`;
+    case "invalid_file_size":
+      return `Filen är tom eller för stor. Välj en bild mellan 1 byte och ${formatMegabytes(PHOTO_UPLOAD_MAX_FILE_SIZE_BYTES)}.`;
+    case "invalid_file_count":
+      return `Du kan ladda upp högst ${MAX_HUB_FILES_PER_REQUEST} bilder åt gången.`;
+    case "invalid_note_length":
+      return `Kommentaren får vara högst ${MAX_PHOTO_NOTE_LENGTH} tecken.`;
+    case "invalid_client_payload":
+    case "invalid_payload":
+      return "Något i filvalet kunde inte läsas. Välj bilderna igen och försök på nytt.";
+    default:
+      return "Kunde inte förbereda uppladdningen. Kontrollera filerna och försök igen.";
+  }
+}
+
+function revokeSelectedPhotoUrls(photo: Pick<SelectedPhoto, "previewUrl" | "thumbnailBlobUrl">) {
+  URL.revokeObjectURL(photo.previewUrl);
+
+  if (photo.thumbnailBlobUrl) {
+    URL.revokeObjectURL(photo.thumbnailBlobUrl);
+  }
 }
 
 async function generateThumbnail(file: File) {
@@ -163,6 +221,7 @@ export function WeddingHubClient({
   const [feed, setFeed] = useState<HubFeedItem[]>(initialPhotoData.feed);
   const [photoCount, setPhotoCount] = useState<number>(initialPhotoData.photos.totalPhotoCount);
   const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
+  const [fileSelectionMessage, setFileSelectionMessage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isUploadingAll, setIsUploadingAll] = useState(false);
 
@@ -328,6 +387,7 @@ export function WeddingHubClient({
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const selectedPhotosRef = useRef<SelectedPhoto[]>([]);
 
   const canUpload = Boolean(context?.uploadAllowed);
   const reviewCopy = wedding.photo_upload_requires_review
@@ -369,26 +429,46 @@ export function WeddingHubClient({
     setPhotoCount(initialPhotoData.photos.totalPhotoCount);
   }, [initialPhotoData.photos.photos, initialPhotoData.feed, initialPhotoData.photos.totalPhotoCount]);
 
+  useEffect(() => {
+    selectedPhotosRef.current = selectedPhotos;
+  }, [selectedPhotos]);
+
+  useEffect(() => () => {
+    for (const photo of selectedPhotosRef.current) {
+      revokeSelectedPhotoUrls(photo);
+    }
+
+    selectedPhotosRef.current = [];
+  }, []);
+
   const onSelectFiles = useCallback((nextFiles: FileList | null) => {
     if (!nextFiles) {
       return;
     }
 
     const next: SelectedPhoto[] = [];
+    const rejectedMessages: string[] = [];
+    let skippedForLimit = 0;
     const remainingSlots = Math.max(0, MAX_HUB_FILES_PER_REQUEST - selectedPhotos.length);
 
     if (remainingSlots === 0) {
+      setFileSelectionMessage(`Du kan välja högst ${MAX_HUB_FILES_PER_REQUEST} bilder åt gången. Ta bort en bild innan du väljer fler.`);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
       return;
     }
 
-    const usable = Array.from(nextFiles).filter((file) => canUploadFile(file));
-    const normalized = usable.slice(0, remainingSlots);
+    for (const file of Array.from(nextFiles)) {
+      const validationMessage = validateUploadFile(file);
 
-    for (const file of normalized) {
-      if (file.size < 1) {
+      if (validationMessage) {
+        rejectedMessages.push(validationMessage);
+        continue;
+      }
+
+      if (next.length >= remainingSlots) {
+        skippedForLimit += 1;
         continue;
       }
 
@@ -410,20 +490,46 @@ export function WeddingHubClient({
           return;
         }
 
-        setSelectedPhotos((current) =>
-          current.map((existing) =>
-            existing.id === id
-              ? {
-                  ...existing,
-                  thumbnailBlobUrl: thumbnail.previewUrl,
-                  thumbnailFile: new File([thumbnail.blob], thumbnail.fileName, { type: "image/jpeg" }),
-                }
-              : existing,
-          ),
-        );
+        setSelectedPhotos((current) => {
+          let attached = false;
+          const updated = current.map((existing) => {
+            if (existing.id !== id) {
+              return existing;
+            }
+
+            attached = true;
+            if (existing.thumbnailBlobUrl) {
+              URL.revokeObjectURL(existing.thumbnailBlobUrl);
+            }
+
+            return {
+              ...existing,
+              thumbnailBlobUrl: thumbnail.previewUrl,
+              thumbnailFile: new File([thumbnail.blob], thumbnail.fileName, { type: "image/jpeg" }),
+            };
+          });
+
+          if (!attached) {
+            URL.revokeObjectURL(thumbnail.previewUrl);
+          }
+
+          return updated;
+        });
       }).catch(() => undefined);
     }
 
+    const messages = rejectedMessages.slice(0, 3);
+    const hiddenRejectedCount = rejectedMessages.length - messages.length;
+
+    if (hiddenRejectedCount > 0) {
+      messages.push(`${hiddenRejectedCount} fil(er) till kunde inte läggas till.`);
+    }
+
+    if (skippedForLimit > 0) {
+      messages.push(`Du kan välja högst ${MAX_HUB_FILES_PER_REQUEST} bilder åt gången. ${skippedForLimit} fil(er) hoppades över.`);
+    }
+
+    setFileSelectionMessage(messages.length > 0 ? messages.join(" ") : null);
     setSelectedPhotos((current) => [...current, ...next].slice(0, MAX_HUB_FILES_PER_REQUEST));
 
     if (fileInputRef.current) {
@@ -438,11 +544,8 @@ export function WeddingHubClient({
   const clearFile = useCallback((id: string) => {
     setSelectedPhotos((current) => {
       const entry = current.find((row) => row.id === id);
-      if (entry?.previewUrl) {
-        URL.revokeObjectURL(entry.previewUrl);
-      }
-      if (entry?.thumbnailBlobUrl) {
-        URL.revokeObjectURL(entry.thumbnailBlobUrl);
+      if (entry) {
+        revokeSelectedPhotoUrls(entry);
       }
 
       return current.filter((row) => row.id !== id);
@@ -465,6 +568,7 @@ export function WeddingHubClient({
       return;
     }
 
+    setFileSelectionMessage(null);
     setIsUploadingAll(true);
     setIsUploading(true);
 
@@ -493,7 +597,8 @@ export function WeddingHubClient({
       const intents = parseUploadIntents(signedResult?.uploadIntents);
 
       if (!signResponse.ok || !intents) {
-        throw new Error("upload_sign_failed");
+        const signErrorCode = isRecord(signedResult) ? signedResult.error : null;
+        throw new Error(uploadErrorMessage(signErrorCode, signResponse.status));
       }
 
       const intentById = new Map(intents.map((intent) => [intent.clientId, intent]));
@@ -583,7 +688,14 @@ export function WeddingHubClient({
           }
 
           await refreshGallery();
-          setSelectedPhotos((current) => current.filter((item) => item.status !== "done"));
+          setSelectedPhotos((current) => current.filter((item) => {
+            if (item.status === "done") {
+              revokeSelectedPhotoUrls(item);
+              return false;
+            }
+
+            return true;
+          }));
         } else {
           const failedClientIds = new Set(finalizeRows.map((row) => row.clientId));
           setSelectedPhotos((current) =>
@@ -676,6 +788,12 @@ export function WeddingHubClient({
             ? reviewCopy
             : "Gästuppladdning är avstängd. Använd en aktiv inbjudningssida för uppladdning."}
         </p>
+
+        {fileSelectionMessage ? (
+          <p className="mx-5 my-2 border-l-2 border-[#8a2b18] bg-[#8a2b18]/5 px-3 py-2 text-sm text-[#8a2b18]" role="alert">
+            {fileSelectionMessage}
+          </p>
+        ) : null}
 
         <section className="mt-3 grid grid-cols-2 border-y border-[#15130f]/15 px-5">
           <div className="py-3 text-center">
@@ -844,7 +962,7 @@ export function WeddingHubClient({
       </div>
 
       <input
-        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+        accept={PHOTO_UPLOAD_ACCEPT}
         className="hidden"
         multiple
         onChange={(event) => {

@@ -259,6 +259,21 @@ test.describe("wedding hub QR", () => {
     );
   });
 
+  test("public wedding hub shows clear error for unsupported selected files", async ({
+    page,
+  }) => {
+    await page.goto("/wedding-hub");
+
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "not-a-photo.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("not a photo"),
+    });
+
+    await expect(page.getByText("not-a-photo.txt har en filtyp som inte stöds")).toBeVisible();
+    await expect(page.getByText("Valda filer")).toHaveCount(0);
+  });
+
   test("public wedding hub explains when anonymous uploads are disabled", async ({
     page,
   }) => {
