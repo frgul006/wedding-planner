@@ -482,7 +482,7 @@ export function WeddingHubClient({
         note: "",
         status: "queued",
         progress: 0,
-        message: "Klar",
+        message: "",
       };
 
       next.push(state);
@@ -771,15 +771,15 @@ export function WeddingHubClient({
           </button>
 
           <a
-            className={`border px-4 py-6 text-center font-mono text-[0.65rem] uppercase tracking-[0.28em] ${
+            className={`min-h-34 flex min-w-0 flex-col items-center justify-center gap-3 border px-3 py-6 text-center ${
               spotifyEnabled ? "text-[#15130f]" : "text-[#15130f]/50"
             } border-[#15130f]/30`}
             href={spotifyEnabled ? wedding.spotify_playlist_url ?? "" : undefined}
             rel="noopener noreferrer"
             target="_blank"
           >
-            <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-full border border-current text-2xl">♪</span>
-            <span className="font-serif text-3xl italic leading-none">Spellista</span>
+            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-current text-2xl">♪</span>
+            <span className="max-w-full break-words font-serif text-2xl italic leading-none tracking-tight">Spellista</span>
             <span className="font-mono text-[0.65rem] uppercase tracking-[0.28em]">{spotifyEnabled ? "Öppna" : "Saknas"}</span>
           </a>
         </section>
@@ -834,7 +834,7 @@ export function WeddingHubClient({
                       type="text"
                       value={photo.note}
                     />
-                    <p className="mt-1 text-xs text-[#6b6358]">{photo.message}</p>
+                    {photo.message ? <p className="mt-1 text-xs text-[#6b6358]">{photo.message}</p> : null}
                     {isUploading ? <p className="mt-1 text-[11px] text-[#6f4f33]">{photo.progress}%</p> : null}
                   </div>
                   <button
