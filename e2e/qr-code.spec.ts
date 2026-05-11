@@ -1,8 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
 import { GUEST_NAVIGATION_COOKIE_NAME } from "../lib/guest-navigation-session";
-import { PHOTO_UPLOAD_BUCKET } from "../lib/photo-upload";
-import { MAX_HUB_FILES_PER_REQUEST } from "../lib/wedding-hub-photo-upload";
+import { MAX_HUB_FILES_PER_REQUEST, PHOTO_UPLOAD_BUCKET } from "../lib/photo-upload";
 
 import { signInAsSeededAdmin } from "./support/auth";
 import {
@@ -314,6 +313,41 @@ test.describe("wedding hub QR", () => {
     expect(payload).toMatchObject({
       uploadAllowed: false,
       uploadIntents: [],
+    });
+  });
+
+  test("finalize endpoint returns invalid claim for malformed signatures", async ({
+    page,
+  }) => {
+    const encodedPayload = Buffer.from(JSON.stringify({ v: 1 })).toString("base64url");
+    const malformedClaim = `${encodedPayload}.${"!".repeat(43)}`;
+
+    const response = await page.request.post("/api/wedding-hub/photos/finalize", {
+      data: JSON.stringify({
+        uploads: [
+          {
+            clientId: "malformed-claim",
+            originalClaim: malformedClaim,
+            originalFileName: "malformed.png",
+            note: "",
+          },
+        ],
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+
+    expect(response.ok()).toBeTruthy();
+    await expect(response.json()).resolves.toMatchObject({
+      results: [
+        {
+          clientId: "malformed-claim",
+          reason: "invalid_claim",
+          status: "error",
+          success: false,
+        },
+      ],
     });
   });
 

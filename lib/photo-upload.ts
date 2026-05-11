@@ -1,6 +1,8 @@
 export const PHOTO_UPLOAD_BUCKET = "wedding-photos";
 export const PHOTO_UPLOAD_MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 export const PHOTO_UPLOAD_MAX_THUMBNAIL_SIZE_BYTES = 2 * 1024 * 1024;
+export const MAX_HUB_FILES_PER_REQUEST = 8;
+export const MAX_PHOTO_NOTE_LENGTH = 512;
 export const PHOTO_UPLOAD_ALLOWED_MIME_TYPES = [
   "image/jpeg",
   "image/png",

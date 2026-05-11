@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
-import { isRecord } from "@/lib/type-guards";
 import { getGuestNavigationCookieValue } from "@/lib/guest-navigation-session";
+import { MAX_HUB_FILES_PER_REQUEST, MAX_PHOTO_NOTE_LENGTH } from "@/lib/photo-upload";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isRecord } from "@/lib/type-guards";
 import { resolveWeddingHubContext } from "@/lib/wedding-hub-photo";
 import { createSignedUploadIntents, type UploadFileInput } from "@/lib/wedding-hub-photo-upload";
-import { MAX_HUB_FILES_PER_REQUEST, MAX_PHOTO_NOTE_LENGTH } from "@/lib/wedding-hub-photo-upload";
 
 type SignRequestUploadPayload = {
   clientId?: unknown;

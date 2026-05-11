@@ -3,6 +3,8 @@ import crypto from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
+  MAX_HUB_FILES_PER_REQUEST,
+  MAX_PHOTO_NOTE_LENGTH,
   PHOTO_UPLOAD_BUCKET,
   PHOTO_UPLOAD_MAX_FILE_SIZE_BYTES,
   PHOTO_UPLOAD_THUMBNAIL_MIME_TYPES,
@@ -12,8 +14,7 @@ import { isRecord } from "@/lib/type-guards";
 
 import type { HubWedding } from "./wedding-hub";
 
-export const MAX_HUB_FILES_PER_REQUEST = 8;
-export const MAX_PHOTO_NOTE_LENGTH = 512;
+export { MAX_HUB_FILES_PER_REQUEST, MAX_PHOTO_NOTE_LENGTH } from "@/lib/photo-upload";
 export const UPLOAD_CLAIM_TTL_SECONDS = 10 * 60;
 
 const UPLOAD_SIGNING_SECRETS = ["PHOTO_UPLOAD_SIGNING_SECRET", "SUPABASE_SECRET_KEY"] as const;
@@ -82,6 +83,14 @@ function encodeBase64Url(value: string) {
 
 function decodeBase64Url(value: string) {
   return Buffer.from(value, "base64url").toString("utf8");
+}
+
+function decodeBase64UrlBuffer(value: string) {
+  try {
+    return Buffer.from(value, "base64url");
+  } catch {
+    return null;
+  }
 }
 
 function signClaim(payloadJson: string, secret: string) {
@@ -156,9 +165,14 @@ export function verifySignedUploadClaim(
   }
 
   const expectedSignature = signClaim(encoded, secret);
+  const signatureBytes = decodeBase64UrlBuffer(signature);
+  const expectedSignatureBytes = decodeBase64UrlBuffer(expectedSignature);
+
   if (
-    signature.length !== expectedSignature.length ||
-    !crypto.timingSafeEqual(Buffer.from(signature, "base64url"), Buffer.from(expectedSignature, "base64url"))
+    !signatureBytes ||
+    !expectedSignatureBytes ||
+    signatureBytes.length !== expectedSignatureBytes.length ||
+    !crypto.timingSafeEqual(signatureBytes, expectedSignatureBytes)
   ) {
     return null;
   }

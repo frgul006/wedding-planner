@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  MAX_HUB_FILES_PER_REQUEST,
+  MAX_PHOTO_NOTE_LENGTH,
   PHOTO_UPLOAD_ALLOWED_MIME_TYPES,
   PHOTO_UPLOAD_MAX_FILE_SIZE_BYTES,
   PHOTO_UPLOAD_THUMBNAIL_MIME_TYPES,
@@ -13,7 +15,6 @@ import type {
   HubGalleryPhoto,
   HubPhotoData,
 } from "@/lib/wedding-hub-photo-verification";
-import { MAX_HUB_FILES_PER_REQUEST, MAX_PHOTO_NOTE_LENGTH } from "@/lib/wedding-hub-photo-upload";
 import type { HubContext } from "@/lib/wedding-hub-photo";
 import { getMonogram, type HubWedding } from "@/lib/wedding-hub";
 
