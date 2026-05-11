@@ -22,10 +22,92 @@ type GuestNavigationSessionCookie = {
 
 type GuestNavigationSessionRow = {
   id: string;
+  wedding_id: string;
+  guest_id: string | null;
+  invite_token_id: string | null;
+  is_anonymous: boolean;
+  expires_at: string | null;
+};
+
+
+export type GuestNavigationSessionLookup = {
+  id: string;
+  weddingId: string;
+  guestId: string | null;
+  inviteTokenId: string | null;
+  isAnonymous: boolean;
 };
 
 function isGuestNavigationSessionRow(value: unknown): value is GuestNavigationSessionRow {
-  return isRecord(value) && typeof value.id === "string";
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.wedding_id === "string" &&
+    (value.guest_id === null || typeof value.guest_id === "string") &&
+    (value.invite_token_id === null || typeof value.invite_token_id === "string") &&
+    typeof value.is_anonymous === "boolean"
+  );
+}
+
+function toGuestNavigationSessionLookup(value: GuestNavigationSessionRow): GuestNavigationSessionLookup {
+  return {
+    id: value.id,
+    weddingId: value.wedding_id,
+    guestId: value.guest_id,
+    inviteTokenId: value.invite_token_id,
+    isAnonymous: value.is_anonymous,
+  };
+}
+
+export async function getGuestNavigationSessionByCookieHash({
+  cookieHash,
+  weddingId,
+  supabase,
+}: {
+  cookieHash: string;
+  weddingId: string;
+  supabase: SupabaseClient;
+}) {
+  const { data, error } = await supabase
+    .from("guest_navigation_sessions")
+    .select("id, wedding_id, guest_id, invite_token_id, is_anonymous, expires_at")
+    .eq("cookie_hash", cookieHash)
+    .eq("wedding_id", weddingId)
+    .or(`expires_at.is.null,expires_at.gte.${new Date().toISOString()}`)
+    .order("last_seen_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Failed to resolve guest navigation session", error);
+    return null;
+  }
+
+  if (!isGuestNavigationSessionRow(data)) {
+    return null;
+  }
+
+  return toGuestNavigationSessionLookup(data);
+}
+
+export async function getAttributableGuestNavigationSession({
+  existingCookieValue,
+  supabase,
+  weddingId,
+}: {
+  existingCookieValue: string | null;
+  supabase: SupabaseClient;
+  weddingId: string;
+}) {
+  if (!existingCookieValue || !weddingId) {
+    return null;
+  }
+
+  return getGuestNavigationSessionByCookieHash({
+    cookieHash: hashGuestNavigationCookie(existingCookieValue),
+    weddingId,
+    supabase,
+  });
 }
 
 export function generateGuestNavigationCookieValue() {
@@ -103,7 +185,7 @@ async function findSessionByCookieHash({
     return null;
   }
 
-  return isGuestNavigationSessionRow(data) ? data : null;
+  return data && typeof data.id === "string" ? data : null;
 }
 
 export async function createOrRefreshGuestNavigationSession({
