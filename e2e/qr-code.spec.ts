@@ -26,6 +26,7 @@ const ONE_BY_ONE_JPEG = Buffer.from(
   "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAH/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAEFAqf/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAEDAQE/ASP/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAECAQE/ASP/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAY/Al//xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAE/IV//2gAMAwEAAgADAAAAEP/EFBQRAQAAAAAAAAAAAAAAAAAAABD/2gAIAQMBAT8QE//EFBQRAQAAAAAAAAAAAAAAAAAAABD/2gAIAQIBAT8QE//EFBABAQAAAAAAAAAAAAAAAAAAARD/2gAIAQEAAT8QE//Z",
   "base64",
 );
+const PADDED_PNG_OVER_HEADER_LIMIT = Buffer.concat([ONE_BY_ONE_PNG, Buffer.alloc(9_000)]);
 
 type SignedIntentPayload = {
   clientId: string;
@@ -136,12 +137,14 @@ async function signAndFinalizePngUpload({
   fileName,
   note,
   cookieHeader,
+  imageBytes = ONE_BY_ONE_PNG,
 }: {
   page: Page;
   clientId: string;
   fileName: string;
   note: string;
   cookieHeader?: string | null;
+  imageBytes?: Buffer;
 }) {
   const headers = {
     "content-type": "application/json",
@@ -155,7 +158,7 @@ async function signAndFinalizePngUpload({
           clientId,
           fileName,
           mimeType: "image/png",
-          sizeBytes: ONE_BY_ONE_PNG.byteLength,
+          sizeBytes: imageBytes.byteLength,
           note,
         },
       ],
@@ -174,7 +177,7 @@ async function signAndFinalizePngUpload({
     throw new Error("Missing signed intent");
   }
 
-  await uploadToSignedUrl(intent.uploadUrl, ONE_BY_ONE_PNG, "image/png");
+  await uploadToSignedUrl(intent.uploadUrl, imageBytes, "image/png");
 
   if (intent.thumbnailUploadUrl && intent.thumbnailClaim) {
     await uploadToSignedUrl(intent.thumbnailUploadUrl, ONE_BY_ONE_JPEG, "image/jpeg");
@@ -451,6 +454,28 @@ test.describe("wedding hub QR", () => {
         (photo: { id?: unknown; note?: unknown }) => photo.note === note,
       ),
     ).toBeTruthy();
+  });
+
+  test("anonymous guest can upload and finalize a PNG larger than the header verification window", async ({
+    page,
+  }) => {
+    const fileName = `${E2E_PHOTO_PREFIX}-large-header.png`;
+    const note = "Large header e2e upload";
+    const intent = await signAndFinalizePngUpload({
+      page,
+      clientId: "e2e-large-header-upload",
+      fileName,
+      note,
+      imageBytes: PADDED_PNG_OVER_HEADER_LIMIT,
+    });
+
+    const row = await getPhotoUploadByStoragePath(intent.uploadPath);
+    expect(row).toMatchObject({
+      moderation_status: "approved",
+      note,
+      storage_path: intent.uploadPath,
+      verification_status: "verified",
+    });
   });
 
   test("guest navigation cookie attributes finalized photo uploads", async ({

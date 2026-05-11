@@ -186,7 +186,7 @@ function detectMime(bytes: Uint8Array): string | null {
   return null;
 }
 
-async function readSignedObjectHeader(supabase: SupabaseClient, path: string) {
+async function readSignedObjectHeader(supabase: SupabaseClient, path: string, objectSizeBytes: number) {
   const { data, error } = await supabase.storage
     .from(PHOTO_UPLOAD_BUCKET)
     .createSignedUrl(path, 120);
@@ -195,41 +195,35 @@ async function readSignedObjectHeader(supabase: SupabaseClient, path: string) {
     return null;
   }
 
-  const response = await fetch(data.signedUrl, { method: "GET" });
+  const fetchHeaderBytes = async (useRange: boolean) => {
+    const response = await fetch(data.signedUrl, {
+      ...(useRange
+        ? {
+            headers: {
+              range: `bytes=0-${VERIFY_HEADER_BYTES - 1}`,
+            },
+          }
+        : {}),
+      method: "GET",
+    });
 
-  if (!response.ok || !response.body) {
+    if (!response.ok) {
+      return null;
+    }
+
+    return new Uint8Array(await response.arrayBuffer());
+  };
+
+  const shouldUseRange = objectSizeBytes > VERIFY_HEADER_BYTES;
+  const bytes =
+    (await fetchHeaderBytes(shouldUseRange).catch(() => null)) ??
+    (shouldUseRange ? await fetchHeaderBytes(false).catch(() => null) : null);
+
+  if (!bytes) {
     return null;
   }
 
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let received = 0;
-
-  try {
-    while (received < VERIFY_HEADER_BYTES) {
-      const readResult = await reader.read();
-      if (readResult.done) {
-        break;
-      }
-
-      const remaining = VERIFY_HEADER_BYTES - received;
-      const chunk = readResult.value.slice(0, remaining);
-      chunks.push(chunk);
-      received += chunk.byteLength;
-    }
-  } finally {
-    await reader.cancel().catch(() => undefined);
-  }
-
-  const bytes = new Uint8Array(received);
-  let offset = 0;
-
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
-  return { bytes };
+  return { bytes: bytes.slice(0, VERIFY_HEADER_BYTES) };
 }
 
 async function verifyStoredObject({
@@ -292,7 +286,7 @@ async function verifyStoredObject({
     } satisfies HeaderVerifyResult;
   }
 
-  const headerResult = await readSignedObjectHeader(supabase, path);
+  const headerResult = await readSignedObjectHeader(supabase, path, infoResult.data.size);
 
   if (!headerResult) {
     return {
