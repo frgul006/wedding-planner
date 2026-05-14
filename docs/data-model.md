@@ -179,13 +179,29 @@ Implemented in `public.rsvp_responses`.
   - Server-observed stored object size after finalize.
 - `note` (string, optional)
 - `verification_status` (`pending | verified | rejected`)
-  - Starts as `pending` after the browser reports storage upload success.
-  - Becomes `verified` only after the server-side post-upload verification/finalize step confirms the stored object is an allowed image within size limits.
+  - Starts as `pending` only after the browser reports direct storage upload and row creation.
+  - Becomes `verified` only after server-side post-upload verification/finalize confirms MIME/size and persisted object checks pass.
   - Rejected uploads are not displayed/exported and their storage object should be deleted when safe.
 - `moderation_status` (`pending | approved | hidden`)
   - Accepted photos for export are verified + approved photos only.
   - New verified uploads default to `approved` when `Wedding.photo_upload_requires_review = false`.
   - New verified uploads default to `pending` when `Wedding.photo_upload_requires_review = true`.
+- `thumbnail_status` (`pending | ready | failed | unavailable`)
+  - Tracks client-generated gallery thumbnail availability and server verification.
+  - `pending` when a thumbnail upload claim exists and is currently being finalized.
+  - `ready` when a verified small image exists in private storage.
+  - `failed` when thumbnail verification fails; original upload can still be verified.
+  - `unavailable` when a format cannot generate a thumbnail.
+- `thumbnail_storage_path` (string, nullable)
+  - Private storage object path for the thumbnail used by gallery/feed rendering.
+- `thumbnail_mime_type` (string, nullable)
+  - MIME type for verified thumbnail upload.
+- `thumbnail_size_bytes` (bigint, nullable)
+  - Verified thumbnail byte size.
+- `thumbnail_verified_at` (datetime, nullable)
+  - Timestamp of successful thumbnail verification.
+- `thumbnail_error` (string, nullable)
+  - Reason when thumbnail status is `failed` (server-side check reason).
 - `created_at`
 - `deleted_at` (datetime, nullable)
 
@@ -236,7 +252,10 @@ Implemented in `public.rsvp_responses`.
 - If anonymous upload is disabled (`allow_anonymous_hub_upload = false`), photo upload requires a valid `GuestNavigationSession` cookie match and otherwise returns a clear rejection.
 - Opening a valid personal invite link creates or refreshes a secure opaque guest navigation cookie and stores only its hash.
 - QR hub upload should look up that cookie server-side and set `PhotoUpload.session_id`/`guest_id` when it matches; otherwise the upload remains anonymous.
+- Direct-to-storage uploads use app-issued signed upload URLs and signed server claims; the browser uploads originals (and optional thumbnails) directly to private Supabase Storage.
 - Direct-to-storage uploads must run a server-side post-upload verification/finalize step before they can be approved, displayed, or exported.
+- Browser-generated thumbnails are best effort for JPEG/PNG/WebP; unsupported formats can still be accepted as originals with `thumbnail_status = unavailable`.
+- Public gallery/feed reads only verified + approved + non-deleted rows and signs short-lived private storage URLs at render/API time.
 - Photo review is open by default (`photo_upload_requires_review = false`), so new verified uploads are `approved` unless an admin enables review.
 
 ## 6) Open questions for your modeling session

@@ -42,7 +42,8 @@ Staff need control over what photos to keep, whether new photos appear immediate
 ## Non-functional requirements
 
 - Handles many uploads without slowing admin screen.
-- Admin previews should use short-lived signed read URLs instead of exposing permanent public storage URLs; generated thumbnails can be added later if performance requires them.
+- Admin/public previews should use short-lived signed read URLs instead of exposing permanent public storage URLs.
+- Public gallery/feed listings may use verified browser-generated thumbnails when available and fall back to signed original URLs when unavailable.
 
 ## Acceptance criteria
 

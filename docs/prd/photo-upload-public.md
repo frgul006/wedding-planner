@@ -32,11 +32,13 @@ Guests can share photos quickly and also add songs during the wedding. The uploa
 - Storage:
   - Store uploaded originals in a private Supabase Storage bucket, for example `wedding-photos`.
   - Use direct browser upload with short-lived signed upload URLs created by the app after server-side request validation.
+  - Generate gallery-ready JPEG thumbnails in the browser for upload formats supported by canvas (`image/jpeg`, `image/png`, `image/webp`) before upload.
+  - For supported uploads, request an optional thumbnail signed upload URL and upload both streams in one flow.
   - Pre-upload validation may use client-declared filename, MIME type, and size only as an early rejection gate; it must not be the only validation gate.
   - Do not stream large photo bodies through Vercel server routes.
   - After storage upload succeeds, the app must run a server-side finalize/verification step before the photo can be displayed, approved, or exported.
   - Post-upload verification should confirm the stored object exists, matches expected size limits using storage-observed metadata, and is an allowed image type using a bounded server-side content check; deeper validation can run in a background job or Supabase Edge Function if needed.
-  - Store file metadata in `PhotoUpload`, including storage path, server-verified MIME type and size, optional original filename, optional note, verification status, session id, and inferred guest id when available.
+  - Store file metadata in `PhotoUpload`, including storage path, server-verified MIME type and size, optional original filename, optional note, verification status, session id, inferred guest id when available, and thumbnail metadata fields (`thumbnail_status`, path, MIME, size).
 - Upload flow (uses shared route and shared settings):
   - Allow one or many image files.
   - Validate declared file size and image type before creating signed upload URLs.
@@ -73,6 +75,7 @@ Guests can share photos quickly and also add songs during the wedding. The uploa
 - Upload progress is visible during transfer.
 - Uploaded files are stored in Supabase Storage and have matching `PhotoUpload` metadata rows.
 - Uploaded files must pass server-side post-upload verification before they can be displayed, approved, or exported.
+- Gallery/feed rendering should use generated thumbnails where available; if `thumbnail_status` is not `ready` or thumbnail URL signing fails, the hub falls back to the signed original photo URL.
 - With review disabled by default, verified valid uploads are marked `approved` without manual review.
 - With review enabled, verified valid uploads are marked `pending` and do not show until approved.
 - Spotify action is visible on the same page as upload.
