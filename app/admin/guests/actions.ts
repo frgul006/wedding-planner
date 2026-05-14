@@ -29,6 +29,7 @@ function getGuestPayload(formData: FormData) {
   const phone = cleanOptionalText(formData.get("phone"));
   const notes = cleanOptionalText(formData.get("notes"));
   const smsOptIn = formData.get("sms_opt_in") === "on";
+  const plusOneAllowed = formData.get("plus_one_allowed") === "on";
 
   if (!fullName) {
     redirect("/admin/guests?error=missing-name");
@@ -47,6 +48,7 @@ function getGuestPayload(formData: FormData) {
     email,
     notes,
     phone,
+    plus_one_allowed: plusOneAllowed,
     sms_opt_in: smsOptIn,
   };
 }

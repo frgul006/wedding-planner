@@ -125,6 +125,13 @@ function getRsvpMessage(searchParams: Awaited<InvitePageProps["searchParams"]>) 
     };
   }
 
+  if (error === "plus-one-name") {
+    return {
+      tone: "error",
+      text: "Add your +1 guest's name before submitting.",
+    };
+  }
+
   if (error) {
     return {
       tone: "error",
@@ -220,7 +227,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
           </h1>
           <p className="mt-4 text-lg text-zinc-700">{weddingDate}</p>
           <p className="mt-2 text-zinc-600">
-            {getDisplayText(wedding.venue_name)} · {getDisplayText(wedding.venue_address)}
+            {getDisplayText(wedding.venue_name)} · {getDisplayText(wedding.venue_area ?? wedding.venue_address)}
           </p>
         </section>
 
@@ -237,6 +244,9 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
                 <p className="text-xl font-semibold text-zinc-950">
                   {getDisplayText(wedding.venue_name)}
                 </p>
+                {wedding.venue_area ? (
+                  <p className="mt-1 text-zinc-500">{wedding.venue_area}</p>
+                ) : null}
                 <p className="mt-1 whitespace-pre-line text-zinc-600">
                   {getDisplayText(wedding.venue_address)}
                 </p>
@@ -269,7 +279,21 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
 
         <div className="grid gap-6 lg:grid-cols-2">
           <DetailCard title="Policy / dress code">
-            <p className="whitespace-pre-line">{getDisplayText(wedding.policy)}</p>
+            <div className="grid gap-3">
+              <p className="whitespace-pre-line">
+                {getDisplayText(wedding.dress_code ?? wedding.policy)}
+              </p>
+              {wedding.child_policy ? (
+                <p className="whitespace-pre-line text-zinc-600">
+                  {wedding.child_policy}
+                </p>
+              ) : null}
+              {wedding.dress_code && wedding.policy ? (
+                <p className="whitespace-pre-line text-sm text-zinc-500">
+                  {wedding.policy}
+                </p>
+              ) : null}
+            </div>
           </DetailCard>
 
           <DetailCard title="Gift information">
@@ -370,6 +394,9 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
               <div className="mt-3 grid gap-2 text-sm text-zinc-300 sm:grid-cols-2">
                 <p>Extra guests: {rsvpResponse.extra_guests}</p>
                 <p>Food preference: {rsvpResponse.food_preference ?? "No preference"}</p>
+                {rsvpResponse.plus_one_name ? (
+                  <p>+1: {rsvpResponse.plus_one_name}</p>
+                ) : null}
                 {rsvpSubmittedAt ? <p>Last updated: {rsvpSubmittedAt}</p> : null}
               </div>
               {rsvpResponse.allergy_notes ? (

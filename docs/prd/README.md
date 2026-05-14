@@ -44,7 +44,7 @@
 17. ✅ **Photo moderation and export**
    - `photo-review-and-export.md`
    - `../admin-photos.md`
-18. **Brevkort invite data-model and admin prerequisites**
+18. ✅ **Brevkort invite data-model and admin prerequisites**
    - `admin-guest-crud.md`
    - `wedding-event-settings.md`
    - `rsvp-form-submission.md`

@@ -37,7 +37,7 @@
     - Admin can approve, hide, or delete/tombstone uploads.
     - Public gallery/feed and ZIP export include only verified, approved, non-deleted photos.
     - Admin can download approved originals from `/admin/photos/export` as a ZIP; missing storage objects are skipped with an export warning entry.
-18. Brevkort invite data-model and admin prerequisites
+18. ✅ Complete — Brevkort invite data-model and admin prerequisites
     - Add or deliberately map Brevkort-dependent wedding fields from `../design/brevkort-invite-states.md`: venue area/city, structured time-plan rows, dress code, child policy, gifts, Spotify, and invite-support contact.
     - Add `guests.plus_one_allowed` and expose it in `/admin/guests` so admins can control per guest whether the OSA page offers a +1.
     - Add named +1 RSVP detail persistence and +1 SMS consent fields before replacing the old generic extra guest count UI.

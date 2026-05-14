@@ -23,7 +23,7 @@ export async function getGuestByName(fullName: string) {
   const supabase = createE2eSupabaseAdminClient();
   const { data, error } = await supabase
     .from("guests")
-    .select("id, deleted_at, email, full_name, invite_status, phone, sms_opt_in, sms_opted_in_at, sms_opted_out_at")
+    .select("id, deleted_at, email, full_name, invite_status, phone, plus_one_allowed, sms_opt_in, sms_opted_in_at, sms_opted_out_at")
     .eq("wedding_id", SEEDED_WEDDING_ID)
     .eq("full_name", fullName)
     .maybeSingle();
@@ -59,6 +59,7 @@ export async function addGuest(page: Page, guest: {
   fullName: string;
   notes?: string;
   phone?: string;
+  plusOneAllowed?: boolean;
   smsOptIn?: boolean;
 }) {
   await page.getByLabel("Full name", { exact: true }).fill(guest.fullName);
@@ -69,8 +70,15 @@ export async function addGuest(page: Page, guest: {
     await page.getByLabel("SMS updates approved for this guest").check();
   }
 
+  if (guest.plusOneAllowed) {
+    await page.getByLabel("+1 allowed on invite").check();
+  }
+
   await page.getByLabel("Notes", { exact: true }).fill(guest.notes ?? "");
   await page.getByRole("button", { name: "Add guest" }).click();
+  await expect
+    .poll(async () => (await getGuestByName(guest.fullName))?.full_name ?? null)
+    .toBe(guest.fullName);
   await expect(page.getByText("Guest added.")).toBeVisible();
 }
 
@@ -91,19 +99,35 @@ export async function guestRowByName(page: Page, fullName: string): Promise<Loca
 }
 
 export async function expectGuestRowVisible(page: Page, fullName: string) {
+  await expect
+    .poll(async () => {
+      try {
+        await guestRowByName(page, fullName);
+        return true;
+      } catch {
+        return false;
+      }
+    })
+    .toBe(true);
   await expect((await guestRowByName(page, fullName)).locator('input[name="full_name"]'))
     .toHaveValue(fullName);
 }
 
 export async function expectGuestRowHidden(page: Page, fullName: string) {
-  const rows = page.locator("tbody tr");
-  const rowCount = await rows.count();
+  await expect
+    .poll(async () => {
+      const rows = page.locator("tbody tr");
+      const rowCount = await rows.count();
 
-  for (let index = 0; index < rowCount; index += 1) {
-    await expect(rows.nth(index).locator('input[name="full_name"]')).not.toHaveValue(
-      fullName,
-    );
-  }
+      for (let index = 0; index < rowCount; index += 1) {
+        if ((await rows.nth(index).locator('input[name="full_name"]').inputValue()) === fullName) {
+          return false;
+        }
+      }
+
+      return true;
+    })
+    .toBe(true);
 }
 
 export async function saveGuestRow(row: Locator) {

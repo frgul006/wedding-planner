@@ -39,11 +39,14 @@ test.describe("admin guest CRUD", () => {
       fullName: firstGuestName,
       notes: "Initial e2e notes",
       phone: searchPhone,
+      plusOneAllowed: true,
     });
     await addGuest(page, {
       email: "e2e-admin-crud-z@example.com",
       fullName: secondGuestName,
     });
+    expect((await getGuestByName(firstGuestName))?.plus_one_allowed).toBe(true);
+    expect((await getGuestByName(secondGuestName))?.plus_one_allowed).toBe(false);
 
     await page.getByLabel("Search name or phone").fill(searchPhone.slice(-4));
     await page.getByRole("button", { name: "Apply" }).click();
@@ -70,6 +73,7 @@ test.describe("admin guest CRUD", () => {
     await firstRow.locator('input[name="full_name"]').fill(updatedGuestName);
     await firstRow.locator('input[name="email"]').fill("e2e-admin-crud-updated@example.com");
     await firstRow.locator('input[name="phone"]').fill("+46709990002");
+    await firstRow.locator('input[name="plus_one_allowed"]').uncheck();
     await firstRow.locator('textarea[name="notes"]').fill("Updated e2e notes");
     await saveGuestRow(firstRow);
     await expect(page.getByText("Guest updated.")).toBeVisible();
@@ -79,6 +83,7 @@ test.describe("admin guest CRUD", () => {
     await page.locator('select[name="sort"]').selectOption("name");
     await page.getByRole("button", { name: "Apply" }).click();
     await expectGuestRowVisible(page, updatedGuestName);
+    expect((await getGuestByName(updatedGuestName))?.plus_one_allowed).toBe(false);
 
     const editedRow = await guestRowByName(page, updatedGuestName);
     await deleteGuestRow(editedRow, false);

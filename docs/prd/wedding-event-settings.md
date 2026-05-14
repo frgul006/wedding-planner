@@ -1,7 +1,7 @@
 # PRD: Wedding Event Settings (Source of Truth)
 
 **Version:** 0.3
-**Status:** Draft
+**Status:** Implemented, including Brevkort prerequisite fields
 **Date:** 2026-05-14
 **Scope:** Core wedding details and guest hub behavior settings
 
@@ -31,7 +31,7 @@ The wedding page, invite page, and QR hub must show one consistent set of detail
   - Child policy text (for example: child-free)
   - Gift info text
   - Spotify playlist link (optional)
-  - Public invite-support contact email (optional; used on invalid-link pages)
+  - Public invite-support contact email (optional; reserved for the Brevkort invalid-link state)
   - Allow anonymous QR hub uploads (default on; if off, upload requires a valid guest navigation cookie)
   - Require photo review before showing uploads (default off/open)
 - Settings are reused by:

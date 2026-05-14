@@ -6,12 +6,14 @@ import {
 } from "@/lib/invite-token-crypto";
 import { isRsvpAttendance, type RsvpAttendance } from "@/lib/rsvp-attendance";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { normalizeTimePlanLines } from "@/lib/time-plan";
 import { isNullableString, isRecord } from "@/lib/type-guards";
 
 type GuestRelation = {
   deleted_at: string | null;
   full_name: string | null;
   phone: string | null;
+  plus_one_allowed: boolean;
   sms_opt_in: boolean;
 };
 
@@ -26,17 +28,27 @@ export type InviteRsvpResponse = {
   attendance: RsvpAttendance;
   extra_guests: number;
   food_preference: string | null;
+  plus_one_allergy_notes: string | null;
+  plus_one_email: string | null;
+  plus_one_food_preference: string | null;
+  plus_one_name: string | null;
+  plus_one_phone: string | null;
+  plus_one_sms_opt_in: boolean;
   last_submitted_at: string;
 };
 
 type InviteWedding = {
+  child_policy: string | null;
+  dress_code: string | null;
   gift_info: string | null;
   google_maps_url: string | null;
+  invite_support_email: string | null;
   name: string;
   policy: string | null;
   spotify_playlist_url: string | null;
   time_plan: string[];
   venue_address: string | null;
+  venue_area: string | null;
   venue_name: string | null;
   wedding_date: string | null;
 };
@@ -80,6 +92,7 @@ export type InviteTokenValidationResult =
       guest: {
         full_name: string;
         phone: string | null;
+        plus_one_allowed: boolean;
         sms_opt_in: boolean;
       };
       rsvpResponse: InviteRsvpResponse | null;
@@ -97,6 +110,7 @@ function isGuestRelation(value: unknown): value is GuestRelation {
     isNullableString(value.deleted_at) &&
     isNullableString(value.full_name) &&
     isNullableString(value.phone) &&
+    typeof value.plus_one_allowed === "boolean" &&
     typeof value.sms_opt_in === "boolean"
   );
 }
@@ -104,12 +118,16 @@ function isGuestRelation(value: unknown): value is GuestRelation {
 function isWeddingRelation(value: unknown): value is WeddingRelation {
   return (
     isRecord(value) &&
+    isNullableString(value.child_policy) &&
+    isNullableString(value.dress_code) &&
     isNullableString(value.gift_info) &&
     isNullableString(value.google_maps_url) &&
+    isNullableString(value.invite_support_email) &&
     isNullableString(value.name) &&
     isNullableString(value.policy) &&
     isNullableString(value.spotify_playlist_url) &&
     isNullableString(value.venue_address) &&
+    isNullableString(value.venue_area) &&
     isNullableString(value.venue_name) &&
     isNullableString(value.wedding_date)
   );
@@ -131,18 +149,14 @@ function isRsvpResponseRow(value: unknown): value is RsvpResponseRow {
     isNullableString(value.attendance) &&
     typeof value.extra_guests === "number" &&
     isNullableString(value.food_preference) &&
+    isNullableString(value.plus_one_allergy_notes) &&
+    isNullableString(value.plus_one_email) &&
+    isNullableString(value.plus_one_food_preference) &&
+    isNullableString(value.plus_one_name) &&
+    isNullableString(value.plus_one_phone) &&
+    typeof value.plus_one_sms_opt_in === "boolean" &&
     typeof value.last_submitted_at === "string"
   );
-}
-
-function normalizeTimePlan(value: unknown) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
-    .filter(Boolean);
 }
 
 function normalizeRsvpResponse(value: unknown): InviteRsvpResponse | null {
@@ -159,6 +173,12 @@ function normalizeRsvpResponse(value: unknown): InviteRsvpResponse | null {
     attendance: value.attendance,
     extra_guests: value.extra_guests,
     food_preference: value.food_preference,
+    plus_one_allergy_notes: value.plus_one_allergy_notes,
+    plus_one_email: value.plus_one_email,
+    plus_one_food_preference: value.plus_one_food_preference,
+    plus_one_name: value.plus_one_name,
+    plus_one_phone: value.plus_one_phone,
+    plus_one_sms_opt_in: value.plus_one_sms_opt_in,
     last_submitted_at: value.last_submitted_at,
   };
 }
@@ -189,16 +209,21 @@ async function resolveValidInviteToken(
           deleted_at,
           full_name,
           phone,
+          plus_one_allowed,
           sms_opt_in
         ),
         weddings!inner(
+          child_policy,
+          dress_code,
           gift_info,
           google_maps_url,
+          invite_support_email,
           name,
           policy,
           spotify_playlist_url,
           time_plan,
           venue_address,
+          venue_area,
           venue_name,
           wedding_date
         )
@@ -341,7 +366,9 @@ export async function validateInviteToken(
   const { guest, wedding } = invite;
   const { data: rsvpData, error: rsvpError } = await supabase
     .from("rsvp_responses")
-    .select("allergy_notes, attendance, extra_guests, food_preference, last_submitted_at")
+    .select(
+      "allergy_notes, attendance, extra_guests, food_preference, plus_one_allergy_notes, plus_one_email, plus_one_food_preference, plus_one_name, plus_one_phone, plus_one_sms_opt_in, last_submitted_at",
+    )
     .eq("guest_id", invite.guestId)
     .eq("wedding_id", invite.weddingId)
     .maybeSingle();
@@ -358,17 +385,22 @@ export async function validateInviteToken(
     guest: {
       full_name: guest.full_name,
       phone: guest.phone,
+      plus_one_allowed: guest.plus_one_allowed,
       sms_opt_in: guest.sms_opt_in,
     },
     rsvpResponse: normalizeRsvpResponse(rsvpData),
     wedding: {
+      child_policy: wedding.child_policy,
+      dress_code: wedding.dress_code,
       gift_info: wedding.gift_info,
       google_maps_url: wedding.google_maps_url,
+      invite_support_email: wedding.invite_support_email,
       name: wedding.name,
       policy: wedding.policy,
       spotify_playlist_url: wedding.spotify_playlist_url,
-      time_plan: normalizeTimePlan(wedding.time_plan),
+      time_plan: normalizeTimePlanLines(wedding.time_plan),
       venue_address: wedding.venue_address,
+      venue_area: wedding.venue_area,
       venue_name: wedding.venue_name,
       wedding_date: wedding.wedding_date,
     },

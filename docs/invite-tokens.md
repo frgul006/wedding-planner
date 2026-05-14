@@ -43,10 +43,10 @@ Valid invite pages show the current wedding settings:
 
 - wedding name
 - wedding date and time, formatted with Swedish `Intl` defaults for `Europe/Stockholm`
-- venue name and address
+- venue name, area/city, and address
 - Google Maps link when a safe `http` or `https` URL is configured
-- time plan entries
-- policy / dress code
+- structured time plan entries
+- dress code, child policy, and legacy policy notes
 - gift information
 - Spotify playlist link when a safe `http` or `https` URL is configured
 
@@ -65,7 +65,7 @@ Valid `/invite/[token]` pages let the linked guest submit or update:
 
 The phone input is pre-filled from the linked `guests.phone` value. Blank phone is allowed unless SMS updates opt-in is selected; any provided phone must match strict compact country-code format with a leading `+` and digits only, for example `+46701234567`. Invalid phone values redirect back to the invite with a clear validation error.
 
-The Brevkort follow-up replaces the generic extra guest count UI with a per-guest +1 option. Guests may submit named +1 details only when `guests.plus_one_allowed = true`; server-side validation must reject +1 payloads for guests where that flag is false. Until that migration is live, `extra_guests` remains the legacy compatibility count.
+The Brevkort follow-up replaces the generic extra guest count UI with a per-guest +1 option. The data model now stores named +1 details and separate +1 SMS consent. Guests may submit named +1 details only when `guests.plus_one_allowed = true`; server-side validation rejects named +1 payloads for guests where that flag is false. `extra_guests` remains the legacy compatibility count until the public OSA redesign lands.
 
 When the linked guest already has an RSVP response, the invite page shows the current answer, `last_submitted_at`, and pre-fills the form so the guest can update the same response from the same link. Reopening an invite also pre-fills the latest linked guest phone so the guest can change it on a later RSVP update.
 

@@ -37,6 +37,10 @@ function parseExtraGuests(value: FormDataEntryValue | null) {
   return parsed;
 }
 
+function hasOptionalText(value: string | null) {
+  return value !== null;
+}
+
 function redirectToInvite(rawToken: string, params: Record<string, string>) {
   const searchParams = new URLSearchParams(params);
   redirect(`/invite/${encodeURIComponent(rawToken)}?${searchParams.toString()}`);
@@ -49,6 +53,20 @@ export async function submitRsvpAction(rawToken: string, formData: FormData) {
   const smsOptIn = formData.get("sms_opt_in") === "on";
   const foodPreference = cleanOptionalText(formData.get("food_preference"));
   const allergyNotes = cleanOptionalText(formData.get("allergy_notes"));
+  const plusOneName = cleanOptionalText(formData.get("plus_one_name"));
+  const plusOneEmail = cleanOptionalText(formData.get("plus_one_email"));
+  const plusOnePhone = parseOptionalPhone(formData.get("plus_one_phone"));
+  const plusOneFoodPreference = cleanOptionalText(
+    formData.get("plus_one_food_preference"),
+  );
+  const plusOneAllergyNotes = cleanOptionalText(formData.get("plus_one_allergy_notes"));
+  const plusOneSmsOptIn = formData.get("plus_one_sms_opt_in") === "on";
+  const hasPlusOnePayload = [
+    plusOneName,
+    plusOneEmail,
+    plusOneFoodPreference,
+    plusOneAllergyNotes,
+  ].some(hasOptionalText) || plusOnePhone.phone !== null || plusOneSmsOptIn;
 
   if (!attendance) {
     redirectToInvite(rawToken, { rsvp_error: "attendance" });
@@ -62,6 +80,14 @@ export async function submitRsvpAction(rawToken: string, formData: FormData) {
     redirectToInvite(rawToken, { rsvp_error: "phone" });
   }
 
+  if (!plusOnePhone.isValid || (plusOneSmsOptIn && !plusOnePhone.phone)) {
+    redirectToInvite(rawToken, { rsvp_error: "phone" });
+  }
+
+  if (hasPlusOnePayload && !plusOneName) {
+    redirectToInvite(rawToken, { rsvp_error: "plus-one-name" });
+  }
+
   const supabase = createSupabaseAdminClient();
   const tokenHash = hashInviteToken(rawToken);
   const { error: submitError } = await supabase.rpc("submit_rsvp_response", {
@@ -70,6 +96,12 @@ export async function submitRsvpAction(rawToken: string, formData: FormData) {
     p_extra_guests: extraGuests,
     p_food_preference: foodPreference,
     p_phone: phone.phone,
+    p_plus_one_allergy_notes: plusOneAllergyNotes,
+    p_plus_one_email: plusOneEmail,
+    p_plus_one_food_preference: plusOneFoodPreference,
+    p_plus_one_name: plusOneName,
+    p_plus_one_phone: plusOnePhone.phone,
+    p_plus_one_sms_opt_in: plusOneSmsOptIn,
     p_sms_opt_in: smsOptIn,
     p_token_hash: tokenHash,
   });

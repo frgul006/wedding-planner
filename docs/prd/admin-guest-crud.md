@@ -1,7 +1,7 @@
 # PRD: Admin Guest CRUD
 
 **Version:** 0.2
-**Status:** Implemented baseline; per-guest +1 permission pending
+**Status:** Implemented, including per-guest +1 permission
 **Date:** 2026-05-14
 **Scope:** Admin guest list management
 
@@ -65,7 +65,7 @@ Admins need a simple list to manage invitees and control who is allowed to bring
 - Delete action always requires confirmation.
 - Admin can enable +1 for one guest and disable it for another.
 - Guests with +1 disabled do not see +1 controls on their invite.
-- Guests with +1 enabled can see the Brevkort +1 option in OSA.
+- Guests with +1 enabled are persisted with the permission needed for the follow-up Brevkort OSA +1 option.
 
 ## Out of scope
 

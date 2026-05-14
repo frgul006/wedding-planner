@@ -45,6 +45,7 @@ type Guest = {
   notes: string | null;
   invite_status: InviteStatus;
   sms_opt_in: boolean;
+  plus_one_allowed: boolean;
   created_at: string;
   hasActiveToken: boolean;
   rsvpResponse: RsvpResponse | null;
@@ -141,6 +142,7 @@ function isGuestRow(value: unknown): value is GuestRow {
     isNullableString(value.notes) &&
     isInviteStatus(value.invite_status) &&
     typeof value.sms_opt_in === "boolean" &&
+    typeof value.plus_one_allowed === "boolean" &&
     typeof value.created_at === "string"
   );
 }
@@ -175,7 +177,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
 
   let guestsQuery = supabase
     .from("guests")
-    .select("id, full_name, email, phone, notes, invite_status, sms_opt_in, created_at")
+    .select("id, full_name, email, phone, notes, invite_status, sms_opt_in, plus_one_allowed, created_at")
     .eq("wedding_id", adminProfile.wedding_id)
     .is("deleted_at", null)
     .limit(500);
@@ -279,10 +281,16 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
             <AdminField label="Full name" name="full_name" placeholder="Ada Lovelace" required />
             <AdminField label="Email" name="email" placeholder="ada@example.com" type="email" />
             <AdminField label="Phone" name="phone" placeholder="+46701234567" type="tel" />
-            <label className="flex items-center gap-3 rounded-2xl bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-700 lg:col-span-4">
-              <input className="h-4 w-4" name="sms_opt_in" type="checkbox" />
-              SMS updates approved for this guest
-            </label>
+            <div className="grid gap-3 lg:col-span-4 lg:grid-cols-2">
+              <label className="flex items-center gap-3 rounded-2xl bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-700">
+                <input className="h-4 w-4" name="sms_opt_in" type="checkbox" />
+                SMS updates approved for this guest
+              </label>
+              <label className="flex items-center gap-3 rounded-2xl bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-700">
+                <input className="h-4 w-4" name="plus_one_allowed" type="checkbox" />
+                +1 allowed on invite
+              </label>
+            </div>
             <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700 lg:col-span-4">
               Notes
               <textarea
@@ -362,13 +370,14 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
           ) : null}
 
           <div className="mt-8 overflow-x-auto">
-            <table className="w-full min-w-[1320px] border-separate border-spacing-y-3 text-left text-sm">
+            <table className="w-full min-w-[1420px] border-separate border-spacing-y-3 text-left text-sm">
               <thead className="text-xs uppercase tracking-wide text-zinc-500">
                 <tr>
                   <th className="px-4">Name</th>
                   <th className="px-4">Email</th>
                   <th className="px-4">Phone</th>
                   <th className="px-4">SMS</th>
+                  <th className="px-4">+1</th>
                   <th className="px-4">Invite status</th>
                   <th className="px-4">RSVP status</th>
                   <th className="px-4">RSVP details</th>
@@ -419,6 +428,18 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                             type="checkbox"
                           />
                           Approved
+                        </label>
+                      </td>
+                      <td className="bg-zinc-50 p-3 text-zinc-700">
+                        <label className="flex items-center gap-2">
+                          <input
+                            className="h-4 w-4"
+                            defaultChecked={guest.plus_one_allowed}
+                            form={`guest-${guest.id}`}
+                            name="plus_one_allowed"
+                            type="checkbox"
+                          />
+                          Allowed
                         </label>
                       </td>
                       <td className="bg-zinc-50 p-3 capitalize text-zinc-700">

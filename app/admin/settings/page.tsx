@@ -4,7 +4,8 @@ import { connection } from "next/server";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { isNullableString, isRecord, isStringArray } from "@/lib/type-guards";
+import { normalizeTimePlanLines } from "@/lib/time-plan";
+import { isNullableString, isRecord } from "@/lib/type-guards";
 
 import { AdminField, AdminTextArea } from "../_components/form-controls";
 import { updateWeddingSettingsAction } from "./actions";
@@ -25,11 +26,15 @@ type Wedding = {
   wedding_date: string | null;
   venue_name: string | null;
   venue_address: string | null;
+  venue_area: string | null;
   google_maps_url: string | null;
   time_plan: string[];
   policy: string | null;
+  dress_code: string | null;
+  child_policy: string | null;
   gift_info: string | null;
   spotify_playlist_url: string | null;
+  invite_support_email: string | null;
   allow_anonymous_hub_upload: boolean;
   photo_upload_requires_review: boolean;
 };
@@ -87,10 +92,14 @@ function toWedding(value: unknown): Wedding | null {
     !isNullableString(value.wedding_date) ||
     !isNullableString(value.venue_name) ||
     !isNullableString(value.venue_address) ||
+    !isNullableString(value.venue_area) ||
     !isNullableString(value.google_maps_url) ||
     !isNullableString(value.policy) ||
+    !isNullableString(value.dress_code) ||
+    !isNullableString(value.child_policy) ||
     !isNullableString(value.gift_info) ||
     !isNullableString(value.spotify_playlist_url) ||
+    !isNullableString(value.invite_support_email) ||
     typeof value.allow_anonymous_hub_upload !== "boolean" ||
     typeof value.photo_upload_requires_review !== "boolean"
   ) {
@@ -99,14 +108,18 @@ function toWedding(value: unknown): Wedding | null {
 
   return {
     allow_anonymous_hub_upload: value.allow_anonymous_hub_upload,
+    child_policy: value.child_policy,
+    dress_code: value.dress_code,
     gift_info: value.gift_info,
     google_maps_url: value.google_maps_url,
+    invite_support_email: value.invite_support_email,
     name: value.name,
     photo_upload_requires_review: value.photo_upload_requires_review,
     policy: value.policy,
     spotify_playlist_url: value.spotify_playlist_url,
-    time_plan: isStringArray(value.time_plan) ? value.time_plan : [],
+    time_plan: normalizeTimePlanLines(value.time_plan),
     venue_address: value.venue_address,
+    venue_area: value.venue_area,
     venue_name: value.venue_name,
     wedding_date: value.wedding_date,
   };
@@ -121,7 +134,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   const { data, error } = await supabase
     .from("weddings")
     .select(
-      "name, wedding_date, venue_name, venue_address, google_maps_url, time_plan, policy, gift_info, spotify_playlist_url, allow_anonymous_hub_upload, photo_upload_requires_review",
+      "name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, allow_anonymous_hub_upload, photo_upload_requires_review",
     )
     .eq("id", adminProfile.wedding_id)
     .maybeSingle();
@@ -208,6 +221,12 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                 placeholder="Garden Road 1, Stockholm"
               />
               <AdminField
+                defaultValue={wedding.venue_area}
+                label="Venue area / city"
+                name="venue_area"
+                placeholder="Johanneshov"
+              />
+              <AdminField
                 defaultValue={wedding.google_maps_url}
                 label="Google Maps URL"
                 name="google_maps_url"
@@ -221,21 +240,42 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                 placeholder="https://open.spotify.com/..."
                 type="url"
               />
+              <AdminField
+                defaultValue={wedding.invite_support_email}
+                label="Invite support email"
+                name="invite_support_email"
+                placeholder="help@example.com"
+                type="email"
+              />
             </div>
 
             <AdminTextArea
               defaultValue={(wedding.time_plan ?? []).join("\n")}
-              helpText="One timeline item per line. Blank lines are ignored."
+              helpText="One structured timeline item per line. Use '16:30 - Välkomstdrinkar'; blank lines are ignored."
               label="Time plan"
               name="time_plan"
               placeholder={"15:00 - Ceremony\n17:00 - Dinner\n21:00 - Dancing"}
               rows={5}
             />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <AdminTextArea
+                defaultValue={wedding.dress_code}
+                label="Dress code"
+                name="dress_code"
+                placeholder="Festlig sommarformal"
+              />
+              <AdminTextArea
+                defaultValue={wedding.child_policy}
+                label="Child policy"
+                name="child_policy"
+                placeholder="Vi älskar era barn, men firar vuxet den här kvällen."
+              />
+            </div>
             <AdminTextArea
               defaultValue={wedding.policy}
-              label="Policy / dress code"
+              label="Legacy policy notes"
               name="policy"
-              placeholder="Dress code, children policy, transport notes, or other important details."
+              placeholder="Optional transport notes or other existing policy text."
             />
             <AdminTextArea
               defaultValue={wedding.gift_info}

@@ -1,16 +1,26 @@
 import { createE2eSupabaseAdminClient } from "./supabase";
 import { SEEDED_WEDDING_ID } from "./test-data";
 
+type TimePlanPatchEntry = string | { label: string; time: string };
+
 export const BASELINE_WEDDING_SETTINGS = {
   allow_anonymous_hub_upload: true,
   photo_upload_requires_review: false,
+  child_policy: "Vi älskar era barn, men firar vuxet den här kvällen.",
+  dress_code: "Klädkod: festlig sommarformal",
   gift_info: "Din närvaro är den bästa presenten.",
   google_maps_url: "https://maps.app.goo.gl/KCgGXBcyeanMhsZx5",
+  invite_support_email: "osa@example.com",
   name: "Fredrik <3 Matilda",
-  policy: "Klädkod: festlig sommarformal",
+  policy: "Tunnelbanan stannar nära lokalen.",
   spotify_playlist_url: "https://open.spotify.com/",
-  time_plan: ["16:30 - Välkomstdrinkar", "18:30 - Middag", "21:00 - Fest"],
+  time_plan: [
+    { time: "16:30", label: "Välkomstdrinkar" },
+    { time: "18:30", label: "Middag" },
+    { time: "21:00", label: "Fest" },
+  ],
   venue_address: "Veterinärgränd 6, Johanneshov",
+  venue_area: "Johanneshov",
   venue_name: "Cicada",
   wedding_date: "2026-09-26T14:30:00.000Z",
 } as const;
@@ -18,13 +28,17 @@ export const BASELINE_WEDDING_SETTINGS = {
 export type WeddingSettingsPatch = Partial<{
   allow_anonymous_hub_upload: boolean;
   photo_upload_requires_review: boolean;
+  child_policy: string | null;
+  dress_code: string | null;
   gift_info: string | null;
   google_maps_url: string | null;
+  invite_support_email: string | null;
   name: string;
   policy: string | null;
   spotify_playlist_url: string | null;
-  time_plan: readonly string[];
+  time_plan: readonly TimePlanPatchEntry[];
   venue_address: string | null;
+  venue_area: string | null;
   venue_name: string | null;
   wedding_date: string | null;
 }>;
