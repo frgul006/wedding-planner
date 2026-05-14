@@ -7,6 +7,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint-and-build:
     name: Lint and build
@@ -64,11 +68,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Start local Supabase
-        run: supabase start
+        run: supabase start -x studio,mailpit,realtime,edge-runtime,imgproxy,postgres-meta,logflare,vector,supavisor
 
       - name: Write local Supabase environment
         shell: bash
@@ -81,10 +91,8 @@ jobs:
             echo "SUPABASE_SECRET_KEY=${SECRET_KEY}"
           } > .env.local
 
-      - name: Reset and seed local database
-        run: |
-          supabase db reset
-          pnpm seed:local
+      - name: Seed local database
+        run: pnpm seed:local
 
       - name: Run Playwright e2e suite
         run: pnpm test:e2e
