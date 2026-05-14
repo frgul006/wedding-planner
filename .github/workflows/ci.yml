@@ -131,8 +131,20 @@ jobs:
         if: steps.e2e-changes.outputs.run-e2e == 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Cache Playwright browsers
+      - name: Detect system Chrome
+        id: system-chrome
         if: steps.e2e-changes.outputs.run-e2e == 'true'
+        shell: bash
+        run: |
+          if command -v google-chrome > /dev/null; then
+            google-chrome --version
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Cache Playwright browsers
+        if: steps.e2e-changes.outputs.run-e2e == 'true' && steps.system-chrome.outputs.available != 'true'
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
@@ -141,7 +153,7 @@ jobs:
             playwright-shell-${{ runner.os }}-
 
       - name: Install Playwright browser
-        if: steps.e2e-changes.outputs.run-e2e == 'true'
+        if: steps.e2e-changes.outputs.run-e2e == 'true' && steps.system-chrome.outputs.available != 'true'
         run: pnpm exec playwright install --with-deps --only-shell chromium
 
       - name: Start local Supabase
@@ -166,6 +178,8 @@ jobs:
 
       - name: Run Playwright e2e suite
         if: steps.e2e-changes.outputs.run-e2e == 'true'
+        env:
+          PLAYWRIGHT_USE_SYSTEM_CHROME: ${{ steps.system-chrome.outputs.available }}
         run: pnpm test:e2e
 
       - name: Upload Playwright artifacts
