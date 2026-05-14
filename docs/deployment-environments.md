@@ -85,7 +85,7 @@ List Vercel env vars and targets:
 vercel env list --scope mjaox-wedding-planner --format json
 ```
 
-Look for the Supabase variables. On 2026-05-11 each Supabase var had:
+Look for the Supabase variables. On 2026-05-14 each Supabase var had:
 
 ```json
 "target": ["preview", "production"]
