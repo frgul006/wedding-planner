@@ -32,7 +32,11 @@
     - Turns the item 13 photo entry point into a working upload flow.
     - Direct signed browser uploads to Supabase Storage.
     - Anonymous QR uploads by default, with same-device guest inference from the secure cookie when available.
-17. Photo moderation and export
+17. ✅ Complete — Photo moderation and export
+    - Admin can review uploads at `/admin/photos` with status filters, pagination, short-lived signed previews, and 15-second auto-refresh.
+    - Admin can approve, hide, or delete/tombstone uploads.
+    - Public gallery/feed and ZIP export include only verified, approved, non-deleted photos.
+    - Admin can download approved originals from `/admin/photos/export` as a ZIP; missing storage objects are skipped with an export warning entry.
 18. Brevkort invite data-model and admin prerequisites
     - Add or deliberately map Brevkort-dependent wedding fields from `../design/brevkort-invite-states.md`: venue area/city, structured time-plan rows, dress code, child policy, gifts, Spotify, and invite-support contact.
     - Add `guests.plus_one_allowed` and expose it in `/admin/guests` so admins can control per guest whether the OSA page offers a +1.
@@ -52,8 +56,7 @@
 
 ## Why this order
 
-- Items 1–16 are complete foundation work.
-- Item 17 remains the existing photo moderation/export workstream.
+- Items 1–17 are complete foundation work.
 - Add the Brevkort redesign after the completed foundation so the new invite work is explicit follow-up scope instead of rewriting completed milestones.
 - Ship Brevkort data-model/admin prerequisites before UI states that depend on them.
 - Build the Brevkort shell/details before the OSA state redesign so RSVP work can plug into the final panel structure.
