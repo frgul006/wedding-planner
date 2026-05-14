@@ -27,7 +27,7 @@ Start with one wedding in one app install, but include `wedding_id` on child tab
 - `gift_info` (string)
 - `spotify_playlist_url` (string, optional)
 - `invite_support_email` (string, optional)
-  - Public contact shown on invalid invite-link pages; not guest-specific.
+  - Public contact reserved for the Brevkort invalid invite-link state; not guest-specific.
 - `allow_anonymous_hub_upload` (bool, default `true`)
   - QR hub visitors can upload without a guest cookie when this is true.
   - If false, photo upload requires a valid `GuestNavigationSession` cookie match.
@@ -109,7 +109,7 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
 
 ### RSVPResponse (single current response per guest)
 
-Baseline implemented in `public.rsvp_responses`; Brevkort +1 fields require a follow-up migration.
+Implemented in `public.rsvp_responses`, including Brevkort named +1 persistence fields.
 
 - `id` (UUID)
 - `wedding_id` (UUID)
