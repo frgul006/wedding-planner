@@ -1,4 +1,4 @@
-# Wedding App Data Modeling (Draft v0.2)
+# Wedding App Data Modeling (Draft v0.3)
 
 This is a simple shared model for the current PRDs.
 
@@ -16,11 +16,18 @@ Start with one wedding in one app install, but include `wedding_id` on child tab
 - `wedding_date` (datetime)
 - `venue_name` (string)
 - `venue_address` (string)
+- `venue_area` (string, optional)
+  - Short place/city label for the Brevkort `Plats` card, e.g. `Johanneshov`.
 - `google_maps_url` (string)
-- `time_plan` (json list of text entries, e.g. `["17:00 - Pre-drink", "19:00 - Middag"]`)
+- `time_plan` (json list of structured entries, e.g. `[{"time":"16:30","label":"Välkomstdrinkar"}]`)
 - `policy` (string)
+  - Legacy/general policy text; Brevkort should either map this deliberately or use the explicit fields below.
+- `dress_code` (string, optional)
+- `child_policy` (string, optional)
 - `gift_info` (string)
 - `spotify_playlist_url` (string, optional)
+- `invite_support_email` (string, optional)
+  - Public contact shown on invalid invite-link pages; not guest-specific.
 - `allow_anonymous_hub_upload` (bool, default `true`)
   - QR hub visitors can upload without a guest cookie when this is true.
   - If false, photo upload requires a valid `GuestNavigationSession` cookie match.
@@ -55,12 +62,15 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
 - `wedding_id` (UUID)
 - `full_name` (string)
 - `email` (string, optional)
-- `phone` (string, optional)
+- `phone` (string, optional, compact E.164 with no spaces)
   - Validation rule: at least one of `email` or `phone` must be set.
 - `sms_opt_in` (bool)
   - Guests are included in SMS blasts only when this is true and a valid E.164 phone is present.
 - `sms_opted_in_at` (datetime, nullable)
 - `sms_opted_out_at` (datetime, nullable)
+- `plus_one_allowed` (bool, default `false`)
+  - Controls whether this guest sees the Brevkort +1 option on their invite.
+  - Admins enable this per guest; explicitly invited partners should usually have this off.
 - `side_id` (UUID, optional) -> relation to `CoupleMember`
 - `notes` (string, optional)
 - `deleted_at` (datetime, nullable)
@@ -99,15 +109,24 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
 
 ### RSVPResponse (single current response per guest)
 
-Implemented in `public.rsvp_responses`.
+Baseline implemented in `public.rsvp_responses`; Brevkort +1 fields require a follow-up migration.
 
 - `id` (UUID)
 - `wedding_id` (UUID)
 - `guest_id` (UUID, unique)
 - `attendance` (`yes | no | maybe`)
 - `extra_guests` (int, >= 0)
+  - Legacy/simple count. Brevkort +1 should use the explicit fields below and keep this as `0` or `1` for compatibility.
 - `food_preference` (string, optional)
 - `allergy_notes` (string, optional)
+- `plus_one_name` (string, optional)
+- `plus_one_email` (string, optional)
+- `plus_one_phone` (string, optional, compact E.164 with no spaces)
+- `plus_one_food_preference` (string, optional)
+- `plus_one_allergy_notes` (string, optional)
+- `plus_one_sms_opt_in` (bool, default `false`)
+- `plus_one_sms_opted_in_at` (datetime, nullable)
+- `plus_one_sms_opted_out_at` (datetime, nullable)
 - `updated_via_token_id` (UUID, nullable) -> latest invite token used to submit
 - `last_submitted_at` (datetime)
 - `created_at`, `updated_at`
@@ -154,7 +173,7 @@ Implemented in `public.rsvp_responses`.
 - `wedding_id` (UUID)
 - `message_blast_id` (UUID)
 - `guest_id` (UUID)
-- `phone` (string)
+- `phone` (string, compact E.164 with no spaces)
 - `provider_message_id` (string, optional)
 - `delivery_status` (`queued | sent | failed`)
 - `error_text` (string, optional)
@@ -236,7 +255,18 @@ Implemented in `public.rsvp_responses`.
 - Guest `1`—`N` GuestNavigationSession
 - Guest `1`—`N` PhotoUpload (direct nullable `PhotoUpload.guest_id`, set by secure cookie inference when available)
 
-## 4) Important status rule
+## 4) Brevkort data-model deltas
+
+The Brevkort invite artboards require data that the earlier baseline schema did not fully model:
+
+- Wedding settings need explicit `venue_area`, structured time-plan rows, `dress_code`, `child_policy`, and `invite_support_email` or deliberate documented mappings from existing fields.
+- Guest rows need `plus_one_allowed` so admins can decide per guest whether the OSA page offers a +1.
+- RSVP responses need named +1 details and +1 SMS consent fields, not only an `extra_guests` count.
+- Phone numbers should remain compact E.164 with no spaces, e.g. `+46701234567`.
+
+Implement these as migrations before building the Brevkort UI states that depend on them.
+
+## 5) Important status and +1 rules
 
 - Guest starts with `invite_status = not replied`.
 - On first valid invite page view: set `invite_status = opened` only if the current status is `not replied`.
@@ -244,8 +274,10 @@ Implemented in `public.rsvp_responses`.
 - On RSVP submit/update: status becomes `rsvp yes|no|maybe` (one of these only).
 - No duplicate RSVP rows for the same guest (update in place by `guest_id`).
 - RSVP submission by invite token must resolve the active token first and save the response against that token's `guest_id` and `wedding_id`.
+- Guests may submit +1 details only when their `guests.plus_one_allowed = true`.
+- Server-side RSVP submission must reject or ignore +1 payloads when `plus_one_allowed = false`; do not rely only on hiding UI fields.
 
-## 5) Photo upload/session decisions
+## 6) Photo upload/session decisions
 
 - QR hub photo upload is anonymous-capable by default (`allow_anonymous_hub_upload = true`).
 - Uploads do not require a `GuestNavigationSession` when anonymous upload is allowed.
@@ -258,7 +290,7 @@ Implemented in `public.rsvp_responses`.
 - Public gallery/feed reads only verified + approved + non-deleted rows and signs short-lived private storage URLs at render/API time.
 - Photo review is open by default (`photo_upload_requires_review = false`), so new verified uploads are `approved` unless an admin enables review.
 
-## 6) Open questions for your modeling session
+## 7) Open questions for your modeling session
 
 - Should `side` label be strictly one of two roles, or can we keep it free text in `CoupleMember.label`?
 - Should message blasts be SMS only first, or in-app only for now?

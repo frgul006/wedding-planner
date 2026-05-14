@@ -1,15 +1,19 @@
 # PRD: Invite Updates Feed
 
-**Version:** 0.1
-**Status:** Implemented
-**Date:** 2026-05-03
+**Version:** 0.2
+**Status:** Implemented baseline; Brevkort details placement pending
+**Date:** 2026-05-14
 **Scope:** Public updates for all guests
+
+## Design source
+
+Use the `Detaljer — updates published` and default empty-feed states in `../design/brevkort-invite-states.md`.
 
 ## Why this is needed
 
 Guests need one place for late changes and day-of notes.
 
-Static wedding info (venue, times, child policy, gifts, Spotify link) is managed in `wedding-event-settings.md`.
+Static wedding info (venue, times, child policy, dress code, gifts, Spotify link) is managed in `wedding-event-settings.md`.
 
 ## Users
 
@@ -22,6 +26,7 @@ Static wedding info (venue, times, child policy, gifts, Spotify link) is managed
 
 - As an admin, I can post day updates.
 - As a guest, I can read the latest update on my invite page.
+- As a guest, I can tell when there are no updates yet.
 
 ## Functional requirements
 
@@ -33,17 +38,21 @@ Static wedding info (venue, times, child policy, gifts, Spotify link) is managed
   - Status: draft / published / archived
 - Track `updated_at` when a feed item is edited.
 - Feed items show in reverse time order on invite page.
-- Latest updates visible under an "Updates" section.
+- Latest updates are visible under the `Uppdateringar` section in the Brevkort `Detaljer` panel.
+- If no updates are published, show the Swedish empty state `Inga uppdateringar än.`
+- Published updates render inline with date, title, and body. Optional links render as safe CTAs when present.
 
 ## Non-functional requirements
 
 - Cached for fast mobile load.
 - Changes show on invite pages quickly.
+- Updates must match the Brevkort visual style and remain scannable on mobile.
 
 ## Acceptance criteria
 
 - Admin post appears on guest invite page within 60 seconds.
-- Guest sees at least the latest 5 updates.
+- Guest sees at least the latest 5 published updates in the details panel.
+- Guest sees `Inga uppdateringar än.` when no updates are published.
 - Link opens in a new tab/device browser flow safely.
 
 ## Implementation notes
