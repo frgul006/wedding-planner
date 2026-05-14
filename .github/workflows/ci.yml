@@ -51,36 +51,105 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
+      - name: Detect e2e-relevant changes
+        id: e2e-changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            echo "run-e2e=true" >> "$GITHUB_OUTPUT"
+            echo "E2E runs for ${{ github.event_name }} events."
+            exit 0
+          fi
+
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          changed_files="$(git diff --name-only "origin/${{ github.base_ref }}" HEAD)"
+
+          echo "Changed files:"
+          printf '%s\n' "$changed_files"
+
+          if [[ -z "$changed_files" ]]; then
+            echo "run-e2e=true" >> "$GITHUB_OUTPUT"
+            echo "No changed files detected; running e2e."
+          elif grep -Ev '(^docs/|\.md$)' <<< "$changed_files" > /dev/null; then
+            echo "run-e2e=true" >> "$GITHUB_OUTPUT"
+            echo "E2E-relevant changes detected."
+          else
+            echo "run-e2e=false" >> "$GITHUB_OUTPUT"
+            echo "Only docs/Markdown files changed; skipping e2e."
+          fi
+
+      - name: Skip e2e suite
+        if: steps.e2e-changes.outputs.run-e2e != 'true'
+        run: echo "Only docs/Markdown files changed; skipping e2e."
+
       - name: Set up pnpm
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
         uses: pnpm/action-setup@v6
 
       - name: Set up Node.js
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
 
       - name: Set up Supabase CLI
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
         uses: supabase/setup-cli@v2
         with:
           version: 2.95.4
 
+      - name: Disable unused Supabase services
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          disabled_sections = {"analytics", "edge_runtime", "inbucket", "realtime", "studio"}
+          config_path = Path("supabase/config.toml")
+          current_section = None
+          updated_lines = []
+
+          for line in config_path.read_text().splitlines(keepends=True):
+              match = re.match(r"\[([^\]]+)\]", line)
+              if match:
+                  current_section = match.group(1)
+
+              if current_section in disabled_sections and line.strip() == "enabled = true":
+                  line = "enabled = false\n"
+
+              updated_lines.append(line)
+
+          config_path.write_text("".join(updated_lines))
+          PY
+
       - name: Install dependencies
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Cache Playwright browsers
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          key: playwright-shell-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            playwright-shell-${{ runner.os }}-
 
       - name: Install Playwright browser
-        run: pnpm exec playwright install --with-deps chromium
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
+        run: pnpm exec playwright install --with-deps --only-shell chromium
 
       - name: Start local Supabase
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
         run: supabase start -x studio,mailpit,realtime,edge-runtime,imgproxy,postgres-meta,logflare,vector,supavisor
 
       - name: Write local Supabase environment
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
         shell: bash
         run: |
           supabase status -o env > supabase.env
@@ -92,13 +161,15 @@ jobs:
           } > .env.local
 
       - name: Seed local database
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
         run: pnpm seed:local
 
       - name: Run Playwright e2e suite
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
         run: pnpm test:e2e
 
       - name: Upload Playwright artifacts
-        if: failure()
+        if: failure() && steps.e2e-changes.outputs.run-e2e == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: playwright-artifacts
