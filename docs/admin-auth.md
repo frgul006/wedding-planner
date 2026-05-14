@@ -106,5 +106,5 @@ SUPABASE_SECRET_KEY=...
 Before production use:
 
 - Set Supabase URL and keys in Vercel environment variables. The app does not require these variables at build-time, but admin/auth routes need them at runtime.
-- Create the production wedding row and first `admin_profiles` row after the migration is applied.
+- Create the production wedding row and first `admin_profiles` row after the migration is applied. See [`production-database.md`](production-database.md) for the guarded bootstrap script and migration workflow.
 - Keep admin authorization checks in server actions and route handlers, not only in proxy.

@@ -15,6 +15,7 @@
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
     "seed:local": "node scripts/seed-local.mjs",
+    "bootstrap:production": "node scripts/bootstrap-production.mjs",
     "sms:test": "node scripts/send-elk46-test.mjs"
   },
   "dependencies": {

@@ -23,6 +23,8 @@ No Vercel Preview-only Supabase variables, branch-specific Supabase overrides, V
 
 Therefore, Vercel branch preview deployments currently connect to the same Supabase project/database as production unless the Vercel environment configuration is changed later.
 
+For production migration and bootstrap procedures, see [`production-database.md`](production-database.md).
+
 ## Captured evidence from the 2026-05-14 check
 
 | Check | Command | Result |

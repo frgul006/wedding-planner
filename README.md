@@ -42,6 +42,7 @@ pnpm seed:local
 
 - [`docs/local-development.md`](docs/local-development.md) - local setup and validation
 - [`docs/deployment-environments.md`](docs/deployment-environments.md) - Vercel/Supabase environment mapping
+- [`docs/production-database.md`](docs/production-database.md) - production migrations and bootstrap
 - [`docs/admin-auth.md`](docs/admin-auth.md) - admin authentication
 - [`docs/admin-guests.md`](docs/admin-guests.md) - guest management
 - [`e2e/README.md`](e2e/README.md) - end-to-end test notes
