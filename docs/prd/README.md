@@ -41,8 +41,9 @@
    - `../data-model.md`
 16. ✅ **Wedding hub upload flow (public)**
    - `photo-upload-public.md`
-17. **Photo moderation and export**
+17. ✅ **Photo moderation and export**
    - `photo-review-and-export.md`
+   - `../admin-photos.md`
 18. **Brevkort invite data-model and admin prerequisites**
    - `admin-guest-crud.md`
    - `wedding-event-settings.md`

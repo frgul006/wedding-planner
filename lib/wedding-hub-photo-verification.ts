@@ -1,11 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
+  ACCEPTED_PHOTO_UPLOAD_FILTER,
   PHOTO_UPLOAD_ALLOWED_MIME_TYPES,
   PHOTO_UPLOAD_BUCKET,
   PHOTO_UPLOAD_MAX_THUMBNAIL_SIZE_BYTES,
   PHOTO_UPLOAD_THUMBNAIL_MIME_TYPES,
 } from "@/lib/photo-upload";
+import { normalizePhotoGuestName } from "@/lib/photo-upload-display";
 import { isRecord } from "@/lib/type-guards";
 import { verifySignedUploadClaim } from "@/lib/wedding-hub-photo-upload";
 import type { HubUploadAttribution } from "@/lib/wedding-hub-photo";
@@ -109,22 +111,6 @@ function isHubPhotoRow(value: unknown): value is HubPhotoRow {
     (value.thumbnail_status === null || typeof value.thumbnail_status === "string") &&
     (value.thumbnail_storage_path === null || typeof value.thumbnail_storage_path === "string")
   );
-}
-
-function normalizeGuestName(value: unknown): string | null {
-  if (!value) {
-    return null;
-  }
-
-  if (Array.isArray(value)) {
-    return normalizeGuestName(value[0]);
-  }
-
-  if (isRecord(value) && typeof value.full_name === "string") {
-    return value.full_name;
-  }
-
-  return null;
 }
 
 function detectMime(bytes: Uint8Array): string | null {
@@ -753,18 +739,18 @@ export async function getWeddingHubPhotoData({
         "id, storage_path, note, created_at, thumbnail_status, thumbnail_storage_path, guests(full_name)",
       )
       .eq("wedding_id", wedding.id)
-      .eq("verification_status", "verified")
-      .eq("moderation_status", "approved")
-      .is("deleted_at", null)
+      .eq("verification_status", ACCEPTED_PHOTO_UPLOAD_FILTER.verification_status)
+      .eq("moderation_status", ACCEPTED_PHOTO_UPLOAD_FILTER.moderation_status)
+      .is("deleted_at", ACCEPTED_PHOTO_UPLOAD_FILTER.deleted_at)
       .order("created_at", { ascending: false })
       .limit(60),
     supabase
       .from("photo_uploads")
       .select("id", { count: "exact", head: true })
       .eq("wedding_id", wedding.id)
-      .eq("verification_status", "verified")
-      .eq("moderation_status", "approved")
-      .is("deleted_at", null),
+      .eq("verification_status", ACCEPTED_PHOTO_UPLOAD_FILTER.verification_status)
+      .eq("moderation_status", ACCEPTED_PHOTO_UPLOAD_FILTER.moderation_status)
+      .is("deleted_at", ACCEPTED_PHOTO_UPLOAD_FILTER.deleted_at),
   ]);
 
   if (photosResult.error || !photosResult.data) {
@@ -782,7 +768,7 @@ export async function getWeddingHubPhotoData({
   for (const row of rows) {
     const rowSigned = await signForGalleryRow(supabase, row);
 
-    const who = normalizeGuestName(row.guests) ?? "Gäst";
+    const who = normalizePhotoGuestName(row.guests) ?? "Gäst";
     const isSignedPhoto = rowSigned.photoUrl.length > 0;
 
     if (!isSignedPhoto) {

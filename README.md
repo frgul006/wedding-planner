@@ -45,4 +45,5 @@ pnpm seed:local
 - [`docs/production-database.md`](docs/production-database.md) - production migrations and bootstrap
 - [`docs/admin-auth.md`](docs/admin-auth.md) - admin authentication
 - [`docs/admin-guests.md`](docs/admin-guests.md) - guest management
+- [`docs/admin-photos.md`](docs/admin-photos.md) - photo moderation and export
 - [`e2e/README.md`](e2e/README.md) - end-to-end test notes

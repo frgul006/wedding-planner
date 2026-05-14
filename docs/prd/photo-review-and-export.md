@@ -1,8 +1,8 @@
 # PRD: Photo Moderation and Admin Export
 
-**Version:** 0.2
-**Status:** Draft
-**Date:** 2026-05-09
+**Version:** 0.3
+**Status:** Implemented
+**Date:** 2026-05-14
 **Scope:** Staff review controls and final handling of Supabase Storage uploads
 
 ## Why this is needed
@@ -24,7 +24,7 @@ Staff need control over what photos to keep, whether new photos appear immediate
 
 ## Functional requirements
 
-- Admin photo list in `/admin`.
+- Admin photo list in `/admin/photos`.
 - Admin setting: `Require photo review before showing uploads` (`photo_upload_requires_review`).
   - Default is off/open.
   - When off, new uploads are automatically `approved` after server-side upload verification succeeds.
@@ -44,6 +44,17 @@ Staff need control over what photos to keep, whether new photos appear immediate
 - Handles many uploads without slowing admin screen.
 - Admin/public previews should use short-lived signed read URLs instead of exposing permanent public storage URLs.
 - Public gallery/feed listings may use verified browser-generated thumbnails when available and fall back to signed original URLs when unavailable.
+
+## Implementation notes
+
+Implemented in:
+
+- `/admin/photos` for list, state visibility, previews, and moderation controls.
+- `/admin/photos/export` for approved-photo ZIP downloads.
+- `/admin/settings` for the `photo_upload_requires_review` toggle.
+- `getWeddingHubPhotoData` for public gallery/feed filtering.
+
+Accepted/exportable photos are strictly `verification_status = verified`, `moderation_status = approved`, and `deleted_at is null`. The admin list paginates uploads and auto-refreshes every 15 seconds for near-real-time visibility.
 
 ## Acceptance criteria
 
