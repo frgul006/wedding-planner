@@ -4,7 +4,7 @@ This project is deployed on Vercel and uses Supabase for application data, auth,
 
 ## Current Vercel/Supabase wiring
 
-As of 2026-05-11:
+As of 2026-05-14:
 
 - Vercel scope: `mjaox-wedding-planner`
 - Vercel project: `wedding-planner`
@@ -19,9 +19,23 @@ Vercel has one set of Supabase environment variables targeting both `preview` an
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SECRET_KEY`
 
-No Vercel Preview-only Supabase variables, branch-specific Supabase overrides, Vercel marketplace integration resources, or Supabase preview branches were found during the 2026-05-11 check.
+No Vercel Preview-only Supabase variables, branch-specific Supabase overrides, Vercel marketplace integration resources, or Supabase preview branches were found during the 2026-05-14 check.
 
 Therefore, Vercel branch preview deployments currently connect to the same Supabase project/database as production unless the Vercel environment configuration is changed later.
+
+## Captured evidence from the 2026-05-14 check
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Supabase project inventory | `supabase projects list` | Found `wedding-planner` with ref `wakdmxadoruqsstbokan`. |
+| Supabase preview branches | `supabase branches list --project-ref wakdmxadoruqsstbokan` | Returned no branches. |
+| Vercel project inventory | `vercel project list --scope mjaox-wedding-planner` | Found the `wedding-planner` project. |
+| Vercel env targets | `vercel env list --scope mjaox-wedding-planner --format json` | Each Supabase env var was a single entry targeting both `preview` and `production`. |
+| Branch-specific Preview env overrides | `vercel env list preview <git-branch-name> --scope mjaox-wedding-planner --format json` | Checked active preview branches returned no branch-specific Supabase env vars. |
+| Vercel marketplace integrations | `vercel integration list wedding-planner --scope mjaox-wedding-planner` and `vercel integration installations --scope mjaox-wedding-planner` | Returned no resources/installations. |
+| Runtime project URL | `/api/health/supabase` on production and a protected preview via `vercel curl` | Both returned `https://wakdmxadoruqsstbokan.supabase.co`. |
+
+The CLI outputs intentionally do not include Supabase keys. Keep it that way: project URL/ref is sufficient evidence for database routing.
 
 ## Why previews do not get separate databases automatically
 
@@ -54,7 +68,7 @@ Check whether the Supabase project has preview branches:
 supabase branches list --project-ref wakdmxadoruqsstbokan
 ```
 
-Expected state on 2026-05-11: no Supabase preview branches.
+Expected state on 2026-05-14: no Supabase preview branches.
 
 ### Vercel CLI
 
@@ -83,7 +97,7 @@ Check for branch-specific Preview overrides:
 vercel env list preview <git-branch-name> --scope mjaox-wedding-planner --format json
 ```
 
-Expected state on 2026-05-11 for checked branches: no branch-specific Supabase env vars.
+Expected state on 2026-05-14 for checked branches: no branch-specific Supabase env vars.
 
 Check Vercel marketplace resources/integrations:
 
@@ -92,7 +106,7 @@ vercel integration list wedding-planner --scope mjaox-wedding-planner
 vercel integration installations --scope mjaox-wedding-planner
 ```
 
-Expected state on 2026-05-11: no resources/installations.
+Expected state on 2026-05-14: no resources/installations.
 
 ### Runtime verification
 
@@ -116,7 +130,7 @@ vercel curl /api/health/supabase \
   --scope mjaox-wedding-planner
 ```
 
-Compare the returned `supabaseUrl` between production and the preview deployment. On 2026-05-11 both returned:
+Compare the returned `supabaseUrl` between production and the preview deployment. On 2026-05-14 both returned:
 
 ```json
 "supabaseUrl": "https://wakdmxadoruqsstbokan.supabase.co"
