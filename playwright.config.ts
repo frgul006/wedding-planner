@@ -7,6 +7,7 @@ const webServerCommand =
   process.env.PLAYWRIGHT_WEB_SERVER_COMMAND ??
   `pnpm exec next dev --hostname 127.0.0.1 --port ${port}`;
 const skipWebServer = process.env.PLAYWRIGHT_SKIP_WEB_SERVER === "1";
+const useSystemChrome = process.env.PLAYWRIGHT_USE_SYSTEM_CHROME === "true";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -41,8 +42,11 @@ export default defineConfig({
       },
   projects: [
     {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      name: useSystemChrome ? "chrome" : "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        ...(useSystemChrome ? { channel: "chrome" as const } : {}),
+      },
     },
   ],
 });
