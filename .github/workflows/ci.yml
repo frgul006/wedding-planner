@@ -156,16 +156,21 @@ jobs:
             echo "available=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Cache Playwright browsers
-        if: steps.e2e-changes.outputs.run-e2e == 'true' && steps.system-chrome.outputs.available != 'true'
+      - name: Cache Playwright runtime
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-shell-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          key: playwright-runtime-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
+            playwright-runtime-${{ runner.os }}-
             playwright-shell-${{ runner.os }}-
 
-      - name: Install Playwright browser
+      - name: Install Playwright video renderer
+        if: steps.e2e-changes.outputs.run-e2e == 'true' && steps.system-chrome.outputs.available == 'true'
+        run: pnpm exec playwright install ffmpeg
+
+      - name: Install Playwright browser fallback
         if: steps.e2e-changes.outputs.run-e2e == 'true' && steps.system-chrome.outputs.available != 'true'
         run: pnpm exec playwright install --with-deps --only-shell chromium
 
