@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
 import { regenerateInviteToken } from "@/lib/invite-tokens";
 import { isE164PhoneNumber } from "@/lib/phone";
+import { getRequestOriginFromHeaders } from "@/lib/public-url";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function cleanOptionalText(value: FormDataEntryValue | null) {
@@ -158,8 +160,10 @@ export async function generateInviteLinkAction(
   }
 
   try {
+    const requestOrigin = getRequestOriginFromHeaders(await headers());
     const { inviteUrl } = await regenerateInviteToken({
       guestId,
+      requestOrigin,
       supabase,
       weddingId: adminProfile.wedding_id,
     });

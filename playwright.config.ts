@@ -35,6 +35,7 @@ export default defineConfig({
           ELK46_MOCK_SEND: "1",
           ELK46_PASSWORD: process.env.ELK46_PASSWORD ?? "e2e-password",
           ELK46_USER: process.env.ELK46_USER ?? "e2e-user",
+          VERCEL_URL: process.env.VERCEL_URL ?? "stale-vercel-deployment.example.com",
         },
         reuseExistingServer: !isCI,
         timeout: 120_000,

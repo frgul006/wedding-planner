@@ -11,7 +11,7 @@ import {
 } from "./support/invite-test-data";
 import { testWithWeddingSettings as test } from "./support/fixtures";
 import { createE2eSupabaseAdminClient } from "./support/supabase";
-import { invitePathForToken } from "./support/urls";
+import { expectedPublicOriginForPage, invitePathForToken } from "./support/urls";
 import {
   BASELINE_WEDDING_SETTINGS,
   updateWeddingSettings,
@@ -226,7 +226,10 @@ test.describe("wedding hub QR", () => {
 
     await expect(page.getByRole("heading", { name: "Wedding hub QR" })).toBeVisible();
     await expect(page.getByAltText("QR code for the wedding hub")).toBeVisible();
-    await expect(page.getByLabel("Hub URL")).toHaveValue(/\/wedding-hub$/);
+    const hubUrlInput = page.getByLabel("Hub URL");
+    await expect(hubUrlInput).toHaveValue(/\/wedding-hub$/);
+    const hubUrl = await hubUrlInput.inputValue();
+    expect(new URL(hubUrl).origin).toBe(expectedPublicOriginForPage(page));
     await expect(page.getByRole("link", { name: "Download PNG" })).toHaveAttribute(
       "href",
       "/admin/qr-code/png?download=1",
