@@ -63,8 +63,17 @@ jobs:
             exit 0
           fi
 
-          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
-          changed_files="$(git diff --name-only "origin/${{ github.base_ref }}" HEAD)"
+          if ! git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"; then
+            echo "run-e2e=true" >> "$GITHUB_OUTPUT"
+            echo "Could not fetch base ref; running e2e to fail safe."
+            exit 0
+          fi
+
+          if ! changed_files="$(git diff --name-only "origin/${{ github.base_ref }}" HEAD)"; then
+            echo "run-e2e=true" >> "$GITHUB_OUTPUT"
+            echo "Could not determine changed files; running e2e to fail safe."
+            exit 0
+          fi
 
           echo "Changed files:"
           printf '%s\n' "$changed_files"
@@ -105,6 +114,8 @@ jobs:
         if: steps.e2e-changes.outputs.run-e2e == 'true'
         shell: bash
         run: |
+          # Disable config-backed services before startup so the CLI skips their
+          # schema/init work; the start command also excludes companion containers.
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -136,8 +147,10 @@ jobs:
         if: steps.e2e-changes.outputs.run-e2e == 'true'
         shell: bash
         run: |
-          if command -v google-chrome > /dev/null; then
-            google-chrome --version
+          chrome_binary="$(command -v google-chrome || command -v google-chrome-stable || true)"
+
+          if [[ -n "$chrome_binary" ]]; then
+            "$chrome_binary" --version
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
