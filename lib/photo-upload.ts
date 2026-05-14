@@ -50,6 +50,26 @@ export type PhotoUploadVerificationStatus =
 export type PhotoUploadModerationStatus =
   (typeof PHOTO_UPLOAD_MODERATION_STATUSES)[number];
 
+export const ACCEPTED_PHOTO_UPLOAD_FILTER = {
+  deleted_at: null,
+  moderation_status: "approved" satisfies PhotoUploadModerationStatus,
+  verification_status: "verified" satisfies PhotoUploadVerificationStatus,
+} as const;
+
+export type AcceptedPhotoUploadFields = {
+  deleted_at: string | null;
+  moderation_status: PhotoUploadModerationStatus;
+  verification_status: PhotoUploadVerificationStatus;
+};
+
+export function isAcceptedPhotoUpload(value: AcceptedPhotoUploadFields) {
+  return (
+    value.verification_status === ACCEPTED_PHOTO_UPLOAD_FILTER.verification_status &&
+    value.moderation_status === ACCEPTED_PHOTO_UPLOAD_FILTER.moderation_status &&
+    value.deleted_at === ACCEPTED_PHOTO_UPLOAD_FILTER.deleted_at
+  );
+}
+
 export function isPhotoUploadMimeType(value: unknown): value is PhotoUploadMimeType {
   return (
     typeof value === "string" &&
