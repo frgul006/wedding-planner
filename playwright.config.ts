@@ -23,7 +23,7 @@ export default defineConfig({
     baseURL,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
-    video: isCI ? "off" : "retain-on-failure",
+    video: "retain-on-failure",
   },
   webServer: skipWebServer
     ? undefined
