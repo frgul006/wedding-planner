@@ -276,6 +276,9 @@ test.describe("RSVP, invite status, and phone capture", () => {
       inviteStatus: INVITE_STATUS.rsvpYes,
       notes: "No shellfish.",
       phone: "+46700000000",
+      plusOneAllowed: true,
+      plusOneName: "Existing Plus One",
+      plusOnePhone: "+46701112235",
       token,
     });
 
@@ -312,6 +315,8 @@ test.describe("RSVP, invite status, and phone capture", () => {
       attendance: RSVP_ATTENDANCE.maybe,
       extra_guests: 0,
       food_preference: "Fish",
+      plus_one_name: "Existing Plus One",
+      plus_one_phone: "+46701112235",
     });
 
     await page.goto(invitePathForToken(token));

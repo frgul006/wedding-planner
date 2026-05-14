@@ -69,6 +69,8 @@ add constraint rsvp_responses_plus_one_sms_requires_timestamp_check check (
   or plus_one_sms_opted_in_at is not null
 );
 
+drop function if exists public.submit_rsvp_response(text, text, integer, text, text);
+drop function if exists public.submit_rsvp_response(text, text, integer, text, text, text);
 drop function if exists public.submit_rsvp_response(text, text, integer, text, text, text, boolean);
 
 create or replace function public.submit_rsvp_response(
@@ -202,18 +204,40 @@ begin
     extra_guests = excluded.extra_guests,
     food_preference = excluded.food_preference,
     allergy_notes = excluded.allergy_notes,
-    plus_one_name = excluded.plus_one_name,
-    plus_one_email = excluded.plus_one_email,
-    plus_one_phone = excluded.plus_one_phone,
-    plus_one_food_preference = excluded.plus_one_food_preference,
-    plus_one_allergy_notes = excluded.plus_one_allergy_notes,
-    plus_one_sms_opt_in = excluded.plus_one_sms_opt_in,
+    plus_one_name = case
+      when has_plus_one_payload = true then excluded.plus_one_name
+      else rsvp_responses.plus_one_name
+    end,
+    plus_one_email = case
+      when has_plus_one_payload = true then excluded.plus_one_email
+      else rsvp_responses.plus_one_email
+    end,
+    plus_one_phone = case
+      when has_plus_one_payload = true then excluded.plus_one_phone
+      else rsvp_responses.plus_one_phone
+    end,
+    plus_one_food_preference = case
+      when has_plus_one_payload = true then excluded.plus_one_food_preference
+      else rsvp_responses.plus_one_food_preference
+    end,
+    plus_one_allergy_notes = case
+      when has_plus_one_payload = true then excluded.plus_one_allergy_notes
+      else rsvp_responses.plus_one_allergy_notes
+    end,
+    plus_one_sms_opt_in = case
+      when has_plus_one_payload = true then excluded.plus_one_sms_opt_in
+      else rsvp_responses.plus_one_sms_opt_in
+    end,
     plus_one_sms_opted_in_at = case
+      when has_plus_one_payload = false
+        then rsvp_responses.plus_one_sms_opted_in_at
       when excluded.plus_one_sms_opt_in = true
         then coalesce(rsvp_responses.plus_one_sms_opted_in_at, submitted_at)
       else rsvp_responses.plus_one_sms_opted_in_at
     end,
     plus_one_sms_opted_out_at = case
+      when has_plus_one_payload = false
+        then rsvp_responses.plus_one_sms_opted_out_at
       when excluded.plus_one_sms_opt_in = true
         then null
       when rsvp_responses.plus_one_sms_opt_in = true
