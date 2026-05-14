@@ -4,6 +4,8 @@ This project is a Next.js App Router app deployed on Vercel at:
 
 - Production: https://wedding-planner-gamma-lovat.vercel.app/
 
+For deployed Vercel/Supabase environment mapping, see [`deployment-environments.md`](deployment-environments.md).
+
 ## Current stack
 
 - Node.js: 22.x locally
