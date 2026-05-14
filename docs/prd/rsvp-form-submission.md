@@ -91,7 +91,7 @@ Guests need an easy way to answer attendance, share contact details, and send fo
 - The database function validates the active token and atomically upserts `public.rsvp_responses` by `guest_id`, keeping one current RSVP per guest.
 - Each saved response records `wedding_id`, `guest_id`, `updated_via_token_id`, attendance, guest contact/food/allergy values, +1 values when allowed and present, and submit timestamps.
 - Guest `invite_status` is updated to match the latest attendance: `rsvp yes`, `rsvp no`, or `rsvp maybe`.
-- The current `extra_guests` count model is not enough for the Brevkort +1 state. Add a data-model migration for `guests.plus_one_allowed` plus named +1 RSVP details before implementing this redesign.
+- The current `extra_guests` count model is not enough for the Brevkort +1 state. The data-model/admin prerequisite migration now adds `guests.plus_one_allowed` plus named +1 RSVP details before the public OSA redesign replaces the legacy count UI.
 
 ## Out of scope
 

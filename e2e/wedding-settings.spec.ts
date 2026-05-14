@@ -55,14 +55,16 @@ test.describe("wedding settings propagation", () => {
     await page.getByLabel("Wedding date and time").fill("2027-06-07T15:45");
     await page.getByLabel("Venue name").fill("E2E Glass House");
     await page.getByLabel("Venue address").fill("Regression Road 42, Testholm");
+    await page.getByLabel("Venue area / city").fill("E2E Testholm");
     await page.getByLabel("Google Maps URL").fill("https://maps.google.com/?q=e2e");
     await page.getByLabel("Spotify playlist URL").fill("https://open.spotify.com/playlist/e2e");
+    await page.getByLabel("Invite support email").fill("support-e2e@example.com");
     await page
       .getByLabel("Time plan")
       .fill("15:45 - Doors open\n16:30 - Ceremony\n19:00 - Dinner");
-    await page
-      .getByLabel("Policy / dress code")
-      .fill("E2E dress code: festive regression.");
+    await page.getByLabel("Dress code").fill("E2E dress code: festive regression.");
+    await page.getByLabel("Child policy").fill("E2E child policy from settings.");
+    await page.getByLabel("Legacy policy notes").fill("E2E legacy policy from settings.");
     await page.getByLabel("Gift information").fill("E2E gift info from settings.");
     await page.getByRole("button", { name: "Save wedding settings" }).click();
 
@@ -73,6 +75,10 @@ test.describe("wedding settings propagation", () => {
     await expect(page.getByLabel("Venue name")).toHaveValue("E2E Glass House");
     await expect(page.getByLabel("Venue address")).toHaveValue(
       "Regression Road 42, Testholm",
+    );
+    await expect(page.getByLabel("Venue area / city")).toHaveValue("E2E Testholm");
+    await expect(page.getByLabel("Invite support email")).toHaveValue(
+      "support-e2e@example.com",
     );
     await expect(page.getByLabel("Time plan")).toHaveValue(
       "15:45 - Doors open\n16:30 - Ceremony\n19:00 - Dinner",
@@ -86,12 +92,15 @@ test.describe("wedding settings propagation", () => {
         .getByText(/2027/),
     ).toBeVisible();
     await expect(page.getByText("E2E Glass House", { exact: true })).toBeVisible();
+    await expect(page.getByText("E2E Testholm", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Regression Road 42, Testholm", { exact: true }))
       .toBeVisible();
     await expect(page.getByText("15:45 - Doors open")).toBeVisible();
     await expect(page.getByText("16:30 - Ceremony")).toBeVisible();
     await expect(page.getByText("19:00 - Dinner")).toBeVisible();
     await expect(page.getByText("E2E dress code: festive regression.")).toBeVisible();
+    await expect(page.getByText("E2E child policy from settings.")).toBeVisible();
+    await expect(page.getByText("E2E legacy policy from settings.")).toBeVisible();
     await expect(page.getByText("E2E gift info from settings.")).toBeVisible();
     await expect(page.getByRole("link", { name: "Open in Google Maps" })).toHaveAttribute(
       "href",
@@ -107,13 +116,17 @@ test.describe("wedding settings propagation", () => {
     const guestName = uniqueRsvpGuestName("Minimal Settings");
     const token = uniqueInviteToken("minimal-settings");
     await updateWeddingSettings({
+      child_policy: null,
+      dress_code: null,
       gift_info: null,
       google_maps_url: null,
+      invite_support_email: null,
       name: "E2E Minimal Wedding",
       policy: null,
       spotify_playlist_url: null,
       time_plan: [],
       venue_address: null,
+      venue_area: null,
       venue_name: null,
       wedding_date: null,
     });

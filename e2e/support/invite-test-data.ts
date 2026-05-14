@@ -16,6 +16,10 @@ type CreateInviteTestGuestOptions = {
   inviteStatus?: InviteStatus;
   notes?: string | null;
   phone?: string | null;
+  plusOneAllowed?: boolean;
+  plusOneName?: string | null;
+  plusOnePhone?: string | null;
+  plusOneSmsOptIn?: boolean;
   token: string;
 };
 
@@ -32,6 +36,10 @@ export async function createInviteTestGuest({
   inviteStatus = INVITE_STATUS.notReplied,
   notes = null,
   phone = null,
+  plusOneAllowed = false,
+  plusOneName = null,
+  plusOnePhone = null,
+  plusOneSmsOptIn = false,
   token,
 }: CreateInviteTestGuestOptions) {
   const supabase = createE2eSupabaseAdminClient();
@@ -43,6 +51,7 @@ export async function createInviteTestGuest({
       invite_status: inviteStatus,
       notes,
       phone,
+      plus_one_allowed: plusOneAllowed,
       wedding_id: SEEDED_WEDDING_ID,
     })
     .select("id")
@@ -74,6 +83,10 @@ export async function createInviteTestGuest({
       extra_guests: extraGuests,
       food_preference: foodPreference,
       guest_id: guest.id,
+      plus_one_name: plusOneName,
+      plus_one_phone: plusOnePhone,
+      plus_one_sms_opt_in: plusOneSmsOptIn,
+      plus_one_sms_opted_in_at: plusOneSmsOptIn ? new Date().toISOString() : null,
       updated_via_token_id: inviteToken.id,
       wedding_id: SEEDED_WEDDING_ID,
     });
@@ -97,7 +110,7 @@ export async function getRsvpResponseForGuest(guestId: string) {
   const supabase = createE2eSupabaseAdminClient();
   const { data, error } = await supabase
     .from("rsvp_responses")
-    .select("allergy_notes, attendance, extra_guests, food_preference, guest_id")
+    .select("allergy_notes, attendance, extra_guests, food_preference, guest_id, plus_one_name, plus_one_phone, plus_one_sms_opt_in")
     .eq("guest_id", guestId)
     .maybeSingle();
 

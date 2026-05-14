@@ -31,6 +31,11 @@ async function submitRsvp(page: Page, options: {
   extraGuests?: string;
   foodPreference?: string;
   phone?: string;
+  plusOne?: {
+    name: string;
+    phone?: string;
+    smsOptIn?: boolean;
+  };
   smsOptIn?: boolean;
 }) {
   if (options.attendance) {
@@ -66,6 +71,32 @@ async function submitRsvp(page: Page, options: {
   if (options.allergyNotes !== undefined) {
     await page.getByRole("textbox", { name: "Allergy / special notes" }).fill(
       options.allergyNotes,
+    );
+  }
+
+  if (options.plusOne) {
+    await page.locator("form").last().evaluate(
+      (form, plusOne) => {
+        const fields = {
+          plus_one_name: plusOne.name,
+          plus_one_phone: plusOne.phone ?? "",
+          plus_one_sms_opt_in: plusOne.smsOptIn ? "on" : "",
+        };
+
+        for (const [name, value] of Object.entries(fields)) {
+          let input = form.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+
+          if (!input) {
+            input = document.createElement("input");
+            input.type = "hidden";
+            input.name = name;
+            form.append(input);
+          }
+
+          input.value = value;
+        }
+      },
+      options.plusOne,
     );
   }
 
@@ -131,6 +162,74 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await expect(row.getByText("Extra guests: 2")).toBeVisible();
     await expect(row.getByText("Food: Vegan")).toBeVisible();
     await expect(row.getByText("Notes: Peanuts and sesame.")).toBeVisible();
+  });
+
+  test("persists named +1 details when submitted for an allowed guest", async ({
+    page,
+  }) => {
+    const guestName = uniqueRsvpGuestName("Allowed Plus One");
+    const token = uniqueInviteToken("allowed-plus-one-rsvp");
+    const { guestId } = await createInviteTestGuest({
+      email: "e2e-rsvp-plus-one@example.com",
+      fullName: guestName,
+      plusOneAllowed: true,
+      token,
+    });
+
+    await page.goto(invitePathForToken(token));
+    await expect(page.getByText(`Private invite for ${guestName}`)).toBeVisible();
+
+    await submitRsvp(page, {
+      attendance: RSVP_ATTENDANCE.yes,
+      extraGuests: "1",
+      phone: "",
+      plusOne: {
+        name: "E2E Plus One",
+        phone: "+46701112233",
+        smsOptIn: true,
+      },
+    });
+
+    await expect(page.getByText("Thank you — your RSVP has been saved.")).toBeVisible();
+    await expect(page.getByText("+1: E2E Plus One")).toBeVisible();
+    expect(await getRsvpResponseForGuest(guestId)).toMatchObject({
+      attendance: RSVP_ATTENDANCE.yes,
+      extra_guests: 1,
+      plus_one_name: "E2E Plus One",
+      plus_one_phone: "+46701112233",
+      plus_one_sms_opt_in: true,
+    });
+  });
+
+  test("rejects named +1 details for a guest without +1 permission", async ({
+    page,
+  }) => {
+    const guestName = uniqueRsvpGuestName("Blocked Plus One");
+    const token = uniqueInviteToken("blocked-plus-one-rsvp");
+    const { guestId } = await createInviteTestGuest({
+      email: "e2e-rsvp-plus-one-blocked@example.com",
+      fullName: guestName,
+      plusOneAllowed: false,
+      token,
+    });
+
+    await page.goto(invitePathForToken(token));
+    await expect(page.getByText(`Private invite for ${guestName}`)).toBeVisible();
+
+    await submitRsvp(page, {
+      attendance: RSVP_ATTENDANCE.yes,
+      extraGuests: "1",
+      phone: "",
+      plusOne: {
+        name: "Unexpected Plus One",
+        phone: "+46701112234",
+      },
+    });
+
+    await expect(
+      page.getByText("We could not save your RSVP. Please check the form and try again."),
+    ).toBeVisible();
+    expect(await getRsvpResponseCountForGuest(guestId)).toBe(0);
   });
 
   test("blocks invalid RSVP submissions with clear errors", async ({ page }) => {

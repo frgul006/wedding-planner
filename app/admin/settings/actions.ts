@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { parseTimePlanText } from "@/lib/time-plan";
 
 function cleanOptionalText(value: FormDataEntryValue | null) {
   const text = typeof value === "string" ? value.trim() : "";
@@ -13,17 +14,6 @@ function cleanOptionalText(value: FormDataEntryValue | null) {
 
 function cleanRequiredText(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function parseTimePlan(value: FormDataEntryValue | null) {
-  if (typeof value !== "string") {
-    return [];
-  }
-
-  return value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
 }
 
 function parseWeddingDate(value: FormDataEntryValue | null) {
@@ -58,11 +48,15 @@ export async function updateWeddingSettingsAction(formData: FormData) {
       wedding_date: parseWeddingDate(formData.get("wedding_date")),
       venue_name: cleanOptionalText(formData.get("venue_name")),
       venue_address: cleanOptionalText(formData.get("venue_address")),
+      venue_area: cleanOptionalText(formData.get("venue_area")),
       google_maps_url: cleanOptionalText(formData.get("google_maps_url")),
-      time_plan: parseTimePlan(formData.get("time_plan")),
+      time_plan: parseTimePlanText(formData.get("time_plan")),
       policy: cleanOptionalText(formData.get("policy")),
+      dress_code: cleanOptionalText(formData.get("dress_code")),
+      child_policy: cleanOptionalText(formData.get("child_policy")),
       gift_info: cleanOptionalText(formData.get("gift_info")),
       spotify_playlist_url: cleanOptionalText(formData.get("spotify_playlist_url")),
+      invite_support_email: cleanOptionalText(formData.get("invite_support_email")),
       allow_anonymous_hub_upload: formData.get("allow_anonymous_hub_upload") === "on",
       photo_upload_requires_review: formData.get("photo_upload_requires_review") === "on",
     })

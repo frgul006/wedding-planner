@@ -1,7 +1,7 @@
 # PRD: Admin Guest CRUD
 
 **Version:** 0.2
-**Status:** Implemented baseline; per-guest +1 permission pending
+**Status:** Implemented, including per-guest +1 permission
 **Date:** 2026-05-14
 **Scope:** Admin guest list management
 

@@ -1,7 +1,7 @@
 # PRD: Wedding Event Settings (Source of Truth)
 
 **Version:** 0.3
-**Status:** Draft
+**Status:** Implemented, including Brevkort prerequisite fields
 **Date:** 2026-05-14
 **Scope:** Core wedding details and guest hub behavior settings
 
