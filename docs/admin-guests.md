@@ -37,6 +37,12 @@ Normal admin lists only show guests where `deleted_at is null`.
 - Delete with browser confirmation; delete sets `deleted_at` instead of hard-deleting
 - Generate or regenerate private invite links; raw links are shown only immediately after generation
 
+## Planned Brevkort follow-up
+
+- Add `guests.plus_one_allowed` so admins can control whether each guest sees the +1 option on their invite.
+- Expose the +1 permission in add/edit UI before implementing the Brevkort OSA +1 flow.
+- Show named +1 RSVP details after the Brevkort RSVP data-model migration is implemented.
+
 ## Local validation
 
 After creating a local Supabase Auth user and matching `admin_profiles` row, visit:
