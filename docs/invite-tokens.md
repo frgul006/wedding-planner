@@ -39,18 +39,20 @@ Only a SHA-256 hash of the cookie value is stored in `public.guest_navigation_se
 
 ## Guest-facing event information
 
-Valid invite pages show the current wedding settings:
+Valid invite pages render the Brevkort three-panel invite shell:
 
-- wedding name
-- wedding date and time, formatted with Swedish `Intl` defaults for `Europe/Stockholm`
-- venue name, area/city, and address
-- Google Maps link when a safe `http` or `https` URL is configured
-- structured time plan entries
-- dress code, child policy, and legacy policy notes
-- gift information
-- Spotify playlist link when a safe `http` or `https` URL is configured
+1. `Inbjudan` with the personalized cover, opened/no-answer CTA state, or saved-answer treatment for existing RSVP responses.
+2. `Detaljer` with the current wedding settings:
+   - wedding date and time, formatted with Swedish `Intl` defaults for `Europe/Stockholm`
+   - venue name, area/city, address, and `Visa karta` link when a safe `http` or `https` URL is configured
+   - structured time plan entries
+   - dress code, child policy, and legacy policy notes
+   - gift information
+   - Spotify playlist link when a safe `http` or `https` URL is configured
+   - latest five published wedding updates in reverse `updated_at` order
+3. `OSA` with the existing RSVP form placed inside the panel until the full OSA redesign lands.
 
-Missing optional text or list fields show `Coming soon`; missing map or playlist URLs show non-clickable coming-soon text. Valid invite pages also show an interactive RSVP form and the latest five published wedding updates in reverse `updated_at` order. If no updates are published, guests see a simple empty-state message.
+Missing optional text or list fields show `Kommer snart`; missing map URLs show `Kartlänk kommer snart`, and missing playlist URLs show non-clickable coming-soon text. If no updates are published, guests see `Inga uppdateringar än.`
 
 ## RSVP submission
 

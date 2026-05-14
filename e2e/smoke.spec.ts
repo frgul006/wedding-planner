@@ -39,9 +39,9 @@ test.describe("public invite safety smoke", () => {
       await page.goto(path);
 
       await expect(
-        page.getByRole("heading", { name: "Invite link not valid" }),
+        page.getByRole("heading", { name: "Inbjudan saknas" }),
       ).toBeVisible();
-      await expect(page.getByText("This invite link is invalid or no longer active."))
+      await expect(page.getByText("Den här länken fungerade inte."))
         .toBeVisible();
       await expect(page.getByText(SEEDED_GUESTS.firstTimeRsvp.name)).toHaveCount(0);
       await expect(page.getByText(SEEDED_GUESTS.existingRsvp.name)).toHaveCount(0);
@@ -53,14 +53,36 @@ test.describe("public invite safety smoke", () => {
 });
 
 test.describe("valid invite smoke", () => {
+  test("shows saved answer treatment for an existing RSVP", async ({ page }) => {
+    await page.goto(invitePathForToken(SEEDED_GUESTS.existingRsvp.token));
+
+    await expect(
+      page.getByText(`Personlig inbjudan för ${SEEDED_GUESTS.existingRsvp.name}`),
+    ).toBeVisible();
+    await expect(page.getByText("Sparat svar: Ja")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Uppdatera svar" })).toBeVisible();
+  });
+
   test("shows seeded wedding details and RSVP entry points", async ({ page }) => {
     await page.goto(invitePathForToken(SEEDED_GUESTS.firstTimeRsvp.token));
 
     await expect(
-      page.getByText(`Private invite for ${SEEDED_GUESTS.firstTimeRsvp.name}`),
+      page.getByText(`Personlig inbjudan för ${SEEDED_GUESTS.firstTimeRsvp.name}`),
     ).toBeVisible();
     await expect(page.getByRole("heading", { name: "Fredrik <3 Matilda" }))
       .toBeVisible();
+
+    const coverPanel = page.locator("article", {
+      has: page.getByRole("heading", { name: "Fredrik <3 Matilda" }),
+    });
+    await expect(coverPanel.getByRole("link", { name: "Gå till Inbjudan" }))
+      .toHaveAttribute("aria-current", "step");
+    await expect(coverPanel.getByRole("link", { name: "Gå till Detaljer" }))
+      .toHaveAttribute("href", "#detaljer");
+    await expect(page.getByRole("link", { name: "Se detaljerna" })).toHaveAttribute(
+      "href",
+      "#detaljer",
+    );
     await expect(page.getByText("Cicada", { exact: true })).toBeVisible();
     await expect(page.getByText("Veterinärgränd 6, Johanneshov", { exact: true }))
       .toBeVisible();
@@ -70,14 +92,14 @@ test.describe("valid invite smoke", () => {
     await expect(page.getByText("Klädkod: festlig sommarformal")).toBeVisible();
     await expect(page.getByText("Din närvaro är den bästa presenten.")).toBeVisible();
 
-    await expect(page.getByRole("link", { name: "Open in Google Maps" }))
+    await expect(page.getByRole("link", { name: "Visa karta" }))
       .toHaveAttribute("target", "_blank");
-    await expect(page.getByRole("link", { name: "Open Spotify playlist" }))
+    await expect(page.getByRole("link", { name: "Öppna Spotify" }))
       .toHaveAttribute("target", "_blank");
     const updatesSection = page.locator("section", {
-      has: page.getByRole("heading", { name: "Updates" }),
+      has: page.getByRole("heading", { name: "Uppdateringar" }),
     });
-    await expect(updatesSection.getByText("No updates yet")).toBeVisible();
+    await expect(updatesSection.getByText("Inga uppdateringar än.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Submit RSVP" })).toBeVisible();
   });
 });

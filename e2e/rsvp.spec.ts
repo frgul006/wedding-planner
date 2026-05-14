@@ -121,7 +121,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
     );
 
     await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Private invite for ${guestName}`)).toBeVisible();
+    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
       .toBe(INVITE_STATUS.opened);
@@ -177,7 +177,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
     });
 
     await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Private invite for ${guestName}`)).toBeVisible();
+    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
 
     await submitRsvp(page, {
       attendance: RSVP_ATTENDANCE.yes,
@@ -214,7 +214,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
     });
 
     await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Private invite for ${guestName}`)).toBeVisible();
+    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
 
     await submitRsvp(page, {
       attendance: RSVP_ATTENDANCE.yes,

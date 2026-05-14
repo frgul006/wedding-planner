@@ -1,7 +1,7 @@
 # PRD: Invite Updates Feed
 
 **Version:** 0.2
-**Status:** Implemented baseline; Brevkort details placement pending
+**Status:** Implemented, including Brevkort details placement
 **Date:** 2026-05-14
 **Scope:** Public updates for all guests
 

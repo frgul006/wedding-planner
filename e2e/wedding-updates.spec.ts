@@ -49,17 +49,17 @@ test.describe("invite updates feed", () => {
 
     await page.goto(invitePathForToken(token));
     const updatesSection = page.locator("section", {
-      has: page.getByRole("heading", { name: "Updates" }),
+      has: page.getByRole("heading", { name: "Uppdateringar" }),
     });
     await expect(updatesSection.getByRole("heading", { name: updateTitle })).toBeVisible();
     await expect(
       updatesSection.getByText("E2E shuttle buses leave the hotel at 14:15."),
     ).toBeVisible();
-    await expect(updatesSection.getByRole("link", { name: "Open update link" }))
+    await expect(updatesSection.getByRole("link", { name: "Öppna länk" }))
       .toHaveAttribute("href", "https://example.com/e2e-update");
-    await expect(updatesSection.getByRole("link", { name: "Open update link" }))
+    await expect(updatesSection.getByRole("link", { name: "Öppna länk" }))
       .toHaveAttribute("target", "_blank");
-    await expect(updatesSection.getByRole("link", { name: "Open update link" }))
+    await expect(updatesSection.getByRole("link", { name: "Öppna länk" }))
       .toHaveAttribute("rel", "noopener noreferrer");
 
     await page.goto("/admin/updates");
@@ -74,7 +74,7 @@ test.describe("invite updates feed", () => {
     await expect(updatesSection.getByRole("heading", { name: updateTitle })).toHaveCount(
       0,
     );
-    await expect(updatesSection.getByText("No updates yet")).toBeVisible();
+    await expect(updatesSection.getByText("Inga uppdateringar än.")).toBeVisible();
   });
 
   test("keeps update creator provenance immutable", async () => {
@@ -156,7 +156,7 @@ test.describe("invite updates feed", () => {
 
     await page.goto(invitePathForToken(token));
     const updatesSection = page.locator("section", {
-      has: page.getByRole("heading", { name: "Updates" }),
+      has: page.getByRole("heading", { name: "Uppdateringar" }),
     });
 
     await expect(updatesSection.getByRole("listitem")).toHaveCount(5);
