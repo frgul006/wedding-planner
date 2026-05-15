@@ -1,13 +1,13 @@
 # PRD: Invite Updates Feed
 
 **Version:** 0.2
-**Status:** Implemented, including Brevkort details placement
+**Status:** Functionally implemented; Brevkort updates visual parity pending
 **Date:** 2026-05-14
 **Scope:** Public updates for all guests
 
 ## Design source
 
-Use the `Detaljer — updates published` and default empty-feed states in `../design/brevkort-invite-states.md`.
+Use the `Detaljer — updates published` and default empty-feed states in `../design/brevkort-invite-states.md`. The extracted target screenshot is `../design/references/invite/detaljer-updates-published.png`; no separate empty-updates artboard exists in the export, so use the same section layout with `Inga uppdateringar än.` replacing feed rows.
 
 ## Why this is needed
 

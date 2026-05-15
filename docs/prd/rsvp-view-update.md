@@ -1,13 +1,20 @@
 # PRD: RSVP View and Update
 
 **Version:** 0.2
-**Status:** Implemented with Brevkort edit/confirmation redesign
+**Status:** Functionally implemented; Brevkort edit/confirmation visual parity pending
 **Date:** 2026-05-15
 **Scope:** Re-open and edit RSVP by invite token
 
 ## Design source
 
 Use the edit and submitted states in `../design/brevkort-invite-states.md`: `Edit — already RSVP'd Ja`, `Edit — already RSVP'd Nej`, `Edit — Kanske`, and `OSA — submitted (Tack)`.
+
+Extracted visual targets:
+
+- `../design/references/invite/edit-rsvp-ja.png`
+- `../design/references/invite/edit-rsvp-nej.png`
+- `../design/references/invite/edit-rsvp-kanske.png`
+- `../design/references/invite/osa-submitted-tack.png`
 
 ## Why this is needed
 Guests may want to see or change their answer later.

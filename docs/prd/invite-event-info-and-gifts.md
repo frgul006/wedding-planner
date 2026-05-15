@@ -1,13 +1,13 @@
 # PRD: Invite Page Event Info and Gift Details
 
 **Version:** 0.2
-**Status:** Implemented, including Brevkort details panel
+**Status:** Functionally implemented; Brevkort details visual parity pending
 **Date:** 2026-05-14
 **Scope:** Public invite content and admin-managed wedding details
 
 ## Design source
 
-Use the `Detaljer` panel in `../design/brevkort-invite-states.md` as the target layout for invite details.
+Use the `Detaljer` panel in `../design/brevkort-invite-states.md` as the target layout for invite details. The extracted target screenshot is `../design/references/invite/detaljer-updates-published.png`; no separate no-updates artboard exists in the export, so use the same layout with the feed rows removed for the empty state.
 
 ## Why this is needed
 Guests need one clear info block with all wedding details before they answer OSA/RSVP.

@@ -1,9 +1,21 @@
 # PRD: QR Code Setup for Guest Hub
 
 **Version:** 0.3
-**Status:** Draft
+**Status:** Functionally implemented; hub/admin visual parity pending against extracted references
 **Date:** 2026-05-10
 **Scope:** Build item 13 creates one downloadable QR code and a shared public hub shell; real photo upload is delivered in build item 16.
+
+## Design source
+
+Use `../design/wedding-design-export.md` for extracted hub and admin targets. QR/hub-specific visual assets:
+
+- `../design/references/hub/spotify-not-configured.png`
+- `../design/references/hub/photo-upload-gated.png`
+- `../design/references/hub/empty-feed-first-scan.png`
+- `../design/references/admin/direction-a-overview.png`
+- `../design/references/admin/direction-b-overview.png`
+
+The admin export includes two competing visual directions; choose Direction A or B before admin restyle work.
 
 ## Why this is needed
 Guests need one easy entry point at the venue.

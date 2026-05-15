@@ -1,9 +1,21 @@
 # PRD: Wedding Hub Upload Flow (Public)
 
 **Version:** 0.2
-**Status:** Draft
+**Status:** Functionally implemented; hub visual parity pending against extracted references
 **Date:** 2026-05-09
 **Scope:** Guests use one QR hub for Supabase Storage photo uploads and music actions
+
+## Design source
+
+Use the hub states in `../design/wedding-design-export.md` as visual targets:
+
+- `../design/references/hub/attributed-cookie-present.png`
+- `../design/references/hub/anonymous-allowed.png`
+- `../design/references/hub/anonymous-blocked.png`
+- `../design/references/hub/uploading-in-flight.png`
+- `../design/references/hub/pending-review.png`
+- `../design/references/hub/rejected-upload.png`
+- `../design/references/hub/empty-feed-first-scan.png`
 
 ## Why this is needed
 Guests can share photos quickly and also add songs during the wedding. The upload flow must work from a shared venue QR code without requiring guest login.

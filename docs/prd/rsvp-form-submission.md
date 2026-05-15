@@ -1,13 +1,22 @@
 # PRD: RSVP Form Submission
 
 **Version:** 0.2
-**Status:** Implemented with Brevkort OSA redesign
+**Status:** Functionally implemented; Brevkort OSA visual parity pending
 **Date:** 2026-05-15
 **Scope:** First-time response submission and current-response upsert
 
 ## Design source
 
-Use the OSA states in `../design/brevkort-invite-states.md`: default form, +1 hidden/expanded, phone validation error, submitting, save error, and submitted confirmation.
+Use the OSA states in `../design/brevkort-invite-states.md`: default form, +1 hidden/expanded, phone validation error, submitting, save error, and submitted confirmation. Extracted visual targets are tracked in `../design/wedding-design-export.md` and include:
+
+- `../design/references/invite/osa-default-form.png`
+- `../design/references/invite/osa-plus-one-expanded.png`
+- `../design/references/invite/osa-phone-validation-error.png`
+- `../design/references/invite/osa-submitting.png`
+- `../design/references/invite/osa-save-error.png`
+- `../design/references/invite/osa-submitted-tack.png`
+
+The export does not include a separate `OSA — +1 hidden` artboard; validate that state by confirming the +1 prompt is absent while the default form layout remains otherwise intact.
 
 ## Why this is needed
 Guests need an easy way to answer attendance, share contact details, and send food/allergy needs.

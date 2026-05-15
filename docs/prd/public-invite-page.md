@@ -1,13 +1,22 @@
 # PRD: Public Invite Page
 
 **Version:** 0.3
-**Status:** Brevkort shell/details and OSA redesign implemented
+**Status:** Functionally implemented; visual parity pending against Brevkort references
 **Date:** 2026-05-15
 **Scope:** Guest-facing invite landing page, secure guest session bootstrap, and Brevkort invite states
 
 ## Design source
 
-Use `../design/brevkort-invite-states.md` as the repo-tracked visual/state reference for the invite page.
+Use `../design/brevkort-invite-states.md` as the repo-tracked visual/state reference for the invite page. Use `../design/wedding-design-export.md` for the extracted screenshot matrix and PRD ownership.
+
+Primary visual acceptance assets:
+
+- `../design/references/invite/ogiltig-lank.png`
+- `../design/references/invite/opened-no-answer.png`
+- `../design/references/invite/detaljer-updates-published.png`
+- `../design/references/invite/edit-rsvp-ja.png`
+- `../design/references/invite/edit-rsvp-nej.png`
+- `../design/references/invite/edit-rsvp-kanske.png`
 
 ## Why this is needed
 Guests need one simple, personal place to open their invite, read wedding details, and submit or update their OSA/RSVP.
