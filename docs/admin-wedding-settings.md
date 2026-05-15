@@ -35,6 +35,15 @@ Editable fields:
 
 `time_plan` is edited as one item per textarea line, such as `16:30 - Välkomstdrinkar`, and saved as a structured JSON array of `{ time, label }` rows. Blank lines are ignored. Existing string rows are still normalized when rendered.
 
+### Planned Brevkort visual prerequisite
+
+Item 23a will add explicit optional partner display fields to the same settings page:
+
+- `partner_one_name`
+- `partner_two_name`
+
+These fields will drive the public invite cover names. They are intentionally separate from `name`, which remains the general wedding title / legacy display name.
+
 ## Features
 
 - Edit wedding title/name

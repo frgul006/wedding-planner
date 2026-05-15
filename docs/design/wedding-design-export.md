@@ -61,11 +61,13 @@ The export includes two competing admin directions. Choose one before starting a
 
 ## Parallelization notes
 
-These workstreams can run in parallel once this matrix is merged:
+Execution notes for the visual follow-up workstreams:
 
 1. ✅ **Design-token/component foundation**: shared paper, typography, border, button, form-field, and status-strip primitives are available for follow-up invite visual-parity work.
-2. **Invite shell/details**: rebuild `Inbjudan`/`Detaljer` panel layout against the invite references while preserving server data loading.
-3. **OSA state pack**: restyle the RSVP form states after the shared primitives are available.
-4. **Fixture pack**: add deterministic seeds/tests for RSVP `Nej`, `Kanske`, +1 expanded, published updates, submitting, and save-error states.
-5. **Hub visual review**: compare `/wedding-hub` against the extracted hub references separately from invite work.
-6. **Admin direction decision**: pick Direction A or B before any admin restyle PR.
+2. **Explicit partner-name prerequisite**: add `partner_one_name` and `partner_two_name` wedding settings before invite shell or fixture work starts, so cover references do not depend on parsing `wedding.name`. This is a gate for items 24 and 27, not a parallel workstream.
+3. **Invite shell/cover**: rebuild `Inbjudan` shell, invalid-link, opened/no-answer, and saved-answer cover states against the invite references while preserving server data loading. Keep Details and OSA internals for later passes.
+4. **Fixture pack**: add deterministic seeds/tests for RSVP `Nej`, `Kanske`, +1 expanded, published updates, submitting, and save-error states. Use Playwright mocks for transient states and attach screenshots as CI artifacts without committing generated baselines.
+5. **Details panel visual parity**: match timeline, venue/map, dress/gifts, music, updates, and `Vidare till OSA` treatment after the shell contract is stable.
+6. **OSA state pack**: restyle the RSVP form states after the shared primitives and fixture states are available.
+7. **Hub visual review**: compare `/wedding-hub` against the extracted hub references separately from invite work.
+8. **Admin direction decision**: pick Direction A or B before any admin restyle PR.

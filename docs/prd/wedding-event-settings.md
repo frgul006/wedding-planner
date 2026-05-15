@@ -1,7 +1,7 @@
 # PRD: Wedding Event Settings (Source of Truth)
 
 **Version:** 0.3
-**Status:** Implemented, including Brevkort prerequisite fields
+**Status:** Implemented; explicit Brevkort partner-name fields planned as item 23a
 **Date:** 2026-05-14
 **Scope:** Core wedding details and guest hub behavior settings
 
@@ -21,7 +21,8 @@ The wedding page, invite page, and QR hub must show one consistent set of detail
 ## Functional requirements
 - Create one editable wedding settings record in `/admin`.
 - Fields:
-  - Couple names
+  - General wedding name/title
+  - Explicit partner display names for the Brevkort cover (`partner_one_name`, `partner_two_name`; planned item 23a)
   - Wedding date
   - Venue name and address
   - Venue area/city display text
@@ -49,6 +50,7 @@ The wedding page, invite page, and QR hub must show one consistent set of detail
 ## Implementation notes
 - The current baseline schema does not fully cover the Brevkort artboards.
 - Add a schema/admin settings migration, or document explicit mappings, for venue area/city, structured time-plan rows, dress code, child policy, and invite-support email before implementing the Brevkort details UI.
+- Item 23a adds explicit partner-name fields for the cover so item 24 does not need to parse `name` into two people.
 - Prefer explicit fields over overloading the generic `policy` field so admins can edit each Brevkort details card without ambiguity.
 
 ## Acceptance criteria
