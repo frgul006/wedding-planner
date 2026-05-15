@@ -30,7 +30,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -101,7 +101,7 @@ jobs:
         if: steps.e2e-changes.outputs.run-e2e == 'true'
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Set up Supabase CLI
@@ -244,29 +244,25 @@ jobs:
             exit 1
           fi
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22
-          cache: pnpm
+          node-version: 24
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
 
       - name: Pull Vercel production settings
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: pnpm dlx vercel@53.3.2 pull --yes --environment=production --token "$VERCEL_TOKEN"
+        run: vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
 
       - name: Build Vercel production artifact
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: pnpm dlx vercel@53.3.2 build --prod --token "$VERCEL_TOKEN"
+        run: vercel build --prod --token "$VERCEL_TOKEN"
 
       - name: Deploy Vercel production artifact
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: pnpm dlx vercel@53.3.2 deploy --prebuilt --prod --token "$VERCEL_TOKEN"
+        run: vercel deploy --prebuilt --prod --token "$VERCEL_TOKEN"

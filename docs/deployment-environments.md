@@ -27,7 +27,7 @@ For production migration and bootstrap procedures, see [`production-database.md`
 
 ## Production deployment gate
 
-Vercel's automatic Git deployment for the `main` branch is intentionally skipped by [`vercel.json`](../vercel.json) via [`scripts/vercel-ignore-build.mjs`](../scripts/vercel-ignore-build.mjs). The [`CI` workflow](../.github/workflows/ci.yml) deploys production instead, and only when a push to `main` has completed both required jobs successfully:
+Vercel's automatic Git deployment for the `main` branch is intentionally skipped by the [`vercel.json`](../vercel.json) ignore command. The [`CI` workflow](../.github/workflows/ci.yml) deploys production instead, and only when a push to `main` has completed both required jobs successfully:
 
 - `lint-and-build`, which runs `pnpm lint` and `pnpm build`
 - `e2e`, which runs the Playwright regression suite on every non-PR event, including `main` pushes
@@ -42,7 +42,7 @@ The production deploy job requires these GitHub repository secrets:
 
 Create `VERCEL_TOKEN` in Vercel account settings. To find the org/project IDs, run `vercel link --yes --scope mjaox-wedding-planner --project wedding-planner` locally and copy the `orgId` and `projectId` values from `.vercel/project.json`; `.vercel/` is gitignored and should not be committed.
 
-The deploy job pulls the Vercel production environment, builds with `vercel build --prod`, then deploys the prebuilt artifact with `vercel deploy --prebuilt --prod`. If lint, build, or e2e fails, the deploy job does not run and Vercel production is not updated.
+The deploy job installs the latest Vercel CLI, pulls the Vercel production environment, builds with `vercel build --prod`, then deploys the prebuilt artifact with `vercel deploy --prebuilt --prod`. If lint, build, or e2e fails, the deploy job does not run and Vercel production is not updated.
 
 ## Captured evidence from the 2026-05-14 check
 
