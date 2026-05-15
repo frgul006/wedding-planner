@@ -100,6 +100,6 @@ test.describe("valid invite smoke", () => {
       has: page.getByRole("heading", { name: "Uppdateringar" }),
     });
     await expect(updatesSection.getByText("Inga uppdateringar än.")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Submit RSVP" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Skicka mitt svar →" })).toBeVisible();
   });
 });

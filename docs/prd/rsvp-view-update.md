@@ -1,8 +1,8 @@
 # PRD: RSVP View and Update
 
 **Version:** 0.2
-**Status:** Implemented baseline; Brevkort edit/confirmation redesign pending
-**Date:** 2026-05-14
+**Status:** Implemented with Brevkort edit/confirmation redesign
+**Date:** 2026-05-15
 **Scope:** Re-open and edit RSVP by invite token
 
 ## Design source

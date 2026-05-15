@@ -1,8 +1,8 @@
 # PRD: Public Invite Page
 
 **Version:** 0.3
-**Status:** Brevkort shell/details implemented; OSA redesign pending
-**Date:** 2026-05-14
+**Status:** Brevkort shell/details and OSA redesign implemented
+**Date:** 2026-05-15
 **Scope:** Guest-facing invite landing page, secure guest session bootstrap, and Brevkort invite states
 
 ## Design source

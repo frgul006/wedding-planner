@@ -3,18 +3,13 @@ import { connection } from "next/server";
 import type { ReactNode } from "react";
 
 import { markInviteOpened, validateInviteToken } from "@/lib/invite-tokens";
-import {
-  PHONE_FORMAT_EXAMPLE,
-  PHONE_INPUT_PATTERN,
-  PHONE_VALIDATION_MESSAGE,
-} from "@/lib/phone";
 import { RSVP_ATTENDANCE, type RsvpAttendance } from "@/lib/rsvp-attendance";
 import { getSafeHttpUrl } from "@/lib/safe-url";
 import { parseTimePlanLine } from "@/lib/time-plan";
 import { getPublishedWeddingUpdates } from "@/lib/wedding-updates";
 
 import { InvalidInviteMessage } from "../_components/invalid-invite-message";
-import { submitRsvpAction } from "./actions";
+import { RsvpPanel } from "./rsvp-panel";
 
 export const metadata: Metadata = {
   title: "Inbjudan | Wedding Planner",
@@ -25,7 +20,6 @@ type InvitePageProps = {
     token: string;
   }>;
   searchParams: Promise<{
-    rsvp_error?: string | string[];
     rsvp_status?: string | string[];
   }>;
 };
@@ -38,14 +32,6 @@ type ValidInviteResult = Extract<
 const comingSoon = "Kommer snart";
 const panelLabels = ["Inbjudan", "Detaljer", "OSA"] as const;
 const panelIds = ["inbjudan", "detaljer", "osa"] as const;
-const foodPreferenceOptions = [
-  { label: "Vegetarian", value: "Vegetarian" },
-  { label: "Vegan", value: "Vegan" },
-  { label: "Fish", value: "Fish" },
-  { label: "Meat", value: "Meat" },
-  { label: "Other / see notes", value: "Other" },
-] as const;
-
 const weddingDateFormatter = new Intl.DateTimeFormat("sv-SE", {
   dateStyle: "full",
   timeStyle: "short",
@@ -111,61 +97,6 @@ function getFirstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function getRsvpMessage(searchParams: Awaited<InvitePageProps["searchParams"]>) {
-  const error = getFirstParam(searchParams.rsvp_error);
-  const status = getFirstParam(searchParams.rsvp_status);
-
-  if (error === "attendance") {
-    return { tone: "error", text: "Choose Yes, No, or Maybe before submitting." };
-  }
-
-  if (error === "extra-guests") {
-    return {
-      tone: "error",
-      text: "Extra guest count must be a whole number of 0 or more.",
-    };
-  }
-
-  if (error === "phone") {
-    return {
-      tone: "error",
-      text: `Phone must use country-code format, e.g. ${PHONE_FORMAT_EXAMPLE}. It is required for SMS updates.`,
-    };
-  }
-
-  if (error === "plus-one-name") {
-    return {
-      tone: "error",
-      text: "Add your +1 guest's name before submitting.",
-    };
-  }
-
-  if (error) {
-    return {
-      tone: "error",
-      text: "We could not save your RSVP. Please check the form and try again.",
-    };
-  }
-
-  if (status === "submitted") {
-    return { tone: "success", text: "Thank you — your RSVP has been saved." };
-  }
-
-  return null;
-}
-
-function getAttendanceSummary(attendance: RsvpAttendance) {
-  if (attendance === RSVP_ATTENDANCE.yes) {
-    return "Yes, I will be there";
-  }
-
-  if (attendance === RSVP_ATTENDANCE.no) {
-    return "No, I cannot attend";
-  }
-
-  return "Maybe, I will confirm later";
-}
-
 function getSwedishAttendanceLabel(attendance: RsvpAttendance) {
   if (attendance === RSVP_ATTENDANCE.yes) {
     return "Ja";
@@ -188,14 +119,6 @@ function getSavedAnswerChipClass(attendance: RsvpAttendance) {
   }
 
   return "bg-[#f8ead8] text-[#6f4f33] ring-[#d8b78f]";
-}
-
-function getCustomFoodPreference(value: string | null | undefined) {
-  if (!value || foodPreferenceOptions.some((option) => option.value === value)) {
-    return null;
-  }
-
-  return value;
 }
 
 function getCoupleMark(name: string) {
@@ -626,12 +549,11 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   )}`;
   const mapsUrl = getSafeHttpUrl(wedding.google_maps_url);
   const spotifyUrl = getSafeHttpUrl(wedding.spotify_playlist_url);
-  const submitRsvpWithToken = submitRsvpAction.bind(null, token);
-  const rsvpMessage = getRsvpMessage(queryParams);
+  const showSubmittedConfirmation =
+    getFirstParam(queryParams.rsvp_status) === "submitted";
   const rsvpSubmittedAt = formatRsvpSubmittedAt(
     rsvpResponse?.last_submitted_at ?? null,
   );
-  const customFoodPreference = getCustomFoodPreference(rsvpResponse?.food_preference);
   const coupleMark = getCoupleMark(wedding.name);
 
   return (
@@ -671,177 +593,14 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
               Svara eller uppdatera ditt svar här när du vet om du kan komma.
             </p>
 
-            <section className="mt-8 rounded-[2rem] bg-zinc-950 p-6 text-white shadow-sm sm:p-8">
-              <p className="text-sm font-medium uppercase tracking-wide text-zinc-400">
-                RSVP
-              </p>
-              <h3 className="mt-3 text-3xl font-semibold tracking-tight">
-                {rsvpResponse
-                  ? "Review or update your RSVP"
-                  : "Let us know if you can make it"}
-              </h3>
-              <p className="mt-3 max-w-2xl text-zinc-300">
-                {rsvpResponse
-                  ? "We have your latest answer. You can update it below if your plans or notes change."
-                  : "Please send your answer and any food or allergy notes so we can plan the day."}
-              </p>
-
-              {rsvpMessage ? (
-                <p
-                  aria-live="polite"
-                  className={`mt-6 rounded-2xl px-5 py-4 text-sm font-medium ${
-                    rsvpMessage.tone === "error"
-                      ? "bg-red-50 text-red-700"
-                      : "bg-emerald-50 text-emerald-700"
-                  }`}
-                  role={rsvpMessage.tone === "error" ? "alert" : "status"}
-                >
-                  {rsvpMessage.text}
-                </p>
-              ) : null}
-
-              {rsvpResponse ? (
-                <div className="mt-6 rounded-3xl bg-white/10 p-5 ring-1 ring-white/15">
-                  <p className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
-                    Current RSVP
-                  </p>
-                  <p className="mt-2 text-xl font-semibold">
-                    {getAttendanceSummary(rsvpResponse.attendance)}
-                  </p>
-                  <div className="mt-3 grid gap-2 text-sm text-zinc-300 sm:grid-cols-2">
-                    <p>Extra guests: {rsvpResponse.extra_guests}</p>
-                    <p>
-                      Food preference: {rsvpResponse.food_preference ?? "No preference"}
-                    </p>
-                    {rsvpResponse.plus_one_name ? (
-                      <p>+1: {rsvpResponse.plus_one_name}</p>
-                    ) : null}
-                    {rsvpSubmittedAt ? <p>Last updated: {rsvpSubmittedAt}</p> : null}
-                  </div>
-                  {rsvpResponse.allergy_notes ? (
-                    <p className="mt-3 whitespace-pre-line text-sm text-zinc-300">
-                      Notes: {rsvpResponse.allergy_notes}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-
-              <form action={submitRsvpWithToken} className="mt-8 grid gap-6" noValidate>
-                <fieldset className="grid gap-3">
-                  <legend className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
-                    Attendance
-                  </legend>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    {[
-                      [RSVP_ATTENDANCE.yes, "Yes", "I will be there"],
-                      [RSVP_ATTENDANCE.no, "No", "I cannot attend"],
-                      [RSVP_ATTENDANCE.maybe, "Maybe", "I will confirm later"],
-                    ].map(([value, label, description]) => (
-                      <label
-                        className="flex cursor-pointer gap-3 rounded-2xl bg-white/10 p-4 ring-1 ring-white/15 transition hover:bg-white/15"
-                        key={value}
-                      >
-                        <input
-                          className="mt-1 h-4 w-4 accent-white"
-                          defaultChecked={rsvpResponse?.attendance === value}
-                          name="attendance"
-                          required
-                          type="radio"
-                          value={value}
-                        />
-                        <span>
-                          <span className="block font-semibold">{label}</span>
-                          <span className="mt-1 block text-sm text-zinc-300">
-                            {description}
-                          </span>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-
-                <div className="grid gap-4 lg:grid-cols-3">
-                  <label className="flex flex-col gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-400">
-                    Phone (optional)
-                    <input
-                      className="rounded-2xl border border-white/20 bg-white px-4 py-3 font-normal tracking-normal text-zinc-950 outline-none transition focus:border-white focus:ring-2 focus:ring-white/40"
-                      defaultValue={guest.phone ?? ""}
-                      inputMode="tel"
-                      name="phone"
-                      pattern={PHONE_INPUT_PATTERN}
-                      placeholder={PHONE_FORMAT_EXAMPLE}
-                      title={PHONE_VALIDATION_MESSAGE}
-                      type="tel"
-                    />
-                    <span className="text-xs font-normal normal-case tracking-normal text-zinc-300">
-                      {PHONE_VALIDATION_MESSAGE}
-                    </span>
-                  </label>
-
-                  <label className="flex flex-col gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-400">
-                    Extra guest count
-                    <input
-                      className="rounded-2xl border border-white/20 bg-white px-4 py-3 font-normal tracking-normal text-zinc-950 outline-none transition focus:border-white focus:ring-2 focus:ring-white/40"
-                      defaultValue={rsvpResponse?.extra_guests ?? 0}
-                      min="0"
-                      name="extra_guests"
-                      required
-                      step="1"
-                      type="number"
-                    />
-                  </label>
-
-                  <label className="flex flex-col gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-400">
-                    Food preference
-                    <select
-                      className="rounded-2xl border border-white/20 bg-white px-4 py-3 font-normal tracking-normal text-zinc-950 outline-none transition focus:border-white focus:ring-2 focus:ring-white/40"
-                      defaultValue={rsvpResponse?.food_preference ?? ""}
-                      name="food_preference"
-                    >
-                      <option value="">No preference</option>
-                      {foodPreferenceOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                      {customFoodPreference ? (
-                        <option value={customFoodPreference}>{customFoodPreference}</option>
-                      ) : null}
-                    </select>
-                  </label>
-                </div>
-
-                <label className="flex gap-3 rounded-2xl bg-white/10 p-4 text-sm font-medium text-white ring-1 ring-white/15">
-                  <input
-                    className="mt-1 h-4 w-4 accent-white"
-                    defaultChecked={guest.sms_opt_in}
-                    name="sms_opt_in"
-                    type="checkbox"
-                  />
-                  <span>
-                    Send me important SMS updates about the wedding. You can uncheck
-                    this later from the same invite link.
-                  </span>
-                </label>
-
-                <label className="flex flex-col gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-400">
-                  Allergy / special notes
-                  <textarea
-                    className="min-h-28 rounded-2xl border border-white/20 bg-white px-4 py-3 font-normal tracking-normal text-zinc-950 outline-none transition focus:border-white focus:ring-2 focus:ring-white/40"
-                    defaultValue={rsvpResponse?.allergy_notes ?? ""}
-                    name="allergy_notes"
-                    placeholder="Tell us about allergies, accessibility needs, or anything else we should know."
-                  />
-                </label>
-
-                <button
-                  className="rounded-full bg-white px-5 py-3 font-medium text-zinc-950 transition hover:bg-zinc-200 sm:w-fit"
-                  type="submit"
-                >
-                  {rsvpResponse ? "Update RSVP" : "Submit RSVP"}
-                </button>
-              </form>
-            </section>
+            <RsvpPanel
+              guest={guest}
+              rawToken={token}
+              rsvpResponse={rsvpResponse}
+              showSubmittedConfirmation={showSubmittedConfirmation}
+              weddingDate={weddingDate}
+              weddingName={wedding.name}
+            />
           </div>
         </PanelShell>
       </div>

@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 
+import { hashInviteToken } from "../lib/invite-token-crypto";
 import { INVITE_STATUS } from "../lib/invite-status";
 import { RSVP_ATTENDANCE, type RsvpAttendance } from "../lib/rsvp-attendance";
 
@@ -13,22 +14,22 @@ import {
   uniqueRsvpGuestName,
 } from "./support/invite-test-data";
 import { testWithGuests as test } from "./support/fixtures";
+import { createE2eSupabaseAdminClient } from "./support/supabase";
 import { invitePathForToken } from "./support/urls";
 
 async function chooseAttendance(page: Page, attendance: RsvpAttendance) {
   const names: Record<RsvpAttendance, RegExp> = {
-    [RSVP_ATTENDANCE.maybe]: /^Maybe\b/,
-    [RSVP_ATTENDANCE.no]: /^No\b/,
-    [RSVP_ATTENDANCE.yes]: /^Yes\b/,
+    [RSVP_ATTENDANCE.maybe]: /^Kanske\s+återkommer$/,
+    [RSVP_ATTENDANCE.no]: /^Nej\s+kan inte$/,
+    [RSVP_ATTENDANCE.yes]: /^Ja\s+kommer$/,
   };
 
-  await page.getByRole("radio", { name: names[attendance] }).check();
+  await page.getByRole("radio", { name: names[attendance] }).check({ force: true });
 }
 
 async function submitRsvp(page: Page, options: {
   allergyNotes?: string;
   attendance?: RsvpAttendance;
-  extraGuests?: string;
   foodPreference?: string;
   phone?: string;
   plusOne?: {
@@ -43,11 +44,11 @@ async function submitRsvp(page: Page, options: {
   }
 
   if (options.phone !== undefined) {
-    await page.getByPlaceholder("+46701234567").fill(options.phone);
+    await page.getByRole("textbox", { name: "Telefon" }).first().fill(options.phone);
   }
 
   if (options.smsOptIn !== undefined) {
-    const smsCheckbox = page.getByLabel(/Send me important SMS updates/);
+    const smsCheckbox = page.getByLabel(/Skicka mig viktiga SMS/);
 
     if (options.smsOptIn) {
       await smsCheckbox.check();
@@ -56,51 +57,69 @@ async function submitRsvp(page: Page, options: {
     }
   }
 
-  if (options.extraGuests !== undefined) {
-    await page.getByRole("spinbutton", { name: "Extra guest count" }).fill(
-      options.extraGuests,
-    );
-  }
-
   if (options.foodPreference !== undefined) {
-    await page.getByRole("combobox", { name: "Food preference" }).selectOption(
+    await page.getByRole("textbox", { name: "Matpreferens" }).first().fill(
       options.foodPreference,
     );
   }
 
   if (options.allergyNotes !== undefined) {
-    await page.getByRole("textbox", { name: "Allergy / special notes" }).fill(
+    await page.getByRole("textbox", { name: "Allergier & övriga önskemål" }).first().fill(
       options.allergyNotes,
     );
   }
 
   if (options.plusOne) {
-    await page.locator("form").last().evaluate(
-      (form, plusOne) => {
-        const fields = {
-          plus_one_name: plusOne.name,
-          plus_one_phone: plusOne.phone ?? "",
-          plus_one_sms_opt_in: plusOne.smsOptIn ? "on" : "",
-        };
+    const plusOneRadio = page.getByRole("radio", { name: /^Ja\s+\+1 gäst$/ });
 
-        for (const [name, value] of Object.entries(fields)) {
-          let input = form.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+    if (await plusOneRadio.isVisible()) {
+      await plusOneRadio.check({ force: true });
+      await page.getByRole("textbox", { name: "Namn" }).fill(options.plusOne.name);
 
-          if (!input) {
-            input = document.createElement("input");
-            input.type = "hidden";
-            input.name = name;
-            form.append(input);
-          }
+      if (options.plusOne.phone !== undefined) {
+        await page.getByRole("textbox", { name: "Telefon" }).nth(1).fill(
+          options.plusOne.phone,
+        );
+      }
 
-          input.value = value;
+      if (options.plusOne.smsOptIn !== undefined) {
+        const plusOneSmsCheckbox = page.getByLabel(/Skicka även SMS/);
+
+        if (options.plusOne.smsOptIn) {
+          await plusOneSmsCheckbox.check();
+        } else {
+          await plusOneSmsCheckbox.uncheck();
         }
-      },
-      options.plusOne,
-    );
+      }
+    } else {
+      await page.locator("form").last().evaluate(
+        (form, plusOne) => {
+          const fields = {
+            include_plus_one: "true",
+            plus_one_name: plusOne.name,
+            plus_one_phone: plusOne.phone ?? "",
+            plus_one_sms_opt_in: plusOne.smsOptIn ? "on" : "",
+          };
+
+          for (const [name, value] of Object.entries(fields)) {
+            let input = form.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+
+            if (!input) {
+              input = document.createElement("input");
+              input.type = "hidden";
+              input.name = name;
+              form.append(input);
+            }
+
+            input.value = value;
+          }
+        },
+        options.plusOne,
+      );
+    }
   }
 
-  await page.getByRole("button", { name: /^(Submit|Update) RSVP$/ }).click();
+  await page.getByRole("button", { name: /^(Skicka mitt svar|Spara ändringar)/ }).click();
 }
 
 test.describe("RSVP, invite status, and phone capture", () => {
@@ -129,15 +148,13 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await submitRsvp(page, {
       allergyNotes: "Peanuts and sesame.",
       attendance: RSVP_ATTENDANCE.yes,
-      extraGuests: "2",
       foodPreference: "Vegan",
       phone: "",
     });
 
-    await expect(page.getByText("Thank you — your RSVP has been saved.")).toBeVisible();
-    await expect(page.getByText("Current RSVP")).toBeVisible();
-    await expect(page.getByText("Yes, I will be there")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Update RSVP" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: `Tack ${guestName.split(" ").at(0)}` })).toBeVisible();
+    await expect(page.getByText("jag kommer gärna")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Uppdatera mitt svar" })).toBeVisible();
 
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
@@ -149,7 +166,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
     expect(await getRsvpResponseForGuest(guestId)).toMatchObject({
       allergy_notes: "Peanuts and sesame.",
       attendance: RSVP_ATTENDANCE.yes,
-      extra_guests: 2,
+      extra_guests: 0,
       food_preference: "Vegan",
     });
 
@@ -159,7 +176,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await page.getByRole("button", { name: "Apply" }).click();
     const row = await guestRowByName(page, guestName);
     await expect(row.getByText(INVITE_STATUS.rsvpYes, { exact: true })).toBeVisible();
-    await expect(row.getByText("Extra guests: 2")).toBeVisible();
+    await expect(row.getByText("Extra guests: 0")).toBeVisible();
     await expect(row.getByText("Food: Vegan")).toBeVisible();
     await expect(row.getByText("Notes: Peanuts and sesame.")).toBeVisible();
   });
@@ -181,7 +198,6 @@ test.describe("RSVP, invite status, and phone capture", () => {
 
     await submitRsvp(page, {
       attendance: RSVP_ATTENDANCE.yes,
-      extraGuests: "1",
       phone: "",
       plusOne: {
         name: "E2E Plus One",
@@ -190,8 +206,8 @@ test.describe("RSVP, invite status, and phone capture", () => {
       },
     });
 
-    await expect(page.getByText("Thank you — your RSVP has been saved.")).toBeVisible();
-    await expect(page.getByText("+1: E2E Plus One")).toBeVisible();
+    await expect(page.getByRole("heading", { name: `Tack ${guestName.split(" ").at(0)}` })).toBeVisible();
+    await expect(page.getByText("E2E Plus One")).toBeVisible();
     expect(await getRsvpResponseForGuest(guestId)).toMatchObject({
       attendance: RSVP_ATTENDANCE.yes,
       extra_guests: 1,
@@ -199,6 +215,122 @@ test.describe("RSVP, invite status, and phone capture", () => {
       plus_one_phone: "+46701112233",
       plus_one_sms_opt_in: true,
     });
+  });
+
+  test("rejects extra guest counts above the Brevkort +1 contract", async () => {
+    const guestName = uniqueRsvpGuestName("Too Many Plus Ones");
+    const token = uniqueInviteToken("too-many-plus-ones-rsvp");
+    const { guestId } = await createInviteTestGuest({
+      email: "e2e-rsvp-too-many-plus-ones@example.com",
+      fullName: guestName,
+      plusOneAllowed: true,
+      token,
+    });
+    const supabase = createE2eSupabaseAdminClient();
+    const { error } = await supabase.rpc("submit_rsvp_response", {
+      p_allergy_notes: null,
+      p_attendance: RSVP_ATTENDANCE.yes,
+      p_extra_guests: 2,
+      p_food_preference: null,
+      p_phone: null,
+      p_plus_one_allergy_notes: null,
+      p_plus_one_email: null,
+      p_plus_one_food_preference: null,
+      p_plus_one_name: "Too Many Guests",
+      p_plus_one_phone: null,
+      p_plus_one_sms_opt_in: false,
+      p_sms_opt_in: false,
+      p_token_hash: hashInviteToken(token),
+    });
+
+    expect(error?.code).toBe("22023");
+    expect(error?.message).toContain("Invalid extra guest count");
+    expect(await getRsvpResponseCountForGuest(guestId)).toBe(0);
+  });
+
+  test("requires phone numbers before SMS opt-in for the guest and +1", async ({
+    page,
+  }) => {
+    const guestName = uniqueRsvpGuestName("Sms Phone Required");
+    const token = uniqueInviteToken("sms-phone-required-rsvp");
+    const { guestId } = await createInviteTestGuest({
+      email: "e2e-rsvp-sms-phone-required@example.com",
+      fullName: guestName,
+      plusOneAllowed: true,
+      token,
+    });
+
+    await page.goto(invitePathForToken(token));
+    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+
+    await page.getByLabel(/Skicka mig viktiga SMS/).check();
+    await page.getByRole("button", { name: /^Skicka mitt svar/ }).click();
+
+    await expect(
+      page.getByText("Lägg till ett telefonnummer om du vill få SMS-uppdateringar."),
+    ).toBeVisible();
+    expect(await getRsvpResponseCountForGuest(guestId)).toBe(0);
+
+    await page.getByLabel(/Skicka mig viktiga SMS/).uncheck();
+    await page.getByRole("radio", { name: /^Ja\s+\+1 gäst$/ }).check({ force: true });
+    await page.getByRole("textbox", { name: "Namn" }).fill("SMS Plus One");
+    await page.getByLabel(/Skicka även SMS/).check();
+    await page.getByRole("button", { name: /^Skicka mitt svar/ }).click();
+
+    await expect(
+      page.getByText(
+        "Lägg till din gästs telefonnummer om hen ska få SMS-uppdateringar.",
+      ),
+    ).toBeVisible();
+    expect(await getRsvpResponseCountForGuest(guestId)).toBe(0);
+  });
+
+  test("clears named +1 details when an allowed guest removes the +1", async ({
+    page,
+  }) => {
+    const guestName = uniqueRsvpGuestName("Remove Plus One");
+    const token = uniqueInviteToken("remove-plus-one-rsvp");
+    const { guestId } = await createInviteTestGuest({
+      attendance: RSVP_ATTENDANCE.yes,
+      email: "e2e-rsvp-remove-plus-one@example.com",
+      extraGuests: 1,
+      fullName: guestName,
+      inviteStatus: INVITE_STATUS.rsvpYes,
+      phone: "+46700000001",
+      plusOneAllowed: true,
+      plusOneAllergyNotes: "No nuts.",
+      plusOneEmail: "existing-plus-one@example.com",
+      plusOneFoodPreference: "Vegetarian",
+      plusOneName: "Existing Plus One",
+      plusOnePhone: "+46701112236",
+      plusOneSmsOptIn: true,
+      token,
+    });
+
+    await page.goto(invitePathForToken(token));
+    await expect(page.getByRole("heading", { name: "Uppdatera svar" })).toBeVisible();
+    await expect(page.getByRole("radio", { name: /^Ja\s+\+1 gäst$/ })).toBeChecked();
+
+    await page.getByRole("radio", { name: /^Nej\s+bara jag$/ }).check({ force: true });
+    await expect(page.getByRole("textbox", { name: "Namn" })).toBeHidden();
+    await page.getByRole("button", { name: /^Spara ändringar/ }).click();
+
+    await expect(page.getByRole("heading", { name: `Tack ${guestName.split(" ").at(0)}` })).toBeVisible();
+    expect(await getRsvpResponseForGuest(guestId)).toMatchObject({
+      attendance: RSVP_ATTENDANCE.yes,
+      extra_guests: 0,
+      plus_one_allergy_notes: null,
+      plus_one_email: null,
+      plus_one_food_preference: null,
+      plus_one_name: null,
+      plus_one_phone: null,
+      plus_one_sms_opt_in: false,
+    });
+
+    await page.getByRole("button", { name: "Uppdatera mitt svar" }).click();
+    await expect(page.getByRole("radio", { name: /^Nej\s+bara jag$/ })).toBeChecked();
+    await page.getByRole("radio", { name: /^Ja\s+\+1 gäst$/ }).check({ force: true });
+    await expect(page.getByRole("textbox", { name: "Namn" })).toHaveValue("");
   });
 
   test("rejects named +1 details for a guest without +1 permission", async ({
@@ -215,10 +347,11 @@ test.describe("RSVP, invite status, and phone capture", () => {
 
     await page.goto(invitePathForToken(token));
     await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    await expect(page.getByRole("radio", { name: /^Ja\s+\+1 gäst$/ })).toHaveCount(0);
+    await expect(page.getByRole("radio", { name: /^Nej\s+bara jag$/ })).toHaveCount(0);
 
     await submitRsvp(page, {
       attendance: RSVP_ATTENDANCE.yes,
-      extraGuests: "1",
       phone: "",
       plusOne: {
         name: "Unexpected Plus One",
@@ -227,7 +360,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
     });
 
     await expect(
-      page.getByText("We could not save your RSVP. Please check the form and try again."),
+      page.getByText("Du kan inte lägga till en +1 på den här inbjudan."),
     ).toBeVisible();
     expect(await getRsvpResponseCountForGuest(guestId)).toBe(0);
   });
@@ -242,24 +375,15 @@ test.describe("RSVP, invite status, and phone capture", () => {
     });
 
     await page.goto(invitePathForToken(token));
-    await submitRsvp(page, { extraGuests: "0" });
-    await expect(
-      page.getByText("Choose Yes, No, or Maybe before submitting."),
-    ).toBeVisible();
-
-    await submitRsvp(page, { attendance: RSVP_ATTENDANCE.yes, extraGuests: "-1" });
-    await expect(
-      page.getByText("Extra guest count must be a whole number of 0 or more."),
-    ).toBeVisible();
-
     await submitRsvp(page, {
       attendance: RSVP_ATTENDANCE.yes,
-      extraGuests: "0",
       phone: "0701234567",
     });
-    await expect(page.locator('p[role="alert"]')).toHaveText(
-      "Phone must use country-code format, e.g. +46701234567. It is required for SMS updates.",
-    );
+    await expect(
+      page.getByText(
+        "Använd internationellt format utan mellanslag, t.ex. +46701234567.",
+      ),
+    ).toBeVisible();
   });
 
   test("prefills and updates an existing RSVP without duplicate rows or status downgrade", async ({
@@ -283,9 +407,9 @@ test.describe("RSVP, invite status, and phone capture", () => {
     });
 
     await page.goto(invitePathForToken(token));
-    await expect(page.getByText("Review or update your RSVP")).toBeVisible();
-    await expect(page.getByText("Yes, I will be there")).toBeVisible();
-    await expect(page.getByPlaceholder("+46701234567")).toHaveValue("+46700000000");
+    await expect(page.getByRole("heading", { name: "Uppdatera svar" })).toBeVisible();
+    await expect(page.getByRole("radio", { name: /^Ja\s+kommer$/ })).toBeChecked();
+    await expect(page.getByRole("textbox", { name: "Telefon" }).first()).toHaveValue("+46700000000");
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
       .toBe(INVITE_STATUS.rsvpYes);
@@ -293,14 +417,13 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await submitRsvp(page, {
       allergyNotes: "Updated notes.",
       attendance: RSVP_ATTENDANCE.maybe,
-      extraGuests: "0",
       foodPreference: "Fish",
       phone: "+46708889999",
       smsOptIn: true,
     });
 
-    await expect(page.getByText("Thank you — your RSVP has been saved.")).toBeVisible();
-    await expect(page.getByText("Maybe, I will confirm later")).toBeVisible();
+    await expect(page.getByRole("heading", { name: `Tack ${guestName.split(" ").at(0)}` })).toBeVisible();
+    await expect(page.getByText("jag återkommer")).toBeVisible();
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
       .toBe(INVITE_STATUS.rsvpMaybe);
@@ -313,16 +436,16 @@ test.describe("RSVP, invite status, and phone capture", () => {
     expect(await getRsvpResponseForGuest(guestId)).toMatchObject({
       allergy_notes: "Updated notes.",
       attendance: RSVP_ATTENDANCE.maybe,
-      extra_guests: 0,
+      extra_guests: 1,
       food_preference: "Fish",
       plus_one_name: "Existing Plus One",
       plus_one_phone: "+46701112235",
     });
 
     await page.goto(invitePathForToken(token));
-    await expect(page.getByText("Maybe, I will confirm later")).toBeVisible();
-    await expect(page.getByRole("radio", { name: /^Maybe\b/ })).toBeChecked();
-    await expect(page.getByPlaceholder("+46701234567")).toHaveValue("+46708889999");
-    await expect(page.getByLabel(/Send me important SMS updates/)).toBeChecked();
+    await expect(page.getByRole("heading", { name: "Uppdatera svar" })).toBeVisible();
+    await expect(page.getByRole("radio", { name: /^Kanske\s+återkommer$/ })).toBeChecked();
+    await expect(page.getByRole("textbox", { name: "Telefon" }).first()).toHaveValue("+46708889999");
+    await expect(page.getByLabel(/Skicka mig viktiga SMS/)).toBeChecked();
   });
 });

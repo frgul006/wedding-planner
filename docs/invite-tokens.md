@@ -50,7 +50,7 @@ Valid invite pages render the Brevkort three-panel invite shell:
    - gift information
    - Spotify playlist link when a safe `http` or `https` URL is configured
    - latest five published wedding updates in reverse `updated_at` order
-3. `OSA` with the existing RSVP form placed inside the panel until the full OSA redesign lands.
+3. `OSA` with the Brevkort RSVP states: default/edit form, allowed +1 expansion, inline validation/save errors, and submitted `Tack` confirmation.
 
 Missing optional text or list fields show `Kommer snart`; missing map URLs show `Kartlänk kommer snart`, and missing playlist URLs show non-clickable coming-soon text. If no updates are published, guests see `Inga uppdateringar än.`
 
@@ -59,17 +59,18 @@ Missing optional text or list fields show `Kommer snart`; missing map URLs show 
 Valid `/invite/[token]` pages let the linked guest submit or update:
 
 - attendance: `yes`, `no`, or `maybe`
-- optional phone number, using country-code format like `+46701234567`
+- optional phone number, using compact E.164 format like `+46701234567`
 - optional SMS updates opt-in, which requires a valid phone number
-- extra guest count, defaulting to `0` in the current baseline
+- optional named +1 details only when `guests.plus_one_allowed = true`
+- optional +1 phone and separate +1 SMS consent when the +1 block is expanded
 - optional food preference
 - optional allergy / special notes
 
-The phone input is pre-filled from the linked `guests.phone` value. Blank phone is allowed unless SMS updates opt-in is selected; any provided phone must match strict compact country-code format with a leading `+` and digits only, for example `+46701234567`. Invalid phone values redirect back to the invite with a clear validation error.
+The phone input is pre-filled from the linked `guests.phone` value. Blank phone is allowed unless SMS updates opt-in is selected; any provided phone must match strict compact country-code format with a leading `+` and digits only, for example `+46701234567`. Invalid phone values stay on the OSA panel with clear inline validation errors.
 
-The Brevkort follow-up replaces the generic extra guest count UI with a per-guest +1 option. The data model now stores named +1 details and separate +1 SMS consent. Guests may submit named +1 details only when `guests.plus_one_allowed = true`; server-side validation rejects named +1 payloads for guests where that flag is false. `extra_guests` remains the legacy compatibility count until the public OSA redesign lands.
+The Brevkort OSA UI uses a per-guest +1 toggle instead of the old generic extra guest count. The data model stores named +1 details and separate +1 SMS consent. Guests may submit named +1 details only when `guests.plus_one_allowed = true`; server-side validation rejects +1 payloads for guests where that flag is false. Choosing `Nej, bara jag` on a later edit saves `extra_guests = 0` and clears stored `plus_one_*` RSVP details.
 
-When the linked guest already has an RSVP response, the invite page shows the current answer, `last_submitted_at`, and pre-fills the form so the guest can update the same response from the same link. Reopening an invite also pre-fills the latest linked guest phone so the guest can change it on a later RSVP update.
+When the linked guest already has an RSVP response, the invite page shows the current answer, `last_submitted_at`, and pre-fills the OSA form so the guest can update the same response from the same link. Reopening an invite also pre-fills the latest linked guest phone so the guest can change it on a later RSVP update.
 
 Submission is handled by a server action that hashes the raw URL token and calls the `public.submit_rsvp_response` database function. That function revalidates the active invite token and atomically upserts the response into `public.rsvp_responses` for the token's `guest_id` and `wedding_id`, with `updated_via_token_id` set to the active invite token. The linked guest's `phone`, `sms_opt_in`, and opt-in/out timestamps are saved to `public.guests`, and the linked guest's `invite_status` is updated in the same transaction to `rsvp yes`, `rsvp no`, or `rsvp maybe` to match the latest submitted attendance.
 
