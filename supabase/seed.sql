@@ -1,6 +1,8 @@
 insert into public.weddings (
   id,
   name,
+  partner_one_name,
+  partner_two_name,
   venue_area,
   time_plan,
   dress_code,
@@ -11,6 +13,8 @@ insert into public.weddings (
 values (
   '00000000-0000-0000-0000-000000000001',
   'Our Wedding',
+  'Fredrik',
+  'Matilda',
   'Johanneshov',
   '[{"time":"16:30","label":"Välkomstdrinkar"},{"time":"18:30","label":"Middag"}]'::jsonb,
   'Festlig sommarformal',
@@ -19,6 +23,8 @@ values (
   'osa@example.com'
 )
 on conflict (id) do update set
+  partner_one_name = excluded.partner_one_name,
+  partner_two_name = excluded.partner_two_name,
   venue_area = excluded.venue_area,
   time_plan = excluded.time_plan,
   dress_code = excluded.dress_code,

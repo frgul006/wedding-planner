@@ -23,6 +23,8 @@ type SettingsPageProps = {
 
 type Wedding = {
   name: string;
+  partner_one_name: string | null;
+  partner_two_name: string | null;
   wedding_date: string | null;
   venue_name: string | null;
   venue_address: string | null;
@@ -89,6 +91,8 @@ function toWedding(value: unknown): Wedding | null {
   if (
     !isRecord(value) ||
     typeof value.name !== "string" ||
+    !isNullableString(value.partner_one_name) ||
+    !isNullableString(value.partner_two_name) ||
     !isNullableString(value.wedding_date) ||
     !isNullableString(value.venue_name) ||
     !isNullableString(value.venue_address) ||
@@ -114,6 +118,8 @@ function toWedding(value: unknown): Wedding | null {
     google_maps_url: value.google_maps_url,
     invite_support_email: value.invite_support_email,
     name: value.name,
+    partner_one_name: value.partner_one_name,
+    partner_two_name: value.partner_two_name,
     photo_upload_requires_review: value.photo_upload_requires_review,
     policy: value.policy,
     spotify_playlist_url: value.spotify_playlist_url,
@@ -134,7 +140,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   const { data, error } = await supabase
     .from("weddings")
     .select(
-      "name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, allow_anonymous_hub_upload, photo_upload_requires_review",
+      "name, partner_one_name, partner_two_name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, allow_anonymous_hub_upload, photo_upload_requires_review",
     )
     .eq("id", adminProfile.wedding_id)
     .maybeSingle();
@@ -201,6 +207,20 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                 name="name"
                 placeholder="Alex & Sam"
                 required
+              />
+              <AdminField
+                defaultValue={wedding.partner_one_name}
+                helpText="Shown on the public invite cover. Leave blank to show a safe public placeholder instead of guessing from the wedding name."
+                label="Partner one name"
+                name="partner_one_name"
+                placeholder="Alex"
+              />
+              <AdminField
+                defaultValue={wedding.partner_two_name}
+                helpText="Shown on the public invite cover. Leave blank to show a safe public placeholder instead of guessing from the wedding name."
+                label="Partner two name"
+                name="partner_two_name"
+                placeholder="Sam"
               />
               <AdminField
                 defaultValue={formatDateTimeLocal(wedding.wedding_date)}

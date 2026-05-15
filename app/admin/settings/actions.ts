@@ -45,6 +45,8 @@ export async function updateWeddingSettingsAction(formData: FormData) {
     .from("weddings")
     .update({
       name,
+      partner_one_name: cleanOptionalText(formData.get("partner_one_name")),
+      partner_two_name: cleanOptionalText(formData.get("partner_two_name")),
       wedding_date: parseWeddingDate(formData.get("wedding_date")),
       venue_name: cleanOptionalText(formData.get("venue_name")),
       venue_address: cleanOptionalText(formData.get("venue_address")),

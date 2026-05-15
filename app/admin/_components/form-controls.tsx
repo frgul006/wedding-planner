@@ -1,5 +1,6 @@
 export function AdminField({
   defaultValue,
+  helpText,
   label,
   name,
   placeholder,
@@ -7,6 +8,7 @@ export function AdminField({
   type = "text",
 }: {
   defaultValue?: string | null;
+  helpText?: string;
   label: string;
   name: string;
   placeholder?: string;
@@ -14,17 +16,20 @@ export function AdminField({
   type?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700">
-      {label}
-      <input
-        className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950"
-        defaultValue={defaultValue ?? ""}
-        name={name}
-        placeholder={placeholder}
-        required={required}
-        type={type}
-      />
-    </label>
+    <div className="flex flex-col gap-1">
+      <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700">
+        <span>{label}</span>
+        <input
+          className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950"
+          defaultValue={defaultValue ?? ""}
+          name={name}
+          placeholder={placeholder}
+          required={required}
+          type={type}
+        />
+      </label>
+      {helpText ? <span className="text-xs font-normal text-zinc-500">{helpText}</span> : null}
+    </div>
   );
 }
 
@@ -46,17 +51,19 @@ export function AdminTextArea({
   rows?: number;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700">
-      {label}
-      <textarea
-        className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950"
-        defaultValue={defaultValue ?? ""}
-        name={name}
-        placeholder={placeholder}
-        required={required}
-        rows={rows}
-      />
+    <div className="flex flex-col gap-1">
+      <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700">
+        <span>{label}</span>
+        <textarea
+          className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950"
+          defaultValue={defaultValue ?? ""}
+          name={name}
+          placeholder={placeholder}
+          required={required}
+          rows={rows}
+        />
+      </label>
       {helpText ? <span className="text-xs font-normal text-zinc-500">{helpText}</span> : null}
-    </label>
+    </div>
   );
 }

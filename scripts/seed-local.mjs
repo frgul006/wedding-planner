@@ -146,6 +146,8 @@ async function main() {
   const { error: weddingError } = await supabase.from("weddings").upsert({
     id: WEDDING_ID,
     name: "Fredrik <3 Matilda",
+    partner_one_name: "Fredrik",
+    partner_two_name: "Matilda",
     wedding_date: "2026-09-26T16:30:00+02:00",
     venue_name: "Cicada",
     venue_address: "Veterinärgränd 6, Johanneshov",

@@ -41,6 +41,8 @@ export type InviteRsvpResponse = {
 type InviteWedding = {
   child_policy: string | null;
   dress_code: string | null;
+  partner_one_name: string | null;
+  partner_two_name: string | null;
   gift_info: string | null;
   google_maps_url: string | null;
   invite_support_email: string | null;
@@ -125,6 +127,8 @@ function isWeddingRelation(value: unknown): value is WeddingRelation {
     isNullableString(value.google_maps_url) &&
     isNullableString(value.invite_support_email) &&
     isNullableString(value.name) &&
+    isNullableString(value.partner_one_name) &&
+    isNullableString(value.partner_two_name) &&
     isNullableString(value.policy) &&
     isNullableString(value.spotify_playlist_url) &&
     isNullableString(value.venue_address) &&
@@ -219,6 +223,8 @@ async function resolveValidInviteToken(
           google_maps_url,
           invite_support_email,
           name,
+          partner_one_name,
+          partner_two_name,
           policy,
           spotify_playlist_url,
           time_plan,
@@ -398,6 +404,8 @@ export async function validateInviteToken(
       google_maps_url: wedding.google_maps_url,
       invite_support_email: wedding.invite_support_email,
       name: wedding.name,
+      partner_one_name: wedding.partner_one_name,
+      partner_two_name: wedding.partner_two_name,
       policy: wedding.policy,
       spotify_playlist_url: wedding.spotify_playlist_url,
       time_plan: normalizeTimePlanLines(wedding.time_plan),

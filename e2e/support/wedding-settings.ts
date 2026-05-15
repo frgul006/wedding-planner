@@ -12,6 +12,8 @@ export const BASELINE_WEDDING_SETTINGS = {
   google_maps_url: "https://maps.app.goo.gl/KCgGXBcyeanMhsZx5",
   invite_support_email: "osa@example.com",
   name: "Fredrik <3 Matilda",
+  partner_one_name: "Fredrik",
+  partner_two_name: "Matilda",
   policy: "Tunnelbanan stannar nära lokalen.",
   spotify_playlist_url: "https://open.spotify.com/",
   time_plan: [
@@ -34,6 +36,8 @@ export type WeddingSettingsPatch = Partial<{
   google_maps_url: string | null;
   invite_support_email: string | null;
   name: string;
+  partner_one_name: string | null;
+  partner_two_name: string | null;
   policy: string | null;
   spotify_playlist_url: string | null;
   time_plan: readonly TimePlanPatchEntry[];
