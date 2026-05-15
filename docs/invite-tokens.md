@@ -83,7 +83,7 @@ supabase db reset
 pnpm seed:local
 pnpm lint
 pnpm build
-PORT=3100 pnpm test:e2e e2e/guest-navigation-session.spec.ts e2e/rsvp.spec.ts
+PORT=3100 pnpm test:e2e e2e/smoke.spec.ts e2e/rsvp.spec.ts e2e/wedding-updates.spec.ts e2e/guest-navigation-session.spec.ts e2e/admin-guests.spec.ts
 ```
 
 Then log in as the seeded admin and validate the invite status workflow:

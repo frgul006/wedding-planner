@@ -54,11 +54,11 @@
    - `public-invite-page.md`
    - `invite-event-info-and-gifts.md`
    - `invite-updates-feed.md`
-20. **Brevkort OSA and RSVP state redesign**
+20. ✅ **Brevkort OSA and RSVP state redesign**
    - `rsvp-form-submission.md`
    - `rsvp-view-update.md`
    - `phone-capture-for-rsvp.md`
-21. **Brevkort invite QA and rollout**
+21. ✅ **Brevkort invite QA and rollout**
    - `public-invite-page.md`
    - `rsvp-form-submission.md`
    - `rsvp-view-update.md`
