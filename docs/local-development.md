@@ -8,7 +8,7 @@ For deployed Vercel/Supabase environment mapping, see [`deployment-environments.
 
 ## Current stack
 
-- Node.js: 22.x locally
+- Node.js: 24.x locally
 - Package manager: pnpm 10.x
 - Next.js: 16.2.4
 - React: 19.2.4
@@ -18,7 +18,7 @@ For deployed Vercel/Supabase environment mapping, see [`deployment-environments.
 
 ## Prerequisites
 
-- Node.js 20.9+; this machine currently uses Node 22.
+- Node.js 24.x; this repo declares the expected version in `.nvmrc` and `package.json`.
 - pnpm; this repo declares pnpm in `package.json`.
 - Docker Desktop running before starting local Supabase.
 - Supabase CLI available as `supabase`.
