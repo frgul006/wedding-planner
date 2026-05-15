@@ -113,6 +113,57 @@ test.describe("guest navigation session attribution", () => {
     expect(await getGuestNavigationCookie(page)).toBeUndefined();
   });
 
+  test("does not set a guest navigation cookie for inactive tokens or archived guests", async ({
+    page,
+  }) => {
+    const inactiveGuestName = uniqueRsvpGuestName("Inactive Token Cookie");
+    const inactiveToken = uniqueInviteToken("inactive-token-cookie");
+    const archivedGuestName = uniqueRsvpGuestName("Archived Guest Cookie");
+    const archivedToken = uniqueInviteToken("archived-guest-cookie");
+    const { guestId: inactiveGuestId, tokenId: inactiveTokenId } =
+      await createInviteTestGuest({
+        email: "e2e-guest-navigation-inactive@example.com",
+        fullName: inactiveGuestName,
+        token: inactiveToken,
+      });
+    const { guestId: archivedGuestId } = await createInviteTestGuest({
+      email: "e2e-guest-navigation-archived@example.com",
+      fullName: archivedGuestName,
+      token: archivedToken,
+    });
+    const supabase = createE2eSupabaseAdminClient();
+    const { error: inactiveTokenError } = await supabase
+      .from("invite_tokens")
+      .update({
+        invalidated_at: new Date().toISOString(),
+        is_active: false,
+      })
+      .eq("id", inactiveTokenId);
+    const { error: archivedGuestError } = await supabase
+      .from("guests")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", archivedGuestId);
+
+    expect(inactiveTokenError).toBeNull();
+    expect(archivedGuestError).toBeNull();
+
+    await page.goto(invitePathForToken(inactiveToken));
+    await expect(
+      page.getByRole("heading", { name: "Inbjudan saknas" }),
+    ).toBeVisible();
+    await expect(page.getByText(inactiveGuestName)).toHaveCount(0);
+    expect(await getGuestNavigationCookie(page)).toBeUndefined();
+    expect(await getGuestNavigationSessionCountForGuest(inactiveGuestId)).toBe(0);
+
+    await page.goto(invitePathForToken(archivedToken));
+    await expect(
+      page.getByRole("heading", { name: "Inbjudan saknas" }),
+    ).toBeVisible();
+    await expect(page.getByText(archivedGuestName)).toHaveCount(0);
+    expect(await getGuestNavigationCookie(page)).toBeUndefined();
+    expect(await getGuestNavigationSessionCountForGuest(archivedGuestId)).toBe(0);
+  });
+
   test("does not overwrite an existing guest navigation cookie on invalid invites", async ({
     page,
   }) => {

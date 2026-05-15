@@ -50,7 +50,7 @@
     - Build default OSA form, +1 hidden state for disallowed guests, +1 expanded fields for allowed guests, phone/SMS controls, submitting state, save-error state, and `Tack` confirmation.
     - Pre-fill edit mode and return from `Uppdatera mitt svar` to an editable OSA form.
     - Enforce +1 permission server-side; hiding the UI is not enough.
-21. Brevkort invite QA and rollout
+21. ✅ Complete — Brevkort invite QA and rollout
     - Validate with lint/build plus Playwright coverage of: invalid link, first open, details panel, default OSA submit, compact-phone validation error, +1 hidden for disallowed guests, +1 expanded for allowed guests, existing-answer edit, save error, submitted confirmation, empty updates, and published updates.
     - Confirm token security and guest-navigation cookie behavior are unchanged.
 

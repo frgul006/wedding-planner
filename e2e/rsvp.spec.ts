@@ -27,6 +27,38 @@ async function chooseAttendance(page: Page, attendance: RsvpAttendance) {
   await page.getByRole("radio", { name: names[attendance] }).check({ force: true });
 }
 
+async function delayNextInvitePost(page: Page) {
+  let releaseSubmit: (() => void) | null = null;
+  let resolveSubmitStarted!: () => void;
+  const submitStarted = new Promise<void>((resolve) => {
+    resolveSubmitStarted = resolve;
+  });
+
+  await page.route("**/invite/**", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
+
+    resolveSubmitStarted();
+    await new Promise<void>((resume) => {
+      releaseSubmit = resume;
+    });
+    await route.continue();
+  });
+
+  return {
+    release() {
+      if (!releaseSubmit) {
+        throw new Error("Invite POST was not intercepted before release.");
+      }
+
+      releaseSubmit();
+    },
+    submitStarted,
+  };
+}
+
 async function submitRsvp(page: Page, options: {
   allergyNotes?: string;
   attendance?: RsvpAttendance;
@@ -282,6 +314,80 @@ test.describe("RSVP, invite status, and phone capture", () => {
         "Lägg till din gästs telefonnummer om hen ska få SMS-uppdateringar.",
       ),
     ).toBeVisible();
+    expect(await getRsvpResponseCountForGuest(guestId)).toBe(0);
+  });
+
+  test("shows submitting state and preserves values while save is pending", async ({
+    page,
+  }) => {
+    const guestName = uniqueRsvpGuestName("Submitting State");
+    const token = uniqueInviteToken("submitting-state-rsvp");
+    await createInviteTestGuest({
+      email: "e2e-rsvp-submitting-state@example.com",
+      fullName: guestName,
+      token,
+    });
+
+    await page.goto(invitePathForToken(token));
+    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    await page.getByRole("textbox", { name: "Matpreferens" }).first().fill(
+      "Pending vegetarian meal",
+    );
+
+    const delayedSubmit = await delayNextInvitePost(page);
+    await page.getByRole("button", { name: /^Skicka mitt svar/ }).click();
+    await delayedSubmit.submitStarted;
+
+    await expect(page.getByRole("button", { name: "Skickar…" })).toBeDisabled();
+    await expect(page.getByRole("textbox", { name: "Matpreferens" }).first()).toHaveValue(
+      "Pending vegetarian meal",
+    );
+
+    delayedSubmit.release();
+    await expect(page.getByRole("heading", { name: `Tack ${guestName.split(" ").at(0)}` })).toBeVisible();
+  });
+
+  test("shows a save error and preserves values when the token is invalidated", async ({
+    page,
+  }) => {
+    const guestName = uniqueRsvpGuestName("Save Error");
+    const token = uniqueInviteToken("save-error-rsvp");
+    const { guestId, tokenId } = await createInviteTestGuest({
+      email: "e2e-rsvp-save-error@example.com",
+      fullName: guestName,
+      token,
+    });
+
+    await page.goto(invitePathForToken(token));
+    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    await page.getByRole("textbox", { name: "Telefon" }).first().fill("+46701234567");
+    await page.getByRole("textbox", { name: "Matpreferens" }).first().fill("Save error vegetarian");
+
+    const supabase = createE2eSupabaseAdminClient();
+    const { error } = await supabase
+      .from("invite_tokens")
+      .update({
+        invalidated_at: new Date().toISOString(),
+        is_active: false,
+      })
+      .eq("id", tokenId);
+
+    expect(error).toBeNull();
+
+    await page.getByRole("button", { name: /^Skicka mitt svar/ }).click();
+
+    await expect(page.getByText("Kunde inte spara")).toBeVisible();
+    await expect(
+      page.getByText(
+        "Inbjudningslänken kunde inte verifieras. Be om en ny länk och försök igen.",
+      ),
+    ).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Telefon" }).first()).toHaveValue(
+      "+46701234567",
+    );
+    await expect(page.getByRole("textbox", { name: "Matpreferens" }).first()).toHaveValue(
+      "Save error vegetarian",
+    );
     expect(await getRsvpResponseCountForGuest(guestId)).toBe(0);
   });
 
