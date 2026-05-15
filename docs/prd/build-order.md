@@ -65,9 +65,9 @@ These are the next build items that turn the completed functionality above into 
     - Capture stable PNG references from the standalone export.
     - Map each visual state to its owning PRD, local fixture/route, and current status.
     - Mark existing PRDs as functionally complete but visually pending where appropriate.
-23. Next — Brevkort design-token and component foundation
-    - Create shared paper, dotted texture, ink/walnut/rust colors, border, spacing, serif display, sans body, and mono metadata primitives.
-    - Build reusable invite primitives before restyling individual panels.
+23. ✅ Complete — Brevkort design-token and component foundation
+    - Created shared paper, dotted texture, ink/walnut/rust colors, border, spacing, serif display, sans body, mono metadata, button, status-strip, card, and form-field primitives.
+    - Built reusable invite primitives before the remaining panel visual-parity passes.
 24. Next — Invite shell, cover, invalid-link, and saved-answer states
     - Rebuild the mobile 390 px postcard shell with one primary panel at a time, dot/arrow navigation, compact date formatting, and proper couple-name rendering.
     - Match `Ogiltig länk`, `Opened — no answer yet`, and saved-answer/edit cover references.
@@ -85,8 +85,8 @@ These are the next build items that turn the completed functionality above into 
 
 ## Parallelization notes
 
-- Items 23 and 27 can start in parallel: one person builds shared primitives while another makes deterministic fixtures.
-- Item 24 should wait for enough of item 23 to avoid duplicating visual primitives.
+- Item 27 can continue in parallel with the visual-parity passes now that item 23's shared primitives exist.
+- Item 24 can build on item 23's primitives instead of duplicating visual classes.
 - Items 25 and 26 can run in parallel after the shell/navigation contract from item 24 is stable.
 - Item 28 can run independently from invite work, as long as it does not change shared invite primitives.
 - Item 29 is a product/design decision and should happen before any admin restyle implementation.
@@ -96,7 +96,7 @@ These are the next build items that turn the completed functionality above into 
 - Items 1–17 are complete foundation work.
 - Items 18–21 delivered the functional Brevkort data model, invite shell, OSA behavior, and test coverage, but visual parity is not signed off.
 - Item 22 makes “Done” measurable before more UI work starts.
-- Item 23 comes before major restyling so shell, details, and OSA work share one visual system instead of duplicating Tailwind classes.
+- Item 23 came before major restyling so shell, details, and OSA work share one visual system instead of duplicating Tailwind classes.
 - Item 24 establishes the final panel/navigation contract before item 25 details and item 26 OSA plug into it.
 - Item 27 can run alongside UI work because fixture gaps block visual acceptance but do not require the final components.
 - Hub and admin visual work are intentionally later/parallel so invite parity does not get blocked by unrelated design decisions.

@@ -70,7 +70,7 @@
 
 22. ✅ **Extract visual references and PRD ownership matrix**
    - `../design/wedding-design-export.md`
-23. **Brevkort design-token and component foundation**
+23. ✅ **Brevkort design-token and component foundation**
    - Shared paper, texture, typography, colors, borders, buttons, form fields, and status-strip primitives
 24. **Invite shell, cover, invalid-link, and saved-answer states**
    - `public-invite-page.md`

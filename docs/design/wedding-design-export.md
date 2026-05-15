@@ -63,7 +63,7 @@ The export includes two competing admin directions. Choose one before starting a
 
 These workstreams can run in parallel once this matrix is merged:
 
-1. **Design-token/component foundation**: extract shared paper, typography, border, button, form-field, and status-strip primitives.
+1. ✅ **Design-token/component foundation**: shared paper, typography, border, button, form-field, and status-strip primitives are available for follow-up invite visual-parity work.
 2. **Invite shell/details**: rebuild `Inbjudan`/`Detaljer` panel layout against the invite references while preserving server data loading.
 3. **OSA state pack**: restyle the RSVP form states after the shared primitives are available.
 4. **Fixture pack**: add deterministic seeds/tests for RSVP `Nej`, `Kanske`, +1 expanded, published updates, submitting, and save-error states.
