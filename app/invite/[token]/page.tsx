@@ -8,6 +8,18 @@ import { getSafeHttpUrl } from "@/lib/safe-url";
 import { parseTimePlanLine } from "@/lib/time-plan";
 import { getPublishedWeddingUpdates } from "@/lib/wedding-updates";
 
+import {
+  BrevkortBodyText,
+  BrevkortCard,
+  BrevkortHeading,
+  BrevkortKicker,
+  BrevkortLinkButton,
+  BrevkortPage,
+  BrevkortPanel,
+  BrevkortStack,
+  BrevkortStatusStrip,
+  cx,
+} from "../_components/brevkort-primitives";
 import { InvalidInviteMessage } from "../_components/invalid-invite-message";
 import { RsvpPanel } from "./rsvp-panel";
 
@@ -111,14 +123,14 @@ function getSwedishAttendanceLabel(attendance: RsvpAttendance) {
 
 function getSavedAnswerChipClass(attendance: RsvpAttendance) {
   if (attendance === RSVP_ATTENDANCE.yes) {
-    return "bg-emerald-50 text-emerald-800 ring-emerald-200";
+    return "bg-invite-paper-muted text-invite-success ring-invite-success/30";
   }
 
   if (attendance === RSVP_ATTENDANCE.no) {
-    return "bg-stone-100 text-stone-700 ring-stone-300";
+    return "bg-invite-paper-muted text-invite-body ring-invite-border-soft";
   }
 
-  return "bg-[#f8ead8] text-[#6f4f33] ring-[#d8b78f]";
+  return "bg-invite-paper text-invite-walnut ring-invite-border";
 }
 
 function getCoupleMark(name: string) {
@@ -137,14 +149,9 @@ function getCoupleMark(name: string) {
 
 function ExternalLink({ children, href }: { children: ReactNode; href: string }) {
   return (
-    <a
-      className="inline-flex w-fit rounded-full bg-[#15130f] px-4 py-2 text-sm font-semibold text-[#fffaf0] shadow-sm transition hover:bg-[#3b2b1f]"
-      href={href}
-      rel="noopener noreferrer"
-      target="_blank"
-    >
-      {children}
-    </a>
+    <BrevkortLinkButton className="w-fit" href={href} rel="noopener noreferrer" target="_blank" tone="outline">
+      {children} →
+    </BrevkortLinkButton>
   );
 }
 
@@ -155,9 +162,10 @@ function PanelDots({ activeIndex }: { activeIndex: number }) {
         <a
           aria-current={activeIndex === index ? "step" : undefined}
           aria-label={`Gå till ${label}`}
-          className={`h-3 w-3 rounded-full ring-1 ring-[#6f4f33]/40 transition hover:bg-[#6f4f33] ${
-            activeIndex === index ? "bg-[#6f4f33]" : "bg-[#fffaf0]/80"
-          }`}
+          className={cx(
+            "h-2.5 rounded-full ring-1 ring-invite-walnut/30 transition hover:bg-invite-ink",
+            activeIndex === index ? "w-6 bg-invite-ink" : "w-2.5 bg-invite-border-soft",
+          )}
           href={`#${panelIds[index]}`}
           key={label}
         />
@@ -178,20 +186,19 @@ function PanelNavigation({
   return (
     <nav
       aria-label="Inbjudans paneler"
-      className="flex items-center justify-between gap-4 rounded-full bg-[#fffaf0]/70 px-4 py-3 text-[#15130f] ring-1 ring-[#6f4f33]/15 backdrop-blur"
+      className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-invite-border-soft pb-4 text-invite-ink"
     >
       <a
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#15130f] font-serif text-lg font-semibold tracking-wide text-[#fffaf0]"
+        className="brevkort-metadata justify-self-start text-[0.68rem] font-semibold text-invite-rust"
         href="#inbjudan"
         aria-label="Till inbjudan"
       >
-        {coupleMark}
+        {coupleMark} · {String(activeIndex + 1).padStart(2, "0")}/03
       </a>
-      <div className="min-w-0 flex-1 text-center font-mono uppercase tracking-[0.22em] text-[#6f4f33]">
-        <p className="text-[0.68rem]">{String(activeIndex + 1).padStart(2, "0")}/03</p>
-        <p className="mt-1 truncate text-[0.7rem] text-[#15130f]">{activeLabel}</p>
-      </div>
       <PanelDots activeIndex={activeIndex} />
+      <p className="brevkort-metadata justify-self-end text-[0.68rem] text-invite-ink">
+        {activeLabel}
+      </p>
     </nav>
   );
 }
@@ -206,26 +213,15 @@ function PanelShell({
   coupleMark: string;
 }) {
   return (
-    <article
-      aria-labelledby={`${panelIds[activeIndex]}-heading`}
-      className="scroll-mt-4 rounded-[2rem] bg-[#e6dcc7] p-4 shadow-xl shadow-[#6f4f33]/10 ring-1 ring-[#6f4f33]/15 sm:p-6"
-      id={panelIds[activeIndex]}
-    >
+    <BrevkortPanel aria-labelledby={`${panelIds[activeIndex]}-heading`} id={panelIds[activeIndex]}>
       <PanelNavigation activeIndex={activeIndex} coupleMark={coupleMark} />
       {children}
-    </article>
+    </BrevkortPanel>
   );
 }
 
 function DetailCard({ children, title }: { children: ReactNode; title: string }) {
-  return (
-    <section className="rounded-[1.75rem] bg-[#fffaf0]/85 p-5 shadow-sm ring-1 ring-[#6f4f33]/15">
-      <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.22em] text-[#6f4f33]">
-        {title}
-      </h3>
-      <div className="mt-4 text-[#15130f]">{children}</div>
-    </section>
-  );
+  return <BrevkortCard title={title} titleAsHeading>{children}</BrevkortCard>;
 }
 
 function PanelActions({
@@ -241,12 +237,9 @@ function PanelActions({
     <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
       {children}
       {secondaryHref && secondaryLabel ? (
-        <a
-          className="inline-flex justify-center rounded-full border border-[#6f4f33]/40 px-5 py-3 text-sm font-semibold text-[#6f4f33] transition hover:bg-[#fffaf0]/70"
-          href={secondaryHref}
-        >
+        <BrevkortLinkButton href={secondaryHref} tone="outline">
           {secondaryLabel}
-        </a>
+        </BrevkortLinkButton>
       ) : null}
     </div>
   );
@@ -273,76 +266,63 @@ function CoverPanel({
     <PanelShell activeIndex={0} coupleMark={coupleMark}>
       <div className="flex min-h-[calc(100dvh-10rem)] flex-col justify-between px-2 py-10 sm:px-6">
         <div>
-          <p className="font-mono text-xs font-semibold uppercase tracking-[0.26em] text-[#6f4f33]">
-            Personlig inbjudan för {guestName}
-          </p>
-          <h1
-            className="mt-8 font-serif text-5xl font-semibold leading-none tracking-tight text-[#15130f] sm:text-6xl"
-            id="inbjudan-heading"
-          >
+          <BrevkortKicker>Personlig inbjudan för {guestName}</BrevkortKicker>
+          <BrevkortHeading className="mt-8 text-5xl sm:text-6xl" id="inbjudan-heading" level={1}>
             {weddingName}
-          </h1>
-          <p className="mt-6 max-w-md text-lg leading-8 text-[#3b2b1f]">
+          </BrevkortHeading>
+          <BrevkortBodyText className="mt-6 max-w-md text-lg leading-8">
             Vi hoppas att du vill fira kärleken med oss.
-          </p>
+          </BrevkortBodyText>
         </div>
 
         <div className="mt-10 grid gap-5">
-          <div className="rounded-[1.75rem] bg-[#fffaf0]/75 p-5 ring-1 ring-[#6f4f33]/15">
-            <p className="font-mono text-xs font-semibold uppercase tracking-[0.22em] text-[#6f4f33]">
-              Datum & plats
-            </p>
-            <p className="mt-3 text-2xl font-semibold tracking-tight text-[#15130f]">
+          <BrevkortCard className="bg-invite-paper-light/80" title="Datum & plats">
+            <p className="brevkort-display text-2xl font-semibold tracking-tight text-invite-ink">
               {weddingDate}
             </p>
-            <p className="mt-2 text-[#6f4f33]">{venueSummary}</p>
-          </div>
+            <p className="mt-2 text-invite-walnut">{venueSummary}</p>
+          </BrevkortCard>
 
           {rsvpResponse ? (
-            <div className="rounded-[1.75rem] bg-[#fffaf0]/85 p-5 ring-1 ring-[#6f4f33]/15">
+            <BrevkortStatusStrip tone="success">
               <div className="flex flex-wrap items-center gap-3">
                 <span
-                  className={`rounded-full px-3 py-1 text-sm font-semibold ring-1 ${getSavedAnswerChipClass(
-                    rsvpResponse.attendance,
-                  )}`}
+                  className={cx(
+                    "px-3 py-1 text-sm font-semibold ring-1",
+                    getSavedAnswerChipClass(rsvpResponse.attendance),
+                  )}
                 >
                   Sparat svar: {getSwedishAttendanceLabel(rsvpResponse.attendance)}
                 </span>
                 {rsvpSubmittedAt ? (
-                  <span className="text-sm text-[#6f4f33]">Senast uppdaterat {rsvpSubmittedAt}</span>
+                  <span className="text-sm text-invite-walnut">Senast uppdaterat {rsvpSubmittedAt}</span>
                 ) : null}
               </div>
-              <p className="mt-3 text-sm leading-6 text-[#3b2b1f]">
+              <BrevkortBodyText className="mt-3 text-sm leading-6">
                 Ditt svar finns sparat. Du kan läsa detaljerna igen eller gå direkt
                 till OSA-panelen om du behöver ändra något.
-              </p>
+              </BrevkortBodyText>
               <PanelActions secondaryHref="#detaljer" secondaryLabel="Läs detaljer">
-                <a
-                  className="inline-flex justify-center rounded-full bg-[#b34a2c] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#91391f]"
-                  href="#osa"
-                >
-                  Uppdatera svar
-                </a>
+                <BrevkortLinkButton href="#osa" tone="rust">
+                  Uppdatera svar →
+                </BrevkortLinkButton>
               </PanelActions>
-            </div>
+            </BrevkortStatusStrip>
           ) : (
-            <div className="rounded-[1.75rem] bg-[#fffaf0]/85 p-5 ring-1 ring-[#6f4f33]/15">
-              <span className="rounded-full bg-[#f8ead8] px-3 py-1 text-sm font-semibold text-[#6f4f33] ring-1 ring-[#d8b78f]">
+            <BrevkortStatusStrip tone="subtle">
+              <span className="bg-invite-paper px-3 py-1 text-sm font-semibold text-invite-walnut ring-1 ring-invite-border-soft">
                 Öppnad · inget svar än
               </span>
-              <p className="mt-3 text-sm leading-6 text-[#3b2b1f]">
+              <BrevkortBodyText className="mt-3 text-sm leading-6">
                 Börja med detaljerna och gå sedan vidare till OSA när du är redo
                 att svara.
-              </p>
+              </BrevkortBodyText>
               <PanelActions secondaryHref="#osa" secondaryLabel="Gå direkt till OSA">
-                <a
-                  className="inline-flex justify-center rounded-full bg-[#15130f] px-5 py-3 text-sm font-semibold text-[#fffaf0] shadow-sm transition hover:bg-[#3b2b1f]"
-                  href="#detaljer"
-                >
-                  Se detaljerna
-                </a>
+                <BrevkortLinkButton href="#detaljer">
+                  Se detaljerna →
+                </BrevkortLinkButton>
               </PanelActions>
-            </div>
+            </BrevkortStatusStrip>
           )}
         </div>
       </div>
@@ -368,19 +348,14 @@ function DetailsPanel({
   return (
     <PanelShell activeIndex={1} coupleMark={coupleMark}>
       <div className="px-2 py-8 sm:px-6">
-        <p className="font-mono text-xs font-semibold uppercase tracking-[0.26em] text-[#6f4f33]">
-          Allt inför dagen
-        </p>
-        <h2
-          className="mt-3 font-serif text-4xl font-semibold tracking-tight text-[#15130f]"
-          id="detaljer-heading"
-        >
+        <BrevkortKicker>Allt inför dagen</BrevkortKicker>
+        <BrevkortHeading className="mt-3 text-4xl" id="detaljer-heading">
           Detaljer
-        </h2>
-        <p className="mt-3 max-w-2xl leading-7 text-[#3b2b1f]">
+        </BrevkortHeading>
+        <BrevkortBodyText className="mt-3 max-w-2xl">
           Här finns tider, plats och praktisk information. Uppdateringar läggs
           till här när något nytt publiceras.
-        </p>
+        </BrevkortBodyText>
 
         <div className="mt-8 grid gap-5">
           <DetailCard title="Tidsplan">
@@ -391,12 +366,12 @@ function DetailsPanel({
 
                   return (
                     <li
-                      className="rounded-2xl bg-[#e6dcc7]/80 p-4 text-[#15130f]"
+                      className="border-l-4 border-invite-rust bg-invite-paper-muted/80 p-4 text-invite-ink"
                       key={`${index}-${item}`}
                     >
                       {entry?.time ? (
                         <p>
-                          <span className="font-mono text-sm font-semibold text-[#b34a2c]">
+                          <span className="brevkort-display text-sm font-semibold italic text-invite-rust">
                             {entry.time}
                           </span>{" "}
                           - {entry.label}
@@ -420,17 +395,17 @@ function DetailsPanel({
                   {getDisplayText(wedding.venue_name)}
                 </p>
                 {wedding.venue_area ? (
-                  <p className="mt-1 text-[#6f4f33]">{wedding.venue_area}</p>
+                  <p className="mt-1 text-invite-walnut">{wedding.venue_area}</p>
                 ) : null}
-                <p className="mt-2 whitespace-pre-line leading-7 text-[#3b2b1f]">
+                <p className="mt-2 whitespace-pre-line leading-7 text-invite-body">
                   {getDisplayText(wedding.venue_address)}
                 </p>
-                <p className="mt-2 text-sm text-[#6f4f33]">{weddingDate}</p>
+                <p className="mt-2 text-sm text-invite-walnut">{weddingDate}</p>
               </div>
               {mapsUrl ? (
                 <ExternalLink href={mapsUrl}>Visa karta</ExternalLink>
               ) : (
-                <p className="text-sm text-[#6f4f33]">Kartlänk kommer snart</p>
+                <p className="text-sm text-invite-walnut">Kartlänk kommer snart</p>
               )}
             </div>
           </DetailCard>
@@ -442,12 +417,12 @@ function DetailsPanel({
                   {getDisplayText(wedding.dress_code ?? wedding.policy)}
                 </p>
                 {wedding.child_policy ? (
-                  <p className="whitespace-pre-line text-[#6f4f33]">
+                  <p className="whitespace-pre-line text-invite-walnut">
                     {wedding.child_policy}
                   </p>
                 ) : null}
                 {wedding.dress_code && wedding.policy ? (
-                  <p className="whitespace-pre-line text-sm text-[#6f4f33]">
+                  <p className="whitespace-pre-line text-sm text-invite-walnut">
                     {wedding.policy}
                   </p>
                 ) : null}
@@ -464,7 +439,7 @@ function DetailsPanel({
           <DetailCard title="Musik">
             {spotifyUrl ? (
               <div className="grid gap-4">
-                <p className="leading-7 text-[#3b2b1f]">
+                <p className="leading-7 text-invite-body">
                   Önska låtar eller kom i stämning inför festen.
                 </p>
                 <ExternalLink href={spotifyUrl}>Öppna Spotify</ExternalLink>
@@ -482,21 +457,21 @@ function DetailsPanel({
                   const publishedAt = formatPublishedUpdateAt(update.updated_at);
 
                   return (
-                    <li className="rounded-2xl bg-[#e6dcc7]/80 p-4" key={update.id}>
+                    <li className="border-t border-invite-border-soft py-4" key={update.id}>
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                        <h4 className="text-xl font-semibold text-[#15130f]">
+                        <BrevkortHeading className="text-xl" level={4}>
                           {update.title}
-                        </h4>
+                        </BrevkortHeading>
                         {publishedAt ? (
                           <time
-                            className="font-mono text-xs uppercase tracking-[0.12em] text-[#6f4f33]"
+                            className="brevkort-metadata text-xs text-invite-rust"
                             dateTime={update.updated_at}
                           >
                             {publishedAt}
                           </time>
                         ) : null}
                       </div>
-                      <p className="mt-2 whitespace-pre-line leading-7 text-[#3b2b1f]">
+                      <p className="mt-2 whitespace-pre-line leading-7 text-invite-body">
                         {update.message}
                       </p>
                       {updateLink ? (
@@ -509,7 +484,7 @@ function DetailsPanel({
                 })}
               </ol>
             ) : (
-              <p className="text-lg font-semibold tracking-tight text-[#15130f]">
+              <p className="text-lg font-semibold tracking-tight text-invite-ink">
                 Inga uppdateringar än.
               </p>
             )}
@@ -517,12 +492,9 @@ function DetailsPanel({
         </div>
 
         <PanelActions secondaryHref="#inbjudan" secondaryLabel="Till inbjudan">
-          <a
-            className="inline-flex justify-center rounded-full bg-[#15130f] px-5 py-3 text-sm font-semibold text-[#fffaf0] shadow-sm transition hover:bg-[#3b2b1f]"
-            href="#osa"
-          >
-            Vidare till OSA
-          </a>
+          <BrevkortLinkButton href="#osa">
+            Vidare till OSA →
+          </BrevkortLinkButton>
         </PanelActions>
       </div>
     </PanelShell>
@@ -557,8 +529,8 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   const coupleMark = getCoupleMark(wedding.name);
 
   return (
-    <main className="min-h-dvh bg-[#f1eadc] px-4 py-5 text-[#15130f] sm:px-6 sm:py-8">
-      <div className="mx-auto grid w-full max-w-3xl gap-6">
+    <BrevkortPage>
+      <BrevkortStack>
         <CoverPanel
           coupleMark={coupleMark}
           guestName={guest.full_name}
@@ -580,18 +552,13 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
 
         <PanelShell activeIndex={2} coupleMark={coupleMark}>
           <div className="px-2 py-8 sm:px-6">
-            <p className="font-mono text-xs font-semibold uppercase tracking-[0.26em] text-[#6f4f33]">
-              Svara när du kan
-            </p>
-            <h2
-              className="mt-3 font-serif text-4xl font-semibold tracking-tight text-[#15130f]"
-              id="osa-heading"
-            >
+            <BrevkortKicker>Svara när du kan</BrevkortKicker>
+            <BrevkortHeading className="mt-3 text-4xl" id="osa-heading">
               OSA
-            </h2>
-            <p className="mt-3 max-w-2xl leading-7 text-[#3b2b1f]">
+            </BrevkortHeading>
+            <BrevkortBodyText className="mt-3 max-w-2xl">
               Svara eller uppdatera ditt svar här när du vet om du kan komma.
-            </p>
+            </BrevkortBodyText>
 
             <RsvpPanel
               guest={guest}
@@ -603,7 +570,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
             />
           </div>
         </PanelShell>
-      </div>
-    </main>
+      </BrevkortStack>
+    </BrevkortPage>
   );
 }

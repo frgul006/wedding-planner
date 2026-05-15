@@ -77,4 +77,4 @@ For extracted screenshots and PRD ownership, see [`wedding-design-export.md`](we
 - Serif display type for names and headings.
 - Sans body text.
 - Monospace uppercase metadata.
-- Exact color/font tokens can move to a design-token file when implementation starts.
+- Exact color/font tokens now live in the shared Brevkort invite token/component foundation.

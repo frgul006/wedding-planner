@@ -10,6 +10,20 @@ import {
 } from "@/lib/phone";
 import { RSVP_ATTENDANCE, type RsvpAttendance } from "@/lib/rsvp-attendance";
 
+import {
+  BrevkortBodyText,
+  BrevkortButton,
+  BrevkortCard,
+  BrevkortCheckbox,
+  BrevkortChoiceCard,
+  BrevkortErrorText,
+  BrevkortHeading,
+  BrevkortKicker,
+  BrevkortLegend,
+  BrevkortStatusStrip,
+  BrevkortTextInput,
+  BrevkortTextarea,
+} from "../_components/brevkort-primitives";
 import { submitRsvpAction, type RsvpActionField, type RsvpActionState } from "./actions";
 
 type InviteGuest = {
@@ -108,36 +122,19 @@ function TextField({
   placeholder?: string;
   type?: "email" | "tel" | "text";
 }) {
-  const inputId = `rsvp-${name}`;
-
   return (
-    <label className="grid gap-2" htmlFor={inputId}>
-      <span className="font-mono text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[#6f4f33]">
-        {label}
-      </span>
-      <input
-        aria-describedby={error ? `${inputId}-error` : undefined}
-        aria-invalid={error ? true : undefined}
-        autoComplete={autoComplete}
-        className={`rounded-[1.15rem] border bg-[#fffaf0] px-4 py-3 text-base text-[#15130f] shadow-inner shadow-[#6f4f33]/5 outline-none transition placeholder:text-[#8a7b68] focus:ring-2 ${
-          error
-            ? "border-[#b34a2c] focus:border-[#b34a2c] focus:ring-[#b34a2c]/25"
-            : "border-[#6f4f33]/20 focus:border-[#6f4f33] focus:ring-[#6f4f33]/20"
-        }`}
-        defaultValue={defaultValue}
-        id={inputId}
-        inputMode={inputMode}
-        name={name}
-        pattern={pattern}
-        placeholder={placeholder}
-        type={type}
-      />
-      {error ? (
-        <span className="text-sm font-medium text-[#b34a2c]" id={`${inputId}-error`} role="alert">
-          — {error}
-        </span>
-      ) : null}
-    </label>
+    <BrevkortTextInput
+      autoComplete={autoComplete}
+      defaultValue={defaultValue}
+      error={error}
+      id={`rsvp-${name}`}
+      inputMode={inputMode}
+      label={label}
+      name={name}
+      pattern={pattern}
+      placeholder={placeholder}
+      type={type}
+    />
   );
 }
 
@@ -154,32 +151,15 @@ function TextAreaField({
   name: RsvpActionField;
   placeholder: string;
 }) {
-  const inputId = `rsvp-${name}`;
-
   return (
-    <label className="grid gap-2" htmlFor={inputId}>
-      <span className="font-mono text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[#6f4f33]">
-        {label}
-      </span>
-      <textarea
-        aria-describedby={error ? `${inputId}-error` : undefined}
-        aria-invalid={error ? true : undefined}
-        className={`min-h-28 rounded-[1.15rem] border bg-[#fffaf0] px-4 py-3 text-base text-[#15130f] shadow-inner shadow-[#6f4f33]/5 outline-none transition placeholder:text-[#8a7b68] focus:ring-2 ${
-          error
-            ? "border-[#b34a2c] focus:border-[#b34a2c] focus:ring-[#b34a2c]/25"
-            : "border-[#6f4f33]/20 focus:border-[#6f4f33] focus:ring-[#6f4f33]/20"
-        }`}
-        defaultValue={defaultValue}
-        id={inputId}
-        name={name}
-        placeholder={placeholder}
-      />
-      {error ? (
-        <span className="text-sm font-medium text-[#b34a2c]" id={`${inputId}-error`} role="alert">
-          — {error}
-        </span>
-      ) : null}
-    </label>
+    <BrevkortTextarea
+      defaultValue={defaultValue}
+      error={error}
+      id={`rsvp-${name}`}
+      label={label}
+      name={name}
+      placeholder={placeholder}
+    />
   );
 }
 
@@ -195,20 +175,14 @@ function AttendanceChoice({
   value: RsvpAttendance;
 }) {
   return (
-    <label className="min-w-0 cursor-pointer">
-      <input
-        className="peer sr-only"
-        defaultChecked={defaultChecked}
-        name="attendance"
-        required
-        type="radio"
-        value={value}
-      />
-      <span className="grid min-w-0 gap-1 rounded-[1.2rem] border border-[#6f4f33]/20 bg-[#fffaf0]/85 px-3 py-3 text-[#3b2b1f] transition peer-checked:border-[#15130f] peer-checked:bg-[#15130f] peer-checked:text-[#fffaf0] peer-focus-visible:ring-2 peer-focus-visible:ring-[#b34a2c]/40 sm:px-4">
-        <span className="text-sm font-semibold leading-none sm:text-lg">{label}</span>
-        <span className="text-[0.68rem] opacity-75 sm:text-xs">{description}</span>
-      </span>
-    </label>
+    <BrevkortChoiceCard
+      defaultChecked={defaultChecked}
+      description={description}
+      label={label}
+      name="attendance"
+      required
+      value={value}
+    />
   );
 }
 
@@ -226,20 +200,14 @@ function PlusOneChoice({
   value: "false" | "true";
 }) {
   return (
-    <label className="min-w-0 cursor-pointer">
-      <input
-        checked={checked}
-        className="peer sr-only"
-        name="include_plus_one"
-        onChange={onChange}
-        type="radio"
-        value={value}
-      />
-      <span className="grid min-w-0 gap-1 rounded-[1.2rem] border border-[#6f4f33]/20 bg-[#fffaf0]/85 px-3 py-3 text-[#3b2b1f] transition peer-checked:border-[#15130f] peer-checked:bg-[#15130f] peer-checked:text-[#fffaf0] peer-focus-visible:ring-2 peer-focus-visible:ring-[#b34a2c]/40 sm:px-4">
-        <span className="text-sm font-semibold leading-none sm:text-lg">{label}</span>
-        <span className="text-[0.68rem] opacity-75 sm:text-xs">{description}</span>
-      </span>
-    </label>
+    <BrevkortChoiceCard
+      checked={checked}
+      description={description}
+      label={label}
+      name="include_plus_one"
+      onChange={() => onChange()}
+      value={value}
+    />
   );
 }
 
@@ -253,27 +221,17 @@ function SmsCheckbox({
   name: "plus_one_sms_opt_in" | "sms_opt_in";
 }) {
   return (
-    <label className="flex gap-3 rounded-[1.2rem] border border-[#6f4f33]/15 bg-[#fffaf0]/75 px-4 py-3 text-sm font-medium leading-6 text-[#3b2b1f]">
-      <input
-        className="mt-1 h-4 w-4 rounded border-[#6f4f33]/40 accent-[#15130f]"
-        defaultChecked={defaultChecked}
-        name={name}
-        type="checkbox"
-      />
-      <span>{label}</span>
-    </label>
+    <BrevkortCheckbox defaultChecked={defaultChecked} name={name}>
+      {label}
+    </BrevkortCheckbox>
   );
 }
 
 function SubmitButton({ hasExistingRsvp, pending }: { hasExistingRsvp: boolean; pending: boolean }) {
   return (
-    <button
-      className="inline-flex items-center justify-center rounded-full bg-[#15130f] px-5 py-3 text-sm font-semibold text-[#fffaf0] shadow-sm transition hover:bg-[#3b2b1f] disabled:cursor-wait disabled:opacity-70"
-      disabled={pending}
-      type="submit"
-    >
+    <BrevkortButton className="w-full" disabled={pending} tone="rust" type="submit">
       {pending ? "Skickar…" : hasExistingRsvp ? "Spara ändringar →" : "Skicka mitt svar →"}
-    </button>
+    </BrevkortButton>
   );
 }
 
@@ -298,60 +256,56 @@ function Confirmation({
   const hasPlusOne = rsvpResponse.extra_guests > 0 && rsvpResponse.plus_one_name;
 
   return (
-    <section className="mt-8 rounded-[2rem] bg-[#fffaf0]/85 p-6 text-center shadow-sm ring-1 ring-[#6f4f33]/15 sm:p-8">
-      <p className="font-serif text-3xl text-[#6f4f33]">❦</p>
-      <h3 className="mt-4 font-serif text-4xl font-semibold tracking-tight text-[#15130f]">
+    <BrevkortCard className="mt-8 bg-invite-paper-light p-6 text-center sm:p-8">
+      <p className="brevkort-display text-4xl text-invite-walnut">❦</p>
+      <BrevkortHeading className="mt-4 text-4xl" level={3}>
         Tack {getGuestFirstName(guestName)}
-      </h3>
-      <p className="mx-auto mt-3 max-w-md leading-7 text-[#3b2b1f]">
+      </BrevkortHeading>
+      <BrevkortBodyText className="mx-auto mt-3 max-w-md">
         Vi har sparat ditt svar. Vi hörs igen med ett par detaljer närmare dagen.
-      </p>
+      </BrevkortBodyText>
 
-      <dl className="mx-auto mt-6 grid max-w-md gap-3 rounded-[1.4rem] bg-[#e6dcc7]/70 p-5 text-left">
+      <dl className="mx-auto mt-6 grid max-w-md gap-3 bg-invite-paper-muted/80 p-5 text-left">
         <div className="grid gap-1">
-          <dt className="font-mono text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[#6f4f33]">
+          <dt className="brevkort-metadata text-[0.68rem] font-semibold text-invite-walnut">
             Närvaro
           </dt>
-          <dd className="text-lg font-semibold text-[#15130f]">
-            {attendance.label} <span className="font-normal text-[#6f4f33]">— {attendance.detail}</span>
+          <dd className="text-lg font-semibold text-invite-ink">
+            {attendance.label} <span className="font-normal text-invite-walnut">— {attendance.detail}</span>
           </dd>
         </div>
         {phone ? (
           <div className="grid gap-1">
-            <dt className="font-mono text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[#6f4f33]">
+            <dt className="brevkort-metadata text-[0.68rem] font-semibold text-invite-walnut">
               Telefon
             </dt>
-            <dd className="text-[#15130f]">{phone}</dd>
+            <dd className="text-invite-ink">{phone}</dd>
           </div>
         ) : null}
         {rsvpResponse.food_preference ? (
           <div className="grid gap-1">
-            <dt className="font-mono text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[#6f4f33]">
+            <dt className="brevkort-metadata text-[0.68rem] font-semibold text-invite-walnut">
               Mat
             </dt>
-            <dd className="text-[#15130f]">{rsvpResponse.food_preference}</dd>
+            <dd className="text-invite-ink">{rsvpResponse.food_preference}</dd>
           </div>
         ) : null}
         {hasPlusOne ? (
           <div className="grid gap-1">
-            <dt className="font-mono text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[#6f4f33]">
+            <dt className="brevkort-metadata text-[0.68rem] font-semibold text-invite-walnut">
               Gäst
             </dt>
-            <dd className="text-[#15130f]">{rsvpResponse.plus_one_name}</dd>
+            <dd className="text-invite-ink">{rsvpResponse.plus_one_name}</dd>
           </div>
         ) : null}
       </dl>
 
-      <button
-        className="mt-6 rounded-full border border-[#6f4f33]/40 px-5 py-3 text-sm font-semibold text-[#6f4f33] transition hover:bg-[#e6dcc7]/70"
-        onClick={onEdit}
-        type="button"
-      >
+      <BrevkortButton className="mt-6" onClick={onEdit} tone="outline" type="button">
         Uppdatera mitt svar
-      </button>
-      <p className="mt-6 text-sm text-[#6f4f33]">{closingLine}</p>
-      <p className="mt-1 font-serif text-lg text-[#15130f]">{weddingName}</p>
-    </section>
+      </BrevkortButton>
+      <p className="mt-6 text-sm text-invite-walnut">{closingLine}</p>
+      <p className="brevkort-display mt-1 text-lg text-invite-ink">{weddingName}</p>
+    </BrevkortCard>
   );
 }
 
@@ -402,35 +356,27 @@ export function RsvpPanel({
   }
 
   return (
-    <section className="mt-8 rounded-[2rem] bg-[#fffaf0]/85 p-6 shadow-sm ring-1 ring-[#6f4f33]/15 sm:p-8">
-      <p className="font-mono text-xs font-semibold uppercase tracking-[0.26em] text-[#6f4f33]">
-        Sida tre
-      </p>
-      <h3 className="mt-3 font-serif text-4xl font-semibold tracking-tight text-[#15130f]">
+    <BrevkortCard className="mt-8 bg-invite-paper-light p-6 sm:p-8">
+      <BrevkortKicker>Sida tre</BrevkortKicker>
+      <BrevkortHeading className="mt-3 text-4xl" level={3}>
         {hasExistingRsvp ? "Uppdatera svar" : "Låt oss veta"}
-      </h3>
-      <p className="mt-3 max-w-2xl leading-7 text-[#3b2b1f]">
+      </BrevkortHeading>
+      <BrevkortBodyText className="mt-3 max-w-2xl">
         {hasExistingRsvp
           ? "Något har ändrats? Du kan uppdatera ditt svar när som helst innan 1 augusti."
           : "Skicka ditt svar och eventuella mat- eller allergiönskemål. Du kan uppdatera senare."}
-      </p>
+      </BrevkortBodyText>
 
       {state.message ? (
-        <div
-          aria-live="polite"
-          className="mt-6 rounded-[1.4rem] border border-[#b34a2c]/30 bg-[#f8ead8] px-5 py-4 text-[#7c2f1c]"
-          role="alert"
-        >
+        <BrevkortStatusStrip aria-live="polite" className="mt-6" role="alert" tone="warning">
           <p className="font-semibold">Kunde inte spara</p>
           <p className="mt-1 text-sm">{state.message}</p>
-        </div>
+        </BrevkortStatusStrip>
       ) : null}
 
       <form action={formAction} className="mt-8 grid gap-6" noValidate>
         <fieldset className="grid gap-3">
-          <legend className="font-mono text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[#6f4f33]">
-            Närvaro
-          </legend>
+          <BrevkortLegend>Närvaro</BrevkortLegend>
           <div className="grid grid-cols-3 gap-2">
             {attendanceOptions.map((option) => (
               <AttendanceChoice
@@ -443,9 +389,7 @@ export function RsvpPanel({
             ))}
           </div>
           {getFieldError(fieldErrors, "attendance") ? (
-            <p className="text-sm font-medium text-[#b34a2c]" role="alert">
-              — {getFieldError(fieldErrors, "attendance")}
-            </p>
+            <BrevkortErrorText>— {getFieldError(fieldErrors, "attendance")}</BrevkortErrorText>
           ) : null}
         </fieldset>
 
@@ -485,9 +429,7 @@ export function RsvpPanel({
 
         {guest.plus_one_allowed ? (
           <fieldset className="grid gap-3">
-            <legend className="font-mono text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[#6f4f33]">
-              Tar du med en gäst?
-            </legend>
+            <BrevkortLegend>Tar du med en gäst?</BrevkortLegend>
             <div className="grid grid-cols-2 gap-2">
               <PlusOneChoice
                 checked={!plusOneSelected}
@@ -508,8 +450,10 @@ export function RsvpPanel({
         ) : null}
 
         {guest.plus_one_allowed && plusOneSelected ? (
-          <section className="grid gap-4 rounded-[1.6rem] bg-[#e6dcc7]/70 p-5 ring-1 ring-[#6f4f33]/15">
-            <h4 className="font-serif text-2xl font-semibold text-[#15130f]">Din gäst</h4>
+          <BrevkortCard className="grid gap-4 bg-invite-paper-muted/70 p-5">
+            <BrevkortHeading className="text-2xl" level={4}>
+              Din gäst
+            </BrevkortHeading>
             <TextField
               autoComplete="name"
               defaultValue={state.values?.plusOneName ?? rsvpResponse?.plus_one_name ?? ""}
@@ -566,16 +510,16 @@ export function RsvpPanel({
               label="Skicka även SMS-uppdateringar till din gäst."
               name="plus_one_sms_opt_in"
             />
-          </section>
+          </BrevkortCard>
         ) : null}
 
         <SubmitButton hasExistingRsvp={hasExistingRsvp} pending={pending} />
       </form>
 
-      <div className="mt-8 text-[#3b2b1f]">
+      <div className="mt-8 text-invite-body">
         <p>Vi ser fram emot att fira med dig.</p>
-        <p className="mt-1 font-serif text-lg text-[#15130f]">{weddingName}</p>
+        <p className="brevkort-display mt-1 text-lg text-invite-ink">{weddingName}</p>
       </div>
-    </section>
+    </BrevkortCard>
   );
 }

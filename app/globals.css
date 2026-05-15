@@ -3,11 +3,41 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Brevkort invite visual foundation, extracted from docs/design references. */
+  --invite-paper: #f1eadc;
+  --invite-paper-light: #f7f2ea;
+  --invite-paper-muted: #e6dcc7;
+  --invite-ink: #12100c;
+  --invite-body: #5d574d;
+  --invite-walnut: #76543c;
+  --invite-rust: #bc4a2a;
+  --invite-rust-dark: #8f321d;
+  --invite-border: #b79d7a;
+  --invite-border-soft: #d2c6b5;
+  --invite-success: #3f7250;
+  --invite-danger: #b34a2c;
+  --invite-shadow: 0 18px 60px rgb(118 84 60 / 12%);
+  --invite-font-display: "Iowan Old Style", "Bodoni 72", Didot, Georgia, serif;
+  --invite-font-body: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  --invite-font-metadata: var(--font-geist-mono), "SFMono-Regular", Consolas, monospace;
+  --invite-letter-wide: 0.28em;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-invite-paper: var(--invite-paper);
+  --color-invite-paper-light: var(--invite-paper-light);
+  --color-invite-paper-muted: var(--invite-paper-muted);
+  --color-invite-ink: var(--invite-ink);
+  --color-invite-body: var(--invite-body);
+  --color-invite-walnut: var(--invite-walnut);
+  --color-invite-rust: var(--invite-rust);
+  --color-invite-border: var(--invite-border);
+  --color-invite-border-soft: var(--invite-border-soft);
+  --color-invite-danger: var(--invite-danger);
+  --color-invite-success: var(--invite-success);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -23,4 +53,38 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.brevkort-paper {
+  background-color: var(--invite-paper);
+  font-family: var(--invite-font-body);
+  background-image:
+    radial-gradient(circle, rgb(118 84 60 / 12%) 0.8px, transparent 0.9px),
+    radial-gradient(circle, rgb(255 255 255 / 28%) 0.8px, transparent 0.9px);
+  background-position:
+    0 0,
+    3px 3px;
+  background-size: 6px 6px;
+}
+
+.brevkort-paper-light {
+  background-color: var(--invite-paper-light);
+  background-image:
+    radial-gradient(circle, rgb(118 84 60 / 9%) 0.75px, transparent 0.9px),
+    radial-gradient(circle, rgb(255 255 255 / 35%) 0.75px, transparent 0.9px);
+  background-position:
+    0 0,
+    3px 3px;
+  background-size: 6px 6px;
+}
+
+.brevkort-display {
+  font-family: var(--invite-font-display);
+  font-variant-ligatures: common-ligatures discretionary-ligatures;
+}
+
+.brevkort-metadata {
+  font-family: var(--invite-font-metadata);
+  letter-spacing: var(--invite-letter-wide);
+  text-transform: uppercase;
 }
