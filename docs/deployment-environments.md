@@ -34,13 +34,13 @@ Vercel's automatic Git deployment for the `main` branch is intentionally skipped
 
 Non-`main` Vercel Git deployments are not skipped by the ignore command, so branch Preview deployments keep their normal Vercel behavior.
 
-The production deploy job requires these GitHub repository secrets:
+The production deploy job runs in the GitHub `Production` environment and requires these environment secrets:
 
 - `VERCEL_TOKEN`
 - `VERCEL_ORG_ID`
 - `VERCEL_PROJECT_ID`
 
-Create `VERCEL_TOKEN` in Vercel account settings. To find the org/project IDs, run `vercel link --yes --scope mjaox-wedding-planner --project wedding-planner` locally and copy the `orgId` and `projectId` values from `.vercel/project.json`; `.vercel/` is gitignored and should not be committed.
+Create `VERCEL_TOKEN` in Vercel account settings. To find the org/project IDs, run `vercel link --yes --scope mjaox-wedding-planner --project wedding-planner` locally and copy the `orgId` and `projectId` values from `.vercel/project.json`; `.vercel/` is gitignored and should not be committed. Add all three values (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`) as secrets on the GitHub repository's `Production` environment, not only as repository-level secrets.
 
 The deploy job installs the latest Vercel CLI, pulls the Vercel production environment, builds with `vercel build --prod`, then deploys the prebuilt artifact with `vercel deploy --prebuilt --prod`. If lint, build, or e2e fails, the deploy job does not run and Vercel production is not updated.
 
