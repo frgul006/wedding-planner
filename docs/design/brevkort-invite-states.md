@@ -55,6 +55,7 @@ For extracted screenshots and PRD ownership, see [`wedding-design-export.md`](we
 ## Data dependencies
 
 - Wedding settings:
+  - explicit partner display names (`partner_one_name`, `partner_two_name`) for the cover
   - venue name/address
   - venue area/city label
   - structured time-plan rows (`time`, `label`)
@@ -78,3 +79,5 @@ For extracted screenshots and PRD ownership, see [`wedding-design-export.md`](we
 - Sans body text.
 - Monospace uppercase metadata.
 - Exact color/font tokens now live in the shared Brevkort invite token/component foundation.
+- Cover names should come from explicit partner-name fields, not parser-derived pieces of `wedding.name`.
+- The shell should keep the 390 px postcard composition centered on wider screens, support swipe plus hash deep links, and show one primary panel at a time.

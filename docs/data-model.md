@@ -12,7 +12,11 @@ Start with one wedding in one app install, but include `wedding_id` on child tab
 
 - `id` (UUID)
 - `name` (string)
-  - This is the couple name or wedding title shown on invites.
+  - General wedding title / legacy display name.
+- `partner_one_name` (string, optional; planned item 23a)
+  - Explicit first partner display name for the Brevkort invite cover.
+- `partner_two_name` (string, optional; planned item 23a)
+  - Explicit second partner display name for the Brevkort invite cover.
 - `wedding_date` (datetime)
 - `venue_name` (string)
 - `venue_address` (string)
@@ -36,6 +40,8 @@ Start with one wedding in one app install, but include `wedding_id` on child tab
 - `created_at`, `updated_at`
 
 ### CoupleMember
+
+Future/optional normalized model for multi-person wedding parties. It is not the planned source for the current Brevkort two-name cover; item 23a uses flat `weddings.partner_one_name` and `weddings.partner_two_name` fields instead.
 
 - `id` (UUID)
 - `wedding_id` (UUID)
