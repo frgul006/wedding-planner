@@ -1,13 +1,18 @@
 # PRD: Phone Capture on RSVP
 
 **Version:** 0.2
-**Status:** Implemented with Brevkort phone/consent states
+**Status:** Functionally implemented; Brevkort phone/consent visual parity pending
 **Date:** 2026-05-15
 **Scope:** Guest contact data for updates
 
 ## Design source
 
 Use the phone and SMS controls in `../design/brevkort-invite-states.md`, especially `OSA — phone validation error` and `OSA — +1 expanded`.
+
+Extracted visual targets:
+
+- `../design/references/invite/osa-phone-validation-error.png`
+- `../design/references/invite/osa-plus-one-expanded.png`
 
 ## Why this is needed
 Guests can receive SMS updates only if they leave a valid phone number and consent to updates.

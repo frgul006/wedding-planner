@@ -1,9 +1,18 @@
 # PRD: Admin Guest CRUD
 
 **Version:** 0.2
-**Status:** Implemented, including per-guest +1 permission
+**Status:** Functionally implemented; future admin visual direction pending
 **Date:** 2026-05-14
 **Scope:** Admin guest list management
+
+## Design source
+
+The shared export includes two alternate admin guest-list directions:
+
+- `../design/references/admin/direction-a-guests.png`
+- `../design/references/admin/direction-b-guests.png`
+
+Choose one direction in `../design/wedding-design-export.md` before admin restyle work. Current implementation should be judged as functionally complete, not visually aligned to either direction.
 
 ## Why this is needed
 

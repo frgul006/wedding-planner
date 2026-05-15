@@ -2,6 +2,8 @@
 
 This document is the repo-tracked reference for the **Brevkort — invite states** artboards from the shared wedding design export.
 
+For extracted screenshots and PRD ownership, see [`wedding-design-export.md`](wedding-design-export.md). Invite-specific reference images live under [`references/invite/`](references/invite/).
+
 ## Route and layout
 
 - Route: `/invite/[token]`

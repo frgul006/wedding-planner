@@ -50,18 +50,48 @@
    - `rsvp-form-submission.md`
    - `phone-capture-for-rsvp.md`
    - `../data-model.md`
-19. ✅ **Brevkort public invite shell and details panel**
+19. ⚠️ **Brevkort public invite shell and details panel** — functional shell exists; visual parity pending
    - `public-invite-page.md`
    - `invite-event-info-and-gifts.md`
    - `invite-updates-feed.md`
-20. ✅ **Brevkort OSA and RSVP state redesign**
+   - Visual targets: `../design/wedding-design-export.md`
+20. ⚠️ **Brevkort OSA and RSVP state redesign** — functional RSVP states exist; visual parity pending
    - `rsvp-form-submission.md`
    - `rsvp-view-update.md`
    - `phone-capture-for-rsvp.md`
-21. ✅ **Brevkort invite QA and rollout**
+   - Visual targets: `../design/wedding-design-export.md`
+21. ⚠️ **Brevkort invite QA and rollout** — defer visual QA sign-off until target screenshots match
    - `public-invite-page.md`
    - `rsvp-form-submission.md`
    - `rsvp-view-update.md`
+   - Visual targets: `../design/wedding-design-export.md`
+
+## Visual parity follow-up order
+
+22. ✅ **Extract visual references and PRD ownership matrix**
+   - `../design/wedding-design-export.md`
+23. **Brevkort design-token and component foundation**
+   - Shared paper, texture, typography, colors, borders, buttons, form fields, and status-strip primitives
+24. **Invite shell, cover, invalid-link, and saved-answer states**
+   - `public-invite-page.md`
+   - `rsvp-view-update.md`
+25. **Details panel visual parity**
+   - `invite-event-info-and-gifts.md`
+   - `invite-updates-feed.md`
+26. **OSA visual state pack**
+   - `rsvp-form-submission.md`
+   - `rsvp-view-update.md`
+   - `phone-capture-for-rsvp.md`
+27. **Visual fixtures and QA harness**
+   - deterministic fixtures for `Nej`, `Kanske`, +1 expanded, published updates, submitting, and save-error states
+28. **Wedding hub visual parity review**
+   - `photo-upload-public.md`
+   - `qr-code-generation.md`
+   - `photo-review-and-export.md`
+29. **Admin visual direction decision**
+   - choose Direction A or B from `../design/references/admin/`
+
+See `build-order.md` for dependencies and parallelization notes.
 
 ## Future / optional
 
