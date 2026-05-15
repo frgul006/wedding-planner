@@ -115,6 +115,7 @@ pnpm seed:local
 This creates/updates:
 
 - example wedding: `Fredrik <3 Matilda`
+- explicit invite cover partner names: `Fredrik` / `Matilda`
 - admin user: `admin@example.com`
 - admin password: `password123456`
 - matching `admin_profiles` row

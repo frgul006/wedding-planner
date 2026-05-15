@@ -14,12 +14,12 @@ Reference: "Delivery sequence" item 1 and "Item 24 decisions" partner-name requi
 
 ## Acceptance criteria
 
-- [ ] A migration adds nullable `weddings.partner_one_name` and `weddings.partner_two_name` fields with clear comments.
-- [ ] `/admin/settings` loads, displays, saves, and persists both partner-name fields as optional settings with helper text explaining blank public placeholders.
-- [ ] Public invite data loading includes the partner-name fields and the invite cover can distinguish explicit names from missing values.
-- [ ] Blank partner fields render intentional public placeholders instead of parsing `weddings.name`.
-- [ ] Local seed data populates `partner_one_name = Fredrik` and `partner_two_name = Matilda`.
-- [ ] Admin settings and invite tests cover saving/displaying populated names and placeholder behavior for blanks.
+- [x] A migration adds nullable `weddings.partner_one_name` and `weddings.partner_two_name` fields with clear comments.
+- [x] `/admin/settings` loads, displays, saves, and persists both partner-name fields as optional settings with helper text explaining blank public placeholders.
+- [x] Public invite data loading includes the partner-name fields and the invite cover can distinguish explicit names from missing values.
+- [x] Blank partner fields render intentional public placeholders instead of parsing `weddings.name`.
+- [x] Local seed data populates `partner_one_name = Fredrik` and `partner_two_name = Matilda`.
+- [x] Admin settings and invite tests cover saving/displaying populated names and placeholder behavior for blanks.
 
 ## Blocked by
 

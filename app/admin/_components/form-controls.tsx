@@ -1,5 +1,6 @@
 export function AdminField({
   defaultValue,
+  disabled = false,
   helpText,
   label,
   name,
@@ -8,6 +9,7 @@ export function AdminField({
   type = "text",
 }: {
   defaultValue?: string | null;
+  disabled?: boolean;
   helpText?: string;
   label: string;
   name: string;
@@ -20,8 +22,9 @@ export function AdminField({
       <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700">
         <span>{label}</span>
         <input
-          className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950"
+          className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-500"
           defaultValue={defaultValue ?? ""}
+          disabled={disabled}
           name={name}
           placeholder={placeholder}
           required={required}
