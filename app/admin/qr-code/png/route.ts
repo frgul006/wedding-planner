@@ -1,7 +1,7 @@
 import QRCode from "qrcode";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
-import { getWeddingHubUrl } from "@/lib/wedding-hub";
+import { getWeddingHubUrl } from "@/lib/wedding-hub-url";
 
 export const runtime = "nodejs";
 
@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   await requireActiveAdminProfile();
 
   const url = new URL(request.url);
-  const hubUrl = getWeddingHubUrl(request.url);
+  const hubUrl = getWeddingHubUrl({ requestUrl: request.url });
   const png = await QRCode.toBuffer(hubUrl, {
     color: {
       dark: "#15130f",

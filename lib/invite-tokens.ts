@@ -4,6 +4,7 @@ import {
   generateRawInviteToken,
   hashInviteToken,
 } from "@/lib/invite-token-crypto";
+import { buildPublicUrl, type PublicUrlOptions } from "@/lib/public-url";
 import { isRsvpAttendance, type RsvpAttendance } from "@/lib/rsvp-attendance";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { normalizeTimePlanLines } from "@/lib/time-plan";
@@ -183,9 +184,8 @@ function normalizeRsvpResponse(value: unknown): InviteRsvpResponse | null {
   };
 }
 
-export function buildInviteUrl(rawToken: string) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  return new URL(`/invite/${rawToken}`, siteUrl).toString();
+export function buildInviteUrl(rawToken: string, options?: PublicUrlOptions) {
+  return buildPublicUrl(`/invite/${rawToken}`, options);
 }
 
 async function resolveValidInviteToken(
@@ -310,13 +310,15 @@ export async function markInviteOpened({
 
 export async function regenerateInviteToken({
   guestId,
+  requestOrigin,
+  requestUrl,
   supabase,
   weddingId,
 }: {
   guestId: string;
   supabase: SupabaseClient;
   weddingId: string;
-}) {
+} & PublicUrlOptions) {
   const rawToken = generateRawInviteToken();
   const tokenHash = hashInviteToken(rawToken);
   const now = new Date().toISOString();
@@ -348,7 +350,7 @@ export async function regenerateInviteToken({
   }
 
   return {
-    inviteUrl: buildInviteUrl(rawToken),
+    inviteUrl: buildInviteUrl(rawToken, { requestOrigin, requestUrl }),
     rawToken,
   };
 }

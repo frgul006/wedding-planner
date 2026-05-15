@@ -15,7 +15,7 @@ import {
   uniqueGuestName,
 } from "./support/admin-guests";
 import { testWithGuests as test } from "./support/fixtures";
-import { pathFromAbsoluteUrl } from "./support/urls";
+import { expectedPublicOriginForPage, pathFromAbsoluteUrl } from "./support/urls";
 
 test.describe("admin guest CRUD", () => {
   test("adds, validates, searches, sorts, edits, and archives guests", async ({ page }) => {
@@ -116,7 +116,9 @@ test.describe("admin invite token links", () => {
     const firstInviteInput = page.getByLabel(`New invite link for ${guestName}`);
     await expect(firstInviteInput).toBeVisible();
     const firstInviteUrl = await firstInviteInput.inputValue();
+    const expectedInviteOrigin = expectedPublicOriginForPage(page);
     const firstInvitePath = pathFromAbsoluteUrl(firstInviteUrl);
+    expect(new URL(firstInviteUrl).origin).toBe(expectedInviteOrigin);
     expect(firstInvitePath).toContain("/invite/");
 
     const invitePage = await page.context().newPage();
@@ -132,6 +134,7 @@ test.describe("admin invite token links", () => {
     await expect(secondInviteInput).toBeVisible();
     const secondInviteUrl = await secondInviteInput.inputValue();
     const secondInvitePath = pathFromAbsoluteUrl(secondInviteUrl);
+    expect(new URL(secondInviteUrl).origin).toBe(expectedInviteOrigin);
     expect(secondInvitePath).toContain("/invite/");
     expect(secondInvitePath).not.toBe(firstInvitePath);
 

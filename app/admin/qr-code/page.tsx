@@ -5,8 +5,9 @@ import { headers } from "next/headers";
 import { connection } from "next/server";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
+import { getRequestOriginFromHeaders } from "@/lib/public-url";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getWeddingHubUrl } from "@/lib/wedding-hub";
+import { getWeddingHubUrl } from "@/lib/wedding-hub-url";
 
 import { QrCodeActions } from "./qr-code-actions";
 
@@ -40,17 +41,6 @@ function formatWeddingDate(value: string | null) {
   return weddingDateFormatter.format(date);
 }
 
-function getRequestUrl(headersList: Headers) {
-  const host = headersList.get("x-forwarded-host") ?? headersList.get("host");
-
-  if (!host) {
-    return undefined;
-  }
-
-  const protocol = headersList.get("x-forwarded-proto") ?? "http";
-  return `${protocol}://${host}/admin/qr-code`;
-}
-
 function getWeddingDetails(value: unknown): WeddingQrDetails | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -76,7 +66,9 @@ export default async function QrCodePage() {
     requireActiveAdminProfile(),
     headers(),
   ]);
-  const hubUrl = getWeddingHubUrl(getRequestUrl(headersList));
+  const hubUrl = getWeddingHubUrl({
+    requestOrigin: getRequestOriginFromHeaders(headersList),
+  });
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("weddings")
