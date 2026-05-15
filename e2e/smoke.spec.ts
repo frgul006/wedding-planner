@@ -69,11 +69,11 @@ test.describe("valid invite smoke", () => {
     await expect(
       page.getByText(`Personlig inbjudan för ${SEEDED_GUESTS.firstTimeRsvp.name}`),
     ).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Fredrik <3 Matilda" }))
+    await expect(page.getByRole("heading", { name: "Fredrik & Matilda" }))
       .toBeVisible();
 
     const coverPanel = page.locator("article", {
-      has: page.getByRole("heading", { name: "Fredrik <3 Matilda" }),
+      has: page.getByRole("heading", { name: "Fredrik & Matilda" }),
     });
     await expect(coverPanel.getByRole("link", { name: "Gå till Inbjudan" }))
       .toHaveAttribute("aria-current", "step");

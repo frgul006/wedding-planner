@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
+import { isMissingPartnerNameColumnError } from "@/lib/supabase/schema-compat";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizeTimePlanLines } from "@/lib/time-plan";
 import { isNullableString, isRecord } from "@/lib/type-guards";
@@ -23,6 +24,8 @@ type SettingsPageProps = {
 
 type Wedding = {
   name: string;
+  partner_one_name: string | null;
+  partner_two_name: string | null;
   wedding_date: string | null;
   venue_name: string | null;
   venue_address: string | null;
@@ -38,6 +41,17 @@ type Wedding = {
   allow_anonymous_hub_upload: boolean;
   photo_upload_requires_review: boolean;
 };
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
+
+const weddingSettingsSelect =
+  "name, partner_one_name, partner_two_name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, allow_anonymous_hub_upload, photo_upload_requires_review";
+const legacyWeddingSettingsSelect =
+  "name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, allow_anonymous_hub_upload, photo_upload_requires_review";
+const partnerNameHelpText =
+  "Shown on the public invite cover. Leave blank to show a safe public placeholder instead of guessing from the wedding name.";
+const partnerNameUnavailableHelpText =
+  "Temporarily unavailable until the partner-name database migration is applied. Other settings can still be saved.";
 
 function getFirstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -89,6 +103,8 @@ function toWedding(value: unknown): Wedding | null {
   if (
     !isRecord(value) ||
     typeof value.name !== "string" ||
+    !isNullableString(value.partner_one_name) ||
+    !isNullableString(value.partner_two_name) ||
     !isNullableString(value.wedding_date) ||
     !isNullableString(value.venue_name) ||
     !isNullableString(value.venue_address) ||
@@ -114,6 +130,8 @@ function toWedding(value: unknown): Wedding | null {
     google_maps_url: value.google_maps_url,
     invite_support_email: value.invite_support_email,
     name: value.name,
+    partner_one_name: value.partner_one_name,
+    partner_two_name: value.partner_two_name,
     photo_upload_requires_review: value.photo_upload_requires_review,
     policy: value.policy,
     spotify_playlist_url: value.spotify_playlist_url,
@@ -125,19 +143,58 @@ function toWedding(value: unknown): Wedding | null {
   };
 }
 
+function withMissingPartnerNameColumns(value: unknown) {
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  return {
+    ...value,
+    partner_one_name: null,
+    partner_two_name: null,
+  };
+}
+
+async function loadWeddingSettings({
+  supabase,
+  weddingId,
+}: {
+  supabase: SupabaseServerClient;
+  weddingId: string;
+}) {
+  const result = await supabase
+    .from("weddings")
+    .select(weddingSettingsSelect)
+    .eq("id", weddingId)
+    .maybeSingle();
+
+  if (!isMissingPartnerNameColumnError(result.error)) {
+    return { ...result, partnerNameFieldsAvailable: true };
+  }
+
+  const fallbackResult = await supabase
+    .from("weddings")
+    .select(legacyWeddingSettingsSelect)
+    .eq("id", weddingId)
+    .maybeSingle();
+
+  return {
+    ...fallbackResult,
+    data: withMissingPartnerNameColumns(fallbackResult.data),
+    partnerNameFieldsAvailable: false,
+  };
+}
+
 export default async function SettingsPage({ searchParams }: SettingsPageProps) {
   await connection();
 
   const params = await searchParams;
   const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("weddings")
-    .select(
-      "name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, allow_anonymous_hub_upload, photo_upload_requires_review",
-    )
-    .eq("id", adminProfile.wedding_id)
-    .maybeSingle();
+  const { data, error, partnerNameFieldsAvailable } = await loadWeddingSettings({
+    supabase,
+    weddingId: adminProfile.wedding_id,
+  });
   const wedding = toWedding(data);
   const message = getMessage(params);
 
@@ -182,6 +239,13 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
           </p>
         ) : null}
 
+        {!partnerNameFieldsAvailable ? (
+          <p className="rounded-2xl bg-amber-50 px-5 py-4 text-sm font-medium text-amber-800 ring-1 ring-amber-100">
+            Partner-name settings are waiting for the database migration. You can
+            still edit and save the other wedding settings.
+          </p>
+        ) : null}
+
         {wedding ? (
           <form
             action={updateWeddingSettingsAction}
@@ -201,6 +265,22 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                 name="name"
                 placeholder="Alex & Sam"
                 required
+              />
+              <AdminField
+                defaultValue={wedding.partner_one_name}
+                disabled={!partnerNameFieldsAvailable}
+                helpText={partnerNameFieldsAvailable ? partnerNameHelpText : partnerNameUnavailableHelpText}
+                label="Partner one name"
+                name="partner_one_name"
+                placeholder="Alex"
+              />
+              <AdminField
+                defaultValue={wedding.partner_two_name}
+                disabled={!partnerNameFieldsAvailable}
+                helpText={partnerNameFieldsAvailable ? partnerNameHelpText : partnerNameUnavailableHelpText}
+                label="Partner two name"
+                name="partner_two_name"
+                placeholder="Sam"
               />
               <AdminField
                 defaultValue={formatDateTimeLocal(wedding.wedding_date)}

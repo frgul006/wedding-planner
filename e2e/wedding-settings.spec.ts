@@ -50,8 +50,15 @@ test.describe("wedding settings propagation", () => {
     await signInAsSeededAdmin(page);
     await page.getByRole("link", { name: "Manage settings" }).click();
     await expect(page.getByRole("heading", { name: "Wedding settings" })).toBeVisible();
+    await expect(
+      page.getByText(
+        "Leave blank to show a safe public placeholder instead of guessing from the wedding name.",
+      ),
+    ).toHaveCount(2);
 
     await page.getByLabel("Wedding name").fill(weddingName);
+    await page.getByLabel("Partner one name").fill("E2E Fredrik");
+    await page.getByLabel("Partner two name").fill("E2E Matilda");
     await page.getByLabel("Wedding date and time").fill("2027-06-07T15:45");
     await page.getByLabel("Venue name").fill("E2E Glass House");
     await page.getByLabel("Venue address").fill("Regression Road 42, Testholm");
@@ -72,6 +79,8 @@ test.describe("wedding settings propagation", () => {
 
     await page.reload();
     await expect(page.getByLabel("Wedding name")).toHaveValue(weddingName);
+    await expect(page.getByLabel("Partner one name")).toHaveValue("E2E Fredrik");
+    await expect(page.getByLabel("Partner two name")).toHaveValue("E2E Matilda");
     await expect(page.getByLabel("Venue name")).toHaveValue("E2E Glass House");
     await expect(page.getByLabel("Venue address")).toHaveValue(
       "Regression Road 42, Testholm",
@@ -86,7 +95,7 @@ test.describe("wedding settings propagation", () => {
 
     await page.goto(invitePathForToken(token));
     await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
-    await expect(page.getByRole("heading", { name: weddingName })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "E2E Fredrik & E2E Matilda" })).toBeVisible();
     await expect(
       page.locator("section", { has: page.getByRole("heading", { name: "Plats" }) })
         .getByText(/2027/),
@@ -122,6 +131,8 @@ test.describe("wedding settings propagation", () => {
       google_maps_url: null,
       invite_support_email: null,
       name: "E2E Minimal Wedding",
+      partner_one_name: null,
+      partner_two_name: "E2E Partner Two",
       policy: null,
       spotify_playlist_url: null,
       time_plan: [],
@@ -137,7 +148,8 @@ test.describe("wedding settings propagation", () => {
     });
 
     await page.goto(invitePathForToken(token));
-    await expect(page.getByRole("heading", { name: "E2E Minimal Wedding" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Partner 1 & E2E Partner Two" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "E2E Minimal Wedding" })).toHaveCount(0);
     await expect(
       page.locator("section", { has: page.getByRole("heading", { name: "Plats" }) })
         .getByText("Kommer snart")

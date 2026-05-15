@@ -42,6 +42,10 @@ type ValidInviteResult = Extract<
 >;
 
 const comingSoon = "Kommer snart";
+const partnerNamePlaceholders = {
+  one: "Partner 1",
+  two: "Partner 2",
+} as const;
 const panelLabels = ["Inbjudan", "Detaljer", "OSA"] as const;
 const panelIds = ["inbjudan", "detaljer", "osa"] as const;
 const weddingDateFormatter = new Intl.DateTimeFormat("sv-SE", {
@@ -133,18 +137,46 @@ function getSavedAnswerChipClass(attendance: RsvpAttendance) {
   return "bg-invite-paper text-invite-walnut ring-invite-border";
 }
 
-function getCoupleMark(name: string) {
-  const parts = name
-    .split(/\s*(?:&|<3|♥|\+| och )\s*/i)
-    .map((part) => part.trim())
-    .filter(Boolean);
+type PublicPartnerNames = {
+  displayName: string;
+  hasExplicitPartnerOneName: boolean;
+  hasExplicitPartnerTwoName: boolean;
+  partnerOneName: string;
+  partnerTwoName: string;
+};
 
-  if (parts.length >= 2) {
-    return `${parts[0]?.charAt(0) ?? ""}${parts[1]?.charAt(0) ?? ""}`.toUpperCase();
+function cleanPublicPartnerName(value: string | null) {
+  const text = value?.trim();
+  return text ? text : null;
+}
+
+function getPublicPartnerNames({
+  partner_one_name: partnerOneName,
+  partner_two_name: partnerTwoName,
+}: Pick<ValidInviteResult["wedding"], "partner_one_name" | "partner_two_name">): PublicPartnerNames {
+  const explicitPartnerOneName = cleanPublicPartnerName(partnerOneName);
+  const explicitPartnerTwoName = cleanPublicPartnerName(partnerTwoName);
+  const publicPartnerOneName = explicitPartnerOneName ?? partnerNamePlaceholders.one;
+  const publicPartnerTwoName = explicitPartnerTwoName ?? partnerNamePlaceholders.two;
+
+  return {
+    displayName: `${publicPartnerOneName} & ${publicPartnerTwoName}`,
+    hasExplicitPartnerOneName: Boolean(explicitPartnerOneName),
+    hasExplicitPartnerTwoName: Boolean(explicitPartnerTwoName),
+    partnerOneName: publicPartnerOneName,
+    partnerTwoName: publicPartnerTwoName,
+  };
+}
+
+function getCoupleMark(partnerNames: PublicPartnerNames) {
+  if (
+    !partnerNames.hasExplicitPartnerOneName ||
+    !partnerNames.hasExplicitPartnerTwoName
+  ) {
+    return "♡";
   }
 
-  const compactName = name.replace(/[^A-Za-zÅÄÖåäö0-9]/g, "");
-  return compactName.slice(0, 2).toUpperCase() || "♡";
+  return `${partnerNames.partnerOneName.charAt(0)}${partnerNames.partnerTwoName.charAt(0)}`.toUpperCase();
 }
 
 function ExternalLink({ children, href }: { children: ReactNode; href: string }) {
@@ -247,20 +279,20 @@ function PanelActions({
 
 function CoverPanel({
   coupleMark,
+  coverCoupleName,
   guestName,
   rsvpResponse,
   rsvpSubmittedAt,
   venueSummary,
   weddingDate,
-  weddingName,
 }: {
   coupleMark: string;
+  coverCoupleName: string;
   guestName: string;
   rsvpResponse: null | { attendance: RsvpAttendance };
   rsvpSubmittedAt: string | null;
   venueSummary: string;
   weddingDate: string;
-  weddingName: string;
 }) {
   return (
     <PanelShell activeIndex={0} coupleMark={coupleMark}>
@@ -268,7 +300,7 @@ function CoverPanel({
         <div>
           <BrevkortKicker>Personlig inbjudan för {guestName}</BrevkortKicker>
           <BrevkortHeading className="mt-8 text-5xl sm:text-6xl" id="inbjudan-heading" level={1}>
-            {weddingName}
+            {coverCoupleName}
           </BrevkortHeading>
           <BrevkortBodyText className="mt-6 max-w-md text-lg leading-8">
             Vi hoppas att du vill fira kärleken med oss.
@@ -526,7 +558,8 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   const rsvpSubmittedAt = formatRsvpSubmittedAt(
     rsvpResponse?.last_submitted_at ?? null,
   );
-  const coupleMark = getCoupleMark(wedding.name);
+  const publicPartnerNames = getPublicPartnerNames(wedding);
+  const coupleMark = getCoupleMark(publicPartnerNames);
 
   return (
     <BrevkortPage>
@@ -536,9 +569,9 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
           guestName={guest.full_name}
           rsvpResponse={rsvpResponse ? { attendance: rsvpResponse.attendance } : null}
           rsvpSubmittedAt={rsvpSubmittedAt}
+          coverCoupleName={publicPartnerNames.displayName}
           venueSummary={venueSummary}
           weddingDate={weddingDate}
-          weddingName={wedding.name}
         />
 
         <DetailsPanel

@@ -13,10 +13,10 @@ Start with one wedding in one app install, but include `wedding_id` on child tab
 - `id` (UUID)
 - `name` (string)
   - General wedding title / legacy display name.
-- `partner_one_name` (string, optional; planned item 23a)
-  - Explicit first partner display name for the Brevkort invite cover.
-- `partner_two_name` (string, optional; planned item 23a)
-  - Explicit second partner display name for the Brevkort invite cover.
+- `partner_one_name` (string, optional)
+  - Explicit first partner display name for the Brevkort invite cover. Blank values render safe public placeholders instead of being inferred from `name`.
+- `partner_two_name` (string, optional)
+  - Explicit second partner display name for the Brevkort invite cover. Blank values render safe public placeholders instead of being inferred from `name`.
 - `wedding_date` (datetime)
 - `venue_name` (string)
 - `venue_address` (string)
