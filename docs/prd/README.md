@@ -50,7 +50,7 @@
    - `rsvp-form-submission.md`
    - `phone-capture-for-rsvp.md`
    - `../data-model.md`
-19. **Brevkort public invite shell and details panel**
+19. ✅ **Brevkort public invite shell and details panel**
    - `public-invite-page.md`
    - `invite-event-info-and-gifts.md`
    - `invite-updates-feed.md`

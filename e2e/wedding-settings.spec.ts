@@ -85,10 +85,10 @@ test.describe("wedding settings propagation", () => {
     );
 
     await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Private invite for ${guestName}`)).toBeVisible();
+    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
     await expect(page.getByRole("heading", { name: weddingName })).toBeVisible();
     await expect(
-      page.locator("section", { has: page.getByRole("heading", { name: "When" }) })
+      page.locator("section", { has: page.getByRole("heading", { name: "Plats" }) })
         .getByText(/2027/),
     ).toBeVisible();
     await expect(page.getByText("E2E Glass House", { exact: true })).toBeVisible();
@@ -102,15 +102,15 @@ test.describe("wedding settings propagation", () => {
     await expect(page.getByText("E2E child policy from settings.")).toBeVisible();
     await expect(page.getByText("E2E legacy policy from settings.")).toBeVisible();
     await expect(page.getByText("E2E gift info from settings.")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Open in Google Maps" })).toHaveAttribute(
+    await expect(page.getByRole("link", { name: "Visa karta" })).toHaveAttribute(
       "href",
       "https://maps.google.com/?q=e2e",
     );
-    await expect(page.getByRole("link", { name: "Open Spotify playlist" }))
+    await expect(page.getByRole("link", { name: "Öppna Spotify" }))
       .toHaveAttribute("href", "https://open.spotify.com/playlist/e2e");
   });
 
-  test("shows Coming soon placeholders when optional invite settings are missing", async ({
+  test("shows Swedish placeholders when optional invite settings are missing", async ({
     page,
   }) => {
     const guestName = uniqueRsvpGuestName("Minimal Settings");
@@ -139,28 +139,28 @@ test.describe("wedding settings propagation", () => {
     await page.goto(invitePathForToken(token));
     await expect(page.getByRole("heading", { name: "E2E Minimal Wedding" })).toBeVisible();
     await expect(
-      page.locator("section", { has: page.getByRole("heading", { name: "When" }) })
-        .getByText("Coming soon"),
-    ).toBeVisible();
-    await expect(
-      page.locator("section", { has: page.getByRole("heading", { name: "Venue" }) })
-        .getByText("Coming soon")
+      page.locator("section", { has: page.getByRole("heading", { name: "Plats" }) })
+        .getByText("Kommer snart")
         .first(),
     ).toBeVisible();
     await expect(
-      page.locator("section", { has: page.getByRole("heading", { name: "Time plan" }) })
-        .getByText("Coming soon"),
+      page.locator("section", { has: page.getByRole("heading", { name: "Tidsplan" }) })
+        .getByText("Kommer snart"),
     ).toBeVisible();
     await expect(
-      page.locator("section", { has: page.getByRole("heading", { name: "Policy / dress code" }) })
-        .getByText("Coming soon"),
+      page.locator("section", { has: page.getByRole("heading", { name: "Klädkod" }) })
+        .getByText("Kommer snart"),
     ).toBeVisible();
     await expect(
-      page.locator("section", { has: page.getByRole("heading", { name: "Gift information" }) })
-        .getByText("Coming soon"),
+      page.locator("section", { has: page.getByRole("heading", { name: "Gåvor" }) })
+        .getByText("Kommer snart"),
     ).toBeVisible();
-    await expect(page.getByText("Google Maps link coming soon")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Open in Google Maps" })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Open Spotify playlist" })).toHaveCount(0);
+    await expect(
+      page.locator("section", { has: page.getByRole("heading", { name: "Musik" }) })
+        .getByText("Kommer snart"),
+    ).toBeVisible();
+    await expect(page.getByText("Kartlänk kommer snart")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Visa karta" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Öppna Spotify" })).toHaveCount(0);
   });
 });

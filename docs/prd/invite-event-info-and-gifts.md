@@ -1,7 +1,7 @@
 # PRD: Invite Page Event Info and Gift Details
 
 **Version:** 0.2
-**Status:** Implemented baseline; Brevkort details redesign pending
+**Status:** Implemented, including Brevkort details panel
 **Date:** 2026-05-14
 **Scope:** Public invite content and admin-managed wedding details
 

@@ -63,7 +63,7 @@ test.describe("guest navigation session attribution", () => {
     });
 
     await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Private invite for ${guestName}`)).toBeVisible();
+    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
 
     const cookie = await getGuestNavigationCookie(page);
 
@@ -90,7 +90,7 @@ test.describe("guest navigation session attribution", () => {
     expect(session?.cookie_hash).not.toBe(cookie.value);
 
     await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Private invite for ${guestName}`)).toBeVisible();
+    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
     expect(await getGuestNavigationCookie(page)).toMatchObject({
       value: cookie.value,
     });
@@ -102,13 +102,13 @@ test.describe("guest navigation session attribution", () => {
   }) => {
     await page.goto("/invite/not-a-real-invite-token");
     await expect(
-      page.getByRole("heading", { name: "Invite link not valid" }),
+      page.getByRole("heading", { name: "Inbjudan saknas" }),
     ).toBeVisible();
     expect(await getGuestNavigationCookie(page)).toBeUndefined();
 
     await page.goto("/invite");
     await expect(
-      page.getByRole("heading", { name: "Invite link not valid" }),
+      page.getByRole("heading", { name: "Inbjudan saknas" }),
     ).toBeVisible();
     expect(await getGuestNavigationCookie(page)).toBeUndefined();
   });
@@ -125,7 +125,7 @@ test.describe("guest navigation session attribution", () => {
     });
 
     await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Private invite for ${guestName}`)).toBeVisible();
+    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
     const originalCookie = await getGuestNavigationCookie(page);
 
     if (!originalCookie) {
@@ -134,7 +134,7 @@ test.describe("guest navigation session attribution", () => {
 
     await page.goto("/invite/not-a-real-invite-token");
     await expect(
-      page.getByRole("heading", { name: "Invite link not valid" }),
+      page.getByRole("heading", { name: "Inbjudan saknas" }),
     ).toBeVisible();
     expect(await getGuestNavigationCookie(page)).toMatchObject({
       value: originalCookie.value,
@@ -142,7 +142,7 @@ test.describe("guest navigation session attribution", () => {
 
     await page.goto("/invite");
     await expect(
-      page.getByRole("heading", { name: "Invite link not valid" }),
+      page.getByRole("heading", { name: "Inbjudan saknas" }),
     ).toBeVisible();
     expect(await getGuestNavigationCookie(page)).toMatchObject({
       value: originalCookie.value,

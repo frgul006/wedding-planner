@@ -42,7 +42,7 @@
     - Add `guests.plus_one_allowed` and expose it in `/admin/guests` so admins can control per guest whether the OSA page offers a +1.
     - Add named +1 RSVP detail persistence and +1 SMS consent fields before replacing the old generic extra guest count UI.
     - Keep phone values compact E.164 with no spaces, for example `+46701234567`.
-19. Brevkort public invite shell and details panel
+19. ✅ Complete — Brevkort public invite shell and details panel
     - Build the three-panel mobile invite: `Inbjudan`, `Detaljer`, `OSA`.
     - Include the safe invalid-link state, top progress navigation, cover CTA, opened/no-answer state, and saved-answer cover treatment.
     - Build the Brevkort `Detaljer` panel: `Tidsplan`, `Plats`, `Klädkod` / `Gåvor`, `Musik`, updates empty state, and published updates.
