@@ -46,7 +46,7 @@
     - Build the three-panel mobile invite: `Inbjudan`, `Detaljer`, `OSA`.
     - Include the safe invalid-link state, top progress navigation, cover CTA, opened/no-answer state, and saved-answer cover treatment.
     - Build the Brevkort `Detaljer` panel: `Tidsplan`, `Plats`, `Klädkod` / `Gåvor`, `Musik`, updates empty state, and published updates.
-20. Brevkort OSA and RSVP state redesign
+20. ✅ Complete — Brevkort OSA and RSVP state redesign
     - Build default OSA form, +1 hidden state for disallowed guests, +1 expanded fields for allowed guests, phone/SMS controls, submitting state, save-error state, and `Tack` confirmation.
     - Pre-fill edit mode and return from `Uppdatera mitt svar` to an editable OSA form.
     - Enforce +1 permission server-side; hiding the UI is not enough.

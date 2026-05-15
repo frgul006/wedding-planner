@@ -21,7 +21,7 @@ Important fields:
 - `full_name` is required
 - `email` or `phone` is required by a database check constraint
 - `invite_status` starts as `not replied`
-- `plus_one_allowed` defaults to `false` and controls whether future Brevkort OSA UI may offer a +1
+- `plus_one_allowed` defaults to `false` and controls whether the Brevkort OSA UI offers a +1
 - `deleted_at` implements soft delete/archive behavior
 
 Normal admin lists only show guests where `deleted_at is null`.
@@ -39,9 +39,9 @@ Normal admin lists only show guests where `deleted_at is null`.
 - Delete with browser confirmation; delete sets `deleted_at` instead of hard-deleting
 - Generate or regenerate private invite links; raw links are shown only immediately after generation
 
-## Brevkort follow-up
+## Brevkort +1 flow
 
-The data model and admin +1 permission controls are in place. The remaining Brevkort follow-up is the public OSA redesign that replaces the legacy extra-guest count with the guest-facing named +1 UI.
+The data model, admin +1 permission controls, and public Brevkort OSA named +1 UI are in place. Admins control whether each guest sees the +1 option; guest-facing submissions store named +1 details when selected and clear them when the guest switches back to `Nej, bara jag`.
 
 ## Local validation
 

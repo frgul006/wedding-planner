@@ -115,8 +115,8 @@ Implemented in `public.rsvp_responses`, including Brevkort named +1 persistence 
 - `wedding_id` (UUID)
 - `guest_id` (UUID, unique)
 - `attendance` (`yes | no | maybe`)
-- `extra_guests` (int, >= 0)
-  - Legacy/simple compatibility count. Brevkort +1 should use the explicit fields below and can map this to `0` or `1` after the OSA redesign replaces the legacy count UI.
+- `extra_guests` (int, `0` or `1` for Brevkort/API submissions)
+  - Legacy compatibility count for the Brevkort +1 flow; named `plus_one_*` fields carry the guest-facing details.
 - `food_preference` (string, optional)
 - `allergy_notes` (string, optional)
 - `plus_one_name` (string, optional)

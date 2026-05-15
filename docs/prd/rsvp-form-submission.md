@@ -1,8 +1,8 @@
 # PRD: RSVP Form Submission
 
 **Version:** 0.2
-**Status:** Implemented baseline; Brevkort OSA redesign pending
-**Date:** 2026-05-14
+**Status:** Implemented with Brevkort OSA redesign
+**Date:** 2026-05-15
 **Scope:** First-time response submission and current-response upsert
 
 ## Design source
@@ -91,7 +91,7 @@ Guests need an easy way to answer attendance, share contact details, and send fo
 - The database function validates the active token and atomically upserts `public.rsvp_responses` by `guest_id`, keeping one current RSVP per guest.
 - Each saved response records `wedding_id`, `guest_id`, `updated_via_token_id`, attendance, guest contact/food/allergy values, +1 values when allowed and present, and submit timestamps.
 - Guest `invite_status` is updated to match the latest attendance: `rsvp yes`, `rsvp no`, or `rsvp maybe`.
-- The current `extra_guests` count model is not enough for the Brevkort +1 state. The data-model/admin prerequisite migration now adds `guests.plus_one_allowed` plus named +1 RSVP details before the public OSA redesign replaces the legacy count UI.
+- The Brevkort +1 state uses `guests.plus_one_allowed` plus named +1 RSVP details instead of exposing the legacy extra-guest count UI. `extra_guests` remains as a compatibility count (`0` or `1`) while named `plus_one_*` fields carry the guest-facing details.
 
 ## Out of scope
 

@@ -1,8 +1,8 @@
 # PRD: Phone Capture on RSVP
 
 **Version:** 0.2
-**Status:** Implemented baseline; Brevkort phone/consent states pending
-**Date:** 2026-05-14
+**Status:** Implemented with Brevkort phone/consent states
+**Date:** 2026-05-15
 **Scope:** Guest contact data for updates
 
 ## Design source
