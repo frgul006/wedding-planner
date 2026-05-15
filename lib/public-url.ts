@@ -89,7 +89,7 @@ export function getRequestOriginFromHeaders(headersList: Headers) {
   const originHeader = normalizeOrigin(headersList.get("origin"), "https");
   const hostOrigin = originFromHost(host, forwardedProto);
   const forwardedOrigin = originFromHost(forwardedHost, forwardedProto);
-  const candidates = [hostOrigin, forwardedOrigin, originHeader].filter(
+  const candidates = [forwardedOrigin, hostOrigin, originHeader].filter(
     (origin): origin is string => Boolean(origin),
   );
 
