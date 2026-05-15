@@ -1,0 +1,211 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-build:
+    name: Lint and build
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-publishable-key
+      SUPABASE_SECRET_KEY: ci-placeholder-secret-key
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build
+        run: pnpm build
+
+  e2e:
+    name: E2E regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Detect e2e-relevant changes
+        id: e2e-changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            echo "run-e2e=true" >> "$GITHUB_OUTPUT"
+            echo "E2E runs for ${{ github.event_name }} events."
+            exit 0
+          fi
+
+          if ! git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"; then
+            echo "run-e2e=true" >> "$GITHUB_OUTPUT"
+            echo "Could not fetch base ref; running e2e to fail safe."
+            exit 0
+          fi
+
+          if ! changed_files="$(git diff --name-only "origin/${{ github.base_ref }}" HEAD)"; then
+            echo "run-e2e=true" >> "$GITHUB_OUTPUT"
+            echo "Could not determine changed files; running e2e to fail safe."
+            exit 0
+          fi
+
+          echo "Changed files:"
+          printf '%s\n' "$changed_files"
+
+          if [[ -z "$changed_files" ]]; then
+            echo "run-e2e=true" >> "$GITHUB_OUTPUT"
+            echo "No changed files detected; running e2e."
+          elif grep -Ev '(^docs/|\.md$)' <<< "$changed_files" > /dev/null; then
+            echo "run-e2e=true" >> "$GITHUB_OUTPUT"
+            echo "E2E-relevant changes detected."
+          else
+            echo "run-e2e=false" >> "$GITHUB_OUTPUT"
+            echo "Only docs/Markdown files changed; skipping e2e."
+          fi
+
+      - name: Skip e2e suite
+        if: steps.e2e-changes.outputs.run-e2e != 'true'
+        run: echo "Only docs/Markdown files changed; skipping e2e."
+
+      - name: Set up pnpm
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Set up Supabase CLI
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
+        uses: supabase/setup-cli@v2
+        with:
+          version: 2.95.4
+
+      - name: Disable unused Supabase services
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
+        shell: bash
+        run: |
+          # Disable config-backed services before startup so the CLI skips their
+          # schema/init work; the start command also excludes companion containers.
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          disabled_sections = {"analytics", "edge_runtime", "inbucket", "realtime", "studio"}
+          config_path = Path("supabase/config.toml")
+          current_section = None
+          updated_lines = []
+
+          for line in config_path.read_text().splitlines(keepends=True):
+              match = re.match(r"\[([^\]]+)\]", line)
+              if match:
+                  current_section = match.group(1)
+
+              if current_section in disabled_sections and line.strip() == "enabled = true":
+                  line = "enabled = false\n"
+
+              updated_lines.append(line)
+
+          config_path.write_text("".join(updated_lines))
+          PY
+
+      - name: Install dependencies
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Detect system Chrome
+        id: system-chrome
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
+        shell: bash
+        run: |
+          chrome_binary="$(command -v google-chrome || command -v google-chrome-stable || true)"
+
+          if [[ -n "$chrome_binary" ]]; then
+            "$chrome_binary" --version
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Cache Playwright runtime
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-runtime-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            playwright-runtime-${{ runner.os }}-
+            playwright-shell-${{ runner.os }}-
+
+      - name: Install Playwright video renderer
+        if: steps.e2e-changes.outputs.run-e2e == 'true' && steps.system-chrome.outputs.available == 'true'
+        run: pnpm exec playwright install ffmpeg
+
+      - name: Install Playwright browser fallback
+        if: steps.e2e-changes.outputs.run-e2e == 'true' && steps.system-chrome.outputs.available != 'true'
+        run: pnpm exec playwright install --with-deps --only-shell chromium
+
+      - name: Start local Supabase
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
+        run: supabase start -x studio,mailpit,realtime,edge-runtime,imgproxy,postgres-meta,logflare,vector,supavisor
+
+      - name: Write local Supabase environment
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
+        shell: bash
+        run: |
+          supabase status -o env > supabase.env
+          source supabase.env
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${PUBLISHABLE_KEY}"
+            echo "SUPABASE_SECRET_KEY=${SECRET_KEY}"
+          } > .env.local
+
+      - name: Seed local database
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
+        run: pnpm seed:local
+
+      - name: Run Playwright e2e suite
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
+        env:
+          PLAYWRIGHT_USE_SYSTEM_CHROME: ${{ steps.system-chrome.outputs.available }}
+        run: pnpm test:e2e
+
+      - name: Upload Playwright artifacts
+        if: failure() && steps.e2e-changes.outputs.run-e2e == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-artifacts
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
