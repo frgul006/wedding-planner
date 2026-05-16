@@ -1,0 +1,346 @@
+schemaVersion: "1"
+kind: agent
+name: pi-wedding-planner
+displayName: Pi for Wedding Planner
+description: >
+  Pi coding agent for the wedding-planner repo with Node 24, pnpm,
+  GitHub CLI, Playwright CLI/browser tooling, Vercel CLI, and Supabase CLI.
+
+agent:
+  image: docker/sandbox-templates:shell-docker
+  aiFilename: AGENTS.md
+  persistence: persistent
+  entrypoint:
+    run:
+      - sh
+      - -lc
+      - cd "$WORKSPACE_DIR" && exec pi --model openai-codex/gpt-5.5 "$@"
+      - pi
+
+network:
+  serviceDomains:
+    api.anthropic.com: anthropic
+    console.anthropic.com: anthropic
+    claude.ai: anthropic
+    platform.claude.com: anthropic
+    api.openai.com: openai
+    auth.openai.com: openai
+    openai.com: openai
+    chatgpt.com: openai
+    api.github.com: github
+    github.com: github
+    raw.githubusercontent.com: github
+    api.vercel.com: vercel
+    api.supabase.com: supabase
+  serviceAuth:
+    anthropic:
+      headerName: x-api-key
+      valueFormat: "%s"
+    openai:
+      headerName: Authorization
+      valueFormat: "Bearer %s"
+    github:
+      headerName: Authorization
+      valueFormat: "Bearer %s"
+    vercel:
+      headerName: Authorization
+      valueFormat: "Bearer %s"
+    supabase:
+      headerName: Authorization
+      valueFormat: "Bearer %s"
+  allowedDomains:
+    # OS package repositories used by apt-get and Playwright's --with-deps installer.
+    - deb.debian.org
+    - security.debian.org
+    - archive.ubuntu.com
+    - security.ubuntu.com
+    - ports.ubuntu.com
+
+    # npm and Node downloads.
+    - registry.npmjs.org
+    - nodejs.org
+    - www.nodejs.org
+
+    # AI/model APIs.
+    - api.anthropic.com
+    - console.anthropic.com
+    - claude.ai
+    - platform.claude.com
+    - api.openai.com
+    - auth.openai.com
+    - openai.com
+    - chatgpt.com
+    - "*.chatgpt.com"
+
+    # GitHub API, CLI apt repository, and release assets.
+    - github.com
+    - api.github.com
+    - raw.githubusercontent.com
+    - cli.github.com
+    - objects.githubusercontent.com
+    - github-releases.githubusercontent.com
+    - release-assets.githubusercontent.com
+    - codeload.github.com
+    - uploads.github.com
+    - gist.github.com
+    - ssh.github.com
+
+    # Playwright browser downloads.
+    - cdn.playwright.dev
+    - playwright.azureedge.net
+    - playwright.download.prss.microsoft.com
+    - "*.azureedge.net"
+
+    # Vercel CLI/API and deployed preview URLs.
+    - vercel.com
+    - api.vercel.com
+    - assets.vercel.com
+    - telemetry.vercel.com
+    - "*.vercel.app"
+
+    # Next/font Google downloads during `pnpm build`.
+    - fonts.googleapis.com
+    - fonts.gstatic.com
+
+    # Supabase CLI/API, hosted project APIs, and docs referenced by the local config.
+    - supabase.com
+    - api.supabase.com
+    - "*.supabase.com"
+    - "*.supabase.co"
+
+    # Optional real SMS smoke testing via `pnpm sms:test`.
+    - api.46elks.com
+
+    # Docker registries used by `supabase start` for the local development stack.
+    - auth.docker.io
+    - registry-1.docker.io
+    - index.docker.io
+    - hub.docker.com
+    - production.cloudflare.docker.com
+    - "*.docker.io"
+    - "*.docker.com"
+    - ghcr.io
+    - pkg-containers.githubusercontent.com
+    - public.ecr.aws
+    - "*.amazonaws.com"
+    - "*.cloudfront.net"
+
+credentials:
+  sources:
+    anthropic:
+      env:
+        - ANTHROPIC_API_KEY
+    github:
+      env:
+        - GH_TOKEN
+        - GITHUB_TOKEN
+    vercel:
+      env:
+        - VERCEL_TOKEN
+    supabase:
+      env:
+        - SUPABASE_ACCESS_TOKEN
+
+environment:
+  variables:
+    COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    PLAYWRIGHT_BROWSERS_PATH: /home/agent/.cache/ms-playwright
+  proxyManaged:
+    - ANTHROPIC_API_KEY
+    - GH_TOKEN
+    - GITHUB_TOKEN
+    - VERCEL_TOKEN
+    - SUPABASE_ACCESS_TOKEN
+
+commands:
+  install:
+    - command: |
+        set -eu
+
+        export DEBIAN_FRONTEND=noninteractive
+
+        apt-get update
+        apt-get install -y ca-certificates curl git gnupg tar gzip xz-utils
+
+        if [ -n "${HTTP_PROXY:-}" ]; then npm config set proxy "$HTTP_PROXY"; fi
+        if [ -n "${HTTPS_PROXY:-${HTTP_PROXY:-}}" ]; then npm config set https-proxy "${HTTPS_PROXY:-$HTTP_PROXY}"; fi
+        npm config set prefix /usr/local
+
+        install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+          | gpg --dearmor --yes -o /etc/apt/keyrings/githubcli.gpg
+
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli.gpg] https://cli.github.com/packages stable main" \
+          > /etc/apt/sources.list.d/github-cli.list
+
+        apt-get update
+        apt-get install -y gh
+
+        if ! node --version | grep -Eq '^v24\.'; then
+          npm install -g n
+          n 24
+          export PATH="/usr/local/bin:$PATH"
+          hash -r
+        fi
+
+        SUPABASE_VERSION="${SUPABASE_VERSION:-2.98.2}"
+        ARCH="$(dpkg --print-architecture)"
+        case "$ARCH" in
+          amd64) SUPABASE_ARCH="amd64" ;;
+          arm64) SUPABASE_ARCH="arm64" ;;
+          *) echo "Unsupported architecture: $ARCH" >&2; exit 1 ;;
+        esac
+
+        curl -fsSL \
+          "https://github.com/supabase/cli/releases/download/v${SUPABASE_VERSION}/supabase_linux_${SUPABASE_ARCH}.tar.gz" \
+          -o /tmp/supabase.tar.gz
+
+        tar -xzf /tmp/supabase.tar.gz -C /tmp supabase
+        install -m 0755 /tmp/supabase /usr/local/bin/supabase
+        rm -f /tmp/supabase.tar.gz /tmp/supabase
+
+        USER_HOME="$(getent passwd 1000 | cut -d: -f6 || true)"
+        USER_HOME="${USER_HOME:-/home/agent}"
+        mkdir -p "$USER_HOME/.cache/ms-playwright"
+
+        PLAYWRIGHT_BROWSERS_PATH="$USER_HOME/.cache/ms-playwright" \
+          npx -y playwright@1.59.1 install --with-deps chromium
+
+        PI_PACKAGE="${PI_PACKAGE:-@earendil-works/pi-coding-agent}"
+        install_ok=0
+        for i in 1 2 3 4 5; do
+          if npm install -g \
+            pnpm@10.12.1 \
+            @playwright/cli \
+            vercel \
+            "$PI_PACKAGE"; then
+            install_ok=1
+            break
+          fi
+
+          echo "Retrying npm global install ($i/5)..."
+          sleep 2
+        done
+
+        [ "$install_ok" = "1" ]
+
+        PLAYWRIGHT_BROWSERS_PATH="$USER_HOME/.cache/ms-playwright" \
+          playwright-cli install-browser chromium
+
+        chown -R 1000:1000 "$USER_HOME/.cache" /usr/local/share/npm-global
+
+        apt-get clean
+        rm -rf /var/lib/apt/lists/*
+      description: Install Node 24, GitHub CLI, Supabase CLI, Playwright browser dependencies, and npm CLIs
+
+    - command: |
+        set -eu
+
+        if [ -n "${HTTP_PROXY:-}" ]; then npm config set proxy "$HTTP_PROXY"; fi
+        if [ -n "${HTTPS_PROXY:-${HTTP_PROXY:-}}" ]; then npm config set https-proxy "${HTTPS_PROXY:-$HTTP_PROXY}"; fi
+
+        node --version
+        pnpm --version
+        gh --version
+        vercel --version
+        supabase --version
+        playwright-cli --version
+      user: "1000"
+      description: Configure npm proxy for the agent user and verify installed tools
+
+  startup:
+    - command:
+        - sh
+        - -c
+        - |
+          set -eu
+
+          if [ -n "${GH_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
+            gh auth setup-git >/dev/null 2>&1 || true
+            git config --global --replace-all url.https://github.com/.insteadOf git@github.com:
+            git config --global --add url.https://github.com/.insteadOf ssh://git@github.com/
+          fi
+      user: "1000"
+      description: Configure GitHub HTTPS Git authentication for the agent user
+
+    - command:
+        - sh
+        - -c
+        - |
+          set -eu
+
+          PI_AGENT_HOME="${PI_CODING_AGENT_DIR:-/home/agent/.pi/agent}"
+          mkdir -p "$PI_AGENT_HOME"
+
+          PI_SOURCE=""
+          for candidate in \
+            /Users/fredrik/.cache/wedding-planner/pi-agent \
+            /Users/fredrik/.pi/agent; do
+            if [ -d "$candidate" ]; then
+              PI_SOURCE="$candidate"
+              break
+            fi
+          done
+
+          if [ -z "$PI_SOURCE" ]; then
+            echo "No mounted host Pi agent config found; skipping Pi user resource sync."
+            exit 0
+          fi
+
+          for name in extensions skills prompts themes prompt-templates bin git npm; do
+            if [ -d "$PI_SOURCE/$name" ]; then
+              rm -rf "$PI_AGENT_HOME/$name"
+              cp -a "$PI_SOURCE/$name" "$PI_AGENT_HOME/$name"
+            fi
+          done
+
+          for name in settings.json models.json AGENTS.md APPEND_SYSTEM.md; do
+            if [ -f "$PI_SOURCE/$name" ]; then
+              cp "$PI_SOURCE/$name" "$PI_AGENT_HOME/$name"
+            fi
+          done
+
+          chown -R 1000:1000 "$PI_AGENT_HOME"
+      description: Sync mounted Pi user extensions, skills, prompts, packages, and settings into the sandbox
+
+    - command:
+        - sh
+        - -c
+        - |
+          set -eu
+
+          NPM_ROOT="$(npm root -g)"
+          if [ -f "$NPM_ROOT/@earendil-works/pi-coding-agent/package.json" ]; then
+            exit 0
+          fi
+
+          npm uninstall -g @mariozechner/pi-coding-agent >/dev/null 2>&1 || true
+          npm install -g @earendil-works/pi-coding-agent
+      user: "1000"
+      description: Ensure Pi uses the package namespace required by configured Pi packages
+
+    - command:
+        - sh
+        - -c
+        - |
+          set -eu
+
+          SETTINGS="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/settings.json"
+          MARKER="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/.package-settings.sha256"
+
+          if [ ! -f "$SETTINGS" ] || ! grep -q '"packages"' "$SETTINGS"; then
+            exit 0
+          fi
+
+          SETTINGS_HASH="$(sha256sum "$SETTINGS" | awk '{print $1}')"
+          if [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$SETTINGS_HASH" ]; then
+            exit 0
+          fi
+
+          if pi update --extensions; then
+            printf '%s' "$SETTINGS_HASH" > "$MARKER"
+          else
+            echo "Warning: failed to install/update Pi packages from settings.json" >&2
+          fi
+      user: "1000"
+      description: Install or update Pi packages declared in synced settings.json

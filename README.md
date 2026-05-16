@@ -41,6 +41,7 @@ pnpm seed:local
 ## Documentation
 
 - [`docs/local-development.md`](docs/local-development.md) - local setup and validation
+- [`sbx/pi-wedding-planner/README.md`](sbx/pi-wedding-planner/README.md) - Docker Sandbox agent setup
 - [`docs/deployment-environments.md`](docs/deployment-environments.md) - Vercel/Supabase environment mapping
 - [`docs/production-database.md`](docs/production-database.md) - production migrations and bootstrap
 - [`docs/admin-auth.md`](docs/admin-auth.md) - admin authentication
