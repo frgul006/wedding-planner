@@ -72,10 +72,10 @@
    - `../design/wedding-design-export.md`
 23. ✅ **Brevkort design-token and component foundation**
    - Shared paper, texture, typography, colors, borders, buttons, form fields, and status-strip primitives
-23a. **Explicit couple-name fields prerequisite**
-   - Add explicit `partner_one_name` / `partner_two_name` wedding settings before shell visual parity
+23a. ✅ **Explicit couple-name fields prerequisite**
+   - Added explicit `partner_one_name` / `partner_two_name` wedding settings before shell visual parity
    - See `invite-visual-parity-execution-plan.md`
-24. **Invite shell, cover, invalid-link, and saved-answer states**
+24. ⚠️ **Invite shell, cover, invalid-link, and saved-answer states** — AFK implementation complete; HITL visual review pending
    - `public-invite-page.md`
    - `rsvp-view-update.md`
    - See `invite-visual-parity-execution-plan.md`
@@ -86,7 +86,7 @@
    - `rsvp-form-submission.md`
    - `rsvp-view-update.md`
    - `phone-capture-for-rsvp.md`
-27. **Visual fixtures and QA harness**
+27. ✅ **Visual fixtures and QA harness**
    - deterministic fixtures for `Nej`, `Kanske`, +1 expanded, published updates, submitting, and save-error states
    - See `invite-visual-parity-execution-plan.md`
 28. **Wedding hub visual parity review**
