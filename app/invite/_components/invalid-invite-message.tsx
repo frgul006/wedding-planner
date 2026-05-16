@@ -48,9 +48,9 @@ export function InvalidInviteMessage({ supportContact = null }: InvalidInviteMes
 
         <p
           aria-hidden="true"
-          className="brevkort-display mt-6 text-4xl font-semibold leading-none text-invite-walnut"
+          className="brevkort-ornament mt-6 text-4xl leading-none text-invite-walnut"
         >
-          &
+          ❦
         </p>
 
         <p className="brevkort-display mt-6 text-[2.35rem] font-semibold leading-[1.05] tracking-tight text-invite-ink">

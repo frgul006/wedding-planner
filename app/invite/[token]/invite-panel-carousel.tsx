@@ -180,7 +180,7 @@ export function InvitePanelCarousel({ children, panels }: InvitePanelCarouselPro
 
   return (
     <div
-      className="mx-auto w-full max-w-[390px] touch-pan-y"
+      className="mx-auto flex min-h-[926px] w-full max-w-[390px] touch-pan-y flex-col"
       data-testid="invite-panel-carousel"
       onPointerCancel={() => {
         gestureStartRef.current = null;
@@ -229,7 +229,7 @@ export function InvitePanelCarousel({ children, panels }: InvitePanelCarouselPro
         );
       })}
 
-      <div className="mt-14 flex items-center justify-center gap-3 text-invite-ink">
+      <div className="mt-auto flex items-center justify-center gap-3 text-invite-ink">
         <p className="sr-only">
           {String(activeIndex + 1).padStart(2, "0")}/03 · {activePanel?.label}
         </p>

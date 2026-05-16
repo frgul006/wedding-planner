@@ -75,9 +75,10 @@
 23a. ✅ **Explicit couple-name fields prerequisite**
    - Added explicit `partner_one_name` / `partner_two_name` wedding settings before shell visual parity
    - See `invite-visual-parity-execution-plan.md`
-24. ⚠️ **Invite shell, cover, invalid-link, and saved-answer states** — AFK implementation complete; HITL visual review pending
+24. ✅ **Invite shell, cover, invalid-link, and saved-answer states**
    - `public-invite-page.md`
    - `rsvp-view-update.md`
+   - HITL sign-off notes: `../../issues/done/009-shell-cover-visual-review-notes.md`
    - See `invite-visual-parity-execution-plan.md`
 25. **Details panel visual parity**
    - `invite-event-info-and-gifts.md`

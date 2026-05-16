@@ -12,6 +12,9 @@ test.describe("invalid invite link visual state", () => {
       .toBeVisible();
     await expect(page.getByText("Den här länken", { exact: true })).toBeVisible();
     await expect(page.getByText("fungerade inte.", { exact: true })).toBeVisible();
+    await expect(
+      page.locator("section[aria-labelledby='invalid-invite-heading'] [aria-hidden='true']"),
+    ).toHaveText("❦");
     await expect(page.getByText("Hör av dig till Fredrik & Matilda så skickar de en ny."))
       .toBeVisible();
     const contactSection = page.locator("section", { hasText: "Kontakt" });

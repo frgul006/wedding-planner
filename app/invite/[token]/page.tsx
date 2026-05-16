@@ -263,7 +263,7 @@ function getCoupleMark(partnerNames: PublicPartnerNames) {
     return "♡";
   }
 
-  return `${partnerNames.partnerOneName.charAt(0)}${partnerNames.partnerTwoName.charAt(0)}`.toUpperCase();
+  return `${partnerNames.partnerOneName.charAt(0)} & ${partnerNames.partnerTwoName.charAt(0)}`.toUpperCase();
 }
 
 function ExternalLink({ children, href }: { children: ReactNode; href: string }) {
@@ -399,36 +399,36 @@ function CoverPanel({
       className="border-0 bg-transparent px-4 py-0 shadow-none sm:px-4 sm:py-0"
       coupleMark={coupleMark}
     >
-      <div className="pb-6 pt-5">
+      <div className="pb-6 pt-0">
         <section
           aria-label="Bröllopsinbjudan"
-          className="border border-invite-border/90 bg-invite-paper-light/40 px-8 py-7 text-center"
+          className="mx-1 border border-invite-border/90 bg-invite-paper-light/40 px-7 py-4 text-center"
         >
           <p className="sr-only">Personlig inbjudan för {guestName}</p>
           <BrevkortKicker>Bröllopsinbjudan</BrevkortKicker>
-          <p aria-hidden="true" className="brevkort-display mt-4 text-3xl font-semibold text-invite-walnut">
+          <p aria-hidden="true" className="brevkort-display mt-3 text-3xl font-semibold text-invite-walnut">
             ❦
           </p>
-          <BrevkortKicker className="mt-4">För {guestName}</BrevkortKicker>
+          <BrevkortKicker className="mt-3">För {guestName}</BrevkortKicker>
           <BrevkortHeading
-            className="mt-5 text-[4rem] leading-[0.92] sm:text-[4.25rem]"
+            className="mt-4 text-[3.35rem] !font-normal leading-[0.95] sm:text-[3.6rem]"
             id="inbjudan-heading"
             level={1}
           >
             <span className="block">{partnerNames.partnerOneName}</span>
-            <span className="brevkort-ornament block text-[2.45rem] leading-[1.25] text-invite-walnut">
+            <span className="brevkort-ornament block text-[2rem] leading-[1.15] text-invite-walnut">
               &
             </span>
             <span className="block">{partnerNames.partnerTwoName}</span>
           </BrevkortHeading>
 
-          <div className="mt-7 flex items-center justify-center gap-3 text-invite-walnut">
+          <div className="mt-5 flex items-center justify-center gap-3 text-invite-walnut">
             <span className="h-px w-12 bg-invite-border" />
             <BrevkortKicker>Efterfest</BrevkortKicker>
             <span className="h-px w-12 bg-invite-border" />
           </div>
 
-          <dl className="mx-auto mt-7 grid max-w-[270px] grid-cols-2 divide-x divide-invite-border text-invite-ink">
+          <dl className="mx-auto mt-5 grid max-w-[270px] grid-cols-2 divide-x divide-invite-border text-invite-ink">
             <div className="px-3 text-center">
               <dt className="brevkort-metadata text-[0.68rem] font-semibold text-invite-walnut">
                 När
@@ -468,26 +468,26 @@ function CoverPanel({
             </div>
           </dl>
 
-          <p aria-hidden="true" className="brevkort-display mt-8 text-2xl text-invite-walnut">
+          <p aria-hidden="true" className="brevkort-display mt-5 text-2xl text-invite-walnut">
             ❀
           </p>
         </section>
 
-        <div className="mt-6 grid gap-4">
+        <div className="mt-8 grid gap-5">
           {rsvpResponse ? (
             <div
               className={cx(
-                "border border-l-4 border-invite-border-soft bg-invite-paper-muted/80 px-4 py-3",
+                "border border-l-4 border-invite-border-soft bg-invite-paper-muted/80 px-3 py-2.5",
                 getSavedAnswerBannerClass(rsvpResponse.attendance),
               )}
             >
-              <div className="flex items-center justify-between gap-3">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
                   <p className="brevkort-metadata text-[0.68rem] font-semibold text-invite-walnut">
                     Ditt svar
                   </p>
-                  <p className="mt-1 text-lg text-invite-body">
-                    <span className="brevkort-display text-xl italic text-invite-ink">
+                  <p className="mt-1 whitespace-nowrap text-[0.95rem] leading-5 text-invite-body">
+                    <span className="brevkort-display text-lg italic text-invite-ink">
                       {getSwedishAttendanceLabel(rsvpResponse.attendance)}
                     </span>{" "}
                     · {getSavedAnswerDetail(rsvpResponse.attendance)}
@@ -498,7 +498,7 @@ function CoverPanel({
                 </div>
                 <span
                   className={cx(
-                    "brevkort-metadata shrink-0 border px-3 py-1 text-[0.64rem] font-semibold",
+                    "brevkort-metadata shrink-0 border px-2.5 py-1 text-[0.58rem] font-semibold",
                     getSavedAnswerReceiptClass(rsvpResponse.attendance),
                   )}
                 >
@@ -508,7 +508,7 @@ function CoverPanel({
             </div>
           ) : null}
 
-          <BrevkortLinkButton className="w-full" href={primaryCta.href}>
+          <BrevkortLinkButton className="!min-h-[55px] w-full" href={primaryCta.href}>
             <span className="flex w-full items-center justify-between gap-3">
               <span>{primaryCta.label}</span>
               <span aria-hidden="true">→</span>
@@ -725,7 +725,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   const coupleMark = getCoupleMark(publicPartnerNames);
 
   return (
-    <BrevkortPage className="px-0 sm:px-6">
+    <BrevkortPage className="!px-0 sm:!px-6">
       <BrevkortStack className="max-w-[390px]">
         <InvitePanelCarousel
           panels={panelIds.map((id, index) => ({ id, label: panelLabels[index] }))}

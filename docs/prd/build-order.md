@@ -72,11 +72,10 @@ These are the next build items that turn the completed functionality above into 
     - Added `weddings.partner_one_name` and `weddings.partner_two_name` and exposed them as optional admin settings with helper text.
     - Public invite covers use safe placeholders when explicit names are blank instead of parsing `wedding.name`.
     - Local seed data populates `Fredrik` and `Matilda` so visual fixtures match the cover references by default.
-24. ⚠️ AFK complete; visual review pending — Invite shell, cover, invalid-link, and saved-answer states
+24. ✅ Complete — Invite shell, cover, invalid-link, and saved-answer states
     - Rebuilt the centered mobile 390 px postcard shell with one primary panel at a time, swipe support, hash deep links, dot/arrow navigation, disabled end arrows, compact date formatting, and explicit partner-name rendering.
-    - Matched `Ogiltig länk`, `Opened — no answer yet`, and saved-answer/edit cover references at close parity, with intentional differences documented in PRs.
+    - Matched `Ogiltig länk`, `Opened — no answer yet`, and saved-answer/edit cover references at close parity, with intentional differences documented in `issues/done/009-shell-cover-visual-review-notes.md`.
     - Kept the implementation scope to shell/cover/invalid/saved-answer treatment; items 25 and 26 still own Details and OSA internals.
-    - Remaining item 24 work is the HITL visual review in `issues/009-shell-cover-visual-review-notes.md`.
 25. Next — Details panel visual parity
     - Match timeline, venue/map, dress/gifts, music, empty updates, published updates, and `Vidare till OSA` treatment.
 26. Next — OSA visual state pack
@@ -93,7 +92,7 @@ These are the next build items that turn the completed functionality above into 
 ## Parallelization notes
 
 - Items 23a and 27 are complete, so follow-up invite visual-parity work can rely on explicit partner names and stable visual QA fixtures.
-- Item 24 AFK implementation is complete; only the HITL visual review remains before considering item 24 visually signed off.
+- Item 24 is visually signed off for shell, cover, invalid-link, and saved-answer states; the HITL notes are archived in `issues/done/009-shell-cover-visual-review-notes.md`.
 - Items 25 and 26 can run in parallel now that the shell/navigation contract from item 24 is stable.
 - Item 28 can run independently from invite work, as long as it does not change shared invite primitives.
 - Item 29 is a product/design decision and should happen before any admin restyle implementation.
