@@ -188,8 +188,9 @@ test.describe("RSVP, invite status, and phone capture", () => {
       phone: "",
     });
 
+    const osaPanel = page.locator("#osa");
     await expect(page.getByRole("heading", { name: `Tack ${guestName.split(" ").at(0)}` })).toBeVisible();
-    await expect(page.getByText("jag kommer gärna")).toBeVisible();
+    await expect(osaPanel.getByText("jag kommer gärna")).toBeVisible();
     await expect(page.getByRole("button", { name: "Uppdatera mitt svar" })).toBeVisible();
 
     await expect
@@ -532,8 +533,9 @@ test.describe("RSVP, invite status, and phone capture", () => {
       smsOptIn: true,
     });
 
+    const osaPanel = page.locator("#osa");
     await expect(page.getByRole("heading", { name: `Tack ${guestName.split(" ").at(0)}` })).toBeVisible();
-    await expect(page.getByText("jag återkommer")).toBeVisible();
+    await expect(osaPanel.getByText("jag återkommer")).toBeVisible();
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
       .toBe(INVITE_STATUS.rsvpMaybe);

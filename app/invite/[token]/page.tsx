@@ -17,7 +17,6 @@ import {
   BrevkortPage,
   BrevkortPanel,
   BrevkortStack,
-  BrevkortStatusStrip,
   cx,
 } from "../_components/brevkort-primitives";
 import { InvalidInviteMessage } from "../_components/invalid-invite-message";
@@ -55,6 +54,33 @@ const weddingDateFormatter = new Intl.DateTimeFormat("sv-SE", {
   timeZone: "Europe/Stockholm",
 });
 
+const coverDatePartsFormatter = new Intl.DateTimeFormat("sv-SE", {
+  day: "numeric",
+  month: "numeric",
+  timeZone: "Europe/Stockholm",
+});
+
+const coverTimeFormatter = new Intl.DateTimeFormat("sv-SE", {
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Europe/Stockholm",
+});
+
+const swedishShortMonths = [
+  "jan",
+  "feb",
+  "mars",
+  "apr",
+  "maj",
+  "juni",
+  "juli",
+  "aug",
+  "sept",
+  "okt",
+  "nov",
+  "dec",
+] as const;
+
 const rsvpSubmittedFormatter = new Intl.DateTimeFormat("sv-SE", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -79,6 +105,37 @@ function formatWeddingDate(value: string | null) {
   }
 
   return weddingDateFormatter.format(date);
+}
+
+type CoverDateTime = {
+  dateText: string;
+  timeText: string | null;
+};
+
+function formatCoverDateTime(value: string | null): CoverDateTime {
+  if (!value) {
+    return { dateText: comingSoon, timeText: null };
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return { dateText: comingSoon, timeText: null };
+  }
+
+  const parts = coverDatePartsFormatter.formatToParts(date);
+  const day = parts.find((part) => part.type === "day")?.value;
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const monthText = Number.isInteger(month) ? swedishShortMonths[month - 1] : null;
+
+  if (!day || !monthText) {
+    return { dateText: comingSoon, timeText: null };
+  }
+
+  return {
+    dateText: `${day} ${monthText}`,
+    timeText: `kl. ${coverTimeFormatter.format(date)}`,
+  };
 }
 
 function formatRsvpSubmittedAt(value: string | null) {
@@ -126,16 +183,40 @@ function getSwedishAttendanceLabel(attendance: RsvpAttendance) {
   return "Kanske";
 }
 
-function getSavedAnswerChipClass(attendance: RsvpAttendance) {
+function getSavedAnswerDetail(attendance: RsvpAttendance) {
   if (attendance === RSVP_ATTENDANCE.yes) {
-    return "bg-invite-paper-muted text-invite-success ring-invite-success/30";
+    return "jag kommer gärna";
   }
 
   if (attendance === RSVP_ATTENDANCE.no) {
-    return "bg-invite-paper-muted text-invite-body ring-invite-border-soft";
+    return "jag kan tyvärr inte";
   }
 
-  return "bg-invite-paper text-invite-walnut ring-invite-border";
+  return "jag återkommer";
+}
+
+function getSavedAnswerBannerClass(attendance: RsvpAttendance) {
+  if (attendance === RSVP_ATTENDANCE.yes) {
+    return "border-l-invite-success";
+  }
+
+  if (attendance === RSVP_ATTENDANCE.no) {
+    return "border-l-invite-body";
+  }
+
+  return "border-l-invite-border";
+}
+
+function getSavedAnswerReceiptClass(attendance: RsvpAttendance) {
+  if (attendance === RSVP_ATTENDANCE.yes) {
+    return "border-invite-success/35 bg-invite-paper-muted text-invite-success";
+  }
+
+  if (attendance === RSVP_ATTENDANCE.no) {
+    return "border-invite-body/35 bg-invite-paper-muted text-invite-body";
+  }
+
+  return "border-invite-border bg-invite-paper text-invite-walnut";
 }
 
 type PublicPartnerNames = {
@@ -239,14 +320,20 @@ function PanelNavigation({
 function PanelShell({
   activeIndex,
   children,
+  className,
   coupleMark,
 }: {
   activeIndex: number;
   children: ReactNode;
+  className?: string;
   coupleMark: string;
 }) {
   return (
-    <BrevkortPanel aria-labelledby={`${panelIds[activeIndex]}-heading`} id={panelIds[activeIndex]}>
+    <BrevkortPanel
+      aria-labelledby={`${panelIds[activeIndex]}-heading`}
+      className={className}
+      id={panelIds[activeIndex]}
+    >
       <PanelNavigation activeIndex={activeIndex} coupleMark={coupleMark} />
       {children}
     </BrevkortPanel>
@@ -280,83 +367,142 @@ function PanelActions({
 
 function CoverPanel({
   coupleMark,
-  coverCoupleName,
+  coverDateTime,
   guestName,
+  partnerNames,
   rsvpResponse,
   rsvpSubmittedAt,
-  venueSummary,
-  weddingDate,
+  venueArea,
+  venueName,
 }: {
   coupleMark: string;
-  coverCoupleName: string;
+  coverDateTime: CoverDateTime;
   guestName: string;
+  partnerNames: PublicPartnerNames;
   rsvpResponse: null | { attendance: RsvpAttendance };
   rsvpSubmittedAt: string | null;
-  venueSummary: string;
-  weddingDate: string;
+  venueArea: string;
+  venueName: string;
 }) {
+  const primaryCta = rsvpResponse
+    ? { href: "#osa", label: "Uppdatera svar" }
+    : { href: "#detaljer", label: "Öppna inbjudan" };
+
   return (
-    <PanelShell activeIndex={0} coupleMark={coupleMark}>
-      <div className="flex min-h-[calc(100dvh-10rem)] flex-col justify-between px-2 py-10 sm:px-6">
-        <div>
-          <BrevkortKicker>Personlig inbjudan för {guestName}</BrevkortKicker>
-          <BrevkortHeading className="mt-8 text-5xl sm:text-6xl" id="inbjudan-heading" level={1}>
-            {coverCoupleName}
+    <PanelShell
+      activeIndex={0}
+      className="border-0 bg-transparent px-4 py-0 shadow-none sm:px-4 sm:py-0"
+      coupleMark={coupleMark}
+    >
+      <div className="pb-6 pt-5">
+        <section
+          aria-label="Bröllopsinbjudan"
+          className="border border-invite-border/90 bg-invite-paper-light/40 px-8 py-7 text-center"
+        >
+          <p className="sr-only">Personlig inbjudan för {guestName}</p>
+          <BrevkortKicker>Bröllopsinbjudan</BrevkortKicker>
+          <p aria-hidden="true" className="brevkort-display mt-4 text-3xl font-semibold text-invite-walnut">
+            &
+          </p>
+          <BrevkortKicker className="mt-4">För {guestName}</BrevkortKicker>
+          <BrevkortHeading
+            className="mt-5 text-[4rem] leading-[0.92] sm:text-[4.25rem]"
+            id="inbjudan-heading"
+            level={1}
+          >
+            <span className="block">{partnerNames.partnerOneName}</span>
+            <span className="block text-[2.1rem] leading-[1.25] text-invite-walnut">
+              &
+            </span>
+            <span className="block">{partnerNames.partnerTwoName}</span>
           </BrevkortHeading>
-          <BrevkortBodyText className="mt-6 max-w-md text-lg leading-8">
-            Vi hoppas att du vill fira kärleken med oss.
-          </BrevkortBodyText>
-        </div>
 
-        <div className="mt-10 grid gap-5">
-          <BrevkortCard className="bg-invite-paper-light/80" title="Datum & plats">
-            <p className="brevkort-display text-2xl font-semibold tracking-tight text-invite-ink">
-              {weddingDate}
-            </p>
-            <p className="mt-2 text-invite-walnut">{venueSummary}</p>
-          </BrevkortCard>
+          <div className="mt-7 flex items-center justify-center gap-3 text-invite-walnut">
+            <span className="h-px w-12 bg-invite-border" />
+            <BrevkortKicker>Efterfest</BrevkortKicker>
+            <span className="h-px w-12 bg-invite-border" />
+          </div>
 
+          <dl className="mx-auto mt-7 grid max-w-[270px] grid-cols-2 divide-x divide-invite-border text-invite-ink">
+            <div className="px-3 text-center">
+              <dt className="brevkort-metadata text-[0.68rem] font-semibold text-invite-walnut">
+                När
+              </dt>
+              <dd className="mt-3">
+                <p className="brevkort-display text-[1.45rem] font-semibold italic leading-none">
+                  {coverDateTime.dateText}
+                </p>
+                {coverDateTime.timeText ? (
+                  <p className="brevkort-display mt-2 text-xs italic text-invite-walnut">
+                    {coverDateTime.timeText}
+                  </p>
+                ) : null}
+              </dd>
+            </div>
+            <div className="px-3 text-center">
+              <dt className="brevkort-metadata text-[0.68rem] font-semibold text-invite-walnut">
+                Var
+              </dt>
+              <dd className="mt-3">
+                <p className="brevkort-display text-[1.7rem] leading-none">
+                  {venueName}
+                </p>
+                <p className="brevkort-display mt-2 text-xs italic text-invite-walnut">
+                  {venueArea}
+                </p>
+              </dd>
+            </div>
+          </dl>
+
+          <p aria-hidden="true" className="brevkort-display mt-8 text-2xl text-invite-walnut">
+            ❦
+          </p>
+        </section>
+
+        <div className="mt-6 grid gap-4">
           {rsvpResponse ? (
-            <BrevkortStatusStrip tone="success">
-              <div className="flex flex-wrap items-center gap-3">
+            <div
+              className={cx(
+                "border border-l-4 border-invite-border-soft bg-invite-paper-muted/80 px-4 py-3",
+                getSavedAnswerBannerClass(rsvpResponse.attendance),
+              )}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="brevkort-metadata text-[0.68rem] font-semibold text-invite-walnut">
+                    Ditt svar
+                  </p>
+                  <p className="mt-1 text-lg text-invite-body">
+                    <span className="brevkort-display text-xl italic text-invite-ink">
+                      {getSwedishAttendanceLabel(rsvpResponse.attendance)}
+                    </span>{" "}
+                    · {getSavedAnswerDetail(rsvpResponse.attendance)}
+                  </p>
+                  {rsvpSubmittedAt ? (
+                    <p className="sr-only">Senast uppdaterat {rsvpSubmittedAt}</p>
+                  ) : null}
+                </div>
                 <span
                   className={cx(
-                    "px-3 py-1 text-sm font-semibold ring-1",
-                    getSavedAnswerChipClass(rsvpResponse.attendance),
+                    "brevkort-metadata shrink-0 border px-3 py-1 text-[0.64rem] font-semibold",
+                    getSavedAnswerReceiptClass(rsvpResponse.attendance),
                   )}
                 >
-                  Sparat svar: {getSwedishAttendanceLabel(rsvpResponse.attendance)}
+                  Mottaget
                 </span>
-                {rsvpSubmittedAt ? (
-                  <span className="text-sm text-invite-walnut">Senast uppdaterat {rsvpSubmittedAt}</span>
-                ) : null}
               </div>
-              <BrevkortBodyText className="mt-3 text-sm leading-6">
-                Ditt svar finns sparat. Du kan läsa detaljerna igen eller gå direkt
-                till OSA-panelen om du behöver ändra något.
-              </BrevkortBodyText>
-              <PanelActions secondaryHref="#detaljer" secondaryLabel="Läs detaljer">
-                <BrevkortLinkButton href="#osa" tone="rust">
-                  Uppdatera svar →
-                </BrevkortLinkButton>
-              </PanelActions>
-            </BrevkortStatusStrip>
-          ) : (
-            <BrevkortStatusStrip tone="subtle">
-              <span className="bg-invite-paper px-3 py-1 text-sm font-semibold text-invite-walnut ring-1 ring-invite-border-soft">
-                Öppnad · inget svar än
-              </span>
-              <BrevkortBodyText className="mt-3 text-sm leading-6">
-                Börja med detaljerna och gå sedan vidare till OSA när du är redo
-                att svara.
-              </BrevkortBodyText>
-              <PanelActions secondaryHref="#osa" secondaryLabel="Gå direkt till OSA">
-                <BrevkortLinkButton href="#detaljer">
-                  Se detaljerna →
-                </BrevkortLinkButton>
-              </PanelActions>
-            </BrevkortStatusStrip>
-          )}
+            </div>
+          ) : null}
+
+          <BrevkortLinkButton className="w-full" href={primaryCta.href}>
+            <span className="flex w-full items-center justify-between gap-3">
+              <span>{primaryCta.label}</span>
+              <span aria-hidden="true">→</span>
+            </span>
+          </BrevkortLinkButton>
+          <p className="text-center text-sm italic text-invite-body">
+            Tre sidor · svep eller tryck på prickarna ovan
+          </p>
         </div>
       </div>
     </PanelShell>
@@ -549,9 +695,9 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   const updates = await getPublishedWeddingUpdates({ weddingId: result.weddingId });
   const { guest, rsvpResponse, wedding } = result;
   const weddingDate = formatWeddingDate(wedding.wedding_date);
-  const venueSummary = `${getDisplayText(wedding.venue_name)} · ${getDisplayText(
-    wedding.venue_area ?? wedding.venue_address,
-  )}`;
+  const coverDateTime = formatCoverDateTime(wedding.wedding_date);
+  const coverVenueName = getDisplayText(wedding.venue_name);
+  const coverVenueArea = getDisplayText(wedding.venue_area ?? wedding.venue_address);
   const mapsUrl = getSafeHttpUrl(wedding.google_maps_url);
   const spotifyUrl = getSafeHttpUrl(wedding.spotify_playlist_url);
   const showSubmittedConfirmation =
@@ -570,12 +716,13 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
         >
           <CoverPanel
             coupleMark={coupleMark}
+            coverDateTime={coverDateTime}
             guestName={guest.full_name}
+            partnerNames={publicPartnerNames}
             rsvpResponse={rsvpResponse ? { attendance: rsvpResponse.attendance } : null}
             rsvpSubmittedAt={rsvpSubmittedAt}
-            coverCoupleName={publicPartnerNames.displayName}
-            venueSummary={venueSummary}
-            weddingDate={weddingDate}
+            venueArea={coverVenueArea}
+            venueName={coverVenueName}
           />
 
           <DetailsPanel

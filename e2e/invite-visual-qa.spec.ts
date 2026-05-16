@@ -17,11 +17,12 @@ type InviteVisualState = {
   fixtureKey: string;
   heading: string;
   name: string;
-  panelLabel: "Detaljer" | "OSA";
+  panelLabel: "Detaljer" | "Inbjudan" | "OSA";
   prepareState?: (
     page: Page,
     fixture: InviteVisualFixture,
   ) => Promise<InviteVisualStateCleanup | void>;
+  primaryHash?: "detaljer" | "inbjudan" | "osa";
   title: string;
 };
 
@@ -41,6 +42,17 @@ const transientRsvpValues = {
 
 async function waitForStableInviteVisuals(page: Page) {
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await page.addStyleTag({
+    content: `
+      nextjs-portal,
+      [data-nextjs-dev-tools-button],
+      [data-nextjs-dev-tools-panel],
+      [data-nextjs-dialog-overlay],
+      [data-nextjs-toast] {
+        display: none !important;
+      }
+    `,
+  });
   await page.evaluate(async () => {
     await document.fonts.ready;
   });
@@ -141,7 +153,8 @@ async function assertActivePanelNavigation(
   fixture: InviteVisualFixture,
   state: InviteVisualState,
 ) {
-  const panel = page.locator(`#${fixture.primaryHash}`);
+  const primaryHash = state.primaryHash ?? fixture.primaryHash;
+  const panel = page.locator(`#${primaryHash}`);
 
   await expect(panel, `${state.title} panel should be rendered`).toBeVisible();
   await expect(panel, `${state.title} deep link should scroll to its panel`).toBeInViewport();
@@ -156,6 +169,78 @@ async function assertActivePanelNavigation(
 }
 
 const visualStates: InviteVisualState[] = [
+  {
+    assertState: async (page) => {
+      const cover = page.locator("#inbjudan");
+
+      await expect(cover.getByText("För Visual Fixture Updates", { exact: true }))
+        .toBeVisible();
+      await expect(cover.getByText("26 sept", { exact: true })).toBeVisible();
+      await expect(cover.getByText("kl. 16:30", { exact: true })).toBeVisible();
+      await expect(cover.getByRole("link", { name: /^Öppna inbjudan/ }))
+        .toHaveAttribute("href", "#detaljer");
+    },
+    fixtureKey: "updatesPublished",
+    heading: "Fredrik & Matilda",
+    name: "opened-no-answer-cover",
+    panelLabel: "Inbjudan",
+    primaryHash: "inbjudan",
+    title: "opened no-answer cover",
+  },
+  {
+    assertState: async (page) => {
+      const cover = page.locator("#inbjudan");
+
+      await expect(cover.getByText("Ditt svar", { exact: true })).toBeVisible();
+      await expect(cover.getByText("Ja · jag kommer gärna", { exact: true }))
+        .toBeVisible();
+      await expect(cover.getByText("Mottaget", { exact: true })).toBeVisible();
+      await expect(cover.getByRole("link", { name: /^Uppdatera svar/ }))
+        .toHaveAttribute("href", "#osa");
+    },
+    fixtureKey: "plusOneExpanded",
+    heading: "Fredrik & Matilda",
+    name: "rsvp-ja-saved-cover",
+    panelLabel: "Inbjudan",
+    primaryHash: "inbjudan",
+    title: "saved RSVP Ja cover",
+  },
+  {
+    assertState: async (page) => {
+      const cover = page.locator("#inbjudan");
+
+      await expect(cover.getByText("Ditt svar", { exact: true })).toBeVisible();
+      await expect(cover.getByText("Nej · jag kan tyvärr inte", { exact: true }))
+        .toBeVisible();
+      await expect(cover.getByText("Mottaget", { exact: true })).toBeVisible();
+      await expect(cover.getByRole("link", { name: /^Uppdatera svar/ }))
+        .toHaveAttribute("href", "#osa");
+    },
+    fixtureKey: "rsvpNo",
+    heading: "Fredrik & Matilda",
+    name: "rsvp-no-saved-cover",
+    panelLabel: "Inbjudan",
+    primaryHash: "inbjudan",
+    title: "saved RSVP Nej cover",
+  },
+  {
+    assertState: async (page) => {
+      const cover = page.locator("#inbjudan");
+
+      await expect(cover.getByText("Ditt svar", { exact: true })).toBeVisible();
+      await expect(cover.getByText("Kanske · jag återkommer", { exact: true }))
+        .toBeVisible();
+      await expect(cover.getByText("Mottaget", { exact: true })).toBeVisible();
+      await expect(cover.getByRole("link", { name: /^Uppdatera svar/ }))
+        .toHaveAttribute("href", "#osa");
+    },
+    fixtureKey: "rsvpMaybe",
+    heading: "Fredrik & Matilda",
+    name: "rsvp-maybe-saved-cover",
+    panelLabel: "Inbjudan",
+    primaryHash: "inbjudan",
+    title: "saved RSVP Kanske cover",
+  },
   {
     assertState: async (page) => {
       await expect(page.getByRole("heading", { name: "Uppdatera svar" }))
@@ -282,7 +367,7 @@ test.describe.serial("invite visual QA screenshots", () => {
       let cleanup: InviteVisualStateCleanup | void;
 
       try {
-        await page.goto(fixture.primaryPath);
+        await page.goto(`${fixture.path}#${state.primaryHash ?? fixture.primaryHash}`);
         await waitForStableInviteVisuals(page);
         await expect(page).toHaveTitle(/Inbjudan/);
         await assertActivePanelNavigation(page, fixture, state);
