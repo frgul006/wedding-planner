@@ -31,6 +31,7 @@ for ((i=1; i<=$1; i++)); do
   tmpfile=$(mktemp)
   tmpfiles+=("$tmpfile")
 
+  claimed_issue_number=""
   issues=$("$script_dir/claim-next-issue.sh")
 
   if [[ "$issues" == "No open GitHub implementation issues"* ]]; then
@@ -64,6 +65,7 @@ EOF
   echo
 
   result=$(jq -r "$final_result" "$tmpfile")
+  claimed_issue_number=""
 
   if [[ "$result" == *"<promise>NO MORE TASKS</promise>"* ]]; then
     echo "Ralph complete after $i iterations."

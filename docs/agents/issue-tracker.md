@@ -23,7 +23,7 @@ The `ralph/` scripts consume open implementation issues labeled `ready-for-agent
 
 When Ralph starts work, the wrapper adds `agent-in-progress` to the selected issue. If startup or Pi invocation fails, the wrapper removes that label. When Ralph opens a PR, the PR body should include `Closes #<issue-number>` and `agent-in-progress` should remain until the issue closes on merge. If the task cannot be completed, Ralph should comment with status and remove `agent-in-progress` unless an open PR should keep the issue reserved.
 
-If a run is killed hard or a PR for an `agent-in-progress` issue is closed without merging, remove `agent-in-progress` or move the issue to `needs-info` / `ready-for-human` so it does not disappear from AFK pickup indefinitely.
+If a run is killed hard or a PR for an `agent-in-progress` issue is closed without merging, remove `agent-in-progress` or move the issue to `needs-info` / `ready-for-human` so it does not disappear from AFK pickup indefinitely. If a hard-killed run leaves the shared local claim lock behind, remove `$GIT_COMMON_DIR/ralph-claim.lock` after verifying no Ralph process is still running.
 
 ## Conventions
 
