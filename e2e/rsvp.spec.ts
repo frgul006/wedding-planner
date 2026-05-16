@@ -17,6 +17,10 @@ import { testWithGuests as test } from "./support/fixtures";
 import { createE2eSupabaseAdminClient } from "./support/supabase";
 import { invitePathForToken } from "./support/urls";
 
+function inviteOsaPathForToken(token: string) {
+  return `${invitePathForToken(token)}#osa`;
+}
+
 async function chooseAttendance(page: Page, attendance: RsvpAttendance) {
   const names: Record<RsvpAttendance, RegExp> = {
     [RSVP_ATTENDANCE.maybe]: /^Kanske\s+återkommer$/,
@@ -171,8 +175,8 @@ test.describe("RSVP, invite status, and phone capture", () => {
       INVITE_STATUS.notReplied,
     );
 
-    await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    await page.goto(inviteOsaPathForToken(token));
+    await expect(page.getByRole("heading", { name: "OSA" })).toBeVisible();
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
       .toBe(INVITE_STATUS.opened);
@@ -225,8 +229,8 @@ test.describe("RSVP, invite status, and phone capture", () => {
       token,
     });
 
-    await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    await page.goto(inviteOsaPathForToken(token));
+    await expect(page.getByRole("heading", { name: "OSA" })).toBeVisible();
 
     await submitRsvp(page, {
       attendance: RSVP_ATTENDANCE.yes,
@@ -292,8 +296,8 @@ test.describe("RSVP, invite status, and phone capture", () => {
       token,
     });
 
-    await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    await page.goto(inviteOsaPathForToken(token));
+    await expect(page.getByRole("heading", { name: "OSA" })).toBeVisible();
 
     await page.getByLabel(/Skicka mig viktiga SMS/).check();
     await page.getByRole("button", { name: /^Skicka mitt svar/ }).click();
@@ -328,8 +332,8 @@ test.describe("RSVP, invite status, and phone capture", () => {
       token,
     });
 
-    await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    await page.goto(inviteOsaPathForToken(token));
+    await expect(page.getByRole("heading", { name: "OSA" })).toBeVisible();
     await page.getByRole("textbox", { name: "Matpreferens" }).first().fill(
       "Pending vegetarian meal",
     );
@@ -358,8 +362,8 @@ test.describe("RSVP, invite status, and phone capture", () => {
       token,
     });
 
-    await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    await page.goto(inviteOsaPathForToken(token));
+    await expect(page.getByRole("heading", { name: "OSA" })).toBeVisible();
     await page.getByRole("textbox", { name: "Telefon" }).first().fill("+46701234567");
     await page.getByRole("textbox", { name: "Matpreferens" }).first().fill("Save error vegetarian");
 
@@ -413,7 +417,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
       token,
     });
 
-    await page.goto(invitePathForToken(token));
+    await page.goto(inviteOsaPathForToken(token));
     await expect(page.getByRole("heading", { name: "Uppdatera svar" })).toBeVisible();
     await expect(page.getByRole("radio", { name: /^Ja\s+\+1 gäst$/ })).toBeChecked();
 
@@ -451,8 +455,8 @@ test.describe("RSVP, invite status, and phone capture", () => {
       token,
     });
 
-    await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    await page.goto(inviteOsaPathForToken(token));
+    await expect(page.getByRole("heading", { name: "OSA" })).toBeVisible();
     await expect(page.getByRole("radio", { name: /^Ja\s+\+1 gäst$/ })).toHaveCount(0);
     await expect(page.getByRole("radio", { name: /^Nej\s+bara jag$/ })).toHaveCount(0);
 
@@ -480,7 +484,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
       token,
     });
 
-    await page.goto(invitePathForToken(token));
+    await page.goto(inviteOsaPathForToken(token));
     await submitRsvp(page, {
       attendance: RSVP_ATTENDANCE.yes,
       phone: "0701234567",
@@ -512,7 +516,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
       token,
     });
 
-    await page.goto(invitePathForToken(token));
+    await page.goto(inviteOsaPathForToken(token));
     await expect(page.getByRole("heading", { name: "Uppdatera svar" })).toBeVisible();
     await expect(page.getByRole("radio", { name: /^Ja\s+kommer$/ })).toBeChecked();
     await expect(page.getByRole("textbox", { name: "Telefon" }).first()).toHaveValue("+46700000000");
@@ -548,7 +552,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
       plus_one_phone: "+46701112235",
     });
 
-    await page.goto(invitePathForToken(token));
+    await page.goto(inviteOsaPathForToken(token));
     await expect(page.getByRole("heading", { name: "Uppdatera svar" })).toBeVisible();
     await expect(page.getByRole("radio", { name: /^Kanske\s+återkommer$/ })).toBeChecked();
     await expect(page.getByRole("textbox", { name: "Telefon" }).first()).toHaveValue("+46708889999");

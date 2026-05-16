@@ -21,6 +21,7 @@ import {
   cx,
 } from "../_components/brevkort-primitives";
 import { InvalidInviteMessage } from "../_components/invalid-invite-message";
+import { InvitePanelCarousel } from "./invite-panel-carousel";
 import { RsvpPanel } from "./rsvp-panel";
 
 export const metadata: Metadata = {
@@ -562,47 +563,51 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   const coupleMark = getCoupleMark(publicPartnerNames);
 
   return (
-    <BrevkortPage>
-      <BrevkortStack>
-        <CoverPanel
-          coupleMark={coupleMark}
-          guestName={guest.full_name}
-          rsvpResponse={rsvpResponse ? { attendance: rsvpResponse.attendance } : null}
-          rsvpSubmittedAt={rsvpSubmittedAt}
-          coverCoupleName={publicPartnerNames.displayName}
-          venueSummary={venueSummary}
-          weddingDate={weddingDate}
-        />
+    <BrevkortPage className="px-0 sm:px-6">
+      <BrevkortStack className="max-w-[390px]">
+        <InvitePanelCarousel
+          panels={panelIds.map((id, index) => ({ id, label: panelLabels[index] }))}
+        >
+          <CoverPanel
+            coupleMark={coupleMark}
+            guestName={guest.full_name}
+            rsvpResponse={rsvpResponse ? { attendance: rsvpResponse.attendance } : null}
+            rsvpSubmittedAt={rsvpSubmittedAt}
+            coverCoupleName={publicPartnerNames.displayName}
+            venueSummary={venueSummary}
+            weddingDate={weddingDate}
+          />
 
-        <DetailsPanel
-          coupleMark={coupleMark}
-          mapsUrl={mapsUrl}
-          spotifyUrl={spotifyUrl}
-          updates={updates}
-          wedding={wedding}
-          weddingDate={weddingDate}
-        />
+          <DetailsPanel
+            coupleMark={coupleMark}
+            mapsUrl={mapsUrl}
+            spotifyUrl={spotifyUrl}
+            updates={updates}
+            wedding={wedding}
+            weddingDate={weddingDate}
+          />
 
-        <PanelShell activeIndex={2} coupleMark={coupleMark}>
-          <div className="px-2 py-8 sm:px-6">
-            <BrevkortKicker>Svara när du kan</BrevkortKicker>
-            <BrevkortHeading className="mt-3 text-4xl" id="osa-heading">
-              OSA
-            </BrevkortHeading>
-            <BrevkortBodyText className="mt-3 max-w-2xl">
-              Svara eller uppdatera ditt svar här när du vet om du kan komma.
-            </BrevkortBodyText>
+          <PanelShell activeIndex={2} coupleMark={coupleMark}>
+            <div className="px-2 py-8 sm:px-6">
+              <BrevkortKicker>Svara när du kan</BrevkortKicker>
+              <BrevkortHeading className="mt-3 text-4xl" id="osa-heading">
+                OSA
+              </BrevkortHeading>
+              <BrevkortBodyText className="mt-3 max-w-2xl">
+                Svara eller uppdatera ditt svar här när du vet om du kan komma.
+              </BrevkortBodyText>
 
-            <RsvpPanel
-              guest={guest}
-              rawToken={token}
-              rsvpResponse={rsvpResponse}
-              showSubmittedConfirmation={showSubmittedConfirmation}
-              weddingDate={weddingDate}
-              weddingName={wedding.name}
-            />
-          </div>
-        </PanelShell>
+              <RsvpPanel
+                guest={guest}
+                rawToken={token}
+                rsvpResponse={rsvpResponse}
+                showSubmittedConfirmation={showSubmittedConfirmation}
+                weddingDate={weddingDate}
+                weddingName={wedding.name}
+              />
+            </div>
+          </PanelShell>
+        </InvitePanelCarousel>
       </BrevkortStack>
     </BrevkortPage>
   );

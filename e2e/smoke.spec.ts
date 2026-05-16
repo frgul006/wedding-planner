@@ -83,6 +83,9 @@ test.describe("valid invite smoke", () => {
       "href",
       "#detaljer",
     );
+
+    await page.getByRole("link", { name: "Se detaljerna" }).click();
+    await expect(page).toHaveURL(/#detaljer$/);
     await expect(page.getByText("Cicada", { exact: true })).toBeVisible();
     await expect(page.getByText("Veterinärgränd 6, Johanneshov", { exact: true }))
       .toBeVisible();
@@ -105,6 +108,9 @@ test.describe("valid invite smoke", () => {
     await expect(
       updatesSection.getByText("Bussar avgår från hotellet kl. 15:45."),
     ).toBeVisible();
+
+    await page.getByRole("link", { name: "Vidare till OSA" }).click();
+    await expect(page).toHaveURL(/#osa$/);
     await expect(page.getByRole("button", { name: "Skicka mitt svar →" })).toBeVisible();
   });
 });
