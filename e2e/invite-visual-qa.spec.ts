@@ -171,7 +171,7 @@ async function assertActivePanelNavigation(
     `${state.title} should expose the expected panel heading`,
   ).toBeVisible();
   await expect(
-    panel.getByRole("link", { name: `Gå till ${state.panelLabel}` }),
+    page.getByRole("link", { name: `Gå till ${state.panelLabel}` }),
     `${state.title} should mark the active dot for assistive tech`,
   ).toHaveAttribute("aria-current", "step");
 }

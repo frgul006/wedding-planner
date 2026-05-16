@@ -178,9 +178,10 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await page.goto(inviteOsaPathForToken(token));
     const osaPanel = page.locator("#osa");
     await expect(page.getByRole("heading", { name: "Låt oss veta" })).toBeVisible();
-    await expect(osaPanel.getByText(/03\/03/)).toBeVisible();
-    await expect(osaPanel.getByText("OSA", { exact: true })).toBeVisible();
-    await expect(osaPanel.getByRole("link", { name: "Gå till OSA" }))
+    const panelNavigation = page.getByRole("navigation", { name: "Inbjudans paneler" });
+    await expect(panelNavigation.getByText(/03\/03/)).toBeVisible();
+    await expect(panelNavigation.getByText("OSA", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Gå till OSA" }))
       .toHaveAttribute("aria-current", "step");
     await expect(osaPanel.getByText("Svara när du kan", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "OSA" })).toHaveCount(0);

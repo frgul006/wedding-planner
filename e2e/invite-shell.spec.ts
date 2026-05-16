@@ -36,6 +36,24 @@ async function swipePanel(page: Page, fromX: number, toX: number) {
   await shell.dispatchEvent("pointerup", { ...eventBase, clientX: toX });
 }
 
+async function expectMovingPanels(
+  page: Page,
+  fromPanelId: (typeof panelIds)[number],
+  toPanelId: (typeof panelIds)[number],
+) {
+  await expect(page.locator(`#${fromPanelId}`), `${fromPanelId} should remain visible while moving`)
+    .toBeVisible();
+  await expect(page.locator(`#${toPanelId}`), `${toPanelId} should enter while moving`)
+    .toBeVisible();
+
+  for (const panelId of panelIds) {
+    if (panelId !== fromPanelId && panelId !== toPanelId) {
+      await expect(page.locator(`#${panelId}`), `${panelId} should not peek during direct motion`)
+        .toBeHidden();
+    }
+  }
+}
+
 test.describe.serial("invite one-panel shell", () => {
   test.beforeEach(async () => {
     await seedInviteVisualFixtures();
@@ -70,6 +88,83 @@ test.describe.serial("invite one-panel shell", () => {
     await expectActivePanel(page, "osa");
     await expect(page.getByRole("button", { name: "Föregående panel" })).toBeEnabled();
     await expect(page.getByRole("button", { name: "Nästa panel" })).toBeDisabled();
+  });
+
+  test("animates arrow navigation and commits the hash after the panel settles", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await page.getByRole("button", { name: "Nästa panel" }).click();
+
+    expect(page.url()).not.toMatch(/#detaljer$/);
+    await expectMovingPanels(page, "inbjudan", "detaljer");
+
+    await expect(page).toHaveURL(/#detaljer$/);
+    await expectActivePanel(page, "detaljer");
+  });
+
+  test("animates direct dot jumps without stopping on skipped panels", async ({ page }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await page.getByRole("link", { name: "Gå till OSA" }).click();
+
+    expect(page.url()).not.toMatch(/#osa$/);
+    await expectMovingPanels(page, "inbjudan", "osa");
+
+    await expect(page).toHaveURL(/#osa$/);
+    await expectActivePanel(page, "osa");
+  });
+
+  test("uses the latest requested arrow target instead of queueing stale motion", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await page.getByRole("button", { name: "Nästa panel" }).click();
+    await page.getByRole("button", { name: "Nästa panel" }).click();
+
+    await expect(page).toHaveURL(/#osa$/);
+    await expectActivePanel(page, "osa");
+  });
+
+  test("uses the latest requested dot target instead of stopping on stale motion", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await page.getByRole("link", { name: "Gå till Detaljer" }).click();
+    await page.getByRole("link", { name: "Gå till OSA" }).click();
+
+    expect(page.url()).not.toMatch(/#detaljer$/);
+    await expectMovingPanels(page, "inbjudan", "osa");
+    await expect(page).toHaveURL(/#osa$/);
+    await expectActivePanel(page, "osa");
+  });
+
+  test("switches panels instantly when reduced motion is requested", async ({ page }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await page.getByRole("link", { name: "Gå till OSA" }).click();
+
+    expect(page.url()).toMatch(/#osa$/);
+    await expectActivePanel(page, "osa");
   });
 
   test("opens matching panels from invite hash deep links", async ({ page }) => {
