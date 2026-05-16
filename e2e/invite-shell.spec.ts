@@ -321,6 +321,97 @@ test.describe.serial("invite one-panel shell", () => {
     await expectActivePanel(page, "osa");
   });
 
+  test("animates cover CTAs before and after RSVP", async ({ page }) => {
+    const beforeRsvpFixture = getInviteVisualFixture("updatesPublished");
+    const afterRsvpFixture = getInviteVisualFixture("rsvpNo");
+
+    await page.goto(beforeRsvpFixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await page.getByRole("link", { name: /^Öppna inbjudan/ }).click();
+
+    expect(page.url()).not.toMatch(/#detaljer$/);
+    await expectMovingPanels(page, "inbjudan", "detaljer");
+    await expect(page).toHaveURL(/#detaljer$/);
+    await expectActivePanel(page, "detaljer");
+
+    await page.goto(afterRsvpFixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await page.getByRole("link", { name: /^Uppdatera svar/ }).click();
+
+    expect(page.url()).not.toMatch(/#osa$/);
+    await expectMovingPanels(page, "inbjudan", "osa");
+    await expect(page).toHaveURL(/#osa$/);
+    await expectActivePanel(page, "osa");
+  });
+
+  test("animates details panel primary and secondary panel links", async ({ page }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.goto(fixture.detailsPath);
+    await expectActivePanel(page, "detaljer");
+
+    await page.getByRole("link", { name: /^Vidare till OSA/ }).click();
+
+    expect(page.url()).not.toMatch(/#osa$/);
+    await expectMovingPanels(page, "detaljer", "osa");
+    await expect(page).toHaveURL(/#osa$/);
+    await expectActivePanel(page, "osa");
+
+    await page.goto(fixture.detailsPath);
+    await expectActivePanel(page, "detaljer");
+
+    await page
+      .locator("#detaljer")
+      .getByRole("link", { name: "Till inbjudan" })
+      .click();
+
+    expect(page.url()).not.toMatch(/#inbjudan$/);
+    await expectMovingPanels(page, "detaljer", "inbjudan");
+    await expect(page).toHaveURL(/#inbjudan$/);
+    await expectActivePanel(page, "inbjudan");
+  });
+
+  test("intercepts same-route panel links that include the path", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.goto(`${fixture.path}?utm=keep#detaljer`);
+    await expectActivePanel(page, "detaljer");
+    await page.getByRole("link", { name: /^Vidare till OSA/ }).evaluate(
+      (link) => {
+        link.setAttribute("href", `${window.location.pathname}#osa`);
+      },
+    );
+
+    await page.getByRole("link", { name: /^Vidare till OSA/ }).click();
+
+    expect(page.url()).not.toMatch(/#osa$/);
+    await expectMovingPanels(page, "detaljer", "osa");
+    await expect(page).toHaveURL(/\?utm=keep#osa$/);
+    await expectActivePanel(page, "osa");
+
+    await page.goto(`${fixture.path}?utm_b=2&utm_a=1#detaljer`);
+    await expectActivePanel(page, "detaljer");
+    await page.getByRole("link", { name: /^Vidare till OSA/ }).evaluate(
+      (link) => {
+        link.setAttribute(
+          "href",
+          `${window.location.pathname}?utm_a=1&utm_b=2#osa`,
+        );
+      },
+    );
+
+    await page.getByRole("link", { name: /^Vidare till OSA/ }).click();
+
+    expect(page.url()).not.toMatch(/#osa$/);
+    await expectMovingPanels(page, "detaljer", "osa");
+    await expect(page).toHaveURL(/\?utm_b=2&utm_a=1#osa$/);
+    await expectActivePanel(page, "osa");
+  });
+
   test("uses the latest requested arrow target instead of queueing stale motion", async ({
     page,
   }) => {
@@ -349,6 +440,39 @@ test.describe.serial("invite one-panel shell", () => {
 
     expect(page.url()).not.toMatch(/#detaljer$/);
     await expectMovingPanels(page, "inbjudan", "osa");
+    await expect(page).toHaveURL(/#osa$/);
+    await expectActivePanel(page, "osa");
+  });
+
+  test("animates browser back and forward through committed panel hashes", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await page.getByRole("button", { name: "Nästa panel" }).click();
+    await expect(page).toHaveURL(/#detaljer$/);
+    await expectActivePanel(page, "detaljer");
+
+    await page.getByRole("button", { name: "Nästa panel" }).click();
+    await expect(page).toHaveURL(/#osa$/);
+    await expectActivePanel(page, "osa");
+
+    await page.goBack();
+    expect(page.url()).toMatch(/#detaljer$/);
+    await expect(page.getByRole("link", { name: "Gå till OSA" }))
+      .toHaveAttribute("aria-current", "step");
+    await expectMovingPanels(page, "osa", "detaljer");
+    await expect(page).toHaveURL(/#detaljer$/);
+    await expectActivePanel(page, "detaljer");
+
+    await page.goForward();
+    expect(page.url()).toMatch(/#osa$/);
+    await expect(page.getByRole("link", { name: "Gå till Detaljer" }))
+      .toHaveAttribute("aria-current", "step");
+    await expectMovingPanels(page, "detaljer", "osa");
     await expect(page).toHaveURL(/#osa$/);
     await expectActivePanel(page, "osa");
   });

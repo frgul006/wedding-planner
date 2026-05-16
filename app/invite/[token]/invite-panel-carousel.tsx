@@ -27,10 +27,16 @@ type InvitePanelCarouselProps = {
   panels: InvitePanelMeta[];
 };
 
+type PanelNavigationHistory = "none" | "push" | "replace";
+
+type PanelNavigationOptions = {
+  history?: PanelNavigationHistory;
+};
+
 type PanelTransition = {
   direction: -1 | 1;
   fromIndex: number;
-  options: { replace?: boolean };
+  options: PanelNavigationOptions;
   phase: "ready" | "moving";
   sequence: number;
   toIndex: number;
@@ -75,6 +81,58 @@ const legacySwipeThresholdPx = 48;
 function hashToPanelId(hash: string, panels: InvitePanelMeta[]) {
   const id = hash.replace(/^#/, "");
   return panels.find((panel) => panel.id === id)?.id ?? null;
+}
+
+function normalizeSearchParams(search: string) {
+  const entries = Array.from(new URLSearchParams(search).entries()).sort(
+    ([leftKey, leftValue], [rightKey, rightValue]) => {
+      const keyComparison = leftKey.localeCompare(rightKey);
+      return keyComparison === 0
+        ? leftValue.localeCompare(rightValue)
+        : keyComparison;
+    },
+  );
+
+  return new URLSearchParams(entries).toString();
+}
+
+function getAnchorPanelTarget(
+  anchor: HTMLAnchorElement,
+  panels: InvitePanelMeta[],
+) {
+  const href = anchor.getAttribute("href");
+
+  if (
+    !href ||
+    (anchor.target && anchor.target !== "_self") ||
+    anchor.hasAttribute("download")
+  ) {
+    return null;
+  }
+
+  let url: URL;
+
+  try {
+    url = new URL(href, window.location.href);
+  } catch {
+    return null;
+  }
+
+  const currentUrl = new URL(window.location.href);
+  const hrefBeforeHash = href.split("#", 1)[0] ?? "";
+  const changesSearch =
+    hrefBeforeHash.includes("?") &&
+    normalizeSearchParams(url.search) !== normalizeSearchParams(currentUrl.search);
+
+  if (
+    url.origin !== currentUrl.origin ||
+    url.pathname !== currentUrl.pathname ||
+    changesSearch
+  ) {
+    return null;
+  }
+
+  return hashToPanelId(url.hash, panels);
 }
 
 function usePrefersReducedMotion() {
@@ -310,8 +368,14 @@ export function InvitePanelCarousel({
   }, [panelChildren.length, updateViewportHeight]);
 
   const updateHashForIndex = useCallback(
-    (nextIndex: number, options: { replace?: boolean } = {}) => {
+    (nextIndex: number, options: PanelNavigationOptions = {}) => {
       if (typeof window === "undefined") {
+        return;
+      }
+
+      const historyMode = options.history ?? "push";
+
+      if (historyMode === "none") {
         return;
       }
 
@@ -327,7 +391,7 @@ export function InvitePanelCarousel({
         return;
       }
 
-      if (options.replace) {
+      if (historyMode === "replace") {
         window.history.replaceState(null, "", nextHash);
       } else {
         window.history.pushState(null, "", nextHash);
@@ -472,7 +536,7 @@ export function InvitePanelCarousel({
   }, []);
 
   const navigateToIndex = useCallback(
-    (nextIndex: number, options: { replace?: boolean } = {}) => {
+    (nextIndex: number, options: PanelNavigationOptions = {}) => {
       if (nextIndex < 0 || nextIndex >= panels.length) {
         return;
       }
@@ -531,7 +595,7 @@ export function InvitePanelCarousel({
   );
 
   const navigateToPanel = useCallback(
-    (panelId: InvitePanelId, options?: { replace?: boolean }) => {
+    (panelId: InvitePanelId, options?: PanelNavigationOptions) => {
       const nextIndex = panelIndexById.get(panelId);
 
       if (nextIndex === undefined) {
@@ -552,28 +616,27 @@ export function InvitePanelCarousel({
   );
 
   useEffect(() => {
-    const syncFromHash = () => {
+    const syncInitialHash = () => {
       const panelId = hashToPanelId(window.location.hash, panels);
+      const nextIndex = panelId ? panelIndexById.get(panelId) : 0;
 
       cancelGestureState();
-
-      if (!panelId) {
-        transitionRef.current = null;
-        setTransition(null);
-        setActiveIndex(0);
-        return;
-      }
-
-      const nextIndex = panelIndexById.get(panelId);
-
-      if (nextIndex !== undefined) {
-        transitionRef.current = null;
-        setTransition(null);
-        setActiveIndex(nextIndex);
-      }
+      transitionRef.current = null;
+      setTransition(null);
+      setActiveIndex(nextIndex ?? 0);
     };
 
-    syncFromHash();
+    syncInitialHash();
+  }, [cancelGestureState, panelIndexById, panels]);
+
+  useEffect(() => {
+    const syncFromHash = () => {
+      const panelId = hashToPanelId(window.location.hash, panels);
+      const nextIndex = panelId ? panelIndexById.get(panelId) : 0;
+
+      navigateToIndex(nextIndex ?? 0, { history: "none" });
+    };
+
     window.addEventListener("hashchange", syncFromHash);
     window.addEventListener("popstate", syncFromHash);
 
@@ -581,7 +644,7 @@ export function InvitePanelCarousel({
       window.removeEventListener("hashchange", syncFromHash);
       window.removeEventListener("popstate", syncFromHash);
     };
-  }, [cancelGestureState, panelIndexById, panels]);
+  }, [navigateToIndex, panelIndexById, panels]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -608,13 +671,13 @@ export function InvitePanelCarousel({
         return;
       }
 
-      const anchor = target.closest<HTMLAnchorElement>('a[href^="#"]');
+      const anchor = target.closest<HTMLAnchorElement>("a[href]");
 
       if (!anchor || !root.contains(anchor)) {
         return;
       }
 
-      const panelId = hashToPanelId(anchor.hash, panels);
+      const panelId = getAnchorPanelTarget(anchor, panels);
 
       if (!panelId) {
         return;
