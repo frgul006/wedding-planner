@@ -239,11 +239,14 @@ Useful variants:
 ```bash
 pnpm test:e2e:headed
 pnpm test:e2e:ui
+pnpm test:e2e e2e/invite-visual-qa.spec.ts
 ```
+
+The invite visual QA spec visits the deterministic seeded invite fixture URLs and captures screenshots as Playwright artifacts. Find local screenshots under `test-results/e2e/**/invite-visual-qa/*.png`, or open the HTML report with `pnpm exec playwright show-report` to browse attached captures. `test-results/` and `playwright-report/` are ignored so generated screenshots stay uncommitted by default.
 
 By default, Playwright starts the Next.js dev server on `http://127.0.0.1:3000`. Set `PLAYWRIGHT_SKIP_WEB_SERVER=1` and `PLAYWRIGHT_BASE_URL` to target an already-running app.
 
-In CI, the `E2E regression` GitHub Actions job starts local Supabase, writes `.env.local` from `supabase status -o env`, resets/seeds the database, runs `pnpm test:e2e`, and uploads Playwright artifacts on failure.
+In CI, the `E2E regression` GitHub Actions job starts local Supabase, writes `.env.local` from `supabase status -o env`, resets/seeds the database, runs `pnpm test:e2e`, uploads invite visual QA screenshots after successful runs, and uploads broader Playwright artifacts on failure.
 
 ## How the coding agent can spin up local dev
 

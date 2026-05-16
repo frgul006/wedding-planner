@@ -35,7 +35,10 @@ Useful variants:
 ```bash
 pnpm test:e2e:headed
 pnpm test:e2e:ui
+pnpm test:e2e e2e/invite-visual-qa.spec.ts
 ```
+
+The invite visual QA spec captures current-app screenshots for each deterministic invite visual fixture. Local captures are written under `test-results/e2e/**/invite-visual-qa/*.png` and attached to the Playwright HTML report; open the report with `pnpm exec playwright show-report` after a run. These generated screenshots live under ignored test output directories and should not be committed unless a future PR intentionally promotes baselines.
 
 The Playwright config starts the Next.js dev server on `http://127.0.0.1:3000` by default. Override behavior with:
 
@@ -46,7 +49,7 @@ The Playwright config starts the Next.js dev server on `http://127.0.0.1:3000` b
 
 ## CI
 
-GitHub Actions runs the same suite in the `E2E regression` job. The job installs the Supabase CLI, starts local Supabase, writes `.env.local` from `supabase status -o env`, resets/seeds the local database, runs `pnpm test:e2e`, and uploads `playwright-report/` plus `test-results/` when the suite fails.
+GitHub Actions runs the same suite in the `E2E regression` job. The job installs the Supabase CLI, starts local Supabase, writes `.env.local` from `supabase status -o env`, resets/seeds the local database, runs `pnpm test:e2e`, and uploads `playwright-report/` plus `test-results/` when the suite fails. Successful runs also upload the invite visual QA screenshots as an `invite-visual-qa-screenshots` artifact so visual review can use current captures without committed baselines.
 
 ## Seeded data helpers
 

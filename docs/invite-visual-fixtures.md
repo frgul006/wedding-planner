@@ -18,3 +18,13 @@ Local URLs:
 | Details panel with published update | `http://localhost:3000/invite/visual-updates-published#detaljer` |
 
 The published update fixture is global wedding data, so it can appear on any valid seeded invite page. Tests that need a blank updates feed should create their own isolated wedding/update setup instead of relying on the default local seed.
+
+## Visual QA screenshots
+
+Run the current visual QA harness with:
+
+```bash
+pnpm test:e2e e2e/invite-visual-qa.spec.ts
+```
+
+The spec navigates every fixture above, performs lightweight role/content assertions, and writes screenshots under `test-results/e2e/**/invite-visual-qa/*.png`. The same screenshots are attached to the Playwright HTML report (`pnpm exec playwright show-report`) and uploaded from CI as the `invite-visual-qa-screenshots` artifact on successful E2E runs. Generated captures stay in ignored Playwright output directories; do not commit them as baselines unless a later PR explicitly promotes that workflow.
