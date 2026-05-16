@@ -59,8 +59,9 @@ test.describe("valid invite smoke", () => {
     await expect(
       page.getByText(`Personlig inbjudan för ${SEEDED_GUESTS.existingRsvp.name}`),
     ).toBeVisible();
-    await expect(page.getByText("Sparat svar: Ja")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Uppdatera svar" })).toBeVisible();
+    await expect(page.getByText("Ditt svar", { exact: true })).toBeVisible();
+    await expect(page.getByText("Ja · jag kommer gärna", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Uppdatera svar/ })).toBeVisible();
   });
 
   test("shows seeded wedding details and RSVP entry points", async ({ page }) => {
@@ -79,28 +80,29 @@ test.describe("valid invite smoke", () => {
       .toHaveAttribute("aria-current", "step");
     await expect(coverPanel.getByRole("link", { name: "Gå till Detaljer" }))
       .toHaveAttribute("href", "#detaljer");
-    await expect(page.getByRole("link", { name: "Se detaljerna" })).toHaveAttribute(
+    await expect(page.getByRole("link", { name: /^Öppna inbjudan/ })).toHaveAttribute(
       "href",
       "#detaljer",
     );
 
-    await page.getByRole("link", { name: "Se detaljerna" }).click();
+    await page.getByRole("link", { name: /^Öppna inbjudan/ }).click();
     await expect(page).toHaveURL(/#detaljer$/);
-    await expect(page.getByText("Cicada", { exact: true })).toBeVisible();
-    await expect(page.getByText("Veterinärgränd 6, Johanneshov", { exact: true }))
+    const detailsPanel = page.locator("#detaljer");
+    await expect(detailsPanel.getByText("Cicada", { exact: true })).toBeVisible();
+    await expect(detailsPanel.getByText("Veterinärgränd 6, Johanneshov", { exact: true }))
       .toBeVisible();
-    await expect(page.getByText("16:30 - Välkomstdrinkar")).toBeVisible();
-    await expect(page.getByText("18:30 - Middag")).toBeVisible();
-    await expect(page.getByText("21:00 - Fest")).toBeVisible();
-    await expect(page.getByText("Klädkod: festlig sommarformal")).toBeVisible();
-    await expect(page.getByText("Din närvaro är den bästa presenten.")).toBeVisible();
+    await expect(detailsPanel.getByText("16:30 - Välkomstdrinkar")).toBeVisible();
+    await expect(detailsPanel.getByText("18:30 - Middag")).toBeVisible();
+    await expect(detailsPanel.getByText("21:00 - Fest")).toBeVisible();
+    await expect(detailsPanel.getByText("Klädkod: festlig sommarformal")).toBeVisible();
+    await expect(detailsPanel.getByText("Din närvaro är den bästa presenten.")).toBeVisible();
 
-    await expect(page.getByRole("link", { name: "Visa karta" }))
+    await expect(detailsPanel.getByRole("link", { name: "Visa karta" }))
       .toHaveAttribute("target", "_blank");
-    await expect(page.getByRole("link", { name: "Öppna Spotify" }))
+    await expect(detailsPanel.getByRole("link", { name: "Öppna Spotify" }))
       .toHaveAttribute("target", "_blank");
-    const updatesSection = page.locator("section", {
-      has: page.getByRole("heading", { name: "Uppdateringar" }),
+    const updatesSection = detailsPanel.locator("section", {
+      hasText: "Uppdateringar",
     });
     await expect(
       updatesSection.getByRole("heading", { name: "Visual Fixture: Transport" }),

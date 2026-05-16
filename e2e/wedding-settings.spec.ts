@@ -97,28 +97,28 @@ test.describe("wedding settings propagation", () => {
     await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
     await expect(page.getByRole("heading", { name: "E2E Fredrik & E2E Matilda" })).toBeVisible();
 
-    await page.getByRole("link", { name: "Se detaljerna" }).click();
+    await page.getByRole("link", { name: /^Öppna inbjudan/ }).click();
     await expect(page).toHaveURL(/#detaljer$/);
+    const detailsPanel = page.locator("#detaljer");
     await expect(
-      page.locator("section", { has: page.getByRole("heading", { name: "Plats" }) })
-        .getByText(/2027/),
+      detailsPanel.locator("section", { hasText: "Plats" }).getByText(/2027/),
     ).toBeVisible();
-    await expect(page.getByText("E2E Glass House", { exact: true })).toBeVisible();
-    await expect(page.getByText("E2E Testholm", { exact: true }).first()).toBeVisible();
-    await expect(page.getByText("Regression Road 42, Testholm", { exact: true }))
+    await expect(detailsPanel.getByText("E2E Glass House", { exact: true })).toBeVisible();
+    await expect(detailsPanel.getByText("E2E Testholm", { exact: true }).first()).toBeVisible();
+    await expect(detailsPanel.getByText("Regression Road 42, Testholm", { exact: true }))
       .toBeVisible();
-    await expect(page.getByText("15:45 - Doors open")).toBeVisible();
-    await expect(page.getByText("16:30 - Ceremony")).toBeVisible();
-    await expect(page.getByText("19:00 - Dinner")).toBeVisible();
-    await expect(page.getByText("E2E dress code: festive regression.")).toBeVisible();
-    await expect(page.getByText("E2E child policy from settings.")).toBeVisible();
-    await expect(page.getByText("E2E legacy policy from settings.")).toBeVisible();
-    await expect(page.getByText("E2E gift info from settings.")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Visa karta" })).toHaveAttribute(
+    await expect(detailsPanel.getByText("15:45 - Doors open")).toBeVisible();
+    await expect(detailsPanel.getByText("16:30 - Ceremony")).toBeVisible();
+    await expect(detailsPanel.getByText("19:00 - Dinner")).toBeVisible();
+    await expect(detailsPanel.getByText("E2E dress code: festive regression.")).toBeVisible();
+    await expect(detailsPanel.getByText("E2E child policy from settings.")).toBeVisible();
+    await expect(detailsPanel.getByText("E2E legacy policy from settings.")).toBeVisible();
+    await expect(detailsPanel.getByText("E2E gift info from settings.")).toBeVisible();
+    await expect(detailsPanel.getByRole("link", { name: "Visa karta" })).toHaveAttribute(
       "href",
       "https://maps.google.com/?q=e2e",
     );
-    await expect(page.getByRole("link", { name: "Öppna Spotify" }))
+    await expect(detailsPanel.getByRole("link", { name: "Öppna Spotify" }))
       .toHaveAttribute("href", "https://open.spotify.com/playlist/e2e");
   });
 
@@ -154,7 +154,7 @@ test.describe("wedding settings propagation", () => {
     await expect(page.getByRole("heading", { name: "Partner 1 & E2E Partner Two" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "E2E Minimal Wedding" })).toHaveCount(0);
 
-    await page.getByRole("link", { name: "Se detaljerna" }).click();
+    await page.getByRole("link", { name: /^Öppna inbjudan/ }).click();
     await expect(page).toHaveURL(/#detaljer$/);
     await expect(
       page.locator("section", { has: page.getByRole("heading", { name: "Plats" }) })

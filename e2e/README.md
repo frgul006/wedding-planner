@@ -38,7 +38,7 @@ pnpm test:e2e:ui
 pnpm test:e2e e2e/invite-visual-qa.spec.ts
 ```
 
-The invite visual QA spec captures current-app screenshots for each deterministic invite visual fixture plus Playwright-controlled transient OSA submitting/save-error states. Local captures are written under `test-results/e2e/**/invite-visual-qa/*.png` and attached to the Playwright HTML report; open the report with `pnpm exec playwright show-report` after a run. The transient captures are derived from the RSVP `Kanske` fixture by delaying or forcing the next intercepted invite POST; they do not rely on production query flags or test-only rendering branches. These generated screenshots live under ignored test output directories and should not be committed unless a future PR intentionally promotes baselines.
+The invite visual QA spec captures current-app screenshots for the opened/no-answer cover, saved-answer cover variants, each deterministic invite visual fixture, and Playwright-controlled transient OSA submitting/save-error states. Local captures are written under `test-results/e2e/**/invite-visual-qa/*.png` and attached to the Playwright HTML report; open the report with `pnpm exec playwright show-report` after a run. The transient captures are derived from the RSVP `Kanske` fixture by delaying or forcing the next intercepted invite POST; they do not rely on production query flags or test-only rendering branches. These generated screenshots live under ignored test output directories and should not be committed unless a future PR intentionally promotes baselines.
 
 The Playwright config starts the Next.js dev server on `http://127.0.0.1:3000` by default. Override behavior with:
 

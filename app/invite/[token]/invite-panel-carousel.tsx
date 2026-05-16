@@ -229,14 +229,17 @@ export function InvitePanelCarousel({ children, panels }: InvitePanelCarouselPro
         );
       })}
 
-      <div className="mt-4 flex items-center justify-between gap-3 text-invite-ink">
+      <div className="mt-14 flex items-center justify-center gap-3 text-invite-ink">
+        <p className="sr-only">
+          {String(activeIndex + 1).padStart(2, "0")}/03 · {activePanel?.label}
+        </p>
         <button
           aria-controls={activePanel?.id}
           aria-label="Föregående panel"
           className={cx(
-            "inline-flex h-11 w-11 items-center justify-center border border-invite-border bg-invite-paper-light text-xl transition hover:bg-invite-paper-muted/70",
+            "inline-flex h-11 w-11 items-center justify-center border border-invite-ink bg-invite-paper-light text-xl transition hover:bg-invite-paper-muted/70",
             activeIndex === 0
-              ? "cursor-not-allowed opacity-45"
+              ? "cursor-not-allowed border-invite-border-soft text-invite-body opacity-45"
               : "shadow-[var(--invite-shadow)]",
           )}
           disabled={activeIndex === 0}
@@ -245,16 +248,13 @@ export function InvitePanelCarousel({ children, panels }: InvitePanelCarouselPro
         >
           ←
         </button>
-        <p className="brevkort-metadata text-center text-[0.68rem] text-invite-walnut">
-          {String(activeIndex + 1).padStart(2, "0")}/03 · {activePanel?.label}
-        </p>
         <button
           aria-controls={activePanel?.id}
           aria-label="Nästa panel"
           className={cx(
-            "inline-flex h-11 w-11 items-center justify-center border border-invite-border bg-invite-paper-light text-xl transition hover:bg-invite-paper-muted/70",
+            "inline-flex h-11 w-11 items-center justify-center border border-invite-ink bg-invite-paper-light text-xl transition hover:bg-invite-paper-muted/70",
             activeIndex === panels.length - 1
-              ? "cursor-not-allowed opacity-45"
+              ? "cursor-not-allowed border-invite-border-soft text-invite-body opacity-45"
               : "shadow-[var(--invite-shadow)]",
           )}
           disabled={activeIndex === panels.length - 1}
