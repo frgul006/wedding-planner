@@ -75,12 +75,9 @@ test.describe("valid invite smoke", () => {
     await expect(page.getByRole("heading", { name: "Fredrik & Matilda" }))
       .toBeVisible();
 
-    const coverPanel = page.locator("article", {
-      has: page.getByRole("heading", { name: "Fredrik & Matilda" }),
-    });
-    await expect(coverPanel.getByRole("link", { name: "Gå till Inbjudan" }))
+    await expect(page.getByRole("link", { name: "Gå till Inbjudan" }))
       .toHaveAttribute("aria-current", "step");
-    await expect(coverPanel.getByRole("link", { name: "Gå till Detaljer" }))
+    await expect(page.getByRole("link", { name: "Gå till Detaljer" }))
       .toHaveAttribute("href", "#detaljer");
     await expect(page.getByRole("link", { name: /^Öppna inbjudan/ })).toHaveAttribute(
       "href",

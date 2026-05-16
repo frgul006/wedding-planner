@@ -274,64 +274,14 @@ function ExternalLink({ children, href }: { children: ReactNode; href: string })
   );
 }
 
-function PanelDots({ activeIndex }: { activeIndex: number }) {
-  return (
-    <div aria-label="Panelnavigation" className="flex items-center gap-2">
-      {panelLabels.map((label, index) => (
-        <a
-          aria-current={activeIndex === index ? "step" : undefined}
-          aria-label={`Gå till ${label}`}
-          className={cx(
-            "h-2.5 rounded-full ring-1 ring-invite-walnut/30 transition hover:bg-invite-ink",
-            activeIndex === index ? "w-6 bg-invite-ink" : "w-2.5 bg-invite-border-soft",
-          )}
-          href={`#${panelIds[index]}`}
-          key={label}
-        />
-      ))}
-    </div>
-  );
-}
-
-function PanelNavigation({
-  activeIndex,
-  coupleMark,
-}: {
-  activeIndex: number;
-  coupleMark: string;
-}) {
-  const activeLabel = panelLabels[activeIndex];
-
-  return (
-    <nav
-      aria-label="Inbjudans paneler"
-      className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-invite-border-soft pb-4 text-invite-ink"
-    >
-      <a
-        className="brevkort-metadata justify-self-start text-[0.68rem] font-semibold text-invite-rust"
-        href="#inbjudan"
-        aria-label="Till inbjudan"
-      >
-        {coupleMark} · {String(activeIndex + 1).padStart(2, "0")}/03
-      </a>
-      <PanelDots activeIndex={activeIndex} />
-      <p className="brevkort-metadata justify-self-end text-[0.68rem] text-invite-ink">
-        {activeLabel}
-      </p>
-    </nav>
-  );
-}
-
 function PanelShell({
   activeIndex,
   children,
   className,
-  coupleMark,
 }: {
   activeIndex: number;
   children: ReactNode;
   className?: string;
-  coupleMark: string;
 }) {
   return (
     <BrevkortPanel
@@ -339,7 +289,6 @@ function PanelShell({
       className={className}
       id={panelIds[activeIndex]}
     >
-      <PanelNavigation activeIndex={activeIndex} coupleMark={coupleMark} />
       {children}
     </BrevkortPanel>
   );
@@ -371,7 +320,6 @@ function PanelActions({
 }
 
 function CoverPanel({
-  coupleMark,
   coverDateTime,
   guestName,
   partnerNames,
@@ -380,7 +328,6 @@ function CoverPanel({
   venueArea,
   venueName,
 }: {
-  coupleMark: string;
   coverDateTime: CoverDateTime;
   guestName: string;
   partnerNames: PublicPartnerNames;
@@ -397,7 +344,6 @@ function CoverPanel({
     <PanelShell
       activeIndex={0}
       className="border-0 bg-transparent px-4 py-0 shadow-none sm:px-4 sm:py-0"
-      coupleMark={coupleMark}
     >
       <div className="pb-6 pt-0">
         <section
@@ -524,14 +470,12 @@ function CoverPanel({
 }
 
 function DetailsPanel({
-  coupleMark,
   mapsUrl,
   spotifyUrl,
   updates,
   wedding,
   weddingDate,
 }: {
-  coupleMark: string;
   mapsUrl: string | null;
   spotifyUrl: string | null;
   updates: Awaited<ReturnType<typeof getPublishedWeddingUpdates>>;
@@ -539,7 +483,7 @@ function DetailsPanel({
   weddingDate: string;
 }) {
   return (
-    <PanelShell activeIndex={1} coupleMark={coupleMark}>
+    <PanelShell activeIndex={1}>
       <div className="px-2 py-8 sm:px-6">
         <BrevkortKicker>Allt inför dagen</BrevkortKicker>
         <BrevkortHeading className="mt-3 text-4xl" id="detaljer-heading">
@@ -723,10 +667,10 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
     <BrevkortPage className="!px-0 sm:!px-6">
       <BrevkortStack className="max-w-[390px]">
         <InvitePanelCarousel
+          coupleMark={coupleMark}
           panels={panelIds.map((id, index) => ({ id, label: panelLabels[index] }))}
         >
           <CoverPanel
-            coupleMark={coupleMark}
             coverDateTime={coverDateTime}
             guestName={guest.full_name}
             partnerNames={publicPartnerNames}
@@ -737,7 +681,6 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
           />
 
           <DetailsPanel
-            coupleMark={coupleMark}
             mapsUrl={mapsUrl}
             spotifyUrl={spotifyUrl}
             updates={updates}
@@ -745,7 +688,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
             weddingDate={weddingDate}
           />
 
-          <PanelShell activeIndex={2} coupleMark={coupleMark}>
+          <PanelShell activeIndex={2}>
             <div className="px-2 py-8 sm:px-6">
               <RsvpPanel
                 guest={guest}

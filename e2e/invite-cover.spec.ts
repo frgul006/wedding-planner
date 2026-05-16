@@ -34,7 +34,7 @@ test.describe.serial("invite cover visual states", () => {
     await expect
       .poll(async () => Math.round((await coverCard.boundingBox())?.height ?? 0))
       .toBeLessThanOrEqual(510);
-    await expect(cover.locator("a[aria-label='Till inbjudan']"))
+    await expect(page.locator("a[aria-label='Till inbjudan']"))
       .toHaveText("F & M · 01/03");
     await expect(cover.getByRole("heading", { name: "Fredrik & Matilda" }))
       .toBeVisible();
