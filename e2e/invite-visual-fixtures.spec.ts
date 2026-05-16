@@ -72,26 +72,19 @@ test.describe.serial("stable invite visual fixtures", () => {
     page,
   }) => {
     const rsvpNo = getInviteVisualFixture("rsvpNo");
-    await page.goto(rsvpNo.path);
-    await expect(page.getByText(`Personlig inbjudan för ${rsvpNo.guest.fullName}`))
-      .toBeVisible();
-    await expect(page.getByText("Sparat svar: Nej")).toBeVisible();
+    await page.goto(rsvpNo.osaPath);
     await expect(page.getByRole("heading", { name: "Uppdatera svar" })).toBeVisible();
     await expect(page.getByRole("radio", { name: /^Nej\s+kan inte$/ })).toBeChecked();
 
     const rsvpMaybe = getInviteVisualFixture("rsvpMaybe");
-    await page.goto(rsvpMaybe.path);
-    await expect(page.getByText(`Personlig inbjudan för ${rsvpMaybe.guest.fullName}`))
-      .toBeVisible();
-    await expect(page.getByText("Sparat svar: Kanske")).toBeVisible();
+    await page.goto(rsvpMaybe.osaPath);
+    await expect(page.getByRole("heading", { name: "Uppdatera svar" })).toBeVisible();
     await expect(page.getByRole("radio", { name: /^Kanske\s+återkommer$/ }))
       .toBeChecked();
 
     const plusOneExpanded = getInviteVisualFixture("plusOneExpanded");
     await page.goto(plusOneExpanded.osaPath);
-    await expect(
-      page.getByText(`Personlig inbjudan för ${plusOneExpanded.guest.fullName}`),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Uppdatera svar" })).toBeVisible();
     await expect(page.getByRole("radio", { name: /^Ja\s+\+1 gäst$/ }))
       .toBeChecked();
     await expect(page.getByRole("textbox", { name: "Namn" }))
@@ -99,9 +92,7 @@ test.describe.serial("stable invite visual fixtures", () => {
 
     const updatesPublished = getInviteVisualFixture("updatesPublished");
     await page.goto(updatesPublished.detailsPath);
-    await expect(
-      page.getByText(`Personlig inbjudan för ${updatesPublished.guest.fullName}`),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Detaljer" })).toBeVisible();
     const updatesSection = page.locator("section", {
       has: page.getByRole("heading", { name: "Uppdateringar" }),
     });

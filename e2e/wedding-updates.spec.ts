@@ -15,6 +15,10 @@ import {
   uniqueWeddingUpdateTitle,
 } from "./support/wedding-updates";
 
+function inviteDetailsPathForToken(token: string) {
+  return `${invitePathForToken(token)}#detaljer`;
+}
+
 test.describe("invite updates feed", () => {
   test("publishes admin-created updates to invite pages and hides drafts", async ({
     page,
@@ -50,7 +54,7 @@ test.describe("invite updates feed", () => {
     await expect(updateForm).toBeVisible();
     await expect(updateForm.getByLabel("Short title")).toHaveValue(updateTitle);
 
-    await page.goto(invitePathForToken(token));
+    await page.goto(inviteDetailsPathForToken(token));
     const updatesSection = page.locator("section", {
       has: page.getByRole("heading", { name: "Uppdateringar" }),
     });
@@ -80,7 +84,7 @@ test.describe("invite updates feed", () => {
     await savedUpdateForm.getByRole("button", { name: "Save update" }).click();
     await expect(page.getByText("Wedding update saved.")).toBeVisible();
 
-    await page.goto(invitePathForToken(token));
+    await page.goto(inviteDetailsPathForToken(token));
     await expect(updatesSection.getByRole("heading", { name: updateTitle })).toHaveCount(
       0,
     );
@@ -166,7 +170,7 @@ test.describe("invite updates feed", () => {
       updatedAt: new Date(baseTime + 11_000).toISOString(),
     });
 
-    await page.goto(invitePathForToken(token));
+    await page.goto(inviteDetailsPathForToken(token));
     const updatesSection = page.locator("section", {
       has: page.getByRole("heading", { name: "Uppdateringar" }),
     });

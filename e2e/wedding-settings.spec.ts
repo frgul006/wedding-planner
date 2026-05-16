@@ -96,6 +96,9 @@ test.describe("wedding settings propagation", () => {
     await page.goto(invitePathForToken(token));
     await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
     await expect(page.getByRole("heading", { name: "E2E Fredrik & E2E Matilda" })).toBeVisible();
+
+    await page.getByRole("link", { name: "Se detaljerna" }).click();
+    await expect(page).toHaveURL(/#detaljer$/);
     await expect(
       page.locator("section", { has: page.getByRole("heading", { name: "Plats" }) })
         .getByText(/2027/),
@@ -150,6 +153,9 @@ test.describe("wedding settings propagation", () => {
     await page.goto(invitePathForToken(token));
     await expect(page.getByRole("heading", { name: "Partner 1 & E2E Partner Two" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "E2E Minimal Wedding" })).toHaveCount(0);
+
+    await page.getByRole("link", { name: "Se detaljerna" }).click();
+    await expect(page).toHaveURL(/#detaljer$/);
     await expect(
       page.locator("section", { has: page.getByRole("heading", { name: "Plats" }) })
         .getByText("Kommer snart")

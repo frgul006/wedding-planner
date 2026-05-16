@@ -157,11 +157,7 @@ async function assertActivePanelNavigation(
 
 const visualStates: InviteVisualState[] = [
   {
-    assertState: async (page, fixture) => {
-      await expect(
-        page.getByText(`Personlig inbjudan för ${fixture.guest.fullName}`),
-      ).toBeVisible();
-      await expect(page.getByText("Sparat svar: Nej")).toBeVisible();
+    assertState: async (page) => {
       await expect(page.getByRole("heading", { name: "Uppdatera svar" }))
         .toBeVisible();
       await expect(page.getByRole("radio", { name: /^Nej\s+kan inte$/ }))
@@ -176,11 +172,7 @@ const visualStates: InviteVisualState[] = [
     title: "saved RSVP Nej",
   },
   {
-    assertState: async (page, fixture) => {
-      await expect(
-        page.getByText(`Personlig inbjudan för ${fixture.guest.fullName}`),
-      ).toBeVisible();
-      await expect(page.getByText("Sparat svar: Kanske")).toBeVisible();
+    assertState: async (page) => {
       await expect(page.getByRole("heading", { name: "Uppdatera svar" }))
         .toBeVisible();
       await expect(page.getByRole("radio", { name: /^Kanske\s+återkommer$/ }))
@@ -196,10 +188,6 @@ const visualStates: InviteVisualState[] = [
   },
   {
     assertState: async (page, fixture) => {
-      await expect(
-        page.getByText(`Personlig inbjudan för ${fixture.guest.fullName}`),
-      ).toBeVisible();
-      await expect(page.getByText("Sparat svar: Ja")).toBeVisible();
       await expect(page.getByRole("radio", { name: /^Ja\s+\+1 gäst$/ }))
         .toBeChecked();
       await expect(page.getByRole("textbox", { name: "Namn" }))
@@ -214,10 +202,7 @@ const visualStates: InviteVisualState[] = [
     title: "+1 expanded RSVP",
   },
   {
-    assertState: async (page, fixture) => {
-      await expect(
-        page.getByText(`Personlig inbjudan för ${fixture.guest.fullName}`),
-      ).toBeVisible();
+    assertState: async (page) => {
       await expect(page.getByRole("button", { name: "Skickar…" })).toBeDisabled();
       await assertRsvpVisualValues(page, transientRsvpValues.submitting);
     },
@@ -240,10 +225,7 @@ const visualStates: InviteVisualState[] = [
     title: "RSVP submitting",
   },
   {
-    assertState: async (page, fixture) => {
-      await expect(
-        page.getByText(`Personlig inbjudan för ${fixture.guest.fullName}`),
-      ).toBeVisible();
+    assertState: async (page) => {
       await expect(page.getByText("Kunde inte spara")).toBeVisible();
       await expect(
         page.getByText(
@@ -264,10 +246,7 @@ const visualStates: InviteVisualState[] = [
     title: "RSVP save error",
   },
   {
-    assertState: async (page, fixture) => {
-      await expect(
-        page.getByText(`Personlig inbjudan för ${fixture.guest.fullName}`),
-      ).toBeVisible();
+    assertState: async (page) => {
       const updatesSection = page.locator("section", {
         has: page.getByRole("heading", { name: "Uppdateringar" }),
       });
