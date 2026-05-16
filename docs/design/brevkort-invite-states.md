@@ -25,7 +25,7 @@ For extracted screenshots and PRD ownership, see [`wedding-design-export.md`](we
   - Invite status moves from `not replied` to `opened` without downgrading existing RSVP statuses.
   - Cover panel prompts toward details/OSA.
 - `Detaljer — no updates`
-  - Shows details panel with `Inga uppdateringar än.`
+  - Shows details panel without the `Uppdateringar` section.
 - `Detaljer — updates published`
   - Shows latest published updates inline with date, title, and body.
 - `OSA — default form`

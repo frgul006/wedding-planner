@@ -7,7 +7,7 @@
 
 ## Design source
 
-Use the `Detaljer` panel in `../design/brevkort-invite-states.md` as the target layout for invite details. The extracted target screenshot is `../design/references/invite/detaljer-updates-published.png`; no separate no-updates artboard exists in the export, so use the same layout with the feed rows removed for the empty state.
+Use the `Detaljer` panel in `../design/brevkort-invite-states.md` as the target layout for invite details. The extracted target screenshot is `../design/references/invite/detaljer-updates-published.png`; no separate no-updates artboard exists in the export, so use the same layout with the whole updates section removed when no updates are published.
 
 ## Why this is needed
 Guests need one clear info block with all wedding details before they answer OSA/RSVP.
@@ -32,7 +32,7 @@ Guests need one clear info block with all wedding details before they answer OSA
   2. `Plats` — venue name, area/city, address, and `Visa karta` link.
   3. Two-up cards for `Klädkod` and `Gåvor`.
   4. `Musik` — Spotify playlist CTA when configured.
-  5. `Uppdateringar` — latest published updates or empty state.
+  5. `Uppdateringar` — latest published updates when updates exist; omit when none are published.
   6. `Vidare till OSA` CTA.
 - If a required text field is missing, show a simple Swedish placeholder such as `Kommer snart`.
 - If map or Spotify URL is missing, show non-clickable coming-soon copy instead of a broken link.

@@ -546,8 +546,7 @@ function DetailsPanel({
           Detaljer
         </BrevkortHeading>
         <BrevkortBodyText className="mt-3 max-w-2xl">
-          Här finns tider, plats och praktisk information. Uppdateringar läggs
-          till här när något nytt publiceras.
+          Här finns tider, plats och praktisk information.
         </BrevkortBodyText>
 
         <div className="mt-8 grid gap-5">
@@ -642,8 +641,8 @@ function DetailsPanel({
             )}
           </DetailCard>
 
-          <DetailCard title="Uppdateringar">
-            {updates.length ? (
+          {updates.length ? (
+            <DetailCard title="Uppdateringar">
               <ol className="grid gap-4">
                 {updates.map((update) => {
                   const updateLink = getSafeHttpUrl(update.link_url);
@@ -676,12 +675,8 @@ function DetailsPanel({
                   );
                 })}
               </ol>
-            ) : (
-              <p className="text-lg font-semibold tracking-tight text-invite-ink">
-                Inga uppdateringar än.
-              </p>
-            )}
-          </DetailCard>
+            </DetailCard>
+          ) : null}
         </div>
 
         <PanelActions secondaryHref="#inbjudan" secondaryLabel="Till inbjudan">

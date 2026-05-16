@@ -19,7 +19,81 @@ function inviteDetailsPathForToken(token: string) {
   return `${invitePathForToken(token)}#detaljer`;
 }
 
+async function createIsolatedWedding() {
+  const supabase = createE2eSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("weddings")
+    .insert({
+      child_policy: "Barn är välkomna efter överenskommelse.",
+      dress_code: "Festlig sommarformal",
+      gift_info: "Din närvaro är den bästa presenten.",
+      google_maps_url: "https://example.com/maps",
+      name: uniqueWeddingUpdateTitle("Isolated Wedding"),
+      partner_one_name: "Test",
+      partner_two_name: "Wedding",
+      policy: "Meddela oss om du har frågor.",
+      spotify_playlist_url: "https://open.spotify.com/playlist/test",
+      time_plan: ["16:30 - Välkomstdrinkar", "18:30 - Middag"],
+      venue_address: "Testgatan 1",
+      venue_area: "Teststad",
+      venue_name: "Testlokalen",
+      wedding_date: "2027-08-21T14:30:00.000Z",
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data || typeof data.id !== "string") {
+    throw new Error("Expected Supabase to return inserted wedding id.");
+  }
+
+  return data.id;
+}
+
+async function deleteIsolatedWedding(weddingId: string) {
+  const supabase = createE2eSupabaseAdminClient();
+  const { error } = await supabase.from("weddings").delete().eq("id", weddingId);
+
+  if (error) {
+    throw error;
+  }
+}
+
 test.describe("invite updates feed", () => {
+  test("hides the updates section when no updates are published", async ({ page }) => {
+    const guestName = uniqueRsvpGuestName("Updates Empty Hidden");
+    const token = uniqueInviteToken("updates-empty-hidden");
+    const weddingId = await createIsolatedWedding();
+
+    try {
+      await createInviteTestGuest({
+        email: "e2e-updates-empty-hidden@example.com",
+        fullName: guestName,
+        token,
+        weddingId,
+      });
+
+      await page.goto(inviteDetailsPathForToken(token));
+      const detailsPanel = page.locator("#detaljer");
+
+      await expect(
+        detailsPanel.getByText("Här finns tider, plats och praktisk information.", {
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(detailsPanel.getByText("Uppdateringar läggs till här")).toHaveCount(0);
+      await expect(
+        detailsPanel.getByRole("heading", { name: "Uppdateringar" }),
+      ).toHaveCount(0);
+      await expect(detailsPanel.getByText("Inga uppdateringar än.")).toHaveCount(0);
+    } finally {
+      await deleteIsolatedWedding(weddingId);
+    }
+  });
+
   test("publishes admin-created updates to invite pages and hides drafts", async ({
     page,
   }) => {
@@ -85,11 +159,10 @@ test.describe("invite updates feed", () => {
     await expect(page.getByText("Wedding update saved.")).toBeVisible();
 
     await page.goto(inviteDetailsPathForToken(token));
-    await expect(updatesSection.getByRole("heading", { name: updateTitle })).toHaveCount(
-      0,
-    );
+    const detailsPanel = page.locator("#detaljer");
+    await expect(detailsPanel.getByRole("heading", { name: updateTitle })).toHaveCount(0);
     await expect(
-      updatesSection.getByText("E2E shuttle buses leave the hotel at 14:15."),
+      detailsPanel.getByText("E2E shuttle buses leave the hotel at 14:15."),
     ).toHaveCount(0);
   });
 
