@@ -26,7 +26,7 @@ type InviteVisualState = {
   title: string;
 };
 
-const screenshotViewport = { height: 844, width: 390 } as const;
+const screenshotViewport = { height: 1080, width: 390 } as const;
 const inviteRoutePattern = "**/invite/**";
 
 const transientRsvpValues = {

@@ -15,11 +15,27 @@ test.describe.serial("invite cover visual states", () => {
   }) => {
     const fixture = getInviteVisualFixture("updatesPublished");
 
-    await page.setViewportSize({ height: 844, width: 390 });
+    await page.setViewportSize({ height: 1080, width: 390 });
     await page.goto(fixture.path);
 
     const cover = page.locator("#inbjudan");
+    const coverCard = cover.locator("section[aria-label='Bröllopsinbjudan']");
     await expect(cover).toBeVisible();
+    await expect(coverCard).toBeVisible();
+    await expect
+      .poll(async () => {
+        const box = await coverCard.boundingBox();
+        return box ? { width: Math.round(box.width), x: Math.round(box.x) } : null;
+      })
+      .toEqual({ width: 350, x: 20 });
+    await expect
+      .poll(async () => Math.round((await coverCard.boundingBox())?.y ?? 0))
+      .toBeLessThanOrEqual(56);
+    await expect
+      .poll(async () => Math.round((await coverCard.boundingBox())?.height ?? 0))
+      .toBeLessThanOrEqual(510);
+    await expect(cover.locator("a[aria-label='Till inbjudan']"))
+      .toHaveText("F & M · 01/03");
     await expect(cover.getByRole("heading", { name: "Fredrik & Matilda" }))
       .toBeVisible();
     await expect(cover.getByText("För Visual Fixture Updates", { exact: true }))
@@ -33,6 +49,9 @@ test.describe.serial("invite cover visual states", () => {
 
     const primaryCta = cover.getByRole("link", { name: /^Öppna inbjudan/ });
     await expect(primaryCta).toHaveAttribute("href", "#detaljer");
+    await expect
+      .poll(async () => Math.round((await page.getByRole("button", { name: "Nästa panel" }).boundingBox())?.y ?? 0))
+      .toBeGreaterThanOrEqual(890);
 
     await primaryCta.click();
     await expect(page).toHaveURL(/#detaljer$/);
@@ -44,14 +63,17 @@ test.describe.serial("invite cover visual states", () => {
   }) => {
     const fixture = getInviteVisualFixture("rsvpNo");
 
-    await page.setViewportSize({ height: 844, width: 390 });
+    await page.setViewportSize({ height: 1080, width: 390 });
     await page.goto(fixture.path);
 
     const cover = page.locator("#inbjudan");
     await expect(cover).toBeVisible();
     await expect(cover.getByText("Ditt svar", { exact: true })).toBeVisible();
-    await expect(cover.getByText("Nej · jag kan tyvärr inte", { exact: true }))
-      .toBeVisible();
+    const savedAnswerText = cover.getByText("Nej · jag kan tyvärr inte", { exact: true });
+    await expect(savedAnswerText).toBeVisible();
+    await expect
+      .poll(async () => Math.round((await savedAnswerText.boundingBox())?.height ?? 0))
+      .toBeLessThanOrEqual(32);
     await expect(cover.getByText("Mottaget", { exact: true })).toBeVisible();
 
     const primaryCta = cover.getByRole("link", { name: /^Uppdatera svar/ });
