@@ -259,7 +259,7 @@ const visualStates: InviteVisualState[] = [
         .toBeVisible();
     },
     fixtureKey: "rsvpNo",
-    heading: "OSA",
+    heading: "Uppdatera svar",
     name: "rsvp-no-saved-osa",
     panelLabel: "OSA",
     title: "saved RSVP Nej",
@@ -274,7 +274,7 @@ const visualStates: InviteVisualState[] = [
         .toBeVisible();
     },
     fixtureKey: "rsvpMaybe",
-    heading: "OSA",
+    heading: "Uppdatera svar",
     name: "rsvp-maybe-saved-osa",
     panelLabel: "OSA",
     title: "saved RSVP Kanske",
@@ -289,7 +289,7 @@ const visualStates: InviteVisualState[] = [
         .toHaveValue(fixture.rsvp?.plusOnePhone ?? "");
     },
     fixtureKey: "plusOneExpanded",
-    heading: "OSA",
+    heading: "Uppdatera svar",
     name: "plus-one-expanded-osa",
     panelLabel: "OSA",
     title: "+1 expanded RSVP",
@@ -300,7 +300,7 @@ const visualStates: InviteVisualState[] = [
       await assertRsvpVisualValues(page, transientRsvpValues.submitting);
     },
     fixtureKey: "rsvpMaybe",
-    heading: "OSA",
+    heading: "Uppdatera svar",
     name: "rsvp-submitting-osa",
     panelLabel: "OSA",
     prepareState: async (page) => {
@@ -328,7 +328,7 @@ const visualStates: InviteVisualState[] = [
       await assertRsvpVisualValues(page, transientRsvpValues.saveError);
     },
     fixtureKey: "rsvpMaybe",
-    heading: "OSA",
+    heading: "Uppdatera svar",
     name: "rsvp-save-error-osa",
     panelLabel: "OSA",
     prepareState: async (page, fixture) => {
