@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
 
+import { getInviteSupportContact } from "@/lib/invite-support-contact";
 import { markInviteOpened, validateInviteToken } from "@/lib/invite-tokens";
 import { RSVP_ATTENDANCE, type RsvpAttendance } from "@/lib/rsvp-attendance";
 import { getSafeHttpUrl } from "@/lib/safe-url";
@@ -109,18 +110,20 @@ function formatWeddingDate(value: string | null) {
 
 type CoverDateTime = {
   dateText: string;
+  dayText: string | null;
+  monthText: string | null;
   timeText: string | null;
 };
 
 function formatCoverDateTime(value: string | null): CoverDateTime {
   if (!value) {
-    return { dateText: comingSoon, timeText: null };
+    return { dateText: comingSoon, dayText: null, monthText: null, timeText: null };
   }
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return { dateText: comingSoon, timeText: null };
+    return { dateText: comingSoon, dayText: null, monthText: null, timeText: null };
   }
 
   const parts = coverDatePartsFormatter.formatToParts(date);
@@ -129,11 +132,13 @@ function formatCoverDateTime(value: string | null): CoverDateTime {
   const monthText = Number.isInteger(month) ? swedishShortMonths[month - 1] : null;
 
   if (!day || !monthText) {
-    return { dateText: comingSoon, timeText: null };
+    return { dateText: comingSoon, dayText: null, monthText: null, timeText: null };
   }
 
   return {
     dateText: `${day} ${monthText}`,
+    dayText: day,
+    monthText,
     timeText: `kl. ${coverTimeFormatter.format(date)}`,
   };
 }
@@ -402,7 +407,7 @@ function CoverPanel({
           <p className="sr-only">Personlig inbjudan för {guestName}</p>
           <BrevkortKicker>Bröllopsinbjudan</BrevkortKicker>
           <p aria-hidden="true" className="brevkort-display mt-4 text-3xl font-semibold text-invite-walnut">
-            &
+            ❦
           </p>
           <BrevkortKicker className="mt-4">För {guestName}</BrevkortKicker>
           <BrevkortHeading
@@ -411,7 +416,7 @@ function CoverPanel({
             level={1}
           >
             <span className="block">{partnerNames.partnerOneName}</span>
-            <span className="block text-[2.1rem] leading-[1.25] text-invite-walnut">
+            <span className="brevkort-ornament block text-[2.45rem] leading-[1.25] text-invite-walnut">
               &
             </span>
             <span className="block">{partnerNames.partnerTwoName}</span>
@@ -429,8 +434,17 @@ function CoverPanel({
                 När
               </dt>
               <dd className="mt-3">
-                <p className="brevkort-display text-[1.45rem] font-semibold italic leading-none">
-                  {coverDateTime.dateText}
+                <p className="brevkort-display text-[1.45rem] font-semibold italic leading-none text-invite-ink">
+                  {coverDateTime.dayText && coverDateTime.monthText ? (
+                    <>
+                      <span>{coverDateTime.dayText}</span>{" "}
+                      <span className="font-normal text-invite-walnut">
+                        {coverDateTime.monthText}
+                      </span>
+                    </>
+                  ) : (
+                    coverDateTime.dateText
+                  )}
                 </p>
                 {coverDateTime.timeText ? (
                   <p className="brevkort-display mt-2 text-xs italic text-invite-walnut">
@@ -455,7 +469,7 @@ function CoverPanel({
           </dl>
 
           <p aria-hidden="true" className="brevkort-display mt-8 text-2xl text-invite-walnut">
-            ❦
+            ❀
           </p>
         </section>
 
@@ -687,7 +701,9 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   const result = await validateInviteToken(token);
 
   if (!result.isValid) {
-    return <InvalidInviteMessage />;
+    const supportContact = await getInviteSupportContact();
+
+    return <InvalidInviteMessage supportContact={supportContact} />;
   }
 
   await markInviteOpened({ guestId: result.guestId, weddingId: result.weddingId });

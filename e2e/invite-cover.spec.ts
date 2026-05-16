@@ -24,6 +24,8 @@ test.describe.serial("invite cover visual states", () => {
       .toBeVisible();
     await expect(cover.getByText("För Visual Fixture Updates", { exact: true }))
       .toBeVisible();
+    await expect(cover.getByText("❦", { exact: true })).toBeVisible();
+    await expect(cover.getByText("❀", { exact: true })).toBeVisible();
     await expect(cover.getByText("26 sept", { exact: true })).toBeVisible();
     await expect(cover.getByText("kl. 16:30", { exact: true })).toBeVisible();
     await expect(cover.getByText("Cicada", { exact: true })).toBeVisible();

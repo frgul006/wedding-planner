@@ -27,6 +27,33 @@ Reference: "Item 24 decisions" close-parity acceptance bar and "Item 27 decision
 - Blocked by `issues/007-cover-and-saved-answer-visual-states.md`
 - Blocked by `issues/008-invalid-link-visual-state.md`
 
+## HITL review notes
+
+### 2026-05-16 cover ornament/date feedback
+
+Human review compared the current opened/no-answer cover screenshot against the extracted cover reference and flagged these mismatches:
+
+- The top cover ornament used an ampersand; it should use the heart/leaf ornament shown in the reference.
+- The bottom ornament used the heart/leaf ornament; it should use the flower ornament from the reference.
+- The compact date month (`sept`) should use a warmer/lighter tint than the day number.
+- The ampersand between partner names should use a more decorative/script-like font treatment than the partner-name display type.
+
+Addressed in PR #62 / commit `da44587`:
+
+- Top ornament changed to `❦` and bottom ornament changed to `❀`.
+- Partner-name ampersand now uses the shared `brevkort-ornament` font stack.
+- Cover date day/month render as separate spans so the month can use `text-invite-walnut` while the day stays ink.
+- `e2e/invite-cover.spec.ts` asserts the top and bottom ornaments are present.
+
+Validation after this feedback:
+
+- `pnpm run build`
+- `pnpm run lint` (existing `@next/next/no-img-element` warnings only)
+- `PORT=3101 pnpm run test:e2e`
+- `playwright-cli snapshot` for `/invite/visual-updates-published#inbjudan`
+
+Remaining HITL scope: final sign-off still needs reviewer confirmation across invalid-link and saved-answer/edit cover artifacts before checking off this issue as complete.
+
 ## PRD sections addressed
 
 - Item 24 decisions: close visual parity plus documented intentional differences

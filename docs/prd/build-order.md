@@ -68,23 +68,23 @@ These are the next build items that turn the completed functionality above into 
 23. ✅ Complete — Brevkort design-token and component foundation
     - Created shared paper, dotted texture, ink/walnut/rust colors, border, spacing, serif display, sans body, mono metadata, button, status-strip, card, and form-field primitives.
     - Built reusable invite primitives before the remaining panel visual-parity passes.
-23a. Next — Explicit couple-name fields prerequisite
-    - Add `weddings.partner_one_name` and `weddings.partner_two_name` and expose them as optional admin settings with helper text.
-    - Do not automatically backfill from `weddings.name`; public invite covers show placeholders when explicit names are blank.
-    - Populate local seed data with `Fredrik` and `Matilda` so visual fixtures match the cover references by default.
-    - Merge this prerequisite before starting items 24 or 27.
-24. Next — Invite shell, cover, invalid-link, and saved-answer states
-    - Rebuild the centered mobile 390 px postcard shell with one primary panel at a time, swipe support, hash deep links, dot/arrow navigation, disabled end arrows, compact date formatting, and explicit partner-name rendering.
-    - Match `Ogiltig länk`, `Opened — no answer yet`, and saved-answer/edit cover references at close visual parity, documenting intentional differences rather than requiring exact pixels.
-    - Keep the scope to shell/cover/invalid/saved-answer treatment; items 25 and 26 own Details and OSA internals.
+23a. ✅ Complete — Explicit couple-name fields prerequisite
+    - Added `weddings.partner_one_name` and `weddings.partner_two_name` and exposed them as optional admin settings with helper text.
+    - Public invite covers use safe placeholders when explicit names are blank instead of parsing `wedding.name`.
+    - Local seed data populates `Fredrik` and `Matilda` so visual fixtures match the cover references by default.
+24. ⚠️ AFK complete; visual review pending — Invite shell, cover, invalid-link, and saved-answer states
+    - Rebuilt the centered mobile 390 px postcard shell with one primary panel at a time, swipe support, hash deep links, dot/arrow navigation, disabled end arrows, compact date formatting, and explicit partner-name rendering.
+    - Matched `Ogiltig länk`, `Opened — no answer yet`, and saved-answer/edit cover references at close parity, with intentional differences documented in PRs.
+    - Kept the implementation scope to shell/cover/invalid/saved-answer treatment; items 25 and 26 still own Details and OSA internals.
+    - Remaining item 24 work is the HITL visual review in `issues/009-shell-cover-visual-review-notes.md`.
 25. Next — Details panel visual parity
     - Match timeline, venue/map, dress/gifts, music, empty updates, published updates, and `Vidare till OSA` treatment.
 26. Next — OSA visual state pack
     - Match default form, +1 hidden/expanded, phone validation error, submitting, save error, submitted `Tack`, and existing-answer edit states.
-27. Next — Visual fixtures and QA harness
-    - Add deterministic seeds or test fixtures for RSVP `Nej`, `Kanske`, +1 expanded, published updates, submitting, and save-error states.
-    - Use Playwright route interception/mocks for transient submitting and save-error states.
-    - Run visual QA specs in default E2E CI, asserting key content and attaching screenshots as artifacts without committing generated baselines yet.
+27. ✅ Complete — Visual fixtures and QA harness
+    - Added deterministic fixtures for RSVP `Nej`, `Kanske`, +1 expanded, and published updates.
+    - Added Playwright route interception/mocks for transient submitting and save-error states.
+    - Runs visual QA specs in default E2E CI, asserting key content and attaching screenshots as artifacts without committing generated baselines.
 28. Later / parallel — Wedding hub visual parity review
     - Compare `/wedding-hub` states against `references/hub/` and split implementation work after invite parity is underway.
 29. Later / decision needed — Admin visual direction
@@ -92,11 +92,9 @@ These are the next build items that turn the completed functionality above into 
 
 ## Parallelization notes
 
-- Item 23a should merge before items 24 and 27 so both UI and fixtures use explicit partner names from `main`.
-- Items 24 and 27 can run in parallel after item 23a: item 24 owns invite UI components, while item 27 owns seeds, fixtures, test helpers, and Playwright specs.
-- If items 24 and 27 are ready at the same time, merge item 27 first so item 24 can validate against stable visual states.
-- Item 24 can build on item 23's primitives instead of duplicating visual classes.
-- Items 25 and 26 can run in parallel after the shell/navigation contract from item 24 is stable.
+- Items 23a and 27 are complete, so follow-up invite visual-parity work can rely on explicit partner names and stable visual QA fixtures.
+- Item 24 AFK implementation is complete; only the HITL visual review remains before considering item 24 visually signed off.
+- Items 25 and 26 can run in parallel now that the shell/navigation contract from item 24 is stable.
 - Item 28 can run independently from invite work, as long as it does not change shared invite primitives.
 - Item 29 is a product/design decision and should happen before any admin restyle implementation.
 
@@ -106,7 +104,7 @@ These are the next build items that turn the completed functionality above into 
 - Items 18–21 delivered the functional Brevkort data model, invite shell, OSA behavior, and test coverage, but visual parity is not signed off.
 - Item 22 makes “Done” measurable before more UI work starts.
 - Item 23 came before major restyling so shell, details, and OSA work share one visual system instead of duplicating Tailwind classes.
-- Item 23a keeps explicit partner-name data out of the item 24 UI PR while avoiding parser-based cover-name rendering.
-- Item 24 establishes the final panel/navigation contract before item 25 details and item 26 OSA plug into it.
-- Item 27 can run alongside UI work after item 23a because fixture gaps block visual acceptance but do not require the final components.
+- Item 23a kept explicit partner-name data out of the item 24 UI PR while avoiding parser-based cover-name rendering.
+- Item 24 established the final panel/navigation contract before item 25 details and item 26 OSA plug into it.
+- Item 27 supplied fixture and artifact coverage for visual review without committing generated baselines.
 - Hub and admin visual work are intentionally later/parallel so invite parity does not get blocked by unrelated design decisions.

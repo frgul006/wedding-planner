@@ -35,14 +35,16 @@ test.describe("admin auth smoke", () => {
 
 test.describe("public invite safety smoke", () => {
   for (const path of ["/invite", "/invite/not-a-real-token"] as const) {
-    test(`${path} shows only the generic invalid invite page`, async ({ page }) => {
+    test(`${path} shows the safe invalid invite page`, async ({ page }) => {
       await page.goto(path);
 
       await expect(
         page.getByRole("heading", { name: "Inbjudan saknas" }),
       ).toBeVisible();
-      await expect(page.getByText("Den här länken fungerade inte."))
-        .toBeVisible();
+      await expect(page.getByText("Den här länken", { exact: true })).toBeVisible();
+      await expect(page.getByText("fungerade inte.", { exact: true })).toBeVisible();
+      await expect(page.getByRole("link", { name: "osa@example.com" }))
+        .toHaveAttribute("href", "mailto:osa@example.com");
       await expect(page.getByText(SEEDED_GUESTS.firstTimeRsvp.name)).toHaveCount(0);
       await expect(page.getByText(SEEDED_GUESTS.existingRsvp.name)).toHaveCount(0);
       await expect(page.getByText("Fredrik <3 Matilda")).toHaveCount(0);
