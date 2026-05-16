@@ -19,6 +19,8 @@
   --invite-danger: #b34a2c;
   --invite-shadow: 0 18px 60px rgb(118 84 60 / 12%);
   --invite-font-display: "Iowan Old Style", "Bodoni 72", Didot, Georgia, serif;
+  --invite-font-ornament: "Apple Chancery", "Snell Roundhand", "Bodoni 72", "Iowan Old Style", Georgia,
+    serif;
   --invite-font-body: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   --invite-font-metadata: var(--font-geist-mono), "SFMono-Regular", Consolas, monospace;
   --invite-letter-wide: 0.28em;
@@ -87,4 +89,10 @@ body {
   font-family: var(--invite-font-metadata);
   letter-spacing: var(--invite-letter-wide);
   text-transform: uppercase;
+}
+
+.brevkort-ornament {
+  font-family: var(--invite-font-ornament);
+  font-style: italic;
+  font-weight: 400;
 }
