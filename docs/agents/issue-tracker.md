@@ -17,6 +17,12 @@ Use GitHub issues for both PRDs and implementation work, but keep their roles di
 
 When breaking a PRD into implementation issues, publish blockers first so later issues can reference real GitHub issue numbers. Add a checklist of child issues to the PRD body or a PRD comment when useful.
 
+## Ralph AFK runner
+
+The `ralph/` scripts consume open implementation issues labeled `ready-for-agent`. They ignore issues labeled `agent-in-progress` so parallel or repeated runs do not duplicate an active agent task.
+
+When Ralph starts work, it should add `agent-in-progress` to the selected issue. When Ralph opens a PR, the PR body should include `Closes #<issue-number>` and `agent-in-progress` should remain until the issue closes on merge. If the task cannot be completed, Ralph should comment with status and remove `agent-in-progress` unless the issue is intentionally blocked from future AFK pickup.
+
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body-file <file> --label "..."`. Use a temporary Markdown file for multi-line bodies.
