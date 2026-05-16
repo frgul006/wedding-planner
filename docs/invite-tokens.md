@@ -25,7 +25,7 @@ On `/admin/guests`:
 `/invite/[token]` validates a token by hashing the path token and looking up an active `invite_tokens` row. `/invite` without a token does not validate anything and renders the same safe invalid-link page.
 
 - Valid active token: displays the guest name and wedding event information from the linked `weddings` row.
-- Invalid, inactive, archived-guest, or missing token: displays a generic invalid-link message without guest or wedding data.
+- Invalid, inactive, archived-guest, or missing token: displays the safe invalid-link message without guest data, venue, schedule, RSVP state, or other event logistics. When a configured/default wedding has a public `invite_support_email`, the page may show that support email and explicit partner contact names so guests can request a fresh link; otherwise it falls back to generic host copy.
 
 ## Invite opened status
 
@@ -74,7 +74,7 @@ When the linked guest already has an RSVP response, the invite page shows the cu
 
 Submission is handled by a server action that hashes the raw URL token and calls the `public.submit_rsvp_response` database function. That function revalidates the active invite token and atomically upserts the response into `public.rsvp_responses` for the token's `guest_id` and `wedding_id`, with `updated_via_token_id` set to the active invite token. The linked guest's `phone`, `sms_opt_in`, and opt-in/out timestamps are saved to `public.guests`, and the linked guest's `invite_status` is updated in the same transaction to `rsvp yes`, `rsvp no`, or `rsvp maybe` to match the latest submitted attendance.
 
-Invalid, inactive, archived-guest, or missing-token pages keep rendering the generic invalid-link message and never show the RSVP form.
+Invalid, inactive, archived-guest, or missing-token pages keep rendering the safe invalid-link message and never show the RSVP form.
 
 ## Local validation
 

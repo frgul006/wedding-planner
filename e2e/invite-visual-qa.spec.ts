@@ -58,19 +58,27 @@ async function waitForStableInviteVisuals(page: Page) {
   });
 }
 
+async function captureNamedInviteVisualScreenshot(
+  page: Page,
+  testInfo: TestInfo,
+  name: string,
+) {
+  const screenshotPath = testInfo.outputPath("invite-visual-qa", `${name}.png`);
+
+  await mkdir(dirname(screenshotPath), { recursive: true });
+  await page.screenshot({ path: screenshotPath });
+  await testInfo.attach(`${name}.png`, {
+    contentType: "image/png",
+    path: screenshotPath,
+  });
+}
+
 async function captureInviteVisualScreenshot(
   page: Page,
   testInfo: TestInfo,
   state: InviteVisualState,
 ) {
-  const screenshotPath = testInfo.outputPath("invite-visual-qa", `${state.name}.png`);
-
-  await mkdir(dirname(screenshotPath), { recursive: true });
-  await page.screenshot({ path: screenshotPath });
-  await testInfo.attach(`${state.name}.png`, {
-    contentType: "image/png",
-    path: screenshotPath,
-  });
+  await captureNamedInviteVisualScreenshot(page, testInfo, state.name);
 }
 
 async function fillRsvpVisualValues(
@@ -358,6 +366,21 @@ test.describe.serial("invite visual QA screenshots", () => {
 
   test.beforeEach(async () => {
     await seedInviteVisualFixtures();
+  });
+
+  test("captures invalid link visual artifact", async ({ page }, testInfo) => {
+    await page.goto("/invite/not-a-real-token");
+    await waitForStableInviteVisuals(page);
+
+    await expect(page.getByRole("heading", { name: "Inbjudan saknas" }))
+      .toBeVisible();
+    await expect(page.getByText("Den här länken", { exact: true })).toBeVisible();
+    await expect(page.getByText("fungerade inte.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "osa@example.com" }))
+      .toHaveAttribute("href", "mailto:osa@example.com");
+    await expect(page.getByTestId("invite-panel-carousel")).toHaveCount(0);
+
+    await captureNamedInviteVisualScreenshot(page, testInfo, "invalid-link");
   });
 
   for (const state of visualStates) {

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
 
+import { getInviteSupportContact } from "@/lib/invite-support-contact";
 import { markInviteOpened, validateInviteToken } from "@/lib/invite-tokens";
 import { RSVP_ATTENDANCE, type RsvpAttendance } from "@/lib/rsvp-attendance";
 import { getSafeHttpUrl } from "@/lib/safe-url";
@@ -687,7 +688,9 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   const result = await validateInviteToken(token);
 
   if (!result.isValid) {
-    return <InvalidInviteMessage />;
+    const supportContact = await getInviteSupportContact();
+
+    return <InvalidInviteMessage supportContact={supportContact} />;
   }
 
   await markInviteOpened({ guestId: result.guestId, weddingId: result.weddingId });
