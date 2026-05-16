@@ -18,7 +18,6 @@ import {
   BrevkortChoiceCard,
   BrevkortErrorText,
   BrevkortHeading,
-  BrevkortKicker,
   BrevkortLegend,
   BrevkortStatusStrip,
   BrevkortTextInput,
@@ -256,9 +255,9 @@ function Confirmation({
   const hasPlusOne = rsvpResponse.extra_guests > 0 && rsvpResponse.plus_one_name;
 
   return (
-    <BrevkortCard className="mt-8 bg-invite-paper-light p-6 text-center sm:p-8">
+    <BrevkortCard className="bg-invite-paper-light p-6 text-center sm:p-8">
       <p className="brevkort-display text-4xl text-invite-walnut">❦</p>
-      <BrevkortHeading className="mt-4 text-4xl" level={3}>
+      <BrevkortHeading className="mt-4 text-4xl" id="osa-heading" level={3}>
         Tack {getGuestFirstName(guestName)}
       </BrevkortHeading>
       <BrevkortBodyText className="mx-auto mt-3 max-w-md">
@@ -356,9 +355,8 @@ export function RsvpPanel({
   }
 
   return (
-    <BrevkortCard className="mt-8 bg-invite-paper-light p-6 sm:p-8">
-      <BrevkortKicker>Sida tre</BrevkortKicker>
-      <BrevkortHeading className="mt-3 text-4xl" level={3}>
+    <BrevkortCard className="bg-invite-paper-light p-6 sm:p-8">
+      <BrevkortHeading className="text-4xl" id="osa-heading" level={3}>
         {hasExistingRsvp ? "Uppdatera svar" : "Låt oss veta"}
       </BrevkortHeading>
       <BrevkortBodyText className="mt-3 max-w-2xl">

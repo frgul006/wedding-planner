@@ -747,14 +747,6 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
 
           <PanelShell activeIndex={2} coupleMark={coupleMark}>
             <div className="px-2 py-8 sm:px-6">
-              <BrevkortKicker>Svara när du kan</BrevkortKicker>
-              <BrevkortHeading className="mt-3 text-4xl" id="osa-heading">
-                OSA
-              </BrevkortHeading>
-              <BrevkortBodyText className="mt-3 max-w-2xl">
-                Svara eller uppdatera ditt svar här när du vet om du kan komma.
-              </BrevkortBodyText>
-
               <RsvpPanel
                 guest={guest}
                 rawToken={token}

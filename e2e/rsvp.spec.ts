@@ -176,7 +176,21 @@ test.describe("RSVP, invite status, and phone capture", () => {
     );
 
     await page.goto(inviteOsaPathForToken(token));
-    await expect(page.getByRole("heading", { name: "OSA" })).toBeVisible();
+    const osaPanel = page.locator("#osa");
+    await expect(page.getByRole("heading", { name: "Låt oss veta" })).toBeVisible();
+    await expect(osaPanel.getByText(/03\/03/)).toBeVisible();
+    await expect(osaPanel.getByText("OSA", { exact: true })).toBeVisible();
+    await expect(osaPanel.getByRole("link", { name: "Gå till OSA" }))
+      .toHaveAttribute("aria-current", "step");
+    await expect(osaPanel.getByText("Svara när du kan", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "OSA" })).toHaveCount(0);
+    await expect(
+      osaPanel.getByText(
+        "Svara eller uppdatera ditt svar här när du vet om du kan komma.",
+        { exact: true },
+      ),
+    ).toHaveCount(0);
+    await expect(osaPanel.getByText("Sida tre", { exact: true })).toHaveCount(0);
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
       .toBe(INVITE_STATUS.opened);
@@ -188,10 +202,11 @@ test.describe("RSVP, invite status, and phone capture", () => {
       phone: "",
     });
 
-    const osaPanel = page.locator("#osa");
     await expect(page.getByRole("heading", { name: `Tack ${guestName.split(" ").at(0)}` })).toBeVisible();
     await expect(osaPanel.getByText("jag kommer gärna")).toBeVisible();
     await expect(page.getByRole("button", { name: "Uppdatera mitt svar" })).toBeVisible();
+    await expect(osaPanel.getByText("Svara när du kan", { exact: true })).toHaveCount(0);
+    await expect(osaPanel.getByText("Sida tre", { exact: true })).toHaveCount(0);
 
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
@@ -231,7 +246,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
     });
 
     await page.goto(inviteOsaPathForToken(token));
-    await expect(page.getByRole("heading", { name: "OSA" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Låt oss veta" })).toBeVisible();
 
     await submitRsvp(page, {
       attendance: RSVP_ATTENDANCE.yes,
@@ -298,7 +313,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
     });
 
     await page.goto(inviteOsaPathForToken(token));
-    await expect(page.getByRole("heading", { name: "OSA" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Låt oss veta" })).toBeVisible();
 
     await page.getByLabel(/Skicka mig viktiga SMS/).check();
     await page.getByRole("button", { name: /^Skicka mitt svar/ }).click();
@@ -334,7 +349,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
     });
 
     await page.goto(inviteOsaPathForToken(token));
-    await expect(page.getByRole("heading", { name: "OSA" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Låt oss veta" })).toBeVisible();
     await page.getByRole("textbox", { name: "Matpreferens" }).first().fill(
       "Pending vegetarian meal",
     );
@@ -364,7 +379,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
     });
 
     await page.goto(inviteOsaPathForToken(token));
-    await expect(page.getByRole("heading", { name: "OSA" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Låt oss veta" })).toBeVisible();
     await page.getByRole("textbox", { name: "Telefon" }).first().fill("+46701234567");
     await page.getByRole("textbox", { name: "Matpreferens" }).first().fill("Save error vegetarian");
 
@@ -457,7 +472,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
     });
 
     await page.goto(inviteOsaPathForToken(token));
-    await expect(page.getByRole("heading", { name: "OSA" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Låt oss veta" })).toBeVisible();
     await expect(page.getByRole("radio", { name: /^Ja\s+\+1 gäst$/ })).toHaveCount(0);
     await expect(page.getByRole("radio", { name: /^Nej\s+bara jag$/ })).toHaveCount(0);
 
