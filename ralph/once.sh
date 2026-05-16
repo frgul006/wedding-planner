@@ -5,9 +5,9 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "$script_dir/.." && pwd)"
 cd "$repo_root"
 
-issues=$("$script_dir/github-ready-issues.sh")
+issues=$("$script_dir/claim-next-issue.sh")
 
-if [[ "$issues" == "No open GitHub issues"* ]]; then
+if [[ "$issues" == "No open GitHub implementation issues"* ]]; then
   echo "$issues"
   echo "<promise>NO MORE TASKS</promise>"
   exit 0
@@ -20,7 +20,7 @@ pi "$(cat <<EOF
 Previous commits:
 $commits
 
-GitHub ready-for-agent issues:
+Claimed GitHub ready-for-agent issue:
 $issues
 
 $prompt

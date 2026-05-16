@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd -- "$script_dir/.." && pwd)"
+cd "$repo_root"
+
 limit="${1:-${RALPH_ISSUE_LIMIT:-20}}"
+search='label:"ready-for-agent" -label:"agent-in-progress" -label:prd'
 
 if ! command -v gh >/dev/null 2>&1; then
   echo "gh CLI is required to fetch GitHub issues" >&2
@@ -15,18 +20,14 @@ fi
 
 issues_json=$(gh issue list \
   --state open \
-  --label ready-for-agent \
+  --search "$search" \
   --limit "$limit" \
-  --json number,labels)
+  --json number)
 
-numbers=$(jq -r '
-  .[]
-  | select(([.labels[].name] | index("agent-in-progress")) | not)
-  | .number
-' <<<"$issues_json")
+numbers=$(jq -r '.[].number' <<<"$issues_json")
 
 if [[ -z "$numbers" ]]; then
-  echo "No open GitHub issues labeled ready-for-agent without agent-in-progress."
+  echo "No open GitHub implementation issues labeled ready-for-agent without agent-in-progress."
   exit 0
 fi
 

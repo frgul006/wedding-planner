@@ -12,16 +12,18 @@ New issues and PRDs for this repo live as GitHub issues in `frgul006/wedding-pla
 
 Use GitHub issues for both PRDs and implementation work, but keep their roles distinct:
 
-- **PRD issue** — the parent/specification container: problem, solution, user stories, decisions, acceptance criteria, and links to child issues. Apply the `prd` label when available.
-- **Implementation issue** — one independently doable vertical slice. Link it back to the parent PRD with `Parent PRD: #<number>` when applicable.
+- **PRD issue** — the parent/specification container: problem, solution, user stories, decisions, acceptance criteria, and links to child issues. Apply the `prd` label. Do **not** apply `ready-for-agent` to PRD/container issues; Ralph only works implementation slices.
+- **Implementation issue** — one independently doable vertical slice. Link it back to the parent PRD with `Parent PRD: #<number>` when applicable. Apply `ready-for-agent` only when the issue is ready for AFK pickup.
 
 When breaking a PRD into implementation issues, publish blockers first so later issues can reference real GitHub issue numbers. Add a checklist of child issues to the PRD body or a PRD comment when useful.
 
 ## Ralph AFK runner
 
-The `ralph/` scripts consume open implementation issues labeled `ready-for-agent`. They ignore issues labeled `agent-in-progress` so parallel or repeated runs do not duplicate an active agent task.
+The `ralph/` scripts consume open implementation issues labeled `ready-for-agent`, excluding issues labeled `prd` or `agent-in-progress`. They claim one issue before invoking Pi so parallel local Ralph runs do not duplicate an active agent task.
 
-When Ralph starts work, it should add `agent-in-progress` to the selected issue. When Ralph opens a PR, the PR body should include `Closes #<issue-number>` and `agent-in-progress` should remain until the issue closes on merge. If the task cannot be completed, Ralph should comment with status and remove `agent-in-progress` unless the issue is intentionally blocked from future AFK pickup.
+When Ralph starts work, the wrapper adds `agent-in-progress` to the selected issue. When Ralph opens a PR, the PR body should include `Closes #<issue-number>` and `agent-in-progress` should remain until the issue closes on merge. If the task cannot be completed, Ralph should comment with status and remove `agent-in-progress` unless an open PR should keep the issue reserved.
+
+If a PR for an `agent-in-progress` issue is closed without merging, remove `agent-in-progress` or move the issue to `needs-info` / `ready-for-human` so it does not disappear from AFK pickup indefinitely.
 
 ## Conventions
 

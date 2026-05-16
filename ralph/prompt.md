@@ -1,10 +1,10 @@
 # ISSUES
 
-GitHub issues labeled `ready-for-agent` are provided at start of context. Parse them to understand the eligible work.
+One GitHub implementation issue labeled `ready-for-agent` is provided at start of context. The Ralph wrapper has already claimed it by adding `agent-in-progress`.
 
 Ralph works from GitHub Issues, not local `issues/*.md` files. Existing local issue and PRD files may be useful reference material if a GitHub issue links to them, but they are not the task queue.
 
-Work on AFK issues only. If an issue looks HITL, underspecified, blocked, or unsafe for an unattended agent, do not implement it; comment on the GitHub issue and move it to the appropriate state label (`needs-info` or `ready-for-human`).
+Work on AFK implementation issues only. PRD/container issues are not eligible Ralph tasks. If the claimed issue looks like a PRD, HITL task, underspecified task, blocked task, or unsafe unattended task, do not implement it; comment on the GitHub issue, move it to the appropriate state label (`needs-info` or `ready-for-human`), remove `agent-in-progress`, and stop.
 
 You've also been passed a file containing the last few commits. Review these to understand what work has been done.
 
@@ -12,7 +12,7 @@ If all eligible AFK tasks are complete, output <promise>NO MORE TASKS</promise>.
 
 # TASK SELECTION
 
-Pick exactly one GitHub issue. Prioritize tasks in this order:
+The wrapper has already selected and claimed exactly one GitHub issue. Implement that issue only. For future triage, Ralph prioritizes tasks in this order:
 
 1. Critical bugfixes
 2. Development infrastructure
@@ -28,11 +28,7 @@ TL;DR - build a tiny, end-to-end slice of the feature first, then expand it out.
 4. Polish and quick wins
 5. Refactors
 
-Before changing code, claim the selected issue so parallel Ralph runs do not duplicate work:
-
-```bash
-gh issue edit <issue-number> --add-label agent-in-progress
-```
+Before changing code, verify the issue is still open, still labeled `ready-for-agent`, and not labeled `prd`. If it is no longer eligible, comment with the reason, remove `agent-in-progress`, and stop.
 
 # EXPLORATION
 
@@ -77,8 +73,8 @@ If the task is complete:
 If the task is not complete:
 
 - Add a GitHub issue comment describing what was done and what remains.
-- Remove `agent-in-progress` if another agent can safely continue later.
-- If the issue needs human input or cannot be implemented AFK, replace `ready-for-agent` with `needs-info` or `ready-for-human` as appropriate.
+- Remove `agent-in-progress` unless there is an open PR that should keep the issue reserved.
+- If the issue needs human input or cannot be implemented AFK, replace `ready-for-agent` with `needs-info` or `ready-for-human` as appropriate and remove `agent-in-progress`.
 
 # FINAL RULES
 

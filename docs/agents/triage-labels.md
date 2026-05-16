@@ -16,7 +16,7 @@ Category labels use the existing GitHub labels `bug` and `enhancement`.
 
 Non-triage helper labels:
 
-- `prd` — PRD/container issue.
-- `agent-in-progress` — Ralph or another AFK agent has claimed the issue or has an open PR for it; Ralph excludes these from future pickup.
+- `prd` — PRD/container issue. Do not combine with `ready-for-agent`; create child implementation issues for Ralph/AFK work.
+- `agent-in-progress` — Ralph or another AFK agent has claimed the issue or has an open PR for it; Ralph excludes these from future pickup. Remove it if the PR closes without merging or the issue moves out of `ready-for-agent`.
 
 Edit the right-hand column to match whatever vocabulary you actually use.

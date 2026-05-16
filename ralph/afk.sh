@@ -26,9 +26,9 @@ for ((i=1; i<=$1; i++)); do
   tmpfile=$(mktemp)
   tmpfiles+=("$tmpfile")
 
-  issues=$("$script_dir/github-ready-issues.sh")
+  issues=$("$script_dir/claim-next-issue.sh")
 
-  if [[ "$issues" == "No open GitHub issues"* ]]; then
+  if [[ "$issues" == "No open GitHub implementation issues"* ]]; then
     echo "$issues"
     echo "Ralph complete after $((i - 1)) iterations."
     exit 0
@@ -44,7 +44,7 @@ for ((i=1; i<=$1; i++)); do
 Previous commits:
 $commits
 
-GitHub ready-for-agent issues:
+Claimed GitHub ready-for-agent issue:
 $issues
 
 $prompt
