@@ -242,7 +242,7 @@ pnpm test:e2e:ui
 pnpm test:e2e e2e/invite-visual-qa.spec.ts
 ```
 
-The invite visual QA spec visits the deterministic seeded invite fixture URLs and captures screenshots as Playwright artifacts. Find local screenshots under `test-results/e2e/**/invite-visual-qa/*.png`, or open the HTML report with `pnpm exec playwright show-report` to browse attached captures. `test-results/` and `playwright-report/` are ignored so generated screenshots stay uncommitted by default.
+The invite visual QA spec visits the deterministic seeded invite fixture URLs and captures screenshots as Playwright artifacts, including transient OSA submitting and save-error states produced by Playwright route control. Find local screenshots under `test-results/e2e/**/invite-visual-qa/*.png`, or open the HTML report with `pnpm exec playwright show-report` to browse attached captures. `test-results/` and `playwright-report/` are ignored so generated screenshots stay uncommitted by default.
 
 By default, Playwright starts the Next.js dev server on `http://127.0.0.1:3000`. Set `PLAYWRIGHT_SKIP_WEB_SERVER=1` and `PLAYWRIGHT_BASE_URL` to target an already-running app.
 

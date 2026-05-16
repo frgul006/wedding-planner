@@ -210,6 +210,30 @@ export function getInviteVisualFixture(key: string) {
   return fixture;
 }
 
+export async function invalidateInviteVisualFixtureToken(
+  fixture: InviteVisualFixtureWithPaths,
+  supabase = createE2eSupabaseAdminClient(),
+) {
+  const { data, error } = await supabase
+    .from("invite_tokens")
+    .update({
+      invalidated_at: new Date().toISOString(),
+      is_active: false,
+    })
+    .eq("wedding_id", SEEDED_WEDDING_ID)
+    .eq("token_hash", hashInviteToken(fixture.token))
+    .select("id")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data || typeof data.id !== "string") {
+    throw new Error(`Expected invite visual fixture token for ${fixture.key}.`);
+  }
+}
+
 export async function resetInviteVisualFixtures(
   supabase = createE2eSupabaseAdminClient(),
 ) {
