@@ -14,15 +14,15 @@ If any of these files don't exist, **proceed silently**. Don't flag their absenc
 
 ## File structure
 
-Single-context repo (this repo's configured layout):
+Single-context repo (this repo's configured layout, created lazily when needed):
 
 ```
 /
 ├── CONTEXT.md
 ├── docs/adr/
-│   ├── 0001-event-sourced-orders.md
-│   └── 0002-postgres-for-write-model.md
-└── src/
+│   ├── 0001-record-architecture-decision.md
+│   └── 0002-record-integration-choice.md
+└── app/
 ```
 
 Multi-context repo (presence of `CONTEXT-MAP.md` at the root):

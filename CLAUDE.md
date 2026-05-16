@@ -4,7 +4,7 @@
 
 ### Issue tracker
 
-Issues and PRDs are tracked in GitHub Issues for `frgul006/wedding-planner`. See `docs/agents/issue-tracker.md`.
+New issues and PRDs are tracked in GitHub Issues for `frgul006/wedding-planner`; existing local issue/PRD files are historical/reference material. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
