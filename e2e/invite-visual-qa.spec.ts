@@ -5,10 +5,12 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 import {
   getInviteVisualFixture,
+  invalidateInviteVisualFixtureToken,
   seedInviteVisualFixtures,
 } from "./support/invite-visual-fixtures";
 
 type InviteVisualFixture = ReturnType<typeof getInviteVisualFixture>;
+type InviteVisualStateCleanup = () => Promise<void> | void;
 
 type InviteVisualState = {
   assertState: (page: Page, fixture: InviteVisualFixture) => Promise<void>;
@@ -16,10 +18,26 @@ type InviteVisualState = {
   heading: string;
   name: string;
   panelLabel: "Detaljer" | "OSA";
+  prepareState?: (
+    page: Page,
+    fixture: InviteVisualFixture,
+  ) => Promise<InviteVisualStateCleanup | void>;
   title: string;
 };
 
 const screenshotViewport = { height: 844, width: 390 } as const;
+const inviteRoutePattern = "**/invite/**";
+
+const transientRsvpValues = {
+  saveError: {
+    foodPreference: "Save-error vegetarisk meny",
+    phone: "+46700000992",
+  },
+  submitting: {
+    foodPreference: "Skickar vegetarisk meny",
+    phone: "+46700000991",
+  },
+} as const;
 
 async function waitForStableInviteVisuals(page: Page) {
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
@@ -40,6 +58,81 @@ async function captureInviteVisualScreenshot(
   await testInfo.attach(`${state.name}.png`, {
     contentType: "image/png",
     path: screenshotPath,
+  });
+}
+
+async function fillRsvpVisualValues(
+  page: Page,
+  values: { foodPreference: string; phone: string },
+) {
+  await page.getByRole("textbox", { name: "Telefon" }).first().fill(values.phone);
+  await page.getByRole("textbox", { name: "Matpreferens" }).first().fill(
+    values.foodPreference,
+  );
+}
+
+async function assertRsvpVisualValues(
+  page: Page,
+  values: { foodPreference: string; phone: string },
+) {
+  await expect(page.getByRole("textbox", { name: "Telefon" }).first()).toHaveValue(
+    values.phone,
+  );
+  await expect(page.getByRole("textbox", { name: "Matpreferens" }).first()).toHaveValue(
+    values.foodPreference,
+  );
+}
+
+async function delayNextInvitePost(page: Page) {
+  let releaseSubmit: (() => void) | null = null;
+  let resolveSubmitStarted!: () => void;
+  let hasHandledPost = false;
+  const submitStarted = new Promise<void>((resolve) => {
+    resolveSubmitStarted = resolve;
+  });
+
+  await page.route(inviteRoutePattern, async (route) => {
+    if (route.request().method() !== "POST" || hasHandledPost) {
+      await route.continue();
+      return;
+    }
+
+    hasHandledPost = true;
+    resolveSubmitStarted();
+    await new Promise<void>((resume) => {
+      releaseSubmit = resume;
+    });
+    await route.continue();
+  });
+
+  return {
+    release() {
+      if (!releaseSubmit) {
+        throw new Error("Invite POST was not intercepted before release.");
+      }
+
+      releaseSubmit();
+    },
+    submitStarted,
+  };
+}
+
+async function failNextInvitePostWithInvalidatedToken(
+  page: Page,
+  fixture: InviteVisualFixture,
+) {
+  let hasHandledPost = false;
+
+  await page.route(inviteRoutePattern, async (route) => {
+    if (route.request().method() !== "POST" || hasHandledPost) {
+      await route.continue();
+      return;
+    }
+
+    hasHandledPost = true;
+    await invalidateInviteVisualFixtureToken(fixture);
+    const response = await route.fetch();
+    await route.fulfill({ response });
   });
 }
 
@@ -125,6 +218,56 @@ const visualStates: InviteVisualState[] = [
       await expect(
         page.getByText(`Personlig inbjudan för ${fixture.guest.fullName}`),
       ).toBeVisible();
+      await expect(page.getByRole("button", { name: "Skickar…" })).toBeDisabled();
+      await assertRsvpVisualValues(page, transientRsvpValues.submitting);
+    },
+    fixtureKey: "rsvpMaybe",
+    heading: "OSA",
+    name: "rsvp-submitting-osa",
+    panelLabel: "OSA",
+    prepareState: async (page) => {
+      const delayedSubmit = await delayNextInvitePost(page);
+
+      await fillRsvpVisualValues(page, transientRsvpValues.submitting);
+      await page.getByRole("button", { name: /^Spara ändringar/ }).click();
+      await delayedSubmit.submitStarted;
+
+      return async () => {
+        delayedSubmit.release();
+        await expect(page.getByRole("heading", { name: /^Tack Visual/ })).toBeVisible();
+      };
+    },
+    title: "RSVP submitting",
+  },
+  {
+    assertState: async (page, fixture) => {
+      await expect(
+        page.getByText(`Personlig inbjudan för ${fixture.guest.fullName}`),
+      ).toBeVisible();
+      await expect(page.getByText("Kunde inte spara")).toBeVisible();
+      await expect(
+        page.getByText(
+          "Inbjudningslänken kunde inte verifieras. Be om en ny länk och försök igen.",
+        ),
+      ).toBeVisible();
+      await assertRsvpVisualValues(page, transientRsvpValues.saveError);
+    },
+    fixtureKey: "rsvpMaybe",
+    heading: "OSA",
+    name: "rsvp-save-error-osa",
+    panelLabel: "OSA",
+    prepareState: async (page, fixture) => {
+      await failNextInvitePostWithInvalidatedToken(page, fixture);
+      await fillRsvpVisualValues(page, transientRsvpValues.saveError);
+      await page.getByRole("button", { name: /^Spara ändringar/ }).click();
+    },
+    title: "RSVP save error",
+  },
+  {
+    assertState: async (page, fixture) => {
+      await expect(
+        page.getByText(`Personlig inbjudan för ${fixture.guest.fullName}`),
+      ).toBeVisible();
       const updatesSection = page.locator("section", {
         has: page.getByRole("heading", { name: "Uppdateringar" }),
       });
@@ -149,7 +292,7 @@ const visualStates: InviteVisualState[] = [
 test.describe.serial("invite visual QA screenshots", () => {
   test.use({ viewport: screenshotViewport });
 
-  test.beforeAll(async () => {
+  test.beforeEach(async () => {
     await seedInviteVisualFixtures();
   });
 
@@ -157,12 +300,19 @@ test.describe.serial("invite visual QA screenshots", () => {
     test(`captures ${state.title} visual artifact`, async ({ page }, testInfo) => {
       const fixture = getInviteVisualFixture(state.fixtureKey);
 
-      await page.goto(fixture.primaryPath);
-      await waitForStableInviteVisuals(page);
-      await expect(page).toHaveTitle(/Inbjudan/);
-      await assertActivePanelNavigation(page, fixture, state);
-      await state.assertState(page, fixture);
-      await captureInviteVisualScreenshot(page, testInfo, state);
+      let cleanup: InviteVisualStateCleanup | void;
+
+      try {
+        await page.goto(fixture.primaryPath);
+        await waitForStableInviteVisuals(page);
+        await expect(page).toHaveTitle(/Inbjudan/);
+        await assertActivePanelNavigation(page, fixture, state);
+        cleanup = await state.prepareState?.(page, fixture);
+        await state.assertState(page, fixture);
+        await captureInviteVisualScreenshot(page, testInfo, state);
+      } finally {
+        await cleanup?.();
+      }
     });
   }
 });
