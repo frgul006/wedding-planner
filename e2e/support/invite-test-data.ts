@@ -24,6 +24,7 @@ type CreateInviteTestGuestOptions = {
   plusOnePhone?: string | null;
   plusOneSmsOptIn?: boolean;
   token: string;
+  weddingId?: string;
 };
 
 export function uniqueInviteToken(label: string) {
@@ -47,6 +48,7 @@ export async function createInviteTestGuest({
   plusOnePhone = null,
   plusOneSmsOptIn = false,
   token,
+  weddingId = SEEDED_WEDDING_ID,
 }: CreateInviteTestGuestOptions) {
   const supabase = createE2eSupabaseAdminClient();
   const { data: guest, error: guestError } = await supabase
@@ -58,7 +60,7 @@ export async function createInviteTestGuest({
       notes,
       phone,
       plus_one_allowed: plusOneAllowed,
-      wedding_id: SEEDED_WEDDING_ID,
+      wedding_id: weddingId,
     })
     .select("id")
     .single();
@@ -73,7 +75,7 @@ export async function createInviteTestGuest({
       guest_id: guest.id,
       is_active: true,
       token_hash: hashInviteToken(token),
-      wedding_id: SEEDED_WEDDING_ID,
+      wedding_id: weddingId,
     })
     .select("id")
     .single();
@@ -97,7 +99,7 @@ export async function createInviteTestGuest({
       plus_one_sms_opt_in: plusOneSmsOptIn,
       plus_one_sms_opted_in_at: plusOneSmsOptIn ? new Date().toISOString() : null,
       updated_via_token_id: inviteToken.id,
-      wedding_id: SEEDED_WEDDING_ID,
+      wedding_id: weddingId,
     });
 
     if (rsvpError) {

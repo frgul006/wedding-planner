@@ -52,7 +52,7 @@ Valid invite pages render the Brevkort three-panel invite shell:
    - latest five published wedding updates in reverse `updated_at` order
 3. `OSA` with the Brevkort RSVP states: default/edit form, allowed +1 expansion, inline validation/save errors, and submitted `Tack` confirmation.
 
-Missing optional text or list fields show `Kommer snart`; missing map URLs show `Kartlänk kommer snart`, and missing playlist URLs show non-clickable coming-soon text. If no updates are published, guests see `Inga uppdateringar än.`
+Missing optional text or list fields show `Kommer snart`; missing map URLs show `Kartlänk kommer snart`, and missing playlist URLs show non-clickable coming-soon text. If no updates are published, the guest-facing `Uppdateringar` section is omitted.
 
 ## RSVP submission
 
