@@ -25,24 +25,13 @@ Therefore, Vercel branch preview deployments currently connect to the same Supab
 
 For production migration and bootstrap procedures, see [`production-database.md`](production-database.md).
 
-## Production deployment gate
+## Production deployments
 
-Vercel's automatic Git deployment for the `main` branch is intentionally skipped by the [`vercel.json`](../vercel.json) ignore command. The [`CI` workflow](../.github/workflows/ci.yml) deploys production instead, and only when a push to `main` has completed both required jobs successfully:
+Production deployments use Vercel's default Git integration for the `main` branch. A push to `main` lets Vercel build and deploy the production app with the environment variables configured in the Vercel project.
 
-- `lint-and-build`, which runs `pnpm lint` and `pnpm build`
-- `e2e`, which runs the Playwright regression suite on every non-PR event, including `main` pushes
+The [`CI` workflow](../.github/workflows/ci.yml) still runs `lint-and-build` and `e2e` on `main` pushes, but it does not build or deploy production artifacts. This keeps production builds inside Vercel so runtime and build-time environment variable handling matches Vercel's platform behavior.
 
-Non-`main` Vercel Git deployments are not skipped by the ignore command, so branch Preview deployments keep their normal Vercel behavior.
-
-The production deploy job runs in the GitHub `Production` environment and requires these environment secrets:
-
-- `VERCEL_TOKEN`
-- `VERCEL_ORG_ID`
-- `VERCEL_PROJECT_ID`
-
-Create `VERCEL_TOKEN` in Vercel account settings. To find the org/project IDs, run `vercel link --yes --scope mjaox-wedding-planner --project wedding-planner` locally and copy the `orgId` and `projectId` values from `.vercel/project.json`; `.vercel/` is gitignored and should not be committed. Add all three values (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`) as secrets on the GitHub repository's `Production` environment, not only as repository-level secrets.
-
-The deploy job installs the latest Vercel CLI, pulls the Vercel production environment, builds with `vercel build --prod`, then deploys the prebuilt artifact with `vercel deploy --prebuilt --prod`. If lint, build, or e2e fails, the deploy job does not run and Vercel production is not updated.
+Preview deployments continue to use Vercel's normal non-`main` Git deployment behavior.
 
 ## Captured evidence from the 2026-05-14 check
 
