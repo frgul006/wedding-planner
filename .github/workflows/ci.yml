@@ -200,6 +200,14 @@ jobs:
           PLAYWRIGHT_USE_SYSTEM_CHROME: ${{ steps.system-chrome.outputs.available }}
         run: pnpm test:e2e
 
+      - name: Upload invite visual QA screenshots
+        if: always() && steps.e2e-changes.outputs.run-e2e == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: invite-visual-qa-screenshots
+          path: test-results/e2e/**/invite-visual-qa/*.png
+          if-no-files-found: ignore
+
       - name: Upload Playwright artifacts
         if: failure() && steps.e2e-changes.outputs.run-e2e == 'true'
         uses: actions/upload-artifact@v6
