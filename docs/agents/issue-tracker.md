@@ -19,11 +19,11 @@ When breaking a PRD into implementation issues, publish blockers first so later 
 
 ## Ralph AFK runner
 
-The `ralph/` scripts consume open implementation issues labeled `ready-for-agent`, excluding issues labeled `prd` or `agent-in-progress`. They claim one issue before invoking Pi so parallel local Ralph runs do not duplicate an active agent task.
+The `ralph/` scripts consume open implementation issues labeled `ready-for-agent`, excluding issues labeled `prd` or `agent-in-progress`. They claim one issue before invoking Pi, using a shared local git lock plus the `agent-in-progress` label so parallel Ralph runs from sibling worktrees do not duplicate an active agent task.
 
-When Ralph starts work, the wrapper adds `agent-in-progress` to the selected issue. When Ralph opens a PR, the PR body should include `Closes #<issue-number>` and `agent-in-progress` should remain until the issue closes on merge. If the task cannot be completed, Ralph should comment with status and remove `agent-in-progress` unless an open PR should keep the issue reserved.
+When Ralph starts work, the wrapper adds `agent-in-progress` to the selected issue. If startup or Pi invocation fails, the wrapper removes that label. When Ralph opens a PR, the PR body should include `Closes #<issue-number>` and `agent-in-progress` should remain until the issue closes on merge. If the task cannot be completed, Ralph should comment with status and remove `agent-in-progress` unless an open PR should keep the issue reserved.
 
-If a PR for an `agent-in-progress` issue is closed without merging, remove `agent-in-progress` or move the issue to `needs-info` / `ready-for-human` so it does not disappear from AFK pickup indefinitely.
+If a run is killed hard or a PR for an `agent-in-progress` issue is closed without merging, remove `agent-in-progress` or move the issue to `needs-info` / `ready-for-human` so it does not disappear from AFK pickup indefinitely.
 
 ## Conventions
 

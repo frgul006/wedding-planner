@@ -6,8 +6,11 @@ repo_root="$(cd -- "$script_dir/.." && pwd)"
 cd "$repo_root"
 
 search='label:"ready-for-agent" -label:"agent-in-progress" -label:prd'
-lock_dir="$(git rev-parse --git-path ralph-claim.lock 2>/dev/null || printf '%s/.ralph-claim.lock' "$repo_root")"
+git_common_dir="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || printf '%s' "$repo_root")"
+lock_dir="$git_common_dir/ralph-claim.lock"
 mkdir -p "$(dirname "$lock_dir")"
+claimed=0
+number=""
 
 if ! command -v gh >/dev/null 2>&1; then
   echo "gh CLI is required to claim GitHub issues" >&2
@@ -34,6 +37,10 @@ if [[ "$locked" != "1" ]]; then
 fi
 
 cleanup() {
+  status=$?
+  if [[ "$status" -ne 0 && "$claimed" == "1" && -n "$number" ]]; then
+    gh issue edit "$number" --remove-label agent-in-progress >/dev/null 2>&1 || true
+  fi
   rmdir "$lock_dir" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -51,6 +58,7 @@ if [[ -z "$number" ]]; then
 fi
 
 gh issue edit "$number" --add-label agent-in-progress >/dev/null
+claimed=1
 
 gh issue view "$number" \
   --comments \
