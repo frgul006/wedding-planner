@@ -99,7 +99,12 @@ test.describe("valid invite smoke", () => {
     const updatesSection = page.locator("section", {
       has: page.getByRole("heading", { name: "Uppdateringar" }),
     });
-    await expect(updatesSection.getByText("Inga uppdateringar än.")).toBeVisible();
+    await expect(
+      updatesSection.getByRole("heading", { name: "Visual Fixture: Transport" }),
+    ).toBeVisible();
+    await expect(
+      updatesSection.getByText("Bussar avgår från hotellet kl. 15:45."),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Skicka mitt svar →" })).toBeVisible();
   });
 });

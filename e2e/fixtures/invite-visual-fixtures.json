@@ -1,0 +1,119 @@
+{
+  "weddingId": "00000000-0000-0000-0000-000000000001",
+  "fixtures": [
+    {
+      "key": "rsvpNo",
+      "label": "RSVP Nej saved answer",
+      "token": "visual-rsvp-no-saved",
+      "primaryHash": "osa",
+      "guest": {
+        "id": "20000000-0000-0000-0000-000000000001",
+        "fullName": "Visual Fixture RSVP Nej",
+        "email": "visual-rsvp-no@example.com",
+        "phone": null,
+        "notes": "Stable visual fixture: RSVP Nej saved-answer/edit state.",
+        "inviteStatus": "rsvp no",
+        "plusOneAllowed": false,
+        "smsOptIn": false
+      },
+      "rsvp": {
+        "attendance": "no",
+        "extraGuests": 0,
+        "foodPreference": "Ej aktuellt",
+        "allergyNotes": "Tackar nej till middag.",
+        "plusOneName": null,
+        "plusOneEmail": null,
+        "plusOnePhone": null,
+        "plusOneFoodPreference": null,
+        "plusOneAllergyNotes": null,
+        "plusOneSmsOptIn": false,
+        "lastSubmittedAt": "2026-05-15T10:00:00.000Z"
+      }
+    },
+    {
+      "key": "rsvpMaybe",
+      "label": "RSVP Kanske saved answer",
+      "token": "visual-rsvp-maybe-saved",
+      "primaryHash": "osa",
+      "guest": {
+        "id": "20000000-0000-0000-0000-000000000002",
+        "fullName": "Visual Fixture RSVP Kanske",
+        "email": "visual-rsvp-maybe@example.com",
+        "phone": null,
+        "notes": "Stable visual fixture: RSVP Kanske saved-answer/edit state.",
+        "inviteStatus": "rsvp maybe",
+        "plusOneAllowed": false,
+        "smsOptIn": false
+      },
+      "rsvp": {
+        "attendance": "maybe",
+        "extraGuests": 0,
+        "foodPreference": "Vegetariskt om jag kommer",
+        "allergyNotes": "Laktosfritt.",
+        "plusOneName": null,
+        "plusOneEmail": null,
+        "plusOnePhone": null,
+        "plusOneFoodPreference": null,
+        "plusOneAllergyNotes": null,
+        "plusOneSmsOptIn": false,
+        "lastSubmittedAt": "2026-05-15T10:05:00.000Z"
+      }
+    },
+    {
+      "key": "plusOneExpanded",
+      "label": "+1 expanded saved answer",
+      "token": "visual-rsvp-plus-one-expanded",
+      "primaryHash": "osa",
+      "guest": {
+        "id": "20000000-0000-0000-0000-000000000003",
+        "fullName": "Visual Fixture Plus One",
+        "email": "visual-plus-one@example.com",
+        "phone": "+46700000030",
+        "notes": "Stable visual fixture: +1-expanded RSVP with named guest.",
+        "inviteStatus": "rsvp yes",
+        "plusOneAllowed": true,
+        "smsOptIn": false
+      },
+      "rsvp": {
+        "attendance": "yes",
+        "extraGuests": 1,
+        "foodPreference": "Vegetariskt",
+        "allergyNotes": "Inga nötter.",
+        "plusOneName": "Sam Visual",
+        "plusOneEmail": "sam.visual@example.com",
+        "plusOnePhone": "+46700000031",
+        "plusOneFoodPreference": "Veganskt",
+        "plusOneAllergyNotes": "Glutenfritt.",
+        "plusOneSmsOptIn": false,
+        "lastSubmittedAt": "2026-05-15T10:10:00.000Z"
+      }
+    },
+    {
+      "key": "updatesPublished",
+      "label": "Details panel with published update",
+      "token": "visual-updates-published",
+      "primaryHash": "detaljer",
+      "guest": {
+        "id": "20000000-0000-0000-0000-000000000004",
+        "fullName": "Visual Fixture Updates",
+        "email": "visual-updates@example.com",
+        "phone": null,
+        "notes": "Stable visual fixture: details panel published updates state.",
+        "inviteStatus": "opened",
+        "plusOneAllowed": false,
+        "smsOptIn": false
+      },
+      "rsvp": null
+    }
+  ],
+  "updates": [
+    {
+      "id": "21000000-0000-0000-0000-000000000001",
+      "title": "Visual Fixture: Transport",
+      "message": "Bussar avgår från hotellet kl. 15:45.",
+      "linkUrl": "https://example.com/visual-transport",
+      "status": "published",
+      "updatedAt": "2026-05-14T12:00:00.000Z"
+    }
+  ]
+}

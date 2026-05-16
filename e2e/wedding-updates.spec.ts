@@ -41,9 +41,12 @@ test.describe("invite updates feed", () => {
     await page.getByRole("button", { name: "Create update" }).click();
 
     await expect(page.getByText("Wedding update created.")).toBeVisible();
-    const updateForm = page.locator("form").filter({
-      has: page.getByRole("button", { name: "Save update" }),
-    });
+    const updateForm = page
+      .locator("form")
+      .filter({
+        has: page.getByRole("button", { name: "Save update" }),
+      })
+      .first();
     await expect(updateForm).toBeVisible();
     await expect(updateForm.getByLabel("Short title")).toHaveValue(updateTitle);
 
@@ -51,21 +54,28 @@ test.describe("invite updates feed", () => {
     const updatesSection = page.locator("section", {
       has: page.getByRole("heading", { name: "Uppdateringar" }),
     });
-    await expect(updatesSection.getByRole("heading", { name: updateTitle })).toBeVisible();
+    const createdUpdateItem = updatesSection.getByRole("listitem").filter({
+      has: page.getByRole("heading", { name: updateTitle }),
+    });
+    await expect(createdUpdateItem.getByRole("heading", { name: updateTitle }))
+      .toBeVisible();
     await expect(
-      updatesSection.getByText("E2E shuttle buses leave the hotel at 14:15."),
+      createdUpdateItem.getByText("E2E shuttle buses leave the hotel at 14:15."),
     ).toBeVisible();
-    await expect(updatesSection.getByRole("link", { name: "Öppna länk" }))
+    await expect(createdUpdateItem.getByRole("link", { name: "Öppna länk" }))
       .toHaveAttribute("href", "https://example.com/e2e-update");
-    await expect(updatesSection.getByRole("link", { name: "Öppna länk" }))
+    await expect(createdUpdateItem.getByRole("link", { name: "Öppna länk" }))
       .toHaveAttribute("target", "_blank");
-    await expect(updatesSection.getByRole("link", { name: "Öppna länk" }))
+    await expect(createdUpdateItem.getByRole("link", { name: "Öppna länk" }))
       .toHaveAttribute("rel", "noopener noreferrer");
 
     await page.goto("/admin/updates");
-    const savedUpdateForm = page.locator("form").filter({
-      has: page.getByRole("button", { name: "Save update" }),
-    });
+    const savedUpdateForm = page
+      .locator("form")
+      .filter({
+        has: page.getByRole("button", { name: "Save update" }),
+      })
+      .first();
     await savedUpdateForm.getByLabel("Status").selectOption("draft");
     await savedUpdateForm.getByRole("button", { name: "Save update" }).click();
     await expect(page.getByText("Wedding update saved.")).toBeVisible();
@@ -74,7 +84,9 @@ test.describe("invite updates feed", () => {
     await expect(updatesSection.getByRole("heading", { name: updateTitle })).toHaveCount(
       0,
     );
-    await expect(updatesSection.getByText("Inga uppdateringar än.")).toBeVisible();
+    await expect(
+      updatesSection.getByText("E2E shuttle buses leave the hotel at 14:15."),
+    ).toHaveCount(0);
   });
 
   test("keeps update creator provenance immutable", async () => {
