@@ -13,6 +13,17 @@ const ADMIN_EMAIL = "admin@example.com";
 const ADMIN_PASSWORD = "password123456";
 const FIRST_TIME_RSVP_TOKEN = "local-ada-first-time-rsvp";
 const EXISTING_RSVP_TOKEN = "local-alan-existing-rsvp";
+const INVITE_VISUAL_FIXTURE_DATA_PATH = resolve(
+  process.cwd(),
+  "e2e/fixtures/invite-visual-fixtures.json",
+);
+const inviteVisualFixtureData = JSON.parse(
+  readFileSync(INVITE_VISUAL_FIXTURE_DATA_PATH, "utf8"),
+);
+
+if (inviteVisualFixtureData.weddingId !== WEDDING_ID) {
+  throw new Error("Invite visual fixtures must target the seeded wedding.");
+}
 
 function loadEnvFile(filePath) {
   if (!existsSync(filePath)) {
@@ -53,6 +64,10 @@ function hashInviteToken(rawToken) {
 
 function buildLocalInviteUrl(rawToken) {
   return `http://localhost:3000/invite/${rawToken}`;
+}
+
+function buildLocalInviteUrlWithHash(rawToken, hash) {
+  return `${buildLocalInviteUrl(rawToken)}#${hash}`;
 }
 
 async function upsertLocalInviteToken({ guestId, rawToken, supabase }) {
@@ -98,6 +113,142 @@ async function upsertLocalInviteToken({ guestId, rawToken, supabase }) {
     id: data.id,
     inviteUrl: buildLocalInviteUrl(rawToken),
   };
+}
+
+async function resetInviteVisualFixtures(supabase) {
+  const guestIds = inviteVisualFixtureData.fixtures.map(
+    (fixture) => fixture.guest.id,
+  );
+  const updateIds = inviteVisualFixtureData.updates.map((update) => update.id);
+
+  if (updateIds.length) {
+    const { error: updateIdDeleteError } = await supabase
+      .from("wedding_updates")
+      .delete()
+      .eq("wedding_id", WEDDING_ID)
+      .in("id", updateIds);
+
+    if (updateIdDeleteError) {
+      throw updateIdDeleteError;
+    }
+  }
+
+  const { error: guestDeleteError } = await supabase
+    .from("guests")
+    .delete()
+    .eq("wedding_id", WEDDING_ID)
+    .in("id", guestIds);
+
+  if (guestDeleteError) {
+    throw guestDeleteError;
+  }
+}
+
+async function seedInviteVisualFixtures(supabase) {
+  await resetInviteVisualFixtures(supabase);
+
+  const now = new Date().toISOString();
+  const guests = inviteVisualFixtureData.fixtures.map((fixture) => ({
+    id: fixture.guest.id,
+    wedding_id: WEDDING_ID,
+    full_name: fixture.guest.fullName,
+    email: fixture.guest.email,
+    phone: fixture.guest.phone,
+    notes: fixture.guest.notes,
+    plus_one_allowed: fixture.guest.plusOneAllowed,
+    invite_status: fixture.guest.inviteStatus,
+    sms_opt_in: fixture.guest.smsOptIn,
+    sms_opted_in_at: fixture.guest.smsOptIn ? now : null,
+    sms_opted_out_at: null,
+    deleted_at: null,
+  }));
+
+  const { error: guestsError } = await supabase.from("guests").insert(guests);
+
+  if (guestsError) {
+    throw guestsError;
+  }
+
+  const tokenIdsByFixtureKey = new Map();
+
+  for (const fixture of inviteVisualFixtureData.fixtures) {
+    const invite = await upsertLocalInviteToken({
+      guestId: fixture.guest.id,
+      rawToken: fixture.token,
+      supabase,
+    });
+
+    tokenIdsByFixtureKey.set(fixture.key, invite.id);
+  }
+
+  const rsvps = inviteVisualFixtureData.fixtures.flatMap((fixture) => {
+    if (!fixture.rsvp) {
+      return [];
+    }
+
+    const tokenId = tokenIdsByFixtureKey.get(fixture.key);
+
+    if (!tokenId) {
+      throw new Error(`Missing invite visual fixture token id for ${fixture.key}.`);
+    }
+
+    return [{
+      allergy_notes: fixture.rsvp.allergyNotes,
+      attendance: fixture.rsvp.attendance,
+      extra_guests: fixture.rsvp.extraGuests,
+      food_preference: fixture.rsvp.foodPreference,
+      guest_id: fixture.guest.id,
+      last_submitted_at: fixture.rsvp.lastSubmittedAt,
+      plus_one_allergy_notes: fixture.rsvp.plusOneAllergyNotes,
+      plus_one_email: fixture.rsvp.plusOneEmail,
+      plus_one_food_preference: fixture.rsvp.plusOneFoodPreference,
+      plus_one_name: fixture.rsvp.plusOneName,
+      plus_one_phone: fixture.rsvp.plusOnePhone,
+      plus_one_sms_opt_in: fixture.rsvp.plusOneSmsOptIn,
+      plus_one_sms_opted_in_at: fixture.rsvp.plusOneSmsOptIn
+        ? fixture.rsvp.lastSubmittedAt
+        : null,
+      plus_one_sms_opted_out_at: null,
+      updated_via_token_id: tokenId,
+      wedding_id: WEDDING_ID,
+    }];
+  });
+
+  if (rsvps.length) {
+    const { error: rsvpError } = await supabase.from("rsvp_responses").insert(rsvps);
+
+    if (rsvpError) {
+      throw rsvpError;
+    }
+  }
+
+  if (inviteVisualFixtureData.updates.length) {
+    const updates = inviteVisualFixtureData.updates.map((update) => ({
+      id: update.id,
+      wedding_id: WEDDING_ID,
+      title: update.title,
+      message: update.message,
+      link_url: update.linkUrl,
+      status: update.status,
+      updated_at: update.updatedAt,
+      created_by_admin_id: null,
+    }));
+    const { error: updatesError } = await supabase
+      .from("wedding_updates")
+      .insert(updates);
+
+    if (updatesError) {
+      throw updatesError;
+    }
+  }
+
+  return inviteVisualFixtureData.fixtures.map((fixture) => ({
+    detailsUrl: buildLocalInviteUrlWithHash(fixture.token, "detaljer"),
+    label: fixture.label,
+    osaUrl: buildLocalInviteUrlWithHash(fixture.token, "osa"),
+    primaryUrl: buildLocalInviteUrlWithHash(fixture.token, fixture.primaryHash),
+    url: buildLocalInviteUrl(fixture.token),
+  }));
 }
 
 async function main() {
@@ -270,12 +421,18 @@ async function main() {
     throw alanRsvpError;
   }
 
+  const visualFixtureRoutes = await seedInviteVisualFixtures(supabase);
+
   console.log("Seeded local example data.");
   console.log(`Admin login: ${ADMIN_EMAIL}`);
   console.log(`Admin password: ${ADMIN_PASSWORD}`);
   console.log("Admin URL: http://localhost:3000/admin/login");
   console.log(`First-time RSVP URL: ${firstTimeInvite.inviteUrl}`);
   console.log(`Existing RSVP update URL: ${existingRsvpInvite.inviteUrl}`);
+  console.log("Visual invite fixture URLs:");
+  for (const fixtureRoute of visualFixtureRoutes) {
+    console.log(`- ${fixtureRoute.label}: ${fixtureRoute.primaryUrl}`);
+  }
 }
 
 main().catch((error) => {

@@ -121,6 +121,7 @@ This creates/updates:
 - matching `admin_profiles` row
 - a few example guests
 - stable local RSVP test links for first-time and existing-response flows
+- deterministic invite visual fixture links for saved `Nej`, saved `Kanske`, +1-expanded, and published-update states (see [`invite-visual-fixtures.md`](invite-visual-fixtures.md))
 
 Then log in at `http://localhost:3000/admin/login`.
 

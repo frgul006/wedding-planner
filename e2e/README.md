@@ -55,5 +55,6 @@ Shared helpers in `e2e/support` expose the deterministic local seed values from 
 - admin login: `admin@example.com / password123456`
 - first-time RSVP token: `local-ada-first-time-rsvp`
 - existing RSVP token: `local-alan-existing-rsvp`
+- invite visual fixtures: `visual-rsvp-no-saved`, `visual-rsvp-maybe-saved`, `visual-rsvp-plus-one-expanded`, and `visual-updates-published` (see [`docs/invite-visual-fixtures.md`](../docs/invite-visual-fixtures.md))
 
-Future specs should prefer accessible locators (`getByRole`, `getByLabel`, headings, button names). Add app selectors only when a row-level control cannot be targeted reliably by accessible name. Use the shared cleanup fixtures in `e2e/support/fixtures.ts` and `uniqueE2eValue()` for generated test data.
+Future specs should prefer accessible locators (`getByRole`, `getByLabel`, headings, button names). Add app selectors only when a row-level control cannot be targeted reliably by accessible name. Use the shared cleanup fixtures in `e2e/support/fixtures.ts` and `uniqueE2eValue()` for generated test data. For deterministic invite visual states, use `seedInviteVisualFixtures()` / `resetInviteVisualFixtures()` from `e2e/support/invite-visual-fixtures.ts`; those helpers only touch the fixture guest IDs and fixture update IDs.

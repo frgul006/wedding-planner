@@ -14,12 +14,12 @@ Reference: "Item 27 decisions" stable seeded invite tokens and database rows.
 
 ## Acceptance criteria
 
-- [ ] Deterministic local fixture tokens exist for RSVP `Nej` and RSVP `Kanske` saved-answer/edit states.
-- [ ] A deterministic local fixture exists for a +1-expanded RSVP state with named +1 details.
-- [ ] Deterministic published update fixture data exists for the details panel updates-published state.
-- [ ] Fixture helpers cleanly create or reset only their own E2E/visual data without disturbing unrelated tests.
-- [ ] Fixture routes/URLs are documented for use by visual QA and follow-up UI PRs.
-- [ ] Tests assert that each fixture URL loads the expected key content.
+- [x] Deterministic local fixture tokens exist for RSVP `Nej` and RSVP `Kanske` saved-answer/edit states.
+- [x] A deterministic local fixture exists for a +1-expanded RSVP state with named +1 details.
+- [x] Deterministic published update fixture data exists for the details panel updates-published state.
+- [x] Fixture helpers cleanly create or reset only their own E2E/visual data without disturbing unrelated tests.
+- [x] Fixture routes/URLs are documented for use by visual QA and follow-up UI PRs.
+- [x] Tests assert that each fixture URL loads the expected key content.
 
 ## Blocked by
 
