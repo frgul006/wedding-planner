@@ -70,7 +70,7 @@ Guests may want to see or change their answer later.
 
 - Valid `/invite/[token]` pages load the linked guest's current `public.rsvp_responses` row, if one exists.
 - Existing RSVP values are shown in a current-answer summary and pre-filled into the same RSVP form.
-- The submit action continues to use `public.submit_rsvp_response`, which upserts by `guest_id`, updates `last_submitted_at`, and keeps the guest `invite_status` aligned with the latest attendance.
+- The submit action continues to use `public.submit_rsvp_response`, which upserts by `guest_id`, updates `last_submitted_at`, preserves opened-Invite activity in `invite_status`, and keeps the guest `rsvp_status` aligned with the latest attendance.
 - `/admin/guests` shows submitted RSVP details, including whether the guest was allowed a +1, +1 details when implemented, food preference, allergy/special notes, phone, SMS consent, and latest submission time.
 - Invalid token and missing-token pages still show only the generic invalid-link message.
 

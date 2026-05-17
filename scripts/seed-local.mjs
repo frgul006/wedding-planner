@@ -70,6 +70,14 @@ function buildLocalInviteUrlWithHash(rawToken, hash) {
   return `${buildLocalInviteUrl(rawToken)}#${hash}`;
 }
 
+function getInviteOpenedStatus(inviteStatus) {
+  return inviteStatus.startsWith("rsvp ") ? "opened" : inviteStatus;
+}
+
+function getRsvpStatus(inviteStatus) {
+  return inviteStatus.startsWith("rsvp ") ? inviteStatus : "not replied";
+}
+
 async function upsertLocalInviteToken({ guestId, rawToken, supabase }) {
   const now = new Date().toISOString();
   const tokenHash = hashInviteToken(rawToken);
@@ -93,6 +101,7 @@ async function upsertLocalInviteToken({ guestId, rawToken, supabase }) {
     .from("invite_tokens")
     .upsert(
       {
+        access_scope: "full",
         guest_id: guestId,
         wedding_id: WEDDING_ID,
         token_hash: tokenHash,
@@ -156,7 +165,8 @@ async function seedInviteVisualFixtures(supabase) {
     phone: fixture.guest.phone,
     notes: fixture.guest.notes,
     plus_one_allowed: fixture.guest.plusOneAllowed,
-    invite_status: fixture.guest.inviteStatus,
+    invite_status: getInviteOpenedStatus(fixture.guest.inviteStatus),
+    rsvp_status: getRsvpStatus(fixture.guest.inviteStatus),
     sms_opt_in: fixture.guest.smsOptIn,
     sms_opted_in_at: fixture.guest.smsOptIn ? now : null,
     sms_opted_out_at: null,
@@ -348,6 +358,7 @@ async function main() {
       notes: "Vegetarian",
       plus_one_allowed: false,
       invite_status: "not replied",
+      rsvp_status: "not replied",
       deleted_at: null,
     },
     {
@@ -359,6 +370,7 @@ async function main() {
       notes: "Prefers SMS updates via companion",
       plus_one_allowed: true,
       invite_status: "opened",
+      rsvp_status: "not replied",
       deleted_at: null,
     },
     {
@@ -369,7 +381,8 @@ async function main() {
       phone: "+46707654321",
       notes: null,
       plus_one_allowed: true,
-      invite_status: "rsvp yes",
+      invite_status: "opened",
+      rsvp_status: "rsvp yes",
       deleted_at: null,
     },
   ];

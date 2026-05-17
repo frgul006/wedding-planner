@@ -8,6 +8,7 @@ Private guest invite links are backed by `public.invite_tokens`.
 - Only a SHA-256 hash of the raw token is stored in the database.
 - `token_hash` is globally unique.
 - A partial unique index allows only one active token per guest.
+- Active tokens default to `access_scope = full`, granting full Invite access for Invited Guests.
 - Regenerating a link invalidates the previous active token before creating a new active token.
 - Raw links are shown in the admin UI only in the immediate generate/regenerate result and are not stored client-side by the app.
 
@@ -22,7 +23,7 @@ On `/admin/guests`:
 
 ## Invite access validation
 
-`/invite/[token]` resolves **Invite access** by hashing the path token and looking up an active `invite_tokens` row for a non-archived Guest. `/invite` without a token does not validate anything and renders the same safe invalid-link page.
+`/invite/[token]` resolves **Invite access** by hashing the path token and looking up an active `invite_tokens` row with `access_scope = full` for a non-archived Invited Guest. `/invite` without a token does not validate anything and renders the same safe invalid-link page.
 
 - Granted Invite access: displays the Guest name and Wedding information from the linked `weddings` row.
 - Denied Invite access for invalid, inactive, archived-guest, or missing tokens: displays the safe invalid-link message without Guest data, venue, schedule, RSVP state, or other event logistics. When a configured/default wedding has a public `invite_support_email`, the page may show that support email and explicit partner contact names so guests can request a fresh link; otherwise it falls back to generic host copy.
@@ -31,7 +32,7 @@ The `lib/invite-access.ts` Module is the shared policy seam for proxy and page a
 
 ## Invite opened status
 
-After `/invite/[token]` grants Invite access, the server calls `public.mark_invite_opened(p_guest_id, p_wedding_id)`. The function updates the linked Guest from `not replied` to `opened` only when that is still the current status. Existing `opened` and `rsvp yes/no/maybe` statuses are left unchanged, so reopening an Invite after RSVP never downgrades the admin-visible status.
+After `/invite/[token]` grants Invite access, the server calls `public.mark_invite_opened(p_guest_id, p_wedding_id)`. The function updates the linked Guest's opened-Invite activity from `not replied` to `opened` only when that is still the current `invite_status`. Dedicated `rsvp_status` values (`rsvp yes/no/maybe`) are stored separately and left unchanged, so reopening an Invite after RSVP never downgrades the RSVP status.
 
 ## Guest navigation session
 
@@ -74,7 +75,7 @@ The Brevkort OSA UI uses a per-guest +1 toggle instead of the old generic extra 
 
 When the linked guest already has an RSVP response, the invite page shows the current answer, `last_submitted_at`, and pre-fills the OSA form so the guest can update the same response from the same link. Reopening an invite also pre-fills the latest linked guest phone so the guest can change it on a later RSVP update.
 
-Submission is handled by a server action that hashes the raw URL token and calls the `public.submit_rsvp_response` database function. That function revalidates the active invite token and atomically upserts the response into `public.rsvp_responses` for the token's `guest_id` and `wedding_id`, with `updated_via_token_id` set to the active invite token. The linked guest's `phone`, `sms_opt_in`, and opt-in/out timestamps are saved to `public.guests`, and the linked guest's `invite_status` is updated in the same transaction to `rsvp yes`, `rsvp no`, or `rsvp maybe` to match the latest submitted attendance.
+Submission is handled by a server action that hashes the raw URL token and calls the `public.submit_rsvp_response` database function. That function revalidates the active full-scope invite token and atomically upserts the response into `public.rsvp_responses` for the token's `guest_id` and `wedding_id`, with `updated_via_token_id` set to the active invite token. The linked guest's `phone`, `sms_opt_in`, and opt-in/out timestamps are saved to `public.guests`; `invite_status` is preserved as opened-Invite activity and `rsvp_status` is updated in the same transaction to `rsvp yes`, `rsvp no`, or `rsvp maybe` to match the latest submitted attendance.
 
 Invalid, inactive, archived-guest, or missing-token pages keep rendering the safe invalid-link message and never show the RSVP form.
 
@@ -91,10 +92,10 @@ PORT=3100 pnpm test:e2e e2e/smoke.spec.ts e2e/rsvp.spec.ts e2e/wedding-updates.s
 Then log in as the seeded admin and validate the invite status workflow:
 
 1. Visit a fresh valid invite link and verify the guest row moves from `not replied` to `opened`.
-2. Reopen the same invite before RSVP and verify the guest row remains `opened`.
-3. Submit an RSVP and verify the guest row moves to the matching `rsvp yes/no/maybe` status without creating duplicate response rows.
-4. Reopen the invite after RSVP and verify the status stays `rsvp yes/no/maybe` instead of downgrading to `opened`.
-5. Update the RSVP and verify the guest row moves to the latest matching RSVP status.
+2. Reopen the same invite before RSVP and verify the guest row remains `opened` with `rsvp_status = not replied`.
+3. Submit an RSVP and verify `rsvp_status` moves to the matching `rsvp yes/no/maybe` status without creating duplicate response rows while `invite_status` remains `opened`.
+4. Reopen the invite after RSVP and verify `rsvp_status` stays `rsvp yes/no/maybe` instead of downgrading.
+5. Update the RSVP and verify `rsvp_status` moves to the latest matching RSVP status.
 6. Submit without a phone and verify the RSVP still saves.
 7. Submit an invalid phone and verify the invite shows the phone-format validation error.
 8. Submit a valid phone and verify it appears in the admin guest row.

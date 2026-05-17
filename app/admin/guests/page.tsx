@@ -5,8 +5,13 @@ import { connection } from "next/server";
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
 import {
   INVITE_STATUSES,
+  INVITE_OPENED_STATUS,
+  RSVP_STATUS,
+  isInviteOpenedStatus,
   isInviteStatus,
-  type InviteStatus,
+  isRsvpStatus,
+  type InviteOpenedStatus,
+  type RsvpStatus,
 } from "@/lib/invite-status";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isNullableString, isRecord } from "@/lib/type-guards";
@@ -43,7 +48,8 @@ type Guest = {
   email: string | null;
   phone: string | null;
   notes: string | null;
-  invite_status: InviteStatus;
+  invite_status: InviteOpenedStatus;
+  rsvp_status: RsvpStatus;
   sms_opt_in: boolean;
   plus_one_allowed: boolean;
   created_at: string;
@@ -68,12 +74,8 @@ function getFirstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function getRsvpStatus(inviteStatus: InviteStatus) {
-  if (inviteStatus.startsWith("rsvp ")) {
-    return inviteStatus.replace("rsvp ", "");
-  }
-
-  return "not submitted";
+function getRsvpStatus(rsvpStatus: RsvpStatus) {
+  return rsvpStatus === RSVP_STATUS.notReplied ? "not submitted" : rsvpStatus;
 }
 
 function formatRsvpSubmittedAt(value: string | null) {
@@ -140,7 +142,8 @@ function isGuestRow(value: unknown): value is GuestRow {
     isNullableString(value.email) &&
     isNullableString(value.phone) &&
     isNullableString(value.notes) &&
-    isInviteStatus(value.invite_status) &&
+    isInviteOpenedStatus(value.invite_status) &&
+    isRsvpStatus(value.rsvp_status) &&
     typeof value.sms_opt_in === "boolean" &&
     typeof value.plus_one_allowed === "boolean" &&
     typeof value.created_at === "string"
@@ -177,7 +180,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
 
   let guestsQuery = supabase
     .from("guests")
-    .select("id, full_name, email, phone, notes, invite_status, sms_opt_in, plus_one_allowed, created_at")
+    .select("id, full_name, email, phone, notes, invite_status, rsvp_status, sms_opt_in, plus_one_allowed, created_at")
     .eq("wedding_id", adminProfile.wedding_id)
     .is("deleted_at", null)
     .limit(500);
@@ -189,14 +192,21 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
     );
   }
 
-  if (status) {
-    guestsQuery = guestsQuery.eq("invite_status", status);
+  if (status === INVITE_OPENED_STATUS.notReplied || status === INVITE_OPENED_STATUS.opened) {
+    guestsQuery = guestsQuery
+      .eq("invite_status", status)
+      .eq("rsvp_status", RSVP_STATUS.notReplied);
+  } else if (isRsvpStatus(status)) {
+    guestsQuery = guestsQuery.eq("rsvp_status", status);
   }
 
   if (sort === "name-desc") {
     guestsQuery = guestsQuery.order("full_name", { ascending: false });
   } else if (sort === "status") {
-    guestsQuery = guestsQuery.order("invite_status", { ascending: true }).order("full_name");
+    guestsQuery = guestsQuery
+      .order("rsvp_status", { ascending: true })
+      .order("invite_status", { ascending: true })
+      .order("full_name");
   } else if (sort === "newest") {
     guestsQuery = guestsQuery.order("created_at", { ascending: false });
   } else {
@@ -446,7 +456,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                         {guest.invite_status}
                       </td>
                       <td className="bg-zinc-50 p-3 capitalize text-zinc-700">
-                        {getRsvpStatus(guest.invite_status)}
+                        {getRsvpStatus(guest.rsvp_status)}
                       </td>
                       <td className="bg-zinc-50 p-3 text-zinc-700">
                         {guest.rsvpResponse ? (

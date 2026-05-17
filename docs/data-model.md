@@ -75,6 +75,8 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
   - Guests are included in SMS blasts only when this is true and a valid E.164 phone is present.
 - `sms_opted_in_at` (datetime, nullable)
 - `sms_opted_out_at` (datetime, nullable)
+- `guest_kind` (`invited`)
+  - Current roster rows are Invited Guests.
 - `plus_one_allowed` (bool, default `false`)
   - Controls whether this guest sees the Brevkort +1 option on their invite.
   - Admins enable this per guest; explicitly invited partners should usually have this off.
@@ -82,7 +84,10 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
 - `notes` (string, optional)
 - `deleted_at` (datetime, nullable)
   - Admin delete is implemented as soft delete by setting this timestamp. Normal admin lists exclude deleted guests.
-- `invite_status` (`not replied | opened | rsvp yes | rsvp no | rsvp maybe`)
+- `invite_status` (`not replied | opened`)
+  - Opened-Invite activity only.
+- `rsvp_status` (`not replied | rsvp yes | rsvp no | rsvp maybe`)
+  - Dedicated RSVP status, separate from opened-Invite activity.
 - `created_at`, `updated_at`
 
 ### InviteToken
@@ -92,6 +97,8 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
 - `guest_id` (UUID)
 - `token_hash` (string, unique)
 - `is_active` (bool)
+- `access_scope` (`full`)
+  - Current active Invite tokens grant full Invite access to Invited Guests.
 - Raw token is not stored. If an admin needs to copy a link again, generate a new token and invalidate the previous active token.
 - `created_at`, `regenerated_at`
 - `invalidated_at` (datetime, nullable)
@@ -275,10 +282,10 @@ Implement these as migrations before building the Brevkort UI states that depend
 
 ## 5) Important status and +1 rules
 
-- Guest starts with `invite_status = not replied`.
+- Guest starts with `guest_kind = invited`, `invite_status = not replied`, and `rsvp_status = not replied`.
 - On first valid invite page view: set `invite_status = opened` only if the current status is `not replied`.
-- Opening an invite must never downgrade an existing RSVP status back to `opened`.
-- On RSVP submit/update: status becomes `rsvp yes|no|maybe` (one of these only).
+- Opening an invite must never overwrite or downgrade an existing `rsvp_status`.
+- On RSVP submit/update: `rsvp_status` becomes `rsvp yes|no|maybe` (one of these only) and `invite_status` remains or becomes `opened`.
 - No duplicate RSVP rows for the same guest (update in place by `guest_id`).
 - RSVP submission by invite token must resolve the active token first and save the response against that token's `guest_id` and `wedding_id`.
 - Guests may submit +1 details only when their `guests.plus_one_allowed = true`.

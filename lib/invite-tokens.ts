@@ -101,6 +101,7 @@ export async function regenerateInviteToken({
   }
 
   const { error: insertError } = await supabase.from("invite_tokens").insert({
+    access_scope: "full",
     guest_id: guestId,
     wedding_id: weddingId,
     token_hash: tokenHash,

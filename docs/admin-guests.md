@@ -20,7 +20,9 @@ Important fields:
 - `wedding_id` scopes each guest to a wedding
 - `full_name` is required
 - `email` or `phone` is required by a database check constraint
-- `invite_status` starts as `not replied`
+- `guest_kind` defaults to `invited` for current roster Guests
+- `invite_status` stores opened-Invite activity (`not replied` or `opened`)
+- `rsvp_status` stores the dedicated RSVP status (`not replied`, `rsvp yes`, `rsvp no`, `rsvp maybe`)
 - `plus_one_allowed` defaults to `false` and controls whether the Brevkort OSA UI offers a +1
 - `deleted_at` implements soft delete/archive behavior
 
@@ -31,8 +33,9 @@ Normal admin lists only show guests where `deleted_at is null`.
 - Add guest
 - Edit name, email, phone, +1 permission, SMS update consent, and notes inline
 - Search by partial name or phone
-- Filter by invite status
+- Filter by current Guest status, including opened-Invite activity and RSVP status
 - Sort by name, status, or newest
+- Show current Invite opened status and dedicated RSVP status
 - Show current RSVP details when submitted, including extra guest count, food preference, allergy/special notes, and latest submission time
 - Store named +1 RSVP details for the Brevkort OSA flow when allowed by the guest's +1 permission
 - Reflect phone numbers updated by token-backed RSVP submissions in the editable Phone column

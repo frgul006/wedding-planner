@@ -17,6 +17,7 @@ import { isNullableString, isRecord } from "@/lib/type-guards";
 type GuestRelation = {
   deleted_at: string | null;
   full_name: string | null;
+  guest_kind: string;
   phone: string | null;
   plus_one_allowed: boolean;
   sms_opt_in: boolean;
@@ -49,6 +50,7 @@ type ValidGuestRelation = GuestRelation & {
 };
 
 type InviteTokenRow = {
+  access_scope: string;
   id: string;
   guest_id: string;
   guests: unknown;
@@ -88,12 +90,14 @@ export type PreparedGuestNavigationSessionCookie = {
 };
 
 const inviteTokenContextSelect = `
+  access_scope,
   id,
   guest_id,
   wedding_id,
   guests!invite_tokens_guest_wedding_fk!inner(
     deleted_at,
     full_name,
+    guest_kind,
     phone,
     plus_one_allowed,
     sms_opt_in
@@ -109,6 +113,7 @@ function isGuestRelation(value: unknown): value is GuestRelation {
     isRecord(value) &&
     isNullableString(value.deleted_at) &&
     isNullableString(value.full_name) &&
+    typeof value.guest_kind === "string" &&
     isNullableString(value.phone) &&
     typeof value.plus_one_allowed === "boolean" &&
     typeof value.sms_opt_in === "boolean"
@@ -118,6 +123,7 @@ function isGuestRelation(value: unknown): value is GuestRelation {
 function isInviteTokenRow(value: unknown): value is InviteTokenRow {
   return (
     isRecord(value) &&
+    typeof value.access_scope === "string" &&
     typeof value.id === "string" &&
     typeof value.guest_id === "string" &&
     typeof value.wedding_id === "string"
@@ -204,6 +210,7 @@ async function resolveGrantedInviteAccess(
     .select(inviteTokenContextSelect)
     .eq("token_hash", tokenHash)
     .eq("is_active", true)
+    .eq("access_scope", "full")
     .maybeSingle();
 
   if (error || !data) {
@@ -220,7 +227,13 @@ async function resolveGrantedInviteAccess(
 
   const guest = getSingleRelation(data.guests);
 
-  if (!isGuestRelation(guest) || !guest.full_name || guest.deleted_at) {
+  if (
+    data.access_scope !== "full" ||
+    !isGuestRelation(guest) ||
+    guest.guest_kind !== "invited" ||
+    !guest.full_name ||
+    guest.deleted_at
+  ) {
     return null;
   }
 
