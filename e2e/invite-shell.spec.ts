@@ -105,6 +105,33 @@ async function panelFrameTranslateX(page: Page, panelId: (typeof panelIds)[numbe
   });
 }
 
+async function touchActionChainAt(page: Page, x: number, y: number) {
+  return page.evaluate(({ x: startX, y: startY }) => {
+    const root = document.querySelector('[data-testid="invite-panel-carousel"]');
+    const target = document.elementFromPoint(startX, startY);
+
+    if (!(root instanceof Element)) {
+      throw new Error("Invite panel carousel is missing.");
+    }
+
+    if (!(target instanceof Element) || !root.contains(target)) {
+      throw new Error(`Expected (${startX}, ${startY}) to hit the invite panel carousel.`);
+    }
+
+    const touchActions: string[] = [];
+
+    for (
+      let element: Element | null = target;
+      element && root.contains(element);
+      element = element.parentElement
+    ) {
+      touchActions.push(getComputedStyle(element).touchAction);
+    }
+
+    return touchActions;
+  }, { x, y });
+}
+
 async function expectMovingPanels(
   page: Page,
   fromPanelId: (typeof panelIds)[number],
@@ -180,6 +207,82 @@ test.describe.serial("invite one-panel shell", () => {
     expect(page.url()).not.toMatch(/#detaljer$/);
 
     await releasePanelDrag(page, 150);
+
+    await expect(page).toHaveURL(/#detaljer$/);
+    await expectActivePanel(page, "detaljer");
+  });
+
+  test("leaves browser-edge zones eligible for native horizontal gestures", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    for (const touchActions of [
+      await touchActionChainAt(page, 24, 420),
+      await touchActionChainAt(page, 370, 420),
+    ]) {
+      expect(touchActions).not.toContain("pan-y");
+    }
+
+    expect(await touchActionChainAt(page, 195, 420)).toContain("pan-y");
+  });
+
+  test("ignores left browser-edge touch starts without rubber-band motion", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await dragPanelTo(page, 24, 320);
+
+    expect(Math.round(await panelFrameTranslateX(page, "inbjudan"))).toBe(0);
+    await expect(page.locator("#detaljer"), "edge-start swipe should not reveal a panel")
+      .toBeHidden();
+
+    await releasePanelDrag(page, 320);
+
+    await expectActivePanel(page, "inbjudan");
+    await expect(page).not.toHaveURL(/#detaljer$/);
+  });
+
+  test("ignores right browser-edge touch starts without panel motion", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await dragPanelTo(page, 370, 80);
+
+    expect(Math.round(await panelFrameTranslateX(page, "inbjudan"))).toBe(0);
+    await expect(page.locator("#detaljer"), "edge-start swipe should not reveal a panel")
+      .toBeHidden();
+
+    await releasePanelDrag(page, 80);
+
+    await expectActivePanel(page, "inbjudan");
+    await expect(page).not.toHaveURL(/#detaljer$/);
+  });
+
+  test("keeps interior-start swipe ownership after moving into an edge zone", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await swipePanel(page, 320, 24);
 
     await expect(page).toHaveURL(/#detaljer$/);
     await expectActivePanel(page, "detaljer");
@@ -442,6 +545,31 @@ test.describe.serial("invite one-panel shell", () => {
     await expectMovingPanels(page, "inbjudan", "osa");
     await expect(page).toHaveURL(/#osa$/);
     await expectActivePanel(page, "osa");
+  });
+
+  test("syncs browser-owned edge history traversal without replaying panel motion", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await page.getByRole("button", { name: "Nästa panel" }).click();
+    await expect(page).toHaveURL(/#detaljer$/);
+    await expectActivePanel(page, "detaljer");
+
+    await page.getByRole("button", { name: "Nästa panel" }).click();
+    await expect(page).toHaveURL(/#osa$/);
+    await expectActivePanel(page, "osa");
+
+    await dispatchTouchPointer(page, "pointerdown", 24);
+    await page.goBack();
+
+    await expect(page).toHaveURL(/#detaljer$/);
+    await expect(page.locator("#osa"), "native edge traversal should not replay panel motion")
+      .toBeHidden({ timeout: 100 });
+    await expectActivePanel(page, "detaljer");
   });
 
   test("animates browser back and forward through committed panel hashes", async ({
