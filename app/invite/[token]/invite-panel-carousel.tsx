@@ -135,12 +135,29 @@ function getAnchorPanelTarget(
   return hashToPanelId(url.hash, panels);
 }
 
+function getMotionReviewReducedMotionOverride() {
+  if (process.env.NODE_ENV === "production") {
+    return false;
+  }
+
+  const { hostname, search } = window.location;
+  const isLocalReviewHost =
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname.endsWith(".localhost");
+
+  return isLocalReviewHost && new URLSearchParams(search).get("motionReviewReduced") === "1";
+}
+
 function usePrefersReducedMotion() {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const syncPreference = () => setPrefersReducedMotion(mediaQuery.matches);
+    const syncPreference = () => setPrefersReducedMotion(
+      mediaQuery.matches || getMotionReviewReducedMotionOverride(),
+    );
 
     syncPreference();
     mediaQuery.addEventListener("change", syncPreference);

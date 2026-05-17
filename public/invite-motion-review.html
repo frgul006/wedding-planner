@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Invite motion review lab</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5efe6;
+      --panel: #fffaf1;
+      --ink: #31251d;
+      --muted: #7a6657;
+      --line: #d7c6b7;
+      --accent: #9f5138;
+      --accent-dark: #713823;
+      --ok: #2c6e49;
+      --warn: #8a5a00;
+      --shadow: 0 24px 80px rgb(49 37 29 / 16%);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgb(159 81 56 / 14%), transparent 32rem),
+        linear-gradient(135deg, #f8f2e9, var(--bg));
+      color: var(--ink);
+    }
+
+    a { color: var(--accent-dark); }
+
+    button,
+    select,
+    textarea,
+    input {
+      font: inherit;
+    }
+
+    button,
+    select,
+    input[type="range"] {
+      cursor: pointer;
+    }
+
+    button:disabled,
+    input:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .shell {
+      display: grid;
+      gap: 1.25rem;
+      grid-template-columns: minmax(24rem, 0.9fr) minmax(26rem, 1.1fr);
+      min-height: 100vh;
+      padding: 1.25rem;
+    }
+
+    .header,
+    .card,
+    .phone-wrap {
+      border: 1px solid var(--line);
+      background: rgb(255 250 241 / 88%);
+      box-shadow: var(--shadow);
+    }
+
+    .header {
+      grid-column: 1 / -1;
+      padding: 1rem 1.25rem;
+    }
+
+    .header h1 {
+      margin: 0 0 0.35rem;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      font-weight: 500;
+    }
+
+    .header p,
+    .card p,
+    .card li {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .grid {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .controls {
+      align-content: start;
+    }
+
+    .card {
+      padding: 1rem;
+    }
+
+    .card h2,
+    .card h3 {
+      margin: 0 0 0.65rem;
+      font-size: 1rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .row + .row { margin-top: 0.65rem; }
+
+    .stack { display: grid; gap: 0.65rem; }
+
+    .button {
+      align-items: center;
+      border: 1px solid var(--ink);
+      background: var(--ink);
+      color: white;
+      display: inline-flex;
+      justify-content: center;
+      min-height: 2.35rem;
+      padding: 0.45rem 0.72rem;
+      text-decoration: none;
+      transition: transform 120ms ease, background 120ms ease;
+    }
+
+    .button:hover:not(:disabled) {
+      background: var(--accent-dark);
+      transform: translateY(-1px);
+    }
+
+    .button.secondary {
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .button.secondary:hover:not(:disabled) {
+      background: #f3e7d9;
+    }
+
+    .button.warning {
+      border-color: var(--warn);
+      background: #fff6db;
+      color: #5d3a00;
+    }
+
+    .pill {
+      border: 1px solid var(--line);
+      background: #fffdf8;
+      color: var(--muted);
+      display: inline-flex;
+      gap: 0.35rem;
+      align-items: center;
+      min-height: 2rem;
+      padding: 0.25rem 0.55rem;
+      font-size: 0.85rem;
+    }
+
+    .pill strong { color: var(--ink); }
+
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #fffdf8;
+      color: var(--ink);
+      padding: 0.6rem;
+    }
+
+    textarea {
+      min-height: 9rem;
+      resize: vertical;
+    }
+
+    .checkbox {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      color: var(--muted);
+    }
+
+    .phone-column {
+      display: grid;
+      grid-template-rows: auto minmax(42rem, 1fr);
+      gap: 1rem;
+      min-width: 0;
+    }
+
+    .phone-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .phone-wrap {
+      display: grid;
+      place-items: start center;
+      overflow: auto;
+      padding: 1rem;
+    }
+
+    .phone {
+      border: 12px solid #1e1713;
+      border-radius: 2rem;
+      background: #1e1713;
+      box-shadow: 0 18px 42px rgb(0 0 0 / 24%);
+      height: min(86vh, 980px);
+      max-height: 980px;
+      max-width: 430px;
+      min-height: 740px;
+      overflow: hidden;
+      width: min(100%, 430px);
+    }
+
+    iframe {
+      border: 0;
+      background: white;
+      height: 100%;
+      width: 100%;
+    }
+
+    .status {
+      border-left: 4px solid var(--accent);
+      background: #fff7ec;
+      color: var(--muted);
+      padding: 0.7rem 0.85rem;
+      min-height: 3rem;
+      white-space: pre-wrap;
+    }
+
+    .status.ok { border-color: var(--ok); }
+    .status.warn { border-color: var(--warn); }
+
+    .checklist {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .checklist label {
+      display: flex;
+      gap: 0.55rem;
+      align-items: flex-start;
+      padding: 0.38rem 0;
+    }
+
+    .slider-row {
+      display: grid;
+      gap: 0.5rem;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+    }
+
+    code {
+      border: 1px solid var(--line);
+      background: #fffdf8;
+      padding: 0.08rem 0.28rem;
+    }
+
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      .phone-column { grid-template-rows: auto auto; }
+      .phone { height: 82vh; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="header">
+      <h1>Invite motion review lab</h1>
+      <p>
+        Temporary #78 page. It drives the real invite panel in an iframe, using seeded visual fixture links.
+        Use this to review motion feel before marking the implementation ready.
+      </p>
+      <div class="row">
+        <span class="pill">Artifact: <strong>/invite-motion-review.html</strong></span>
+        <span class="pill">Default fixture: <strong>published updates</strong></span>
+        <span class="pill">Panel width: <strong>390px app frame</strong></span>
+      </div>
+    </header>
+
+    <section class="grid controls" aria-label="Review controls">
+      <div class="card stack">
+        <h2>Load fixture</h2>
+        <label>
+          Fixture
+          <select id="fixtureSelect">
+            <option value="visual-updates-published">Published update / no RSVP</option>
+            <option value="visual-rsvp-plus-one-expanded">+1 expanded saved RSVP</option>
+            <option value="visual-rsvp-maybe-saved">Maybe saved RSVP</option>
+            <option value="visual-rsvp-no-saved">No saved RSVP</option>
+          </select>
+        </label>
+        <label class="checkbox">
+          <input id="reducedToggle" type="checkbox">
+          Review reduced motion with local-dev-only <code>?motionReviewReduced=1</code>
+        </label>
+        <div class="row">
+          <button class="button" data-panel="inbjudan" type="button">Load Inbjudan</button>
+          <button class="button" data-panel="detaljer" type="button">Load Detaljer</button>
+          <button class="button" data-panel="osa" type="button">Load OSA</button>
+        </div>
+        <div id="motionStatus" class="status">Loading invite…</div>
+      </div>
+
+      <div class="card stack">
+        <h2>Scripted scenarios</h2>
+        <p>Buttons use real DOM clicks or synthetic touch pointer events inside the invite frame.</p>
+        <div class="row">
+          <button class="button" id="runFollowFinger" type="button">Follow finger + snap-back</button>
+          <button class="button" id="runCommit" type="button">Committed release</button>
+          <button class="button" id="runEdgeRight" type="button">Edge resistance ← first panel</button>
+          <button class="button" id="runEdgeLeft" type="button">Edge resistance → last panel</button>
+        </div>
+        <div class="row">
+          <button class="button secondary" id="runArrow" type="button">Arrow navigation</button>
+          <button class="button secondary" id="runDots" type="button">Dot navigation</button>
+          <button class="button secondary" id="runLinks" type="button">Internal CTA/link navigation</button>
+          <button class="button secondary" id="runHeight" type="button">Height-change transition</button>
+        </div>
+      </div>
+
+      <div class="card stack">
+        <h2>Manual touch scrub</h2>
+        <p>Start a synthetic touch, scrub the delta frame by frame, then release. Negative = drag left, positive = drag right.</p>
+        <div class="row">
+          <button class="button" id="manualStart" type="button">Start touch</button>
+          <button class="button secondary" id="manualRelease" disabled type="button">Release</button>
+          <button class="button secondary" id="manualCancel" disabled type="button">Cancel</button>
+        </div>
+        <div class="slider-row">
+          <span>-220</span>
+          <input id="dragDelta" type="range" min="-220" max="220" step="4" value="0" disabled>
+          <span>220</span>
+        </div>
+        <div class="row">
+          <span class="pill">Delta: <strong id="deltaReadout">0px</strong></span>
+          <button class="button secondary" id="nudgeLeft" disabled type="button">−12px</button>
+          <button class="button secondary" id="nudgeRight" disabled type="button">+12px</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Review checklist</h2>
+        <ul class="checklist">
+          <li><label><input type="checkbox" data-check="follow"> Follow-finger drag feels attached.</label></li>
+          <li><label><input type="checkbox" data-check="snapback"> Short release snaps back cleanly.</label></li>
+          <li><label><input type="checkbox" data-check="commit"> Committed release lands on target panel.</label></li>
+          <li><label><input type="checkbox" data-check="arrows"> Arrow navigation feels app-like.</label></li>
+          <li><label><input type="checkbox" data-check="dots"> Dot navigation feels app-like.</label></li>
+          <li><label><input type="checkbox" data-check="links"> Internal CTA/link navigation animates correctly.</label></li>
+          <li><label><input type="checkbox" data-check="edges"> Edge resistance communicates bounds.</label></li>
+          <li><label><input type="checkbox" data-check="height"> Different-height panels resize without jank.</label></li>
+          <li><label><input type="checkbox" data-check="reduced"> Reduced-motion behavior checked.</label></li>
+        </ul>
+      </div>
+
+      <div class="card stack">
+        <h2>Review notes</h2>
+        <textarea id="notes" placeholder="Write motion findings, approval, or follow-up notes here."></textarea>
+        <div class="row">
+          <button class="button" id="copyNotes" type="button">Copy PR review block</button>
+          <button class="button secondary" id="clearNotes" type="button">Clear local notes</button>
+        </div>
+        <p>
+          Suggested final line: <code>Human motion review: approved</code>, or list follow-up issues before approval.
+        </p>
+      </div>
+    </section>
+
+    <section class="phone-column" aria-label="Invite frame">
+      <div class="card phone-toolbar">
+        <div class="row">
+          <span class="pill">Active panel: <strong id="activePanel">unknown</strong></span>
+          <span class="pill">Mode: <strong id="modeReadout">normal</strong></span>
+        </div>
+        <div class="row">
+          <button class="button secondary" id="reloadFrame" type="button">Reload frame</button>
+          <a id="openFrame" class="button secondary" href="/invite/visual-updates-published#inbjudan" target="_blank" rel="noreferrer">Open full page</a>
+        </div>
+      </div>
+      <div class="phone-wrap">
+        <div class="phone" aria-label="390px invite viewport">
+          <iframe id="inviteFrame" title="Invite motion review frame"></iframe>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const fixtureSelect = document.querySelector("#fixtureSelect");
+    const reducedToggle = document.querySelector("#reducedToggle");
+    const frame = document.querySelector("#inviteFrame");
+    const statusBox = document.querySelector("#motionStatus");
+    const activePanel = document.querySelector("#activePanel");
+    const modeReadout = document.querySelector("#modeReadout");
+    const openFrame = document.querySelector("#openFrame");
+    const dragDelta = document.querySelector("#dragDelta");
+    const deltaReadout = document.querySelector("#deltaReadout");
+    const manualStart = document.querySelector("#manualStart");
+    const manualRelease = document.querySelector("#manualRelease");
+    const manualCancel = document.querySelector("#manualCancel");
+    const nudgeLeft = document.querySelector("#nudgeLeft");
+    const nudgeRight = document.querySelector("#nudgeRight");
+    const notes = document.querySelector("#notes");
+    const reviewStorageKey = "invite-motion-review-notes";
+    const checksStorageKey = "invite-motion-review-checks";
+    const panels = ["inbjudan", "detaljer", "osa"];
+    let currentPanel = "inbjudan";
+    let frameHashListener = null;
+    let frameHashListenerWindow = null;
+    let manualDrag = null;
+    let pointerSequence = 41;
+
+    function delay(ms) {
+      return new Promise((resolve) => window.setTimeout(resolve, ms));
+    }
+
+    function setStatus(message, tone = "") {
+      statusBox.textContent = message;
+      statusBox.className = `status ${tone}`.trim();
+    }
+
+    function buildInviteSrc(panel = currentPanel) {
+      const url = new URL(`/invite/${fixtureSelect.value}`, window.location.origin);
+      if (reducedToggle.checked) {
+        url.searchParams.set("motionReviewReduced", "1");
+      }
+      url.hash = panel;
+      return `${url.pathname}${url.search}${url.hash}`;
+    }
+
+    function getBrowserReducedMotionPreference() {
+      try {
+        return getFrameWindow().matchMedia("(prefers-reduced-motion: reduce)").matches;
+      } catch {
+        return false;
+      }
+    }
+
+    function getEffectiveMotionMode() {
+      if (getBrowserReducedMotionPreference()) {
+        return "reduced motion (browser preference)";
+      }
+
+      return reducedToggle.checked ? "reduced motion override" : "normal motion";
+    }
+
+    function updateModeReadout() {
+      modeReadout.textContent = getEffectiveMotionMode();
+      const src = buildInviteSrc(currentPanel);
+      openFrame.href = src;
+    }
+
+    function loadPanel(panel = currentPanel) {
+      currentPanel = panels.includes(panel) ? panel : "inbjudan";
+      updateModeReadout();
+      setStatus(`Loading ${currentPanel}…`);
+      frame.src = buildInviteSrc(currentPanel);
+    }
+
+    function getFrameWindow() {
+      if (!frame.contentWindow) {
+        throw new Error("Invite frame is not ready yet.");
+      }
+      return frame.contentWindow;
+    }
+
+    function getFrameDocument() {
+      const doc = frame.contentDocument;
+      if (!doc) {
+        throw new Error("Invite frame document is not accessible. Serve this page from the same local app origin.");
+      }
+      return doc;
+    }
+
+    function getRoot() {
+      return getFrameDocument().querySelector('[data-testid="invite-panel-carousel"]');
+    }
+
+    async function waitForInvite(timeoutMs = 6000) {
+      const started = performance.now();
+      while (performance.now() - started < timeoutMs) {
+        try {
+          const root = getRoot();
+          if (root) {
+            return root;
+          }
+        } catch {
+          // Keep polling while iframe loads.
+        }
+        await delay(80);
+      }
+      throw new Error("Invite carousel not found. Seed local data with `pnpm seed:local`, then reload this page.");
+    }
+
+    function syncActivePanel() {
+      let hash = "";
+      try {
+        hash = getFrameWindow().location.hash.replace("#", "");
+      } catch {
+        hash = "";
+      }
+      currentPanel = panels.includes(hash) ? hash : currentPanel;
+      activePanel.textContent = currentPanel;
+      updateModeReadout();
+    }
+
+    function bindFrameEvents() {
+      try {
+        const win = getFrameWindow();
+
+        if (frameHashListenerWindow && frameHashListener) {
+          frameHashListenerWindow.removeEventListener("hashchange", frameHashListener);
+        }
+
+        frameHashListener = () => {
+          syncActivePanel();
+          setStatus(`Hash navigation complete: ${win.location.hash || "#inbjudan"}`, "ok");
+        };
+        frameHashListenerWindow = win;
+        win.addEventListener("hashchange", frameHashListener);
+
+        const reduced = getBrowserReducedMotionPreference();
+        const override = reducedToggle.checked;
+        setStatus(`Invite ready. Browser reduced motion: ${reduced ? "yes" : "no"}. Review override: ${override ? "on" : "off"}.`, "ok");
+      } catch (error) {
+        setStatus(error.message, "warn");
+      }
+      syncActivePanel();
+    }
+
+    function getDragPoint() {
+      const doc = getFrameDocument();
+      const root = getRoot();
+      const viewport = doc.querySelector('[data-testid="invite-panel-viewport"]') || root;
+      if (!root || !viewport) {
+        throw new Error("Invite carousel not ready.");
+      }
+      const rect = viewport.getBoundingClientRect();
+      const yWithinViewport = Math.min(Math.max(rect.height * 0.36, 180), Math.max(rect.height - 48, 180));
+      return {
+        root,
+        x: rect.left + rect.width / 2,
+        y: rect.top + yWithinViewport,
+      };
+    }
+
+    function createPointerEvent(win, type, x, y, buttons) {
+      const options = {
+        bubbles: true,
+        buttons,
+        cancelable: true,
+        clientX: x,
+        clientY: y,
+        composed: true,
+        isPrimary: true,
+        pointerId: pointerSequence,
+        pointerType: "touch",
+      };
+
+      if (typeof win.PointerEvent === "function") {
+        return new win.PointerEvent(type, options);
+      }
+
+      const event = new win.MouseEvent(type, options);
+      Object.defineProperties(event, {
+        isPrimary: { value: true },
+        pointerId: { value: pointerSequence },
+        pointerType: { value: "touch" },
+      });
+      return event;
+    }
+
+    function dispatchPointer(type, drag, x, y) {
+      const win = getFrameWindow();
+      const buttons = type === "pointerup" || type === "pointercancel" ? 0 : 1;
+      drag.root.dispatchEvent(createPointerEvent(win, type, x, y, buttons));
+    }
+
+    async function runDrag(delta, options = {}) {
+      const {
+        holdMs = 220,
+        label = "drag",
+        release = true,
+        settleMs = 460,
+        steps = 18,
+        stepMs = 28,
+      } = options;
+      await waitForInvite();
+      pointerSequence += 1;
+      const drag = getDragPoint();
+      setStatus(`Running ${label}: ${delta}px over ${steps} frames…`);
+      dispatchPointer("pointerdown", drag, drag.x, drag.y);
+
+      for (let step = 1; step <= steps; step += 1) {
+        const x = drag.x + delta * (step / steps);
+        dispatchPointer("pointermove", drag, x, drag.y);
+        await delay(stepMs);
+      }
+
+      await delay(holdMs);
+
+      if (release) {
+        dispatchPointer("pointerup", drag, drag.x + delta, drag.y);
+        await delay(settleMs);
+      }
+
+      syncActivePanel();
+      setStatus(`Done: ${label}. Active panel: ${currentPanel}.`, "ok");
+    }
+
+    async function clickInFrame(selector, label, settleMs = 460) {
+      await waitForInvite();
+      const element = getFrameDocument().querySelector(selector);
+      if (!element) {
+        throw new Error(`Missing element for ${label}: ${selector}`);
+      }
+      setStatus(`Clicking ${label}…`);
+      element.click();
+      await delay(settleMs);
+      syncActivePanel();
+      setStatus(`Done: ${label}. Active panel: ${currentPanel}.`, "ok");
+    }
+
+    async function scenario(fn) {
+      try {
+        await fn();
+      } catch (error) {
+        setStatus(error.message, "warn");
+      }
+    }
+
+    function setManualEnabled(enabled) {
+      dragDelta.disabled = !enabled;
+      manualRelease.disabled = !enabled;
+      manualCancel.disabled = !enabled;
+      nudgeLeft.disabled = !enabled;
+      nudgeRight.disabled = !enabled;
+      manualStart.disabled = enabled;
+    }
+
+    async function startManualDrag() {
+      try {
+        await waitForInvite();
+        pointerSequence += 1;
+        manualDrag = getDragPoint();
+        dragDelta.value = "0";
+        deltaReadout.textContent = "0px";
+        dispatchPointer("pointerdown", manualDrag, manualDrag.x, manualDrag.y);
+        setManualEnabled(true);
+        setStatus("Manual touch active. Move slider to inspect follow-finger frames.");
+      } catch (error) {
+        setStatus(error.message, "warn");
+      }
+    }
+
+    function moveManualDrag() {
+      if (!manualDrag) {
+        return;
+      }
+      const delta = Number(dragDelta.value);
+      deltaReadout.textContent = `${delta}px`;
+      dispatchPointer("pointermove", manualDrag, manualDrag.x + delta, manualDrag.y);
+    }
+
+    async function finishManualDrag(type) {
+      if (!manualDrag) {
+        return;
+      }
+      const delta = Number(dragDelta.value);
+      dispatchPointer(type, manualDrag, manualDrag.x + delta, manualDrag.y);
+      manualDrag = null;
+      setManualEnabled(false);
+      await delay(460);
+      syncActivePanel();
+      setStatus(`Manual ${type === "pointerup" ? "release" : "cancel"} complete. Active panel: ${currentPanel}.`, "ok");
+    }
+
+    function loadSavedChecks() {
+      try {
+        return JSON.parse(window.localStorage.getItem(checksStorageKey) || "{}");
+      } catch {
+        window.localStorage.removeItem(checksStorageKey);
+        return {};
+      }
+    }
+
+    function loadSavedNotes() {
+      notes.value = window.localStorage.getItem(reviewStorageKey) || "";
+      const savedChecks = loadSavedChecks();
+      document.querySelectorAll("[data-check]").forEach((box) => {
+        box.checked = Boolean(savedChecks[box.dataset.check]);
+      });
+    }
+
+    function saveChecks() {
+      const savedChecks = {};
+      document.querySelectorAll("[data-check]").forEach((box) => {
+        savedChecks[box.dataset.check] = box.checked;
+      });
+      window.localStorage.setItem(checksStorageKey, JSON.stringify(savedChecks));
+    }
+
+    async function copyReviewBlock() {
+      const checked = Array.from(document.querySelectorAll("[data-check]")).map((box) => {
+        const label = box.closest("label").textContent.trim();
+        return `- [${box.checked ? "x" : " "}] ${label}`;
+      }).join("\n");
+      const block = [
+        "## #78 invite motion review",
+        "",
+        `Artifact reviewed: ${window.location.origin}/invite-motion-review.html`,
+        "Optional generated filmstrip: artifacts/invite-motion-review/index.html (attach if used)",
+        `Fixture: ${fixtureSelect.selectedOptions[0].textContent.trim()}`,
+        `Mode at copy time: ${getEffectiveMotionMode()}`,
+        "",
+        checked,
+        "",
+        "### Findings / approval",
+        notes.value.trim() || "Human motion review: approved / needs changes (edit before posting).",
+      ].join("\n");
+      await navigator.clipboard.writeText(block);
+      setStatus("Review block copied to clipboard.", "ok");
+    }
+
+    document.querySelectorAll("[data-panel]").forEach((button) => {
+      button.addEventListener("click", () => loadPanel(button.dataset.panel));
+    });
+
+    document.querySelector("#reloadFrame").addEventListener("click", () => loadPanel(currentPanel));
+    fixtureSelect.addEventListener("change", () => loadPanel(currentPanel));
+    reducedToggle.addEventListener("change", () => loadPanel(currentPanel));
+    frame.addEventListener("load", bindFrameEvents);
+
+    document.querySelector("#runFollowFinger").addEventListener("click", () => scenario(async () => {
+      loadPanel("detaljer");
+      await delay(900);
+      await runDrag(-72, { holdMs: 900, label: "follow-finger short drag then snap-back", steps: 24, stepMs: 40 });
+    }));
+
+    document.querySelector("#runCommit").addEventListener("click", () => scenario(async () => {
+      loadPanel("inbjudan");
+      await delay(900);
+      await runDrag(-154, { holdMs: 180, label: "committed left release to Detaljer", steps: 22, stepMs: 26 });
+    }));
+
+    document.querySelector("#runEdgeRight").addEventListener("click", () => scenario(async () => {
+      loadPanel("inbjudan");
+      await delay(900);
+      await runDrag(220, { holdMs: 850, label: "right edge resistance on first panel", steps: 26, stepMs: 34 });
+    }));
+
+    document.querySelector("#runEdgeLeft").addEventListener("click", () => scenario(async () => {
+      loadPanel("osa");
+      await delay(900);
+      await runDrag(-220, { holdMs: 850, label: "left edge resistance on last panel", steps: 26, stepMs: 34 });
+    }));
+
+    document.querySelector("#runArrow").addEventListener("click", () => scenario(async () => {
+      loadPanel("inbjudan");
+      await delay(900);
+      await clickInFrame('button[aria-label="Nästa panel"]', "next arrow to Detaljer");
+      await clickInFrame('button[aria-label="Nästa panel"]', "next arrow to OSA");
+      await clickInFrame('button[aria-label="Föregående panel"]', "previous arrow to Detaljer");
+    }));
+
+    document.querySelector("#runDots").addEventListener("click", () => scenario(async () => {
+      loadPanel("inbjudan");
+      await delay(900);
+      await clickInFrame('a[aria-label="Gå till OSA"]', "dot navigation to OSA");
+      await clickInFrame('a[aria-label="Gå till Detaljer"]', "dot navigation to Detaljer");
+      await clickInFrame('a[aria-label="Gå till Inbjudan"]', "dot navigation to Inbjudan");
+    }));
+
+    document.querySelector("#runLinks").addEventListener("click", () => scenario(async () => {
+      loadPanel("inbjudan");
+      await delay(900);
+      await clickInFrame('a[href="#detaljer"]', "cover CTA to Detaljer");
+      await clickInFrame('a[href="#osa"]', "details CTA to OSA");
+      await clickInFrame('a[href="#inbjudan"]', "details/header link back to Inbjudan");
+    }));
+
+    document.querySelector("#runHeight").addEventListener("click", () => scenario(async () => {
+      loadPanel("inbjudan");
+      await delay(900);
+      await clickInFrame('a[href="#detaljer"]', "cover to taller Detaljer panel", 700);
+      await clickInFrame('a[href="#osa"]', "Detaljer to OSA panel", 700);
+    }));
+
+    manualStart.addEventListener("click", startManualDrag);
+    manualRelease.addEventListener("click", () => finishManualDrag("pointerup"));
+    manualCancel.addEventListener("click", () => finishManualDrag("pointercancel"));
+    dragDelta.addEventListener("input", moveManualDrag);
+    nudgeLeft.addEventListener("click", () => {
+      dragDelta.value = String(Math.max(Number(dragDelta.min), Number(dragDelta.value) - 12));
+      moveManualDrag();
+    });
+    nudgeRight.addEventListener("click", () => {
+      dragDelta.value = String(Math.min(Number(dragDelta.max), Number(dragDelta.value) + 12));
+      moveManualDrag();
+    });
+
+    notes.addEventListener("input", () => window.localStorage.setItem(reviewStorageKey, notes.value));
+    document.querySelectorAll("[data-check]").forEach((box) => box.addEventListener("change", saveChecks));
+    document.querySelector("#copyNotes").addEventListener("click", () => scenario(copyReviewBlock));
+    document.querySelector("#clearNotes").addEventListener("click", () => {
+      window.localStorage.removeItem(reviewStorageKey);
+      window.localStorage.removeItem(checksStorageKey);
+      notes.value = "";
+      document.querySelectorAll("[data-check]").forEach((box) => { box.checked = false; });
+      setStatus("Local review notes cleared.", "ok");
+    });
+
+    loadSavedNotes();
+    loadPanel("inbjudan");
+  </script>
+</body>
+</html>
