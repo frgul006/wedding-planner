@@ -35,11 +35,13 @@ Editable fields:
 - `allow_anonymous_hub_upload` (default `true`)
 - `photo_upload_requires_review` (default `false`)
 
-`time_plan` is edited as one item per textarea line, such as `16:30 - Välkomstdrinkar`, and saved as a structured JSON array of `{ time, label }` rows. Blank lines are ignored. Existing string rows are still normalized when rendered.
+`time_plan` is edited as one item per textarea line, such as `16:30 - Välkomstdrinkar`, and saved as a structured JSON array of `{ time, label }` rows. Each non-blank row requires a valid local clock time and a label; label-only rows are invalid and block saving with an error. Blank lines are ignored. Existing string rows are still normalized when rendered.
 
 `partner_one_name` and `partner_two_name` drive the public invite cover names. They are optional and intentionally separate from `name`, which remains the general wedding title / legacy display name. Blank partner fields render safe public placeholders instead of parsing `name`.
 
 `wedding_date` is the wedding start time as Stockholm wall-clock time. Admin-entered `datetime-local` values are interpreted in `Europe/Stockholm`, not in the production server timezone or the admin browser timezone.
+
+Guest-facing links stored in `google_maps_url` and `spotify_playlist_url` must be `http` or `https` URLs. Unsafe values are rejected when saving Wedding settings and still hidden when rendering the Invite as a defensive fallback.
 
 ## Features
 
@@ -47,7 +49,7 @@ Editable fields:
 - Edit explicit public invite partner names
 - Edit date and time
 - Edit venue details, venue area/city, and map link
-- Edit structured timeline/time plan rows
+- Edit structured Time Plan rows
 - Edit dress code, child policy, invite support email, and legacy policy notes
 - Edit gift information
 - Edit Spotify playlist link

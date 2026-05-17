@@ -3,11 +3,11 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
-import { formatStockholmDateTimeLocal } from "@/lib/stockholm-date-time";
-import { isMissingPartnerNameColumnError } from "@/lib/supabase/schema-compat";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { normalizeTimePlanLines } from "@/lib/time-plan";
-import { isNullableString, isRecord } from "@/lib/type-guards";
+import {
+  getWeddingSettingsFormValues,
+  loadAdminWeddingSettings,
+} from "@/lib/wedding-settings";
 
 import { AdminField, AdminTextArea } from "../_components/form-controls";
 import { updateWeddingSettingsAction } from "./actions";
@@ -23,32 +23,6 @@ type SettingsPageProps = {
   }>;
 };
 
-type Wedding = {
-  name: string;
-  partner_one_name: string | null;
-  partner_two_name: string | null;
-  wedding_date: string | null;
-  venue_name: string | null;
-  venue_address: string | null;
-  venue_area: string | null;
-  google_maps_url: string | null;
-  time_plan: string[];
-  policy: string | null;
-  dress_code: string | null;
-  child_policy: string | null;
-  gift_info: string | null;
-  spotify_playlist_url: string | null;
-  invite_support_email: string | null;
-  allow_anonymous_hub_upload: boolean;
-  photo_upload_requires_review: boolean;
-};
-
-type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
-
-const weddingSettingsSelect =
-  "name, partner_one_name, partner_two_name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, allow_anonymous_hub_upload, photo_upload_requires_review";
-const legacyWeddingSettingsSelect =
-  "name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, allow_anonymous_hub_upload, photo_upload_requires_review";
 const partnerNameHelpText =
   "Shown on the public invite cover. Leave blank to show a safe public placeholder instead of guessing from the wedding name.";
 const partnerNameUnavailableHelpText =
@@ -70,6 +44,27 @@ function getMessage(searchParams: Awaited<SettingsPageProps["searchParams"]>) {
     return { tone: "error", text: "Wedding date must be a valid date and time." };
   }
 
+  if (error === "invalid-time-plan") {
+    return {
+      tone: "error",
+      text: "Each Time Plan row needs a valid time and label, like 16:30 - Välkomstdrinkar.",
+    };
+  }
+
+  if (error === "invalid-google-maps-url") {
+    return {
+      tone: "error",
+      text: "Google Maps URL must start with http:// or https://.",
+    };
+  }
+
+  if (error === "invalid-spotify-url") {
+    return {
+      tone: "error",
+      text: "Spotify playlist URL must start with http:// or https://.",
+    };
+  }
+
   if (error === "not-found") {
     return { tone: "error", text: "Wedding settings were not found." };
   }
@@ -85,103 +80,17 @@ function getMessage(searchParams: Awaited<SettingsPageProps["searchParams"]>) {
   return null;
 }
 
-function toWedding(value: unknown): Wedding | null {
-  if (
-    !isRecord(value) ||
-    typeof value.name !== "string" ||
-    !isNullableString(value.partner_one_name) ||
-    !isNullableString(value.partner_two_name) ||
-    !isNullableString(value.wedding_date) ||
-    !isNullableString(value.venue_name) ||
-    !isNullableString(value.venue_address) ||
-    !isNullableString(value.venue_area) ||
-    !isNullableString(value.google_maps_url) ||
-    !isNullableString(value.policy) ||
-    !isNullableString(value.dress_code) ||
-    !isNullableString(value.child_policy) ||
-    !isNullableString(value.gift_info) ||
-    !isNullableString(value.spotify_playlist_url) ||
-    !isNullableString(value.invite_support_email) ||
-    typeof value.allow_anonymous_hub_upload !== "boolean" ||
-    typeof value.photo_upload_requires_review !== "boolean"
-  ) {
-    return null;
-  }
-
-  return {
-    allow_anonymous_hub_upload: value.allow_anonymous_hub_upload,
-    child_policy: value.child_policy,
-    dress_code: value.dress_code,
-    gift_info: value.gift_info,
-    google_maps_url: value.google_maps_url,
-    invite_support_email: value.invite_support_email,
-    name: value.name,
-    partner_one_name: value.partner_one_name,
-    partner_two_name: value.partner_two_name,
-    photo_upload_requires_review: value.photo_upload_requires_review,
-    policy: value.policy,
-    spotify_playlist_url: value.spotify_playlist_url,
-    time_plan: normalizeTimePlanLines(value.time_plan),
-    venue_address: value.venue_address,
-    venue_area: value.venue_area,
-    venue_name: value.venue_name,
-    wedding_date: value.wedding_date,
-  };
-}
-
-function withMissingPartnerNameColumns(value: unknown) {
-  if (!isRecord(value)) {
-    return value;
-  }
-
-  return {
-    ...value,
-    partner_one_name: null,
-    partner_two_name: null,
-  };
-}
-
-async function loadWeddingSettings({
-  supabase,
-  weddingId,
-}: {
-  supabase: SupabaseServerClient;
-  weddingId: string;
-}) {
-  const result = await supabase
-    .from("weddings")
-    .select(weddingSettingsSelect)
-    .eq("id", weddingId)
-    .maybeSingle();
-
-  if (!isMissingPartnerNameColumnError(result.error)) {
-    return { ...result, partnerNameFieldsAvailable: true };
-  }
-
-  const fallbackResult = await supabase
-    .from("weddings")
-    .select(legacyWeddingSettingsSelect)
-    .eq("id", weddingId)
-    .maybeSingle();
-
-  return {
-    ...fallbackResult,
-    data: withMissingPartnerNameColumns(fallbackResult.data),
-    partnerNameFieldsAvailable: false,
-  };
-}
-
 export default async function SettingsPage({ searchParams }: SettingsPageProps) {
   await connection();
 
   const params = await searchParams;
   const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
-  const { data, error, partnerNameFieldsAvailable } = await loadWeddingSettings({
+  const { error, partnerNameFieldsAvailable, settings } = await loadAdminWeddingSettings({
     supabase,
     weddingId: adminProfile.wedding_id,
   });
-  const wedding = toWedding(data);
+  const formValues = settings ? getWeddingSettingsFormValues(settings) : null;
   const message = getMessage(params);
 
   return (
@@ -196,7 +105,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
               Wedding settings
             </h1>
             <p className="mt-2 text-zinc-600">
-              Manage event details that will be shown on invite pages.
+              Manage Wedding settings that will be shown on Invite pages.
             </p>
           </div>
           <Link
@@ -232,13 +141,13 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
           </p>
         ) : null}
 
-        {wedding ? (
+        {formValues ? (
           <form
             action={updateWeddingSettingsAction}
             className="grid gap-6 rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-200"
           >
             <div>
-              <h2 className="text-xl font-semibold text-zinc-950">Event details</h2>
+              <h2 className="text-xl font-semibold text-zinc-950">Wedding details</h2>
               <p className="mt-1 text-sm text-zinc-500">
                 These values are scoped to your wedding and can be changed any time.
               </p>
@@ -246,14 +155,14 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
 
             <div className="grid gap-4 sm:grid-cols-2">
               <AdminField
-                defaultValue={wedding.name}
+                defaultValue={formValues.name}
                 label="Wedding name"
                 name="name"
                 placeholder="Alex & Sam"
                 required
               />
               <AdminField
-                defaultValue={wedding.partner_one_name}
+                defaultValue={formValues.partner_one_name}
                 disabled={!partnerNameFieldsAvailable}
                 helpText={partnerNameFieldsAvailable ? partnerNameHelpText : partnerNameUnavailableHelpText}
                 label="Partner one name"
@@ -261,7 +170,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                 placeholder="Alex"
               />
               <AdminField
-                defaultValue={wedding.partner_two_name}
+                defaultValue={formValues.partner_two_name}
                 disabled={!partnerNameFieldsAvailable}
                 helpText={partnerNameFieldsAvailable ? partnerNameHelpText : partnerNameUnavailableHelpText}
                 label="Partner two name"
@@ -269,45 +178,45 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                 placeholder="Sam"
               />
               <AdminField
-                defaultValue={formatStockholmDateTimeLocal(wedding.wedding_date)}
+                defaultValue={formValues.weddingDateLocal}
                 label="Wedding date and time"
                 name="wedding_date"
                 type="datetime-local"
               />
               <AdminField
-                defaultValue={wedding.venue_name}
+                defaultValue={formValues.venue_name}
                 label="Venue name"
                 name="venue_name"
                 placeholder="Example Manor"
               />
               <AdminField
-                defaultValue={wedding.venue_address}
+                defaultValue={formValues.venue_address}
                 label="Venue address"
                 name="venue_address"
                 placeholder="Garden Road 1, Stockholm"
               />
               <AdminField
-                defaultValue={wedding.venue_area}
+                defaultValue={formValues.venue_area}
                 label="Venue area / city"
                 name="venue_area"
                 placeholder="Johanneshov"
               />
               <AdminField
-                defaultValue={wedding.google_maps_url}
+                defaultValue={formValues.google_maps_url}
                 label="Google Maps URL"
                 name="google_maps_url"
                 placeholder="https://maps.google.com/..."
                 type="url"
               />
               <AdminField
-                defaultValue={wedding.spotify_playlist_url}
+                defaultValue={formValues.spotify_playlist_url}
                 label="Spotify playlist URL"
                 name="spotify_playlist_url"
                 placeholder="https://open.spotify.com/..."
                 type="url"
               />
               <AdminField
-                defaultValue={wedding.invite_support_email}
+                defaultValue={formValues.invite_support_email}
                 label="Invite support email"
                 name="invite_support_email"
                 placeholder="help@example.com"
@@ -316,8 +225,8 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             </div>
 
             <AdminTextArea
-              defaultValue={(wedding.time_plan ?? []).join("\n")}
-              helpText="One structured timeline item per line. Use '16:30 - Välkomstdrinkar'; blank lines are ignored."
+              defaultValue={formValues.timePlanText}
+              helpText="One Time Plan entry per line. Use '16:30 - Välkomstdrinkar'; blank lines are ignored."
               label="Time plan"
               name="time_plan"
               placeholder={"15:00 - Ceremony\n17:00 - Dinner\n21:00 - Dancing"}
@@ -325,26 +234,26 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             />
             <div className="grid gap-4 sm:grid-cols-2">
               <AdminTextArea
-                defaultValue={wedding.dress_code}
+                defaultValue={formValues.dress_code}
                 label="Dress code"
                 name="dress_code"
                 placeholder="Festlig sommarformal"
               />
               <AdminTextArea
-                defaultValue={wedding.child_policy}
+                defaultValue={formValues.child_policy}
                 label="Child policy"
                 name="child_policy"
                 placeholder="Vi älskar era barn, men firar vuxet den här kvällen."
               />
             </div>
             <AdminTextArea
-              defaultValue={wedding.policy}
+              defaultValue={formValues.policy}
               label="Legacy policy notes"
               name="policy"
               placeholder="Optional transport notes or other existing policy text."
             />
             <AdminTextArea
-              defaultValue={wedding.gift_info}
+              defaultValue={formValues.gift_info}
               label="Gift information"
               name="gift_info"
               placeholder="Tell guests about gifts, registry, or honeymoon contributions."
@@ -354,7 +263,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
               <label className="flex items-start gap-3 rounded-2xl bg-zinc-50 p-4 text-sm text-zinc-700">
                 <input
                   className="mt-1 h-4 w-4 rounded border-zinc-300"
-                  defaultChecked={wedding.allow_anonymous_hub_upload}
+                  defaultChecked={formValues.allow_anonymous_hub_upload}
                   name="allow_anonymous_hub_upload"
                   type="checkbox"
                 />
@@ -371,7 +280,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
               <label className="flex items-start gap-3 rounded-2xl bg-zinc-50 p-4 text-sm text-zinc-700">
                 <input
                   className="mt-1 h-4 w-4 rounded border-zinc-300"
-                  defaultChecked={wedding.photo_upload_requires_review}
+                  defaultChecked={formValues.photo_upload_requires_review}
                   name="photo_upload_requires_review"
                   type="checkbox"
                 />

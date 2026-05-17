@@ -8,8 +8,10 @@ import {
 import { hashInviteToken } from "@/lib/invite-token-crypto";
 import { isRsvpAttendance, type RsvpAttendance } from "@/lib/rsvp-attendance";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { isMissingPartnerNameColumnError } from "@/lib/supabase/schema-compat";
-import { normalizeTimePlanLines } from "@/lib/time-plan";
+import {
+  loadInviteWeddingSettings,
+  type InviteWeddingSettings,
+} from "@/lib/wedding-settings";
 import { isNullableString, isRecord } from "@/lib/type-guards";
 
 type GuestRelation = {
@@ -40,35 +42,10 @@ export type InviteRsvpResponse = {
   last_submitted_at: string;
 };
 
-export type InviteWedding = {
-  child_policy: string | null;
-  dress_code: string | null;
-  partner_one_name: string | null;
-  partner_two_name: string | null;
-  gift_info: string | null;
-  google_maps_url: string | null;
-  invite_support_email: string | null;
-  name: string;
-  policy: string | null;
-  spotify_playlist_url: string | null;
-  time_plan: string[];
-  venue_address: string | null;
-  venue_area: string | null;
-  venue_name: string | null;
-  wedding_date: string | null;
-};
-
-type WeddingRelation = Omit<InviteWedding, "name" | "time_plan"> & {
-  name: string | null;
-  time_plan: unknown;
-};
+export type InviteWedding = InviteWeddingSettings;
 
 type ValidGuestRelation = GuestRelation & {
   full_name: string;
-};
-
-type ValidWeddingRelation = WeddingRelation & {
-  name: string;
 };
 
 type InviteTokenRow = {
@@ -76,7 +53,6 @@ type InviteTokenRow = {
   guest_id: string;
   guests: unknown;
   wedding_id: string;
-  weddings: unknown;
 };
 
 type RsvpResponseRow = Omit<InviteRsvpResponse, "attendance"> & {
@@ -121,83 +97,11 @@ const inviteTokenContextSelect = `
     phone,
     plus_one_allowed,
     sms_opt_in
-  ),
-  weddings!inner(
-    child_policy,
-    dress_code,
-    gift_info,
-    google_maps_url,
-    invite_support_email,
-    name,
-    partner_one_name,
-    partner_two_name,
-    policy,
-    spotify_playlist_url,
-    time_plan,
-    venue_address,
-    venue_area,
-    venue_name,
-    wedding_date
-  )
-`;
-
-const legacyInviteTokenContextSelect = `
-  id,
-  guest_id,
-  wedding_id,
-  guests!invite_tokens_guest_wedding_fk!inner(
-    deleted_at,
-    full_name,
-    phone,
-    plus_one_allowed,
-    sms_opt_in
-  ),
-  weddings!inner(
-    child_policy,
-    dress_code,
-    gift_info,
-    google_maps_url,
-    invite_support_email,
-    name,
-    policy,
-    spotify_playlist_url,
-    time_plan,
-    venue_address,
-    venue_area,
-    venue_name,
-    wedding_date
   )
 `;
 
 function getSingleRelation(relation: unknown) {
   return Array.isArray(relation) ? relation[0] : relation;
-}
-
-function withMissingPartnerNameColumns(value: unknown) {
-  if (!isRecord(value)) {
-    return value;
-  }
-
-  return {
-    ...value,
-    partner_one_name: null,
-    partner_two_name: null,
-  };
-}
-
-function withMissingPartnerNameColumnsOnWeddingRelation(value: unknown) {
-  if (!isRecord(value)) {
-    return value;
-  }
-
-  const weddings = Array.isArray(value.weddings)
-    ? value.weddings.map(withMissingPartnerNameColumns)
-    : withMissingPartnerNameColumns(value.weddings);
-
-  return {
-    ...value,
-    weddings,
-  };
 }
 
 function isGuestRelation(value: unknown): value is GuestRelation {
@@ -208,26 +112,6 @@ function isGuestRelation(value: unknown): value is GuestRelation {
     isNullableString(value.phone) &&
     typeof value.plus_one_allowed === "boolean" &&
     typeof value.sms_opt_in === "boolean"
-  );
-}
-
-function isWeddingRelation(value: unknown): value is WeddingRelation {
-  return (
-    isRecord(value) &&
-    isNullableString(value.child_policy) &&
-    isNullableString(value.dress_code) &&
-    isNullableString(value.gift_info) &&
-    isNullableString(value.google_maps_url) &&
-    isNullableString(value.invite_support_email) &&
-    isNullableString(value.name) &&
-    isNullableString(value.partner_one_name) &&
-    isNullableString(value.partner_two_name) &&
-    isNullableString(value.policy) &&
-    isNullableString(value.spotify_playlist_url) &&
-    isNullableString(value.venue_address) &&
-    isNullableString(value.venue_area) &&
-    isNullableString(value.venue_name) &&
-    isNullableString(value.wedding_date)
   );
 }
 
@@ -289,7 +173,7 @@ function toGrantedInviteAccess({
   weddingId,
 }: InviteTokenIdentity & {
   guest: ValidGuestRelation;
-  wedding: ValidWeddingRelation;
+  wedding: InviteWedding;
 }): GrantedInviteAccess {
   return {
     status: "granted",
@@ -302,23 +186,7 @@ function toGrantedInviteAccess({
       plus_one_allowed: guest.plus_one_allowed,
       sms_opt_in: guest.sms_opt_in,
     },
-    wedding: {
-      child_policy: wedding.child_policy,
-      dress_code: wedding.dress_code,
-      gift_info: wedding.gift_info,
-      google_maps_url: wedding.google_maps_url,
-      invite_support_email: wedding.invite_support_email,
-      name: wedding.name,
-      partner_one_name: wedding.partner_one_name,
-      partner_two_name: wedding.partner_two_name,
-      policy: wedding.policy,
-      spotify_playlist_url: wedding.spotify_playlist_url,
-      time_plan: normalizeTimePlanLines(wedding.time_plan),
-      venue_address: wedding.venue_address,
-      venue_area: wedding.venue_area,
-      venue_name: wedding.venue_name,
-      wedding_date: wedding.wedding_date,
-    },
+    wedding,
   };
 }
 
@@ -331,26 +199,12 @@ async function resolveGrantedInviteAccess(
   }
 
   const tokenHash = hashInviteToken(rawToken);
-  const result = await supabase
+  const { data, error } = await supabase
     .from("invite_tokens")
     .select(inviteTokenContextSelect)
     .eq("token_hash", tokenHash)
     .eq("is_active", true)
     .maybeSingle();
-  let data: unknown = result.data;
-  let error = result.error;
-
-  if (isMissingPartnerNameColumnError(error)) {
-    const fallbackResult = await supabase
-      .from("invite_tokens")
-      .select(legacyInviteTokenContextSelect)
-      .eq("token_hash", tokenHash)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    data = withMissingPartnerNameColumnsOnWeddingRelation(fallbackResult.data);
-    error = fallbackResult.error;
-  }
 
   if (error || !data) {
     if (error) {
@@ -365,15 +219,17 @@ async function resolveGrantedInviteAccess(
   }
 
   const guest = getSingleRelation(data.guests);
-  const wedding = getSingleRelation(data.weddings);
 
-  if (
-    !isGuestRelation(guest) ||
-    !isWeddingRelation(wedding) ||
-    !guest.full_name ||
-    guest.deleted_at ||
-    !wedding.name
-  ) {
+  if (!isGuestRelation(guest) || !guest.full_name || guest.deleted_at) {
+    return null;
+  }
+
+  const wedding = await loadInviteWeddingSettings({
+    supabase,
+    weddingId: data.wedding_id,
+  });
+
+  if (!wedding) {
     return null;
   }
 
@@ -384,10 +240,7 @@ async function resolveGrantedInviteAccess(
     },
     guestId: data.guest_id,
     inviteTokenId: data.id,
-    wedding: {
-      ...wedding,
-      name: wedding.name,
-    },
+    wedding,
     weddingId: data.wedding_id,
   });
 }

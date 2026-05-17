@@ -11,7 +11,7 @@ import { getInviteSupportContact } from "@/lib/invite-support-contact";
 import { shouldShowInviteRsvpSubmittedConfirmation } from "@/lib/invite-rsvp-navigation";
 import { RSVP_ATTENDANCE, type RsvpAttendance } from "@/lib/rsvp-attendance";
 import { getSafeHttpUrl } from "@/lib/safe-url";
-import { parseTimePlanLine } from "@/lib/time-plan";
+import { getSafeWeddingSettingsUrl } from "@/lib/wedding-settings";
 import { getPublishedWeddingUpdates } from "@/lib/wedding-updates";
 
 import {
@@ -492,27 +492,19 @@ function DetailsPanel({
           <DetailCard title="Tidsplan">
             {wedding.time_plan.length ? (
               <ol className="grid gap-3">
-                {wedding.time_plan.map((item, index) => {
-                  const entry = parseTimePlanLine(item);
-
-                  return (
-                    <li
-                      className="border-l-4 border-invite-rust bg-invite-paper-muted/80 p-4 text-invite-ink"
-                      key={`${index}-${item}`}
-                    >
-                      {entry?.time ? (
-                        <p>
-                          <span className="brevkort-display text-sm font-semibold italic text-invite-rust">
-                            {entry.time}
-                          </span>{" "}
-                          - {entry.label}
-                        </p>
-                      ) : (
-                        <p>{entry?.label ?? item}</p>
-                      )}
-                    </li>
-                  );
-                })}
+                {wedding.time_plan.map((entry, index) => (
+                  <li
+                    className="border-l-4 border-invite-rust bg-invite-paper-muted/80 p-4 text-invite-ink"
+                    key={`${index}-${entry.time}-${entry.label}`}
+                  >
+                    <p>
+                      <span className="brevkort-display text-sm font-semibold italic text-invite-rust">
+                        {entry.time}
+                      </span>{" "}
+                      - {entry.label}
+                    </p>
+                  </li>
+                ))}
               </ol>
             ) : (
               <p>{comingSoon}</p>
@@ -648,8 +640,8 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   const coverDateTime = formatCoverDateTime(wedding.wedding_date);
   const coverVenueName = getDisplayText(wedding.venue_name);
   const coverVenueArea = getDisplayText(wedding.venue_area ?? wedding.venue_address);
-  const mapsUrl = getSafeHttpUrl(wedding.google_maps_url);
-  const spotifyUrl = getSafeHttpUrl(wedding.spotify_playlist_url);
+  const mapsUrl = getSafeWeddingSettingsUrl(wedding.google_maps_url);
+  const spotifyUrl = getSafeWeddingSettingsUrl(wedding.spotify_playlist_url);
   const showSubmittedConfirmation =
     shouldShowInviteRsvpSubmittedConfirmation(queryParams);
   const rsvpSubmittedAt = formatRsvpSubmittedAt(
