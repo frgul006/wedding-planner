@@ -94,11 +94,12 @@ network:
     - fonts.googleapis.com
     - fonts.gstatic.com
 
-    # Supabase CLI/API, hosted project APIs, and docs referenced by the local config.
+    # Supabase CLI/API, hosted project APIs, telemetry, and docs referenced by the local config.
     - supabase.com
     - api.supabase.com
     - "*.supabase.com"
     - "*.supabase.co"
+    - eu.i.posthog.com
 
     # Optional real SMS smoke testing via `pnpm sms:test`.
     - api.46elks.com
