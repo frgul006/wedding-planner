@@ -227,6 +227,8 @@ test.describe.serial("invite one-panel shell", () => {
     ]) {
       expect(touchActions).not.toContain("pan-y");
     }
+
+    expect(await touchActionChainAt(page, 195, 420)).toContain("pan-y");
   });
 
   test("ignores left browser-edge touch starts without rubber-band motion", async ({
@@ -543,6 +545,31 @@ test.describe.serial("invite one-panel shell", () => {
     await expectMovingPanels(page, "inbjudan", "osa");
     await expect(page).toHaveURL(/#osa$/);
     await expectActivePanel(page, "osa");
+  });
+
+  test("syncs browser-owned edge history traversal without replaying panel motion", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await page.getByRole("button", { name: "Nästa panel" }).click();
+    await expect(page).toHaveURL(/#detaljer$/);
+    await expectActivePanel(page, "detaljer");
+
+    await page.getByRole("button", { name: "Nästa panel" }).click();
+    await expect(page).toHaveURL(/#osa$/);
+    await expectActivePanel(page, "osa");
+
+    await dispatchTouchPointer(page, "pointerdown", 24);
+    await page.goBack();
+
+    await expect(page).toHaveURL(/#detaljer$/);
+    await expect(page.locator("#osa"), "native edge traversal should not replay panel motion")
+      .toBeHidden({ timeout: 100 });
+    await expectActivePanel(page, "detaljer");
   });
 
   test("animates browser back and forward through committed panel hashes", async ({

@@ -75,9 +75,11 @@ const dragCommitDistanceRatio = 0.28;
 const dragFlickMinimumDistancePx = 36;
 const dragFlickVelocityPxPerMs = 0.5;
 const dragVerticalIntentThresholdPx = 10;
+const duplicateBrowserEdgeHistoryEventWindowMs = 250;
 const edgeResistanceFactor = 0.24;
 const edgeResistanceLimitPx = 56;
 const legacySwipeThresholdPx = 48;
+const nativeBrowserEdgeGestureWindowMs = 4_000;
 
 function hashToPanelId(hash: string, panels: InvitePanelMeta[]) {
   const id = hash.replace(/^#/, "");
@@ -329,8 +331,10 @@ export function InvitePanelCarousel({
   const dragSessionRef = useRef<DragSession | null>(null);
   const gestureRef = useRef<PanelGesture | null>(null);
   const gestureSequenceRef = useRef(0);
+  const nativeBrowserEdgeGestureStartedAtRef = useRef<number | null>(null);
   const panelRefs = useRef<Array<HTMLDivElement | null>>([]);
   const rootRef = useRef<HTMLDivElement>(null);
+  const instantBrowserEdgeHashSyncUntilRef = useRef(0);
   const transitionRef = useRef<PanelTransition | null>(null);
   const transitionSequenceRef = useRef(0);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -641,26 +645,64 @@ export function InvitePanelCarousel({
     [activeIndex, navigateToIndex],
   );
 
+  const syncHashInstantly = useCallback(
+    (nextIndex: number) => {
+      cancelGestureState();
+      transitionRef.current = null;
+      setTransition(null);
+      setActiveIndex(nextIndex);
+      updateViewportHeight(nextIndex);
+    },
+    [cancelGestureState, updateViewportHeight],
+  );
+
+  const shouldSyncBrowserEdgeNavigationInstantly = useCallback(() => {
+    const now = window.performance.now();
+
+    if (instantBrowserEdgeHashSyncUntilRef.current >= now) {
+      return true;
+    }
+
+    const startedAt = nativeBrowserEdgeGestureStartedAtRef.current;
+
+    if (startedAt === null) {
+      return false;
+    }
+
+    if (now - startedAt > nativeBrowserEdgeGestureWindowMs) {
+      nativeBrowserEdgeGestureStartedAtRef.current = null;
+      return false;
+    }
+
+    nativeBrowserEdgeGestureStartedAtRef.current = null;
+    instantBrowserEdgeHashSyncUntilRef.current =
+      now + duplicateBrowserEdgeHistoryEventWindowMs;
+    return true;
+  }, []);
+
   useEffect(() => {
     const syncInitialHash = () => {
       const panelId = hashToPanelId(window.location.hash, panels);
       const nextIndex = panelId ? panelIndexById.get(panelId) : 0;
 
-      cancelGestureState();
-      transitionRef.current = null;
-      setTransition(null);
-      setActiveIndex(nextIndex ?? 0);
+      syncHashInstantly(nextIndex ?? 0);
     };
 
     syncInitialHash();
-  }, [cancelGestureState, panelIndexById, panels]);
+  }, [panelIndexById, panels, syncHashInstantly]);
 
   useEffect(() => {
     const syncFromHash = () => {
       const panelId = hashToPanelId(window.location.hash, panels);
       const nextIndex = panelId ? panelIndexById.get(panelId) : 0;
+      const resolvedNextIndex = nextIndex ?? 0;
 
-      navigateToIndex(nextIndex ?? 0, { history: "none" });
+      if (shouldSyncBrowserEdgeNavigationInstantly()) {
+        syncHashInstantly(resolvedNextIndex);
+        return;
+      }
+
+      navigateToIndex(resolvedNextIndex, { history: "none" });
     };
 
     window.addEventListener("hashchange", syncFromHash);
@@ -670,7 +712,13 @@ export function InvitePanelCarousel({
       window.removeEventListener("hashchange", syncFromHash);
       window.removeEventListener("popstate", syncFromHash);
     };
-  }, [navigateToIndex, panelIndexById, panels]);
+  }, [
+    navigateToIndex,
+    panelIndexById,
+    panels,
+    shouldSyncBrowserEdgeNavigationInstantly,
+    syncHashInstantly,
+  ]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -736,6 +784,7 @@ export function InvitePanelCarousel({
     }
 
     if (isReservedBrowserGestureEdgeStart(event.clientX)) {
+      nativeBrowserEdgeGestureStartedAtRef.current = window.performance.now();
       return;
     }
 
@@ -1024,7 +1073,7 @@ export function InvitePanelCarousel({
 
   return (
     <div
-      className="mx-auto flex min-h-[926px] w-full max-w-[390px] flex-col"
+      className="relative mx-auto min-h-[926px] w-full max-w-[390px]"
       data-testid="invite-panel-carousel"
       onPointerCancel={(event) => finishDragSession(event, { cancel: true })}
       onPointerDown={handlePointerDown}
@@ -1032,19 +1081,32 @@ export function InvitePanelCarousel({
       onPointerUp={finishDragSession}
       ref={rootRef}
     >
-      <div className="px-4 py-0 sm:px-4 sm:py-0">
-        <PanelNavigation
-          activeIndex={activeIndex}
-          coupleMark={coupleMark}
-          panels={panels}
-        />
-      </div>
       <div
-        className="relative mt-0 overflow-hidden transition-[height] duration-300 ease-out motion-reduce:transition-none"
-        data-testid="invite-panel-viewport"
-        ref={viewportRef}
-        style={viewportStyle}
-      >
+        aria-hidden="true"
+        className="pointer-events-auto fixed inset-y-0 left-0 z-30"
+        data-testid="invite-panel-left-browser-edge"
+        style={{ width: `${browserGestureEdgeReservePx}px` }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-auto fixed inset-y-0 right-0 z-30"
+        data-testid="invite-panel-right-browser-edge"
+        style={{ width: `${browserGestureEdgeReservePx}px` }}
+      />
+      <div className="flex min-h-[926px] flex-col touch-pan-y">
+        <div className="px-4 py-0 sm:px-4 sm:py-0">
+          <PanelNavigation
+            activeIndex={activeIndex}
+            coupleMark={coupleMark}
+            panels={panels}
+          />
+        </div>
+        <div
+          className="relative mt-0 overflow-hidden transition-[height] duration-300 ease-out motion-reduce:transition-none"
+          data-testid="invite-panel-viewport"
+          ref={viewportRef}
+          style={viewportStyle}
+        >
         {panelChildren.map((child, index) => {
           const panel = panels[index];
           const isRestingActive = !transition && !gesture && index === activeIndex;
@@ -1086,42 +1148,43 @@ export function InvitePanelCarousel({
             </div>
           );
         })}
-      </div>
+        </div>
 
-      <div className="mt-auto flex items-center justify-center gap-3 pt-6 text-invite-ink">
-        <p className="sr-only">
-          {formatPanelCount(activeIndex, panels.length)} · {activePanel?.label}
-        </p>
-        <button
-          aria-controls={activePanel?.id}
-          aria-label="Föregående panel"
-          className={cx(
-            "inline-flex h-11 w-11 items-center justify-center border border-invite-ink bg-invite-paper-light text-xl transition hover:bg-invite-paper-muted/70",
-            navigationIndex === 0
-              ? "cursor-not-allowed border-invite-border-soft text-invite-body opacity-45"
-              : "shadow-[var(--invite-shadow)]",
-          )}
-          disabled={navigationIndex === 0}
-          onClick={() => navigateBy(-1)}
-          type="button"
-        >
-          ←
-        </button>
-        <button
-          aria-controls={activePanel?.id}
-          aria-label="Nästa panel"
-          className={cx(
-            "inline-flex h-11 w-11 items-center justify-center border border-invite-ink bg-invite-paper-light text-xl transition hover:bg-invite-paper-muted/70",
-            navigationIndex === panels.length - 1
-              ? "cursor-not-allowed border-invite-border-soft text-invite-body opacity-45"
-              : "shadow-[var(--invite-shadow)]",
-          )}
-          disabled={navigationIndex === panels.length - 1}
-          onClick={() => navigateBy(1)}
-          type="button"
-        >
-          →
-        </button>
+        <div className="mt-auto flex items-center justify-center gap-3 pt-6 text-invite-ink">
+          <p className="sr-only">
+            {formatPanelCount(activeIndex, panels.length)} · {activePanel?.label}
+          </p>
+          <button
+            aria-controls={activePanel?.id}
+            aria-label="Föregående panel"
+            className={cx(
+              "inline-flex h-11 w-11 items-center justify-center border border-invite-ink bg-invite-paper-light text-xl transition hover:bg-invite-paper-muted/70",
+              navigationIndex === 0
+                ? "cursor-not-allowed border-invite-border-soft text-invite-body opacity-45"
+                : "shadow-[var(--invite-shadow)]",
+            )}
+            disabled={navigationIndex === 0}
+            onClick={() => navigateBy(-1)}
+            type="button"
+          >
+            ←
+          </button>
+          <button
+            aria-controls={activePanel?.id}
+            aria-label="Nästa panel"
+            className={cx(
+              "inline-flex h-11 w-11 items-center justify-center border border-invite-ink bg-invite-paper-light text-xl transition hover:bg-invite-paper-muted/70",
+              navigationIndex === panels.length - 1
+                ? "cursor-not-allowed border-invite-border-soft text-invite-body opacity-45"
+                : "shadow-[var(--invite-shadow)]",
+            )}
+            disabled={navigationIndex === panels.length - 1}
+            onClick={() => navigateBy(1)}
+            type="button"
+          >
+            →
+          </button>
+        </div>
       </div>
     </div>
   );
