@@ -185,6 +185,63 @@ test.describe.serial("invite one-panel shell", () => {
     await expectActivePanel(page, "detaljer");
   });
 
+  test("ignores left browser-edge touch starts without rubber-band motion", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await dragPanelTo(page, 24, 320);
+
+    expect(Math.round(await panelFrameTranslateX(page, "inbjudan"))).toBe(0);
+    await expect(page.locator("#detaljer"), "edge-start swipe should not reveal a panel")
+      .toBeHidden();
+
+    await releasePanelDrag(page, 320);
+
+    await expectActivePanel(page, "inbjudan");
+    await expect(page).not.toHaveURL(/#detaljer$/);
+  });
+
+  test("ignores right browser-edge touch starts without panel motion", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await dragPanelTo(page, 370, 80);
+
+    expect(Math.round(await panelFrameTranslateX(page, "inbjudan"))).toBe(0);
+    await expect(page.locator("#detaljer"), "edge-start swipe should not reveal a panel")
+      .toBeHidden();
+
+    await releasePanelDrag(page, 80);
+
+    await expectActivePanel(page, "inbjudan");
+    await expect(page).not.toHaveURL(/#detaljer$/);
+  });
+
+  test("keeps interior-start swipe ownership after moving into an edge zone", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await swipePanel(page, 320, 24);
+
+    await expect(page).toHaveURL(/#detaljer$/);
+    await expectActivePanel(page, "detaljer");
+  });
+
   test("commits after a fast horizontal flick below the distance threshold", async ({
     page,
   }) => {

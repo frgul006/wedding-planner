@@ -68,6 +68,7 @@ type DragSession = {
 const panelTransitionMs = 300;
 const panelTransitionEase = "cubic-bezier(0.22, 1, 0.36, 1)";
 const panelScaleDuringMotion = 0.985;
+const browserGestureEdgeReservePx = 44;
 const dragActivationThresholdPx = 8;
 const dragCommitDistanceMaxPx = 120;
 const dragCommitDistanceRatio = 0.28;
@@ -212,6 +213,14 @@ function isInteractiveDragStart(target: EventTarget | null, root: Element) {
 
   const interactiveElement = target.closest(interactiveDragStartSelector);
   return Boolean(interactiveElement && root.contains(interactiveElement));
+}
+
+function isReservedBrowserGestureEdgeStart(clientX: number) {
+  const viewportWidth = window.innerWidth;
+  return (
+    clientX <= browserGestureEdgeReservePx ||
+    clientX >= viewportWidth - browserGestureEdgeReservePx
+  );
 }
 
 function getGestureForDelta({
@@ -723,6 +732,10 @@ export function InvitePanelCarousel({
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType !== "touch" || transitionRef.current) {
+      return;
+    }
+
+    if (isReservedBrowserGestureEdgeStart(event.clientX)) {
       return;
     }
 
