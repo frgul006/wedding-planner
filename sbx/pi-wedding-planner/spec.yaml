@@ -30,8 +30,6 @@ network:
     api.github.com: github
     github.com: github
     raw.githubusercontent.com: github
-    api.vercel.com: vercel
-    api.supabase.com: supabase
   serviceAuth:
     anthropic:
       headerName: x-api-key
@@ -40,12 +38,6 @@ network:
       headerName: Authorization
       valueFormat: "Bearer %s"
     github:
-      headerName: Authorization
-      valueFormat: "Bearer %s"
-    vercel:
-      headerName: Authorization
-      valueFormat: "Bearer %s"
-    supabase:
       headerName: Authorization
       valueFormat: "Bearer %s"
   allowedDomains:
@@ -134,12 +126,6 @@ credentials:
       env:
         - GH_TOKEN
         - GITHUB_TOKEN
-    vercel:
-      env:
-        - VERCEL_TOKEN
-    supabase:
-      env:
-        - SUPABASE_ACCESS_TOKEN
 
 environment:
   variables:
@@ -149,8 +135,6 @@ environment:
     - ANTHROPIC_API_KEY
     - GH_TOKEN
     - GITHUB_TOKEN
-    - VERCEL_TOKEN
-    - SUPABASE_ACCESS_TOKEN
 
 commands:
   install:
@@ -302,6 +286,16 @@ commands:
 
           chown -R 1000:1000 "$PI_AGENT_HOME"
       description: Sync mounted Pi user extensions, skills, prompts, packages, and settings into the sandbox
+
+    - command:
+        - sh
+        - -c
+        - |
+          set -eu
+
+          "$WORKSPACE_DIR/sbx/pi-wedding-planner/startup-credentials.sh"
+      user: "1000"
+      description: Configure shared Pi OAuth cache plus Vercel/Supabase proxy auth, verification, and project links
 
     - command:
         - sh
