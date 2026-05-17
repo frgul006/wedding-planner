@@ -105,6 +105,24 @@ async function panelFrameTranslateX(page: Page, panelId: (typeof panelIds)[numbe
   });
 }
 
+async function touchActionChainAt(page: Page, x: number, y: number) {
+  return page.evaluate(({ x: startX, y: startY }) => {
+    const root = document.querySelector('[data-testid="invite-panel-carousel"]');
+    const target = document.elementFromPoint(startX, startY);
+    const touchActions: string[] = [];
+
+    for (
+      let element = target;
+      element instanceof Element && root?.contains(element);
+      element = element.parentElement
+    ) {
+      touchActions.push(getComputedStyle(element).touchAction);
+    }
+
+    return touchActions;
+  }, { x, y });
+}
+
 async function expectMovingPanels(
   page: Page,
   fromPanelId: (typeof panelIds)[number],
@@ -183,6 +201,23 @@ test.describe.serial("invite one-panel shell", () => {
 
     await expect(page).toHaveURL(/#detaljer$/);
     await expectActivePanel(page, "detaljer");
+  });
+
+  test("leaves browser-edge zones eligible for native horizontal gestures", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    for (const touchActions of [
+      await touchActionChainAt(page, 24, 420),
+      await touchActionChainAt(page, 370, 420),
+    ]) {
+      expect(touchActions).not.toContain("pan-y");
+    }
   });
 
   test("ignores left browser-edge touch starts without rubber-band motion", async ({
