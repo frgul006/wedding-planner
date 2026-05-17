@@ -20,6 +20,14 @@ _Avoid_: invitation page, public page
 Whether a private **Invite** link currently grants a **Guest** access to their **Invite**.
 _Avoid_: invite state, login session, public access
 
+**RSVP**:
+A **Guest**'s answer to whether they will attend the **Wedding**, captured inside their **Invite**.
+_Avoid_: generic response, attendance record
+
+**Invite RSVP navigation**:
+The URL and panel-navigation contract that returns a **Guest** to the **Invite** RSVP confirmation after saving an **RSVP**.
+_Avoid_: redirect hack, query flag, client action workaround
+
 **Wedding start time**:
 The intended local Stockholm date and clock time when the wedding celebration begins.
 _Avoid_: UTC time, server time, browser-local time
@@ -33,6 +41,8 @@ _Avoid_: Efterfest
 - A **Wedding** has exactly one **Wedding start time**.
 - An **Invite** shows the **Wedding start time** to a **Guest**.
 - **Invite access** is checked before showing Guest-specific **Invite** details.
+- An **Invite** lets a **Guest** submit or update an **RSVP**.
+- **Invite RSVP navigation** brings a **Guest** back to the **Invite** RSVP confirmation after a successful save.
 
 ## Example dialogue
 
@@ -43,3 +53,4 @@ _Avoid_: Efterfest
 
 - "starting time" could mean server/browser timezone behavior — resolved: **Wedding start time** means Stockholm wall-clock time.
 - "Invite state" could mean token validity, opened/RSVP status, or panel UI state — resolved: use **Invite access** for valid/invalid link checks.
+- `rsvp_status=submitted#osa` is an implementation detail of **Invite RSVP navigation**, not a durable **RSVP** status.

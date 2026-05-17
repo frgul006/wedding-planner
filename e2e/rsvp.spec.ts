@@ -738,7 +738,15 @@ test.describe("RSVP, invite status, and phone capture", () => {
 
     const osaPanel = page.locator("#osa");
     await expect(page.getByRole("heading", { name: `Tack ${guestName.split(" ").at(0)}` })).toBeVisible();
+    await expect(page).toHaveURL(
+      new RegExp(`/invite/${token}\\?rsvp_status=submitted#osa$`),
+    );
     await expect(osaPanel.getByText("jag återkommer")).toBeVisible();
+    await page.getByRole("button", { name: "Uppdatera mitt svar" }).click();
+    await expect(page).toHaveURL(new RegExp(`/invite/${token}#osa$`));
+    await expect(page.getByRole("heading", { name: "Uppdatera svar" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Uppdatera svar" })).toBeVisible();
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
       .toBe(INVITE_STATUS.rsvpMaybe);

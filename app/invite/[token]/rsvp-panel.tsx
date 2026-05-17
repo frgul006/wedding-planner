@@ -4,6 +4,10 @@ import { useActionState, useEffect, useState } from "react";
 
 import type { InviteRsvpResponse } from "@/lib/invite-access";
 import {
+  getInviteRsvpEditHrefFromLocation,
+  getInviteRsvpSubmittedHref,
+} from "@/lib/invite-rsvp-navigation";
+import {
   isE164PhoneNumber,
   PHONE_FORMAT_EXAMPLE,
   PHONE_INPUT_PATTERN,
@@ -99,8 +103,12 @@ function getFieldError(
   return fieldErrors[field] ?? null;
 }
 
-function getSubmittedRsvpHref(rawToken: string) {
-  return `/invite/${encodeURIComponent(rawToken)}?rsvp_status=submitted#osa`;
+function clearSubmittedRsvpMarker() {
+  window.history.replaceState(
+    window.history.state,
+    "",
+    getInviteRsvpEditHrefFromLocation(window.location),
+  );
 }
 
 function TextField({
@@ -350,14 +358,17 @@ export function RsvpPanel({
       return;
     }
 
-    window.location.assign(getSubmittedRsvpHref(rawToken));
+    window.location.assign(getInviteRsvpSubmittedHref(rawToken));
   }, [rawToken, state.status]);
 
   if (showConfirmation && rsvpResponse) {
     return (
       <Confirmation
         guestName={guest.full_name}
-        onEdit={() => setShowConfirmation(false)}
+        onEdit={() => {
+          clearSubmittedRsvpMarker();
+          setShowConfirmation(false);
+        }}
         phone={initialPhone}
         rsvpResponse={rsvpResponse}
         weddingDate={weddingDate}
