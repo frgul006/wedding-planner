@@ -109,11 +109,20 @@ async function touchActionChainAt(page: Page, x: number, y: number) {
   return page.evaluate(({ x: startX, y: startY }) => {
     const root = document.querySelector('[data-testid="invite-panel-carousel"]');
     const target = document.elementFromPoint(startX, startY);
+
+    if (!(root instanceof Element)) {
+      throw new Error("Invite panel carousel is missing.");
+    }
+
+    if (!(target instanceof Element) || !root.contains(target)) {
+      throw new Error(`Expected (${startX}, ${startY}) to hit the invite panel carousel.`);
+    }
+
     const touchActions: string[] = [];
 
     for (
-      let element = target;
-      element instanceof Element && root?.contains(element);
+      let element: Element | null = target;
+      element && root.contains(element);
       element = element.parentElement
     ) {
       touchActions.push(getComputedStyle(element).touchAction);
