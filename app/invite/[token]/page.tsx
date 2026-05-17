@@ -8,6 +8,7 @@ import {
   type GrantedInviteAccessWithRsvp,
 } from "@/lib/invite-access";
 import { getInviteSupportContact } from "@/lib/invite-support-contact";
+import { shouldShowInviteRsvpSubmittedConfirmation } from "@/lib/invite-rsvp-navigation";
 import { RSVP_ATTENDANCE, type RsvpAttendance } from "@/lib/rsvp-attendance";
 import { getSafeHttpUrl } from "@/lib/safe-url";
 import { parseTimePlanLine } from "@/lib/time-plan";
@@ -171,10 +172,6 @@ function formatPublishedUpdateAt(value: string) {
 function getDisplayText(value: string | null) {
   const text = value?.trim();
   return text ? text : comingSoon;
-}
-
-function getFirstParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
 }
 
 function getSwedishAttendanceLabel(attendance: RsvpAttendance) {
@@ -654,7 +651,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   const mapsUrl = getSafeHttpUrl(wedding.google_maps_url);
   const spotifyUrl = getSafeHttpUrl(wedding.spotify_playlist_url);
   const showSubmittedConfirmation =
-    getFirstParam(queryParams.rsvp_status) === "submitted";
+    shouldShowInviteRsvpSubmittedConfirmation(queryParams);
   const rsvpSubmittedAt = formatRsvpSubmittedAt(
     rsvpResponse?.last_submitted_at ?? null,
   );
