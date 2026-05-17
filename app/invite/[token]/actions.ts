@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { hashInviteToken } from "@/lib/invite-token-crypto";
@@ -37,6 +38,7 @@ export type RsvpActionField =
 export type RsvpActionState = {
   fieldErrors: Partial<Record<RsvpActionField, string>>;
   message: string | null;
+  status: "error" | "idle" | "submitted";
   values: RsvpFormValues | null;
 };
 
@@ -96,7 +98,17 @@ function buildErrorState({
   return {
     fieldErrors,
     message,
+    status: "error",
     values,
+  };
+}
+
+function buildSubmittedState(): RsvpActionState {
+  return {
+    fieldErrors: {},
+    message: null,
+    status: "submitted",
+    values: null,
   };
 }
 
@@ -106,6 +118,10 @@ function redirectToInvite(rawToken: string, params: Record<string, string>): nev
   const query = queryString ? `?${queryString}` : "";
 
   redirect(`/invite/${encodeURIComponent(rawToken)}${query}#osa`);
+}
+
+async function isClientActionRequest() {
+  return (await headers()).get("accept")?.includes("text/x-component") ?? false;
 }
 
 function getRpcErrorState(error: { code?: string; message?: string }, values: RsvpFormValues) {
@@ -234,5 +250,12 @@ export async function submitRsvpAction(
 
   revalidatePath(`/invite/${rawToken}`);
   revalidatePath("/admin/guests");
-  redirectToInvite(rawToken, { rsvp_status: "submitted" });
+
+  // Client action redirects can be dropped if the guest changes invite hashes while
+  // the request is pending. Return a stateful success for the mounted form to finish.
+  if (!(await isClientActionRequest())) {
+    redirectToInvite(rawToken, { rsvp_status: "submitted" });
+  }
+
+  return buildSubmittedState();
 }
