@@ -59,7 +59,7 @@ test.describe("valid invite smoke", () => {
     await page.goto(invitePathForToken(SEEDED_GUESTS.existingRsvp.token));
 
     await expect(
-      page.getByText(`Personlig inbjudan för ${SEEDED_GUESTS.existingRsvp.name}`),
+      page.getByText(`Inbjudan till ${SEEDED_GUESTS.existingRsvp.name}`),
     ).toBeVisible();
     await expect(page.getByText("Ditt svar", { exact: true })).toBeVisible();
     await expect(page.getByText("Ja · jag kommer gärna", { exact: true })).toBeVisible();
@@ -70,7 +70,7 @@ test.describe("valid invite smoke", () => {
     await page.goto(invitePathForToken(SEEDED_GUESTS.firstTimeRsvp.token));
 
     await expect(
-      page.getByText(`Personlig inbjudan för ${SEEDED_GUESTS.firstTimeRsvp.name}`),
+      page.getByText(`Inbjudan till ${SEEDED_GUESTS.firstTimeRsvp.name}`),
     ).toBeVisible();
     await expect(page.getByRole("heading", { name: "Fredrik & Matilda" }))
       .toBeVisible();

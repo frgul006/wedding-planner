@@ -94,8 +94,10 @@ test.describe("wedding settings propagation", () => {
     );
 
     await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    const coverPanel = page.locator("#inbjudan");
+    await expect(page.getByText(`Inbjudan till ${guestName}`)).toBeVisible();
     await expect(page.getByRole("heading", { name: "E2E Fredrik & E2E Matilda" })).toBeVisible();
+    await expect(coverPanel.getByText("kl. 15:45", { exact: true })).toBeVisible();
 
     await page.getByRole("link", { name: /^Öppna inbjudan/ }).click();
     await expect(page).toHaveURL(/#detaljer$/);

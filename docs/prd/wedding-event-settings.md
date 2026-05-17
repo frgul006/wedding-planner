@@ -23,7 +23,7 @@ The wedding page, invite page, and QR hub must show one consistent set of detail
 - Fields:
   - General wedding name/title
   - Explicit partner display names for the Brevkort cover (`partner_one_name`, `partner_two_name`; planned item 23a)
-  - Wedding date
+  - Wedding start time as Stockholm wall-clock date and time
   - Venue name and address
   - Venue area/city display text
   - Google Maps link

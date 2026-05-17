@@ -144,6 +144,30 @@ Use these buckets for data changes:
 
 If a future feature requires production reference data, prefer a dedicated idempotent migration or a separate reviewed script rather than adding it to the local seed.
 
+### Wedding start time correction
+
+Wedding settings treat `wedding_date` as Stockholm wall-clock time. If an older production save interpreted an admin-entered Stockholm time as UTC, correct the row once after deploying the app fix.
+
+Verify the stored instant and Stockholm display time:
+
+```sql
+select
+  id,
+  wedding_date,
+  wedding_date at time zone 'Europe/Stockholm' as stockholm_wall_time
+from public.weddings;
+```
+
+For a wedding that should start at `2026-09-26 16:30` in Stockholm, the corrected value is:
+
+```sql
+update public.weddings
+set wedding_date = make_timestamptz(2026, 9, 26, 16, 30, 0, 'Europe/Stockholm')
+where id = '00000000-0000-0000-0000-000000000001';
+```
+
+Review the `where` clause and intended date/time before running this in production.
+
 ## Vercel environment alignment
 
 `WEDDING_ID` should match the production wedding row:

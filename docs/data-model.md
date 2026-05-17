@@ -18,6 +18,7 @@ Start with one wedding in one app install, but include `wedding_id` on child tab
 - `partner_two_name` (string, optional)
   - Explicit second partner display name for the Brevkort invite cover. Blank values render safe public placeholders instead of being inferred from `name`.
 - `wedding_date` (datetime)
+  - Wedding start time; admin-entered values are interpreted as Stockholm wall-clock time.
 - `venue_name` (string)
 - `venue_address` (string)
 - `venue_area` (string, optional)

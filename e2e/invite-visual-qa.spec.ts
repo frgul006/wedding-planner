@@ -181,7 +181,7 @@ const visualStates: InviteVisualState[] = [
     assertState: async (page) => {
       const cover = page.locator("#inbjudan");
 
-      await expect(cover.getByText("För Visual Fixture Updates", { exact: true }))
+      await expect(cover.getByText("till Visual Fixture Updates", { exact: true }))
         .toBeVisible();
       await expect(cover.getByText("26 sept", { exact: true })).toBeVisible();
       await expect(cover.getByText("kl. 16:30", { exact: true })).toBeVisible();

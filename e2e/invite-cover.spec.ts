@@ -19,7 +19,7 @@ test.describe.serial("invite cover visual states", () => {
     await page.goto(fixture.path);
 
     const cover = page.locator("#inbjudan");
-    const coverCard = cover.locator("section[aria-label='Bröllopsinbjudan']");
+    const coverCard = cover.locator("section[aria-label='Inbjudan']");
     await expect(cover).toBeVisible();
     await expect(coverCard).toBeVisible();
     await expect
@@ -38,14 +38,24 @@ test.describe.serial("invite cover visual states", () => {
       .toHaveText("F & M · 01/03");
     await expect(cover.getByRole("heading", { name: "Fredrik & Matilda" }))
       .toBeVisible();
-    await expect(cover.getByText("För Visual Fixture Updates", { exact: true }))
+    await expect(coverCard.getByText("Inbjudan", { exact: true })).toBeVisible();
+    await expect(coverCard.getByText("till Visual Fixture Updates", { exact: true }))
       .toBeVisible();
+    await expect(coverCard.getByText("Bröllopsfest", { exact: true })).toBeVisible();
+    await expect(coverCard.getByText("Bröllopsinbjudan", { exact: true }))
+      .toHaveCount(0);
+    await expect(coverCard.getByText("För Visual Fixture Updates", { exact: true }))
+      .toHaveCount(0);
     await expect(cover.getByText("❦", { exact: true })).toBeVisible();
     await expect(cover.getByText("❀", { exact: true })).toBeVisible();
     await expect(cover.getByText("26 sept", { exact: true })).toBeVisible();
     await expect(cover.getByText("kl. 16:30", { exact: true })).toBeVisible();
     await expect(cover.getByText("Cicada", { exact: true })).toBeVisible();
     await expect(cover.getByText("Johanneshov", { exact: true })).toBeVisible();
+
+    await expect(
+      cover.getByText("Tre sidor · svep eller tryck på prickarna ovan", { exact: true }),
+    ).toHaveCount(0);
 
     const primaryCta = cover.getByRole("link", { name: /^Öppna inbjudan/ });
     await expect(primaryCta).toHaveAttribute("href", "#detaljer");
