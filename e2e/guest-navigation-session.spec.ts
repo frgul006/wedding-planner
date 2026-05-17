@@ -147,20 +147,33 @@ test.describe("guest navigation session attribution", () => {
     expect(await getGuestNavigationSessionCountForGuest(guestId)).toBe(1);
   });
 
-  test("does not set a guest navigation cookie for invalid or missing invites", async ({
+  test("does not set a guest navigation cookie or downgrade RSVP status for invalid or missing invites", async ({
     page,
   }) => {
+    const statusGuestName = uniqueRsvpGuestName("Denied Missing Invalid Status");
+    const statusToken = uniqueInviteToken("denied-missing-invalid-status");
+    const { guestId: statusGuestId } = await createInviteTestGuest({
+      attendance: RSVP_ATTENDANCE.yes,
+      fullName: statusGuestName,
+      inviteStatus: INVITE_STATUS.rsvpYes,
+      token: statusToken,
+    });
+
+    expect(await getGuestInviteStatus(statusGuestId)).toBe(INVITE_STATUS.rsvpYes);
+
     await page.goto("/invite/not-a-real-invite-token");
     await expect(
       page.getByRole("heading", { name: "Inbjudan saknas" }),
     ).toBeVisible();
     expect(await getGuestNavigationCookie(page)).toBeUndefined();
+    expect(await getGuestInviteStatus(statusGuestId)).toBe(INVITE_STATUS.rsvpYes);
 
     await page.goto("/invite");
     await expect(
       page.getByRole("heading", { name: "Inbjudan saknas" }),
     ).toBeVisible();
     expect(await getGuestNavigationCookie(page)).toBeUndefined();
+    expect(await getGuestInviteStatus(statusGuestId)).toBe(INVITE_STATUS.rsvpYes);
   });
 
   test("does not set a guest navigation cookie for inactive tokens or archived guests", async ({
@@ -196,6 +209,12 @@ test.describe("guest navigation session attribution", () => {
 
     expect(inactiveTokenError).toBeNull();
     expect(archivedGuestError).toBeNull();
+    expect(await getGuestInviteStatus(inactiveGuestId)).toBe(
+      INVITE_STATUS.notReplied,
+    );
+    expect(await getGuestInviteStatus(archivedGuestId)).toBe(
+      INVITE_STATUS.notReplied,
+    );
 
     await page.goto(invitePathForToken(inactiveToken));
     await expect(
@@ -203,6 +222,9 @@ test.describe("guest navigation session attribution", () => {
     ).toBeVisible();
     await expect(page.getByText(inactiveGuestName)).toHaveCount(0);
     expect(await getGuestNavigationCookie(page)).toBeUndefined();
+    expect(await getGuestInviteStatus(inactiveGuestId)).toBe(
+      INVITE_STATUS.notReplied,
+    );
     expect(await getGuestNavigationSessionCountForGuest(inactiveGuestId)).toBe(0);
 
     await page.goto(invitePathForToken(archivedToken));
@@ -211,6 +233,9 @@ test.describe("guest navigation session attribution", () => {
     ).toBeVisible();
     await expect(page.getByText(archivedGuestName)).toHaveCount(0);
     expect(await getGuestNavigationCookie(page)).toBeUndefined();
+    expect(await getGuestInviteStatus(archivedGuestId)).toBe(
+      INVITE_STATUS.notReplied,
+    );
     expect(await getGuestNavigationSessionCountForGuest(archivedGuestId)).toBe(0);
   });
 
