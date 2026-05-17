@@ -1,4 +1,4 @@
-import { normalizeTimePlanLines } from "./time-plan";
+import { normalizeTimePlanEntries, type WeddingTimePlanEntry } from "./time-plan";
 import { isNullableString, isRecord } from "./type-guards";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -14,7 +14,7 @@ export type HubWedding = {
   photo_upload_requires_review: boolean;
   name: string;
   spotify_playlist_url: string | null;
-  time_plan: string[];
+  time_plan: WeddingTimePlanEntry[];
   venue_name: string | null;
   wedding_date: string | null;
 };
@@ -43,7 +43,7 @@ function normalizeHubWedding(value: unknown): HubWedding | null {
     photo_upload_requires_review: value.photo_upload_requires_review,
     name: value.name,
     spotify_playlist_url: value.spotify_playlist_url,
-    time_plan: normalizeTimePlanLines(value.time_plan),
+    time_plan: normalizeTimePlanEntries(value.time_plan),
     venue_name: value.venue_name,
     wedding_date: value.wedding_date,
   };

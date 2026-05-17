@@ -12,6 +12,38 @@ import { uniqueE2eValue } from "./support/unique";
 import { updateWeddingSettings } from "./support/wedding-settings";
 
 test.describe("wedding settings propagation", () => {
+  test("rejects invalid Time Plan rows", async ({ page }) => {
+    await signInAsSeededAdmin(page);
+    await page.getByRole("link", { name: "Manage settings" }).click();
+    await expect(page.getByRole("heading", { name: "Wedding settings" })).toBeVisible();
+
+    await page.getByLabel("Time plan").fill("16:30 - Välkomstdrinkar\nMingel hela kvällen");
+    await page.getByRole("button", { name: "Save wedding settings" }).click();
+
+    await expect(
+      page.getByText(
+        "Each Time Plan row needs a valid time and label, like 16:30 - Välkomstdrinkar.",
+      ),
+    ).toBeVisible();
+  });
+
+  test("rejects unsafe guest-facing Wedding settings links", async ({ page }) => {
+    await signInAsSeededAdmin(page);
+    await page.getByRole("link", { name: "Manage settings" }).click();
+    await expect(page.getByRole("heading", { name: "Wedding settings" })).toBeVisible();
+
+    await page.getByLabel("Google Maps URL").fill("ftp://maps.example.test/place");
+    await page.getByRole("button", { name: "Save wedding settings" }).click();
+    await expect(page.getByText("Google Maps URL must start with http:// or https://."))
+      .toBeVisible();
+
+    await page.getByLabel("Google Maps URL").fill("https://maps.example.test/place");
+    await page.getByLabel("Spotify playlist URL").fill("ftp://spotify.example.test/list");
+    await page.getByRole("button", { name: "Save wedding settings" }).click();
+    await expect(page.getByText("Spotify playlist URL must start with http:// or https://."))
+      .toBeVisible();
+  });
+
   test("persists photo review setting while anonymous hub uploads stay open by default", async ({
     page,
   }) => {

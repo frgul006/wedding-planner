@@ -24,7 +24,7 @@ Start with one wedding in one app install, but include `wedding_id` on child tab
 - `venue_area` (string, optional)
   - Short place/city label for the Brevkort `Plats` card, e.g. `Johanneshov`.
 - `google_maps_url` (string)
-- `time_plan` (json list of structured entries, e.g. `[{"time":"16:30","label":"Välkomstdrinkar"}]`)
+- `time_plan` (json list of structured entries with required local clock time and label, e.g. `[{"time":"16:30","label":"Välkomstdrinkar"}]`)
 - `policy` (string)
   - Legacy/general policy text; Brevkort should either map this deliberately or use the explicit fields below.
 - `dress_code` (string, optional)

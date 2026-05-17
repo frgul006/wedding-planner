@@ -94,7 +94,7 @@ export default async function AdminPage() {
           <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-200">
             <h2 className="text-xl font-semibold text-zinc-950">Wedding settings</h2>
             <p className="mt-2 text-zinc-600">
-              Update event details, venue information, timeline, and guest-facing notes.
+              Update Wedding settings, venue information, Time Plan, and guest-facing notes.
             </p>
             <a
               className="mt-6 inline-flex rounded-full bg-zinc-950 px-5 py-3 font-medium text-white transition hover:bg-zinc-800"
