@@ -9,6 +9,11 @@ import {
   PHONE_INPUT_PATTERN,
 } from "@/lib/phone";
 import { RSVP_ATTENDANCE, type RsvpAttendance } from "@/lib/rsvp-attendance";
+import {
+  idleRsvpActionState,
+  type RsvpActionField,
+  type RsvpActionState,
+} from "@/lib/rsvp-form-state";
 
 import {
   BrevkortBodyText,
@@ -23,7 +28,7 @@ import {
   BrevkortTextInput,
   BrevkortTextarea,
 } from "../_components/brevkort-primitives";
-import { submitRsvpAction, type RsvpActionField, type RsvpActionState } from "./actions";
+import { submitRsvpAction } from "./actions";
 
 type InviteGuest = {
   full_name: string;
@@ -39,13 +44,6 @@ type RsvpPanelProps = {
   showSubmittedConfirmation: boolean;
   weddingDate: string;
   weddingName: string;
-};
-
-const idleActionState: RsvpActionState = {
-  fieldErrors: {},
-  message: null,
-  status: "idle",
-  values: null,
 };
 
 const attendanceOptions: Array<{
@@ -333,7 +331,7 @@ export function RsvpPanel({
   );
   const [state, formAction, pending] = useActionState(
     submitRsvpAction.bind(null, rawToken),
-    idleActionState,
+    idleRsvpActionState,
   );
   const fieldErrors = state.fieldErrors;
   const defaultSmsOptIn = getInitialSmsOptIn({
