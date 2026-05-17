@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 import { hashInviteToken } from "../lib/invite-token-crypto";
 import { INVITE_STATUS } from "../lib/invite-status";
@@ -19,6 +19,45 @@ import { invitePathForToken } from "./support/urls";
 
 function inviteOsaPathForToken(token: string) {
   return `${invitePathForToken(token)}#osa`;
+}
+
+const panelIds = ["inbjudan", "detaljer", "osa"] as const;
+const panelLabels = {
+  detaljer: "Detaljer",
+  inbjudan: "Inbjudan",
+  osa: "OSA",
+} as const satisfies Record<(typeof panelIds)[number], string>;
+
+async function expectInvitePanel(page: Page, activePanelId: (typeof panelIds)[number]) {
+  for (const panelId of panelIds) {
+    const panel = page.locator(`#${panelId}`);
+
+    if (panelId === activePanelId) {
+      await expect(panel, `${panelId} should be the visible invite panel`).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: `Gå till ${panelLabels[panelId]}` }),
+      ).toHaveAttribute("aria-current", "step");
+    } else {
+      await expect(panel, `${panelId} should be hidden when ${activePanelId} is active`)
+        .toBeHidden();
+    }
+  }
+}
+
+async function dispatchTouchPointer(
+  target: Locator,
+  type: "pointerdown" | "pointermove" | "pointerup",
+  x: number,
+  y: number,
+) {
+  await target.dispatchEvent(type, {
+    bubbles: true,
+    clientX: x,
+    clientY: y,
+    isPrimary: true,
+    pointerId: 1,
+    pointerType: "touch",
+  });
 }
 
 async function chooseAttendance(page: Page, attendance: RsvpAttendance) {
@@ -366,6 +405,154 @@ test.describe("RSVP, invite status, and phone capture", () => {
 
     delayedSubmit.release();
     await expect(page.getByRole("heading", { name: `Tack ${guestName.split(" ").at(0)}` })).toBeVisible();
+  });
+
+  test("preserves RSVP edits and validation while navigating away and back", async ({
+    page,
+  }) => {
+    const guestName = uniqueRsvpGuestName("Panel Draft");
+    const token = uniqueInviteToken("panel-draft-rsvp");
+    const { guestId } = await createInviteTestGuest({
+      email: "e2e-rsvp-panel-draft@example.com",
+      fullName: guestName,
+      token,
+    });
+
+    await page.goto(inviteOsaPathForToken(token));
+    await expectInvitePanel(page, "osa");
+    await page.getByRole("textbox", { name: "Telefon" }).first().fill("0701234567");
+    await page.getByRole("textbox", { name: "Matpreferens" }).first().fill(
+      "Draft saffron risotto",
+    );
+    await page.getByRole("button", { name: /^Skicka mitt svar/ }).click();
+    await expect(
+      page.getByText(
+        "Använd internationellt format utan mellanslag, t.ex. +46701234567.",
+      ),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Föregående panel" }).click();
+    await expectInvitePanel(page, "detaljer");
+    await page.getByRole("button", { name: "Nästa panel" }).click();
+    await expectInvitePanel(page, "osa");
+    await expect(page.getByRole("textbox", { name: "Matpreferens" }).first()).toHaveValue(
+      "Draft saffron risotto",
+    );
+    await expect(
+      page.getByText(
+        "Använd internationellt format utan mellanslag, t.ex. +46701234567.",
+      ),
+    ).toBeVisible();
+
+    await page.getByRole("link", { name: "Gå till Detaljer" }).click();
+    await expectInvitePanel(page, "detaljer");
+    await page.getByRole("link", { name: "Gå till OSA" }).click();
+    await expectInvitePanel(page, "osa");
+    await expect(page.getByRole("textbox", { name: "Matpreferens" }).first()).toHaveValue(
+      "Draft saffron risotto",
+    );
+
+    await page.getByRole("link", { name: "Gå till Detaljer" }).click();
+    await expectInvitePanel(page, "detaljer");
+    await page.getByRole("link", { name: /^Vidare till OSA/ }).click();
+    await expectInvitePanel(page, "osa");
+    await expect(page.getByRole("textbox", { name: "Telefon" }).first()).toHaveValue(
+      "0701234567",
+    );
+    await expect(
+      page.getByText(
+        "Använd internationellt format utan mellanslag, t.ex. +46701234567.",
+      ),
+    ).toBeVisible();
+    expect(await getRsvpResponseCountForGuest(guestId)).toBe(0);
+  });
+
+  test("lets guests navigate while an RSVP submit finishes in the background", async ({
+    page,
+  }) => {
+    const guestName = uniqueRsvpGuestName("Pending Panel Navigation");
+    const token = uniqueInviteToken("pending-panel-navigation-rsvp");
+    const { guestId } = await createInviteTestGuest({
+      email: "e2e-rsvp-pending-panel-navigation@example.com",
+      fullName: guestName,
+      token,
+    });
+
+    await page.goto(inviteOsaPathForToken(token));
+    await expectInvitePanel(page, "osa");
+    await page.getByRole("textbox", { name: "Matpreferens" }).first().fill(
+      "Background submit meal",
+    );
+
+    const delayedSubmit = await delayNextInvitePost(page);
+    await page.getByRole("button", { name: /^Skicka mitt svar/ }).click();
+    await delayedSubmit.submitStarted;
+    await expect(page.getByRole("button", { name: "Skickar…" })).toBeDisabled();
+
+    await page.getByRole("button", { name: "Föregående panel" }).click();
+    await expectInvitePanel(page, "detaljer");
+
+    delayedSubmit.release();
+    await expect(page.getByRole("heading", { name: `Tack ${guestName.split(" ").at(0)}` })).toBeVisible();
+    await expectInvitePanel(page, "osa");
+    expect(await getRsvpResponseForGuest(guestId)).toMatchObject({
+      attendance: RSVP_ATTENDANCE.yes,
+      food_preference: "Background submit meal",
+    });
+  });
+
+  test("keeps RSVP drafts across reduced-motion panel switches", async ({ page }) => {
+    const guestName = uniqueRsvpGuestName("Reduced Motion Draft");
+    const token = uniqueInviteToken("reduced-motion-draft-rsvp");
+    await createInviteTestGuest({
+      email: "e2e-rsvp-reduced-motion-draft@example.com",
+      fullName: guestName,
+      token,
+    });
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(inviteOsaPathForToken(token));
+    await expectInvitePanel(page, "osa");
+    await page.getByRole("textbox", { name: "Matpreferens" }).first().fill(
+      "Reduced-motion mushroom tart",
+    );
+
+    await page.getByRole("link", { name: "Gå till Detaljer" }).click();
+    await expectInvitePanel(page, "detaljer");
+    await page.getByRole("link", { name: "Gå till OSA" }).click();
+    await expectInvitePanel(page, "osa");
+    await expect(page.getByRole("textbox", { name: "Matpreferens" }).first()).toHaveValue(
+      "Reduced-motion mushroom tart",
+    );
+  });
+
+  test("does not drag panels from RSVP form controls", async ({ page }) => {
+    const guestName = uniqueRsvpGuestName("Form Control Swipe");
+    const token = uniqueInviteToken("form-control-swipe-rsvp");
+    await createInviteTestGuest({
+      email: "e2e-rsvp-form-control-swipe@example.com",
+      fullName: guestName,
+      token,
+    });
+
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto(inviteOsaPathForToken(token));
+    await expectInvitePanel(page, "osa");
+
+    const carousel = page.getByTestId("invite-panel-carousel");
+    const foodPreference = page.getByRole("textbox", { name: "Matpreferens" }).first();
+    await dispatchTouchPointer(foodPreference, "pointerdown", 80, 610);
+    await dispatchTouchPointer(carousel, "pointermove", 330, 610);
+    await dispatchTouchPointer(carousel, "pointerup", 330, 610);
+    await expectInvitePanel(page, "osa");
+    await expect(page).toHaveURL(/#osa$/);
+
+    const yesAttendance = page.getByRole("radio", { name: /^Ja\s+kommer$/ });
+    await dispatchTouchPointer(yesAttendance, "pointerdown", 80, 430);
+    await dispatchTouchPointer(carousel, "pointermove", 330, 430);
+    await dispatchTouchPointer(carousel, "pointerup", 330, 430);
+    await expectInvitePanel(page, "osa");
+    await expect(page).toHaveURL(/#osa$/);
   });
 
   test("shows a save error and preserves values when the token is invalidated", async ({

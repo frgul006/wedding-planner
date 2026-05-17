@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 
 import type { InviteRsvpResponse } from "@/lib/invite-tokens";
 import {
@@ -44,6 +44,7 @@ type RsvpPanelProps = {
 const idleActionState: RsvpActionState = {
   fieldErrors: {},
   message: null,
+  status: "idle",
   values: null,
 };
 
@@ -98,6 +99,10 @@ function getFieldError(
   field: RsvpActionField,
 ) {
   return fieldErrors[field] ?? null;
+}
+
+function getSubmittedRsvpHref(rawToken: string) {
+  return `/invite/${encodeURIComponent(rawToken)}?rsvp_status=submitted#osa`;
 }
 
 function TextField({
@@ -340,6 +345,15 @@ export function RsvpPanel({
   const defaultPlusOneSmsOptIn = isE164PhoneNumber(plusOnePhone)
     ? Boolean(rsvpResponse?.plus_one_sms_opt_in)
     : false;
+
+  useEffect(() => {
+    // Complete successful client actions even after hash-only panel navigation.
+    if (state.status !== "submitted") {
+      return;
+    }
+
+    window.location.assign(getSubmittedRsvpHref(rawToken));
+  }, [rawToken, state.status]);
 
   if (showConfirmation && rsvpResponse) {
     return (
