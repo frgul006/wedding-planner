@@ -500,7 +500,7 @@ test.describe("wedding hub QR", () => {
     });
 
     await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    await expect(page.getByText(`Inbjudan till ${guestName}`)).toBeVisible();
 
     const cookieHeader = await getGuestCookieHeader(page);
     expect(cookieHeader).toBeTruthy();
@@ -539,7 +539,7 @@ test.describe("wedding hub QR", () => {
     });
 
     await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    await expect(page.getByText(`Inbjudan till ${guestName}`)).toBeVisible();
     const cookieHeader = await getGuestCookieHeader(page);
     expect(cookieHeader).toBeTruthy();
     await updateWeddingSettings({ allow_anonymous_hub_upload: false });

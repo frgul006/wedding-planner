@@ -123,7 +123,7 @@ test.describe("admin invite token links", () => {
 
     const invitePage = await page.context().newPage();
     await invitePage.goto(firstInvitePath);
-    await expect(invitePage.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    await expect(invitePage.getByText(`Inbjudan till ${guestName}`)).toBeVisible();
     await invitePage.close();
 
     await page.reload();
@@ -142,7 +142,7 @@ test.describe("admin invite token links", () => {
     await expect(page.getByRole("heading", { name: "Inbjudan saknas" })).toBeVisible();
 
     await page.goto(secondInvitePath);
-    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    await expect(page.getByText(`Inbjudan till ${guestName}`)).toBeVisible();
 
     const guest = await getGuestByName(guestName);
     expect(guest?.id).toEqual(expect.any(String));

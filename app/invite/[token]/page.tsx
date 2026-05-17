@@ -347,15 +347,15 @@ function CoverPanel({
     >
       <div className="pb-6 pt-0">
         <section
-          aria-label="Bröllopsinbjudan"
+          aria-label="Inbjudan"
           className="mx-1 border border-invite-border/90 bg-invite-paper-light/40 px-7 py-4 text-center"
         >
-          <p className="sr-only">Personlig inbjudan för {guestName}</p>
-          <BrevkortKicker>Bröllopsinbjudan</BrevkortKicker>
+          <p className="sr-only">Inbjudan till {guestName}</p>
+          <BrevkortKicker>Inbjudan</BrevkortKicker>
           <p aria-hidden="true" className="brevkort-display mt-3 text-3xl font-semibold text-invite-walnut">
             ❦
           </p>
-          <BrevkortKicker className="mt-3">För {guestName}</BrevkortKicker>
+          <BrevkortKicker className="mt-3">till {guestName}</BrevkortKicker>
           <BrevkortHeading
             className="mt-4 text-[3.35rem] !font-normal leading-[0.95] sm:text-[3.6rem]"
             id="inbjudan-heading"
@@ -370,7 +370,7 @@ function CoverPanel({
 
           <div className="mt-5 flex items-center justify-center gap-3 text-invite-walnut">
             <span className="h-px w-12 bg-invite-border" />
-            <BrevkortKicker>Efterfest</BrevkortKicker>
+            <BrevkortKicker>Bröllopsfest</BrevkortKicker>
             <span className="h-px w-12 bg-invite-border" />
           </div>
 
@@ -460,9 +460,6 @@ function CoverPanel({
               <span aria-hidden="true">→</span>
             </span>
           </BrevkortLinkButton>
-          <p className="text-center text-sm italic text-invite-body">
-            Tre sidor · svep eller tryck på prickarna ovan
-          </p>
         </div>
       </div>
     </PanelShell>

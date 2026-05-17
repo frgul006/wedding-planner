@@ -39,6 +39,8 @@ Editable fields:
 
 `partner_one_name` and `partner_two_name` drive the public invite cover names. They are optional and intentionally separate from `name`, which remains the general wedding title / legacy display name. Blank partner fields render safe public placeholders instead of parsing `name`.
 
+`wedding_date` is the wedding start time as Stockholm wall-clock time. Admin-entered `datetime-local` values are interpreted in `Europe/Stockholm`, not in the production server timezone or the admin browser timezone.
+
 ## Features
 
 - Edit wedding title/name

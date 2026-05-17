@@ -63,7 +63,7 @@ test.describe("guest navigation session attribution", () => {
     });
 
     await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    await expect(page.getByText(`Inbjudan till ${guestName}`)).toBeVisible();
 
     const cookie = await getGuestNavigationCookie(page);
 
@@ -90,7 +90,7 @@ test.describe("guest navigation session attribution", () => {
     expect(session?.cookie_hash).not.toBe(cookie.value);
 
     await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    await expect(page.getByText(`Inbjudan till ${guestName}`)).toBeVisible();
     expect(await getGuestNavigationCookie(page)).toMatchObject({
       value: cookie.value,
     });
@@ -176,7 +176,7 @@ test.describe("guest navigation session attribution", () => {
     });
 
     await page.goto(invitePathForToken(token));
-    await expect(page.getByText(`Personlig inbjudan för ${guestName}`)).toBeVisible();
+    await expect(page.getByText(`Inbjudan till ${guestName}`)).toBeVisible();
     const originalCookie = await getGuestNavigationCookie(page);
 
     if (!originalCookie) {

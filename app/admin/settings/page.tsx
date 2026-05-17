@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
+import { formatStockholmDateTimeLocal } from "@/lib/stockholm-date-time";
 import { isMissingPartnerNameColumnError } from "@/lib/supabase/schema-compat";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizeTimePlanLines } from "@/lib/time-plan";
@@ -82,21 +83,6 @@ function getMessage(searchParams: Awaited<SettingsPageProps["searchParams"]>) {
   }
 
   return null;
-}
-
-function formatDateTimeLocal(value: string | null) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  const offsetMs = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
 function toWedding(value: unknown): Wedding | null {
@@ -283,7 +269,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                 placeholder="Sam"
               />
               <AdminField
-                defaultValue={formatDateTimeLocal(wedding.wedding_date)}
+                defaultValue={formatStockholmDateTimeLocal(wedding.wedding_date)}
                 label="Wedding date and time"
                 name="wedding_date"
                 type="datetime-local"

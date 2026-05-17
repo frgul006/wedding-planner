@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
 import { isMissingPartnerNameColumnError } from "@/lib/supabase/schema-compat";
+import { parseStockholmDateTimeLocal } from "@/lib/stockholm-date-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { parseTimePlanText } from "@/lib/time-plan";
 
@@ -24,13 +25,13 @@ function parseWeddingDate(value: FormDataEntryValue | null) {
     return null;
   }
 
-  const date = new Date(rawValue);
+  const stockholmDateTime = parseStockholmDateTimeLocal(rawValue);
 
-  if (Number.isNaN(date.getTime())) {
+  if (!stockholmDateTime) {
     redirect("/admin/settings?error=invalid-date");
   }
 
-  return date.toISOString();
+  return stockholmDateTime;
 }
 
 export async function updateWeddingSettingsAction(formData: FormData) {
