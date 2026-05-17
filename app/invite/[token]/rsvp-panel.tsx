@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 
-import type { InviteRsvpResponse } from "@/lib/invite-tokens";
+import type { InviteRsvpResponse } from "@/lib/invite-access";
 import {
   isE164PhoneNumber,
   PHONE_FORMAT_EXAMPLE,

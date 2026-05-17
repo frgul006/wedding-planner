@@ -4,6 +4,8 @@ import {
   GUEST_NAVIGATION_COOKIE_NAME,
   hashGuestNavigationCookie,
 } from "../lib/guest-navigation-session";
+import { INVITE_STATUS } from "../lib/invite-status";
+import { RSVP_ATTENDANCE } from "../lib/rsvp-attendance";
 
 import {
   createInviteTestGuest,
@@ -50,6 +52,21 @@ async function getGuestNavigationSessionCountForGuest(guestId: string) {
   return count ?? 0;
 }
 
+async function getGuestInviteStatus(guestId: string) {
+  const supabase = createE2eSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("guests")
+    .select("invite_status")
+    .eq("id", guestId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.invite_status ?? null;
+}
+
 test.describe("guest navigation session attribution", () => {
   test("creates a secure opaque guest navigation cookie for a valid invite", async ({
     page,
@@ -61,6 +78,8 @@ test.describe("guest navigation session attribution", () => {
       fullName: guestName,
       token,
     });
+
+    expect(await getGuestInviteStatus(guestId)).toBe(INVITE_STATUS.notReplied);
 
     await page.goto(invitePathForToken(token));
     await expect(page.getByText(`Inbjudan till ${guestName}`)).toBeVisible();
@@ -91,9 +110,40 @@ test.describe("guest navigation session attribution", () => {
 
     await page.goto(invitePathForToken(token));
     await expect(page.getByText(`Inbjudan till ${guestName}`)).toBeVisible();
+    await expect
+      .poll(async () => getGuestInviteStatus(guestId))
+      .toBe(INVITE_STATUS.opened);
     expect(await getGuestNavigationCookie(page)).toMatchObject({
       value: cookie.value,
     });
+    expect(await getGuestNavigationSessionCountForGuest(guestId)).toBe(1);
+  });
+
+  test("records opened without downgrading a Guest that already RSVP'd", async ({
+    page,
+  }) => {
+    const guestName = uniqueRsvpGuestName("Navigation No Downgrade");
+    const token = uniqueInviteToken("guest-navigation-no-downgrade");
+    const { guestId } = await createInviteTestGuest({
+      attendance: RSVP_ATTENDANCE.yes,
+      email: "e2e-guest-navigation-no-downgrade@example.com",
+      fullName: guestName,
+      inviteStatus: INVITE_STATUS.rsvpYes,
+      token,
+    });
+
+    await page.goto(invitePathForToken(token));
+    await expect(page.getByText(`Inbjudan till ${guestName}`)).toBeVisible();
+    await expect
+      .poll(async () => getGuestInviteStatus(guestId))
+      .toBe(INVITE_STATUS.rsvpYes);
+
+    const cookie = await getGuestNavigationCookie(page);
+
+    if (!cookie) {
+      throw new Error("Expected granted Invite access to prepare a navigation cookie.");
+    }
+
     expect(await getGuestNavigationSessionCountForGuest(guestId)).toBe(1);
   });
 
