@@ -13,6 +13,7 @@
 # testing
 /coverage
 /.playwright-cli
+/artifacts
 /playwright-report
 /test-results
 
