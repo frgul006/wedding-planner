@@ -28,12 +28,81 @@ async function expectActivePanel(page: Page, activePanelId: (typeof panelIds)[nu
   }
 }
 
-async function swipePanel(page: Page, fromX: number, toX: number) {
+async function dispatchPointer(
+  page: Page,
+  type: "pointerdown" | "pointermove" | "pointerup",
+  x: number,
+  y = 420,
+  pointerType: "mouse" | "touch" = "touch",
+) {
   const shell = page.getByTestId("invite-panel-carousel");
-  const eventBase = { bubbles: true, clientY: 420, pointerId: 1, pointerType: "touch" };
+  await shell.dispatchEvent(type, {
+    bubbles: true,
+    clientX: x,
+    clientY: y,
+    isPrimary: true,
+    pointerId: 1,
+    pointerType,
+  });
+}
 
-  await shell.dispatchEvent("pointerdown", { ...eventBase, clientX: fromX });
-  await shell.dispatchEvent("pointerup", { ...eventBase, clientX: toX });
+async function dispatchTouchPointer(
+  page: Page,
+  type: "pointerdown" | "pointermove" | "pointerup",
+  x: number,
+  y = 420,
+) {
+  await dispatchPointer(page, type, x, y, "touch");
+}
+
+async function swipePanel(page: Page, fromX: number, toX: number) {
+  await dispatchTouchPointer(page, "pointerdown", fromX);
+  await dispatchTouchPointer(page, "pointerup", toX);
+}
+
+async function flickPanel(page: Page, fromX: number, toX: number, y = 420) {
+  const shell = page.getByTestId("invite-panel-carousel");
+
+  await shell.evaluate((element, eventInit) => {
+    const base = {
+      bubbles: true,
+      clientY: eventInit.y,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: "touch",
+    } as const;
+
+    element.dispatchEvent(new PointerEvent("pointerdown", {
+      ...base,
+      clientX: eventInit.fromX,
+    }));
+    element.dispatchEvent(new PointerEvent("pointerup", {
+      ...base,
+      clientX: eventInit.toX,
+    }));
+  }, { fromX, toX, y });
+}
+
+async function dragPanelTo(page: Page, fromX: number, toX: number, y = 420) {
+  await dispatchTouchPointer(page, "pointerdown", fromX, y);
+  await dispatchTouchPointer(page, "pointermove", toX, y);
+}
+
+async function releasePanelDrag(page: Page, x: number, y = 420) {
+  await dispatchTouchPointer(page, "pointerup", x, y);
+}
+
+async function panelFrameTranslateX(page: Page, panelId: (typeof panelIds)[number]) {
+  return page.locator(`#${panelId}`).evaluate((panel) => {
+    const frame = panel.parentElement;
+    const transform = frame ? getComputedStyle(frame).transform : "none";
+
+    if (transform === "none") {
+      return 0;
+    }
+
+    return new DOMMatrixReadOnly(transform).m41;
+  });
 }
 
 async function expectMovingPanels(
@@ -88,6 +157,136 @@ test.describe.serial("invite one-panel shell", () => {
     await expectActivePanel(page, "osa");
     await expect(page.getByRole("button", { name: "Föregående panel" })).toBeEnabled();
     await expect(page.getByRole("button", { name: "Nästa panel" })).toBeDisabled();
+  });
+
+  test("reveals the adjacent panel while dragging and commits after a meaningful drag", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await dragPanelTo(page, 330, 160);
+
+    await expect(page.locator("#inbjudan"), "current panel should follow the finger")
+      .toBeVisible();
+    await expect(page.locator("#detaljer"), "neighboring panel should be revealed")
+      .toBeVisible();
+    await expect
+      .poll(async () => Math.round(await panelFrameTranslateX(page, "inbjudan")))
+      .toBeLessThanOrEqual(-120);
+    expect(page.url()).not.toMatch(/#detaljer$/);
+
+    await releasePanelDrag(page, 150);
+
+    await expect(page).toHaveURL(/#detaljer$/);
+    await expectActivePanel(page, "detaljer");
+  });
+
+  test("commits after a fast horizontal flick below the distance threshold", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await flickPanel(page, 320, 255);
+
+    await expect(page).toHaveURL(/#detaljer$/);
+    await expectActivePanel(page, "detaljer");
+  });
+
+  test("snaps back after a short accidental drag without changing the hash", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await dragPanelTo(page, 320, 280);
+    await page.waitForTimeout(180);
+    await releasePanelDrag(page, 280);
+
+    await expect(page).not.toHaveURL(/#detaljer$/);
+    await expectActivePanel(page, "inbjudan");
+  });
+
+  test("ignores vertical intent, interactive starts, and mouse drags", async ({
+    page,
+  }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await dispatchTouchPointer(page, "pointerdown", 250, 700);
+    await dispatchTouchPointer(page, "pointermove", 240, 520);
+    await dispatchTouchPointer(page, "pointerup", 235, 480);
+    await expectActivePanel(page, "inbjudan");
+    await expect(page).not.toHaveURL(/#detaljer$/);
+
+    await dispatchPointer(page, "pointerdown", 320, 420, "mouse");
+    await dispatchPointer(page, "pointermove", 120, 420, "mouse");
+    await dispatchPointer(page, "pointerup", 120, 420, "mouse");
+    await expectActivePanel(page, "inbjudan");
+    await expect(page).not.toHaveURL(/#detaljer$/);
+
+    await page.goto(`${fixture.path}#osa`);
+    await expectActivePanel(page, "osa");
+    const phoneInput = page.getByRole("textbox", { name: "Telefon" }).first();
+    await phoneInput.dispatchEvent("pointerdown", {
+      bubbles: true,
+      clientX: 320,
+      clientY: 520,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: "touch",
+    });
+    await dispatchTouchPointer(page, "pointermove", 120, 520);
+    await dispatchTouchPointer(page, "pointerup", 120, 520);
+
+    await expect(page).toHaveURL(/#osa$/);
+    await expectActivePanel(page, "osa");
+  });
+
+  test("rubber-bands blocked edge drags without wrapping", async ({ page }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto(fixture.path);
+    await expectActivePanel(page, "inbjudan");
+
+    await dragPanelTo(page, 80, 320);
+    await expect
+      .poll(async () => Math.round(await panelFrameTranslateX(page, "inbjudan")))
+      .toBeGreaterThan(0);
+    await expect
+      .poll(async () => Math.round(await panelFrameTranslateX(page, "inbjudan")))
+      .toBeLessThan(80);
+    await releasePanelDrag(page, 320);
+    await expectActivePanel(page, "inbjudan");
+    await expect(page).not.toHaveURL(/#osa$/);
+
+    await page.goto(`${fixture.path}#osa`);
+    await expectActivePanel(page, "osa");
+    await dragPanelTo(page, 320, 80);
+    await expect
+      .poll(async () => Math.round(await panelFrameTranslateX(page, "osa")))
+      .toBeLessThan(0);
+    await expect
+      .poll(async () => Math.round(await panelFrameTranslateX(page, "osa")))
+      .toBeGreaterThan(-80);
+    await releasePanelDrag(page, 80);
+
+    await expect(page).toHaveURL(/#osa$/);
+    await expectActivePanel(page, "osa");
   });
 
   test("animates arrow navigation and commits the hash after the panel settles", async ({
@@ -165,6 +364,20 @@ test.describe.serial("invite one-panel shell", () => {
 
     expect(page.url()).toMatch(/#osa$/);
     await expectActivePanel(page, "osa");
+
+    await page.goto(`${fixture.path}#inbjudan`);
+    await expectActivePanel(page, "inbjudan");
+    await dragPanelTo(page, 320, 280);
+    await page.waitForTimeout(180);
+    await releasePanelDrag(page, 280);
+    await expectActivePanel(page, "inbjudan");
+    await expect(page).not.toHaveURL(/#detaljer$/);
+
+    await dragPanelTo(page, 330, 150);
+    await releasePanelDrag(page, 140);
+
+    expect(page.url()).toMatch(/#detaljer$/);
+    await expectActivePanel(page, "detaljer");
   });
 
   test("opens matching panels from invite hash deep links", async ({ page }) => {

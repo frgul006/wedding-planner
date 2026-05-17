@@ -3,6 +3,7 @@
 import {
   Children,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -35,10 +36,41 @@ type PanelTransition = {
   toIndex: number;
 };
 
+type PanelGesture = {
+  direction: -1 | 1;
+  fromIndex: number;
+  offsetPx: number;
+  phase: "dragging" | "settling";
+  sequence: number;
+  settle: "commit" | "snapback" | null;
+  targetIndex: number | null;
+  viewportWidth: number;
+};
+
+type DragSession = {
+  fromIndex: number;
+  intent: "horizontal" | "pending" | "vertical";
+  lastTimestamp: number;
+  lastX: number;
+  pointerId: number;
+  startTimestamp: number;
+  startX: number;
+  startY: number;
+  viewportWidth: number;
+};
+
 const panelTransitionMs = 300;
 const panelTransitionEase = "cubic-bezier(0.22, 1, 0.36, 1)";
 const panelScaleDuringMotion = 0.985;
-const swipeThresholdPx = 48;
+const dragActivationThresholdPx = 8;
+const dragCommitDistanceMaxPx = 120;
+const dragCommitDistanceRatio = 0.28;
+const dragFlickMinimumDistancePx = 36;
+const dragFlickVelocityPxPerMs = 0.5;
+const dragVerticalIntentThresholdPx = 10;
+const edgeResistanceFactor = 0.24;
+const edgeResistanceLimitPx = 56;
+const legacySwipeThresholdPx = 48;
 
 function hashToPanelId(hash: string, panels: InvitePanelMeta[]) {
   const id = hash.replace(/^#/, "");
@@ -65,6 +97,82 @@ function usePrefersReducedMotion() {
 
 function formatPanelCount(index: number, total: number) {
   return `${String(index + 1).padStart(2, "0")}/${String(total).padStart(2, "0")}`;
+}
+
+const interactiveDragStartSelector = [
+  "a[href]",
+  "button",
+  "input",
+  "label",
+  "option",
+  "select",
+  "summary",
+  "textarea",
+  "[contenteditable='']",
+  "[contenteditable='true']",
+  "[role='button']",
+  "[role='checkbox']",
+  "[role='link']",
+  "[role='radio']",
+  "[role='switch']",
+].join(",");
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getDragCommitDistance(viewportWidth: number) {
+  return Math.min(dragCommitDistanceMaxPx, viewportWidth * dragCommitDistanceRatio);
+}
+
+function getEdgeResistanceOffset(deltaX: number) {
+  const distance = Math.min(Math.abs(deltaX) * edgeResistanceFactor, edgeResistanceLimitPx);
+  return Math.sign(deltaX) * distance;
+}
+
+function isInteractiveDragStart(target: EventTarget | null, root: Element) {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  const interactiveElement = target.closest(interactiveDragStartSelector);
+  return Boolean(interactiveElement && root.contains(interactiveElement));
+}
+
+function getGestureForDelta({
+  deltaX,
+  fromIndex,
+  panelCount,
+  phase,
+  sequence,
+  settle,
+  viewportWidth,
+}: {
+  deltaX: number;
+  fromIndex: number;
+  panelCount: number;
+  phase: PanelGesture["phase"];
+  sequence: number;
+  settle: PanelGesture["settle"];
+  viewportWidth: number;
+}): PanelGesture {
+  const direction: -1 | 1 = deltaX < 0 ? 1 : -1;
+  const targetIndex = fromIndex + direction;
+  const hasTarget = targetIndex >= 0 && targetIndex < panelCount;
+  const offsetPx = hasTarget
+    ? clamp(deltaX, -viewportWidth, viewportWidth)
+    : getEdgeResistanceOffset(deltaX);
+
+  return {
+    direction,
+    fromIndex,
+    offsetPx,
+    phase,
+    sequence,
+    settle,
+    targetIndex: hasTarget ? targetIndex : null,
+    viewportWidth,
+  };
 }
 
 function PanelDots({
@@ -132,12 +240,16 @@ export function InvitePanelCarousel({
   const panelChildren = Children.toArray(children);
   const [activeIndex, setActiveIndex] = useState(0);
   const [transition, setTransition] = useState<PanelTransition | null>(null);
+  const [gesture, setGesture] = useState<PanelGesture | null>(null);
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
-  const gestureStartRef = useRef<{ x: number; y: number } | null>(null);
+  const dragSessionRef = useRef<DragSession | null>(null);
+  const gestureRef = useRef<PanelGesture | null>(null);
+  const gestureSequenceRef = useRef(0);
   const panelRefs = useRef<Array<HTMLDivElement | null>>([]);
   const rootRef = useRef<HTMLDivElement>(null);
   const transitionRef = useRef<PanelTransition | null>(null);
   const transitionSequenceRef = useRef(0);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
 
   const panelIndexById = useMemo(() => {
@@ -150,6 +262,10 @@ export function InvitePanelCarousel({
   useEffect(() => {
     transitionRef.current = transition;
   }, [transition]);
+
+  useEffect(() => {
+    gestureRef.current = gesture;
+  }, [gesture]);
 
   const getPanelHeight = useCallback((index: number) => {
     return panelRefs.current[index]?.scrollHeight ?? 0;
@@ -236,6 +352,25 @@ export function InvitePanelCarousel({
     [updateHashForIndex],
   );
 
+  const completeGesture = useCallback(
+    (sequence: number) => {
+      const currentGesture = gestureRef.current;
+
+      if (!currentGesture || currentGesture.sequence !== sequence) {
+        return;
+      }
+
+      if (currentGesture.settle === "commit" && currentGesture.targetIndex !== null) {
+        setActiveIndex(currentGesture.targetIndex);
+        updateHashForIndex(currentGesture.targetIndex);
+      }
+
+      gestureRef.current = null;
+      setGesture(null);
+    },
+    [updateHashForIndex],
+  );
+
   useEffect(() => {
     if (!transition || transition.phase !== "ready") {
       return;
@@ -272,11 +407,77 @@ export function InvitePanelCarousel({
     };
   }, [completeTransition, transition]);
 
+  useEffect(() => {
+    if (!gesture || gesture.phase !== "settling") {
+      return;
+    }
+
+    const timeout = window.setTimeout(
+      () => completeGesture(gesture.sequence),
+      panelTransitionMs + 80,
+    );
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [completeGesture, gesture]);
+
+  const settleGesture = useCallback(
+    (nextGesture: PanelGesture, settle: "commit" | "snapback") => {
+      const nextSettle = nextGesture.targetIndex === null ? "snapback" : settle;
+      const nextSequence = gestureSequenceRef.current + 1;
+      const settlingGesture: PanelGesture = {
+        ...nextGesture,
+        phase: "settling",
+        sequence: nextSequence,
+        settle: nextSettle,
+      };
+
+      gestureSequenceRef.current = nextSequence;
+      gestureRef.current = settlingGesture;
+      setGesture(settlingGesture);
+      updateViewportHeight(
+        nextSettle === "commit" && settlingGesture.targetIndex !== null
+          ? settlingGesture.targetIndex
+          : settlingGesture.fromIndex,
+      );
+
+      window.requestAnimationFrame(() => {
+        const targetOffsetPx =
+          nextSettle === "commit"
+            ? -settlingGesture.direction * settlingGesture.viewportWidth
+            : 0;
+
+        setGesture((currentGesture) => {
+          if (!currentGesture || currentGesture.sequence !== nextSequence) {
+            return currentGesture;
+          }
+
+          return { ...currentGesture, offsetPx: targetOffsetPx };
+        });
+      });
+    },
+    [updateViewportHeight],
+  );
+
+  const cancelGestureState = useCallback(() => {
+    dragSessionRef.current = null;
+
+    if (gestureRef.current) {
+      gestureSequenceRef.current += 1;
+    }
+
+    gestureRef.current = null;
+    setGesture(null);
+  }, []);
+
   const navigateToIndex = useCallback(
     (nextIndex: number, options: { replace?: boolean } = {}) => {
       if (nextIndex < 0 || nextIndex >= panels.length) {
         return;
       }
+
+      cancelGestureState();
 
       const pendingTargetIndex = transitionRef.current?.toIndex;
 
@@ -321,6 +522,7 @@ export function InvitePanelCarousel({
     },
     [
       activeIndex,
+      cancelGestureState,
       getPanelHeight,
       panels.length,
       prefersReducedMotion,
@@ -353,6 +555,8 @@ export function InvitePanelCarousel({
     const syncFromHash = () => {
       const panelId = hashToPanelId(window.location.hash, panels);
 
+      cancelGestureState();
+
       if (!panelId) {
         transitionRef.current = null;
         setTransition(null);
@@ -377,7 +581,7 @@ export function InvitePanelCarousel({
       window.removeEventListener("hashchange", syncFromHash);
       window.removeEventListener("popstate", syncFromHash);
     };
-  }, [panelIndexById, panels]);
+  }, [cancelGestureState, panelIndexById, panels]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -427,26 +631,194 @@ export function InvitePanelCarousel({
     };
   }, [navigateToPanel, panels]);
 
-  const startGesture = (x: number, y: number) => {
-    gestureStartRef.current = { x, y };
+  const releasePointerCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
+    try {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    } catch {
+      // Synthetic pointer events in tests do not always create a capturable pointer.
+    }
   };
 
-  const finishGesture = (x: number, y: number) => {
-    const start = gestureStartRef.current;
-    gestureStartRef.current = null;
-
-    if (!start) {
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "touch" || transitionRef.current) {
       return;
     }
 
-    const deltaX = x - start.x;
-    const deltaY = y - start.y;
+    const currentGesture = gestureRef.current;
 
-    if (Math.abs(deltaX) < swipeThresholdPx || Math.abs(deltaX) < Math.abs(deltaY)) {
+    if (currentGesture) {
+      if (currentGesture.phase !== "settling" || currentGesture.settle !== "snapback") {
+        return;
+      }
+
+      cancelGestureState();
+    }
+
+    const root = rootRef.current;
+
+    if (!root || isInteractiveDragStart(event.target, root)) {
       return;
     }
 
-    navigateBy(deltaX < 0 ? 1 : -1);
+    const viewportWidth = viewportRef.current?.clientWidth ?? root.clientWidth;
+    const now = window.performance.now();
+
+    dragSessionRef.current = {
+      fromIndex: activeIndex,
+      intent: "pending",
+      lastTimestamp: now,
+      lastX: event.clientX,
+      pointerId: event.pointerId,
+      startTimestamp: now,
+      startX: event.clientX,
+      startY: event.clientY,
+      viewportWidth: Math.max(1, viewportWidth),
+    };
+
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Synthetic pointer events in tests do not always create a capturable pointer.
+    }
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const session = dragSessionRef.current;
+
+    if (
+      !session ||
+      event.pointerType !== "touch" ||
+      event.pointerId !== session.pointerId
+    ) {
+      return;
+    }
+
+    const deltaX = event.clientX - session.startX;
+    const deltaY = event.clientY - session.startY;
+    const absoluteDeltaX = Math.abs(deltaX);
+    const absoluteDeltaY = Math.abs(deltaY);
+    const now = window.performance.now();
+
+    session.lastX = event.clientX;
+    session.lastTimestamp = now;
+
+    if (session.intent === "vertical") {
+      return;
+    }
+
+    if (session.intent === "pending") {
+      if (
+        absoluteDeltaY >= dragVerticalIntentThresholdPx &&
+        absoluteDeltaY > absoluteDeltaX
+      ) {
+        session.intent = "vertical";
+        dragSessionRef.current = null;
+        releasePointerCapture(event);
+        return;
+      }
+
+      if (absoluteDeltaX < dragActivationThresholdPx || absoluteDeltaX <= absoluteDeltaY) {
+        return;
+      }
+
+      session.intent = "horizontal";
+      updateViewportHeight(session.fromIndex);
+    }
+
+    event.preventDefault();
+
+    if (prefersReducedMotion) {
+      return;
+    }
+
+    const nextGesture = getGestureForDelta({
+      deltaX,
+      fromIndex: session.fromIndex,
+      panelCount: panels.length,
+      phase: "dragging",
+      sequence: gestureSequenceRef.current,
+      settle: null,
+      viewportWidth: session.viewportWidth,
+    });
+
+    gestureRef.current = nextGesture;
+    setGesture(nextGesture);
+  };
+
+  const finishDragSession = (
+    event: ReactPointerEvent<HTMLDivElement>,
+    options: { cancel?: boolean } = {},
+  ) => {
+    const session = dragSessionRef.current;
+
+    if (
+      !session ||
+      event.pointerType !== "touch" ||
+      event.pointerId !== session.pointerId
+    ) {
+      return;
+    }
+
+    dragSessionRef.current = null;
+    releasePointerCapture(event);
+
+    const currentGesture = gestureRef.current;
+
+    if (options.cancel) {
+      if (currentGesture?.phase === "dragging") {
+        settleGesture(currentGesture, "snapback");
+      }
+
+      return;
+    }
+
+    const deltaX = event.clientX - session.startX;
+    const deltaY = event.clientY - session.startY;
+    const absoluteDeltaX = Math.abs(deltaX);
+    const absoluteDeltaY = Math.abs(deltaY);
+    const hasHorizontalRelease =
+      session.intent === "horizontal" ||
+      (absoluteDeltaX >= legacySwipeThresholdPx && absoluteDeltaX > absoluteDeltaY);
+
+    if (session.intent === "vertical" || !hasHorizontalRelease) {
+      return;
+    }
+
+    const velocityWindowMs = Math.max(1, window.performance.now() - session.lastTimestamp);
+    const totalWindowMs = Math.max(1, window.performance.now() - session.startTimestamp);
+    const recentVelocity = (event.clientX - session.lastX) / velocityWindowMs;
+    const totalVelocity = deltaX / totalWindowMs;
+    const releaseVelocity =
+      Math.abs(recentVelocity) > Math.abs(totalVelocity) ? recentVelocity : totalVelocity;
+    const nextGesture = getGestureForDelta({
+      deltaX,
+      fromIndex: session.fromIndex,
+      panelCount: panels.length,
+      phase: "dragging",
+      sequence: gestureSequenceRef.current,
+      settle: null,
+      viewportWidth: session.viewportWidth,
+    });
+    const hasDistanceCommit =
+      absoluteDeltaX >= getDragCommitDistance(session.viewportWidth);
+    const hasVelocityCommit =
+      absoluteDeltaX >= dragFlickMinimumDistancePx &&
+      Math.abs(releaseVelocity) >= dragFlickVelocityPxPerMs &&
+      Math.sign(releaseVelocity) === Math.sign(deltaX);
+    const shouldCommit =
+      nextGesture.targetIndex !== null && (hasDistanceCommit || hasVelocityCommit);
+
+    if (prefersReducedMotion) {
+      if (shouldCommit && nextGesture.targetIndex !== null) {
+        navigateToIndex(nextGesture.targetIndex);
+      }
+
+      return;
+    }
+
+    settleGesture(nextGesture, shouldCommit ? "commit" : "snapback");
   };
 
   const getPanelMotionStyle = (index: number): CSSProperties => {
@@ -456,6 +828,48 @@ export function InvitePanelCarousel({
       top: 0,
       width: "100%",
     };
+
+    if (gesture && !prefersReducedMotion) {
+      const isFromPanel = index === gesture.fromIndex;
+      const isTargetPanel = index === gesture.targetIndex;
+      const transitionStyle =
+        gesture.phase === "settling"
+          ? `transform ${panelTransitionMs}ms ${panelTransitionEase}, opacity ${panelTransitionMs}ms ${panelTransitionEase}`
+          : "none";
+
+      if (isFromPanel) {
+        return {
+          ...baseStyle,
+          opacity: 1,
+          transform: `translate3d(${gesture.offsetPx}px, 0, 0) scale(1)`,
+          transition: transitionStyle,
+          willChange: "transform, opacity",
+          zIndex: 1,
+        };
+      }
+
+      if (isTargetPanel) {
+        const targetOffsetPx =
+          gesture.offsetPx + gesture.direction * gesture.viewportWidth;
+
+        return {
+          ...baseStyle,
+          opacity: 1,
+          transform: `translate3d(${targetOffsetPx}px, 0, 0) scale(1)`,
+          transition: transitionStyle,
+          willChange: "transform, opacity",
+          zIndex: 2,
+        };
+      }
+
+      return {
+        ...baseStyle,
+        opacity: 0,
+        transform: "translate3d(0px, 0, 0) scale(1)",
+        transition: "none",
+        zIndex: 0,
+      };
+    }
 
     if (!transition || prefersReducedMotion) {
       if (index === activeIndex) {
@@ -511,7 +925,7 @@ export function InvitePanelCarousel({
     };
   };
 
-  const viewportStyle: CSSProperties | undefined = transition
+  const viewportStyle: CSSProperties | undefined = transition || gesture
     ? { height: viewportHeight === null ? undefined : `${viewportHeight}px` }
     : undefined;
 
@@ -519,36 +933,10 @@ export function InvitePanelCarousel({
     <div
       className="mx-auto flex min-h-[926px] w-full max-w-[390px] touch-pan-y flex-col"
       data-testid="invite-panel-carousel"
-      onPointerCancel={() => {
-        gestureStartRef.current = null;
-      }}
-      onPointerDown={(event) => {
-        if (event.pointerType === "touch") {
-          startGesture(event.clientX, event.clientY);
-        }
-      }}
-      onPointerUp={(event) => {
-        if (event.pointerType === "touch") {
-          finishGesture(event.clientX, event.clientY);
-        }
-      }}
-      onTouchCancel={() => {
-        gestureStartRef.current = null;
-      }}
-      onTouchEnd={(event) => {
-        const touch = event.changedTouches.item(0);
-
-        if (touch) {
-          finishGesture(touch.clientX, touch.clientY);
-        }
-      }}
-      onTouchStart={(event) => {
-        const touch = event.touches.item(0);
-
-        if (touch) {
-          startGesture(touch.clientX, touch.clientY);
-        }
-      }}
+      onPointerCancel={(event) => finishDragSession(event, { cancel: true })}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={finishDragSession}
       ref={rootRef}
     >
       <div className="px-4 py-0 sm:px-4 sm:py-0">
@@ -561,15 +949,19 @@ export function InvitePanelCarousel({
       <div
         className="relative mt-0 overflow-hidden transition-[height] duration-300 ease-out motion-reduce:transition-none"
         data-testid="invite-panel-viewport"
+        ref={viewportRef}
         style={viewportStyle}
       >
         {panelChildren.map((child, index) => {
           const panel = panels[index];
-          const isRestingActive = !transition && index === activeIndex;
+          const isRestingActive = !transition && !gesture && index === activeIndex;
           const isMovingPanel = Boolean(
             transition && (index === transition.fromIndex || index === transition.toIndex),
           );
-          const isVisible = isRestingActive || isMovingPanel;
+          const isGesturePanel = Boolean(
+            gesture && (index === gesture.fromIndex || index === gesture.targetIndex),
+          );
+          const isVisible = isRestingActive || isMovingPanel || isGesturePanel;
           const isAccessible = index === activeIndex;
 
           return (
