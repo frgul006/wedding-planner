@@ -23,7 +23,7 @@ export async function getGuestByName(fullName: string) {
   const supabase = createE2eSupabaseAdminClient();
   const { data, error } = await supabase
     .from("guests")
-    .select("id, deleted_at, email, full_name, invite_status, phone, plus_one_allowed, sms_opt_in, sms_opted_in_at, sms_opted_out_at")
+    .select("id, deleted_at, email, full_name, guest_kind, invite_status, phone, plus_one_allowed, rsvp_status, sms_opt_in, sms_opted_in_at, sms_opted_out_at")
     .eq("wedding_id", SEEDED_WEDDING_ID)
     .eq("full_name", fullName)
     .maybeSingle();
@@ -39,7 +39,7 @@ export async function getInviteTokenRowsForGuest(guestId: string) {
   const supabase = createE2eSupabaseAdminClient();
   const { data, error } = await supabase
     .from("invite_tokens")
-    .select("id, is_active, invalidated_at, token_hash")
+    .select("access_scope, id, is_active, invalidated_at, token_hash")
     .eq("guest_id", guestId)
     .order("created_at", { ascending: true });
 

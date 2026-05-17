@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 
 import { hashInviteToken } from "../lib/invite-token-crypto";
-import { INVITE_STATUS } from "../lib/invite-status";
+import { INVITE_STATUS, RSVP_STATUS } from "../lib/invite-status";
 import { RSVP_ATTENDANCE, type RsvpAttendance } from "../lib/rsvp-attendance";
 
 import { getGuestByName, guestRowByName } from "./support/admin-guests";
@@ -250,7 +250,10 @@ test.describe("RSVP, invite status, and phone capture", () => {
 
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
-      .toBe(INVITE_STATUS.rsvpYes);
+      .toBe(INVITE_STATUS.opened);
+    await expect
+      .poll(async () => (await getGuestByName(guestName))?.rsvp_status)
+      .toBe(RSVP_STATUS.rsvpYes);
     const guestAfterRsvp = await getGuestByName(guestName);
     expect(guestAfterRsvp?.phone).toBeNull();
     expect(guestAfterRsvp?.sms_opt_in).toBe(false);
@@ -726,7 +729,10 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await expect(page.getByRole("textbox", { name: "Telefon" }).first()).toHaveValue("+46700000000");
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
-      .toBe(INVITE_STATUS.rsvpYes);
+      .toBe(INVITE_STATUS.opened);
+    await expect
+      .poll(async () => (await getGuestByName(guestName))?.rsvp_status)
+      .toBe(RSVP_STATUS.rsvpYes);
 
     await submitRsvp(page, {
       allergyNotes: "Updated notes.",
@@ -749,7 +755,10 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await expect(page.getByRole("heading", { name: "Uppdatera svar" })).toBeVisible();
     await expect
       .poll(async () => (await getGuestByName(guestName))?.invite_status)
-      .toBe(INVITE_STATUS.rsvpMaybe);
+      .toBe(INVITE_STATUS.opened);
+    await expect
+      .poll(async () => (await getGuestByName(guestName))?.rsvp_status)
+      .toBe(RSVP_STATUS.rsvpMaybe);
     const guestAfterUpdate = await getGuestByName(guestName);
     expect(guestAfterUpdate?.phone).toBe("+46708889999");
     expect(guestAfterUpdate?.sms_opt_in).toBe(true);

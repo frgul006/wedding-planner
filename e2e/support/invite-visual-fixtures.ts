@@ -186,6 +186,14 @@ function pathWithHash(token: string, hash: InviteVisualFixture["primaryHash"]) {
   return `${invitePathForToken(token)}#${hash}`;
 }
 
+function getInviteOpenedStatus(inviteStatus: VisualInviteStatus) {
+  return inviteStatus.startsWith("rsvp ") ? "opened" : inviteStatus;
+}
+
+function getRsvpStatus(inviteStatus: VisualInviteStatus) {
+  return inviteStatus.startsWith("rsvp ") ? inviteStatus : "not replied";
+}
+
 function withPaths(fixture: InviteVisualFixture): InviteVisualFixtureWithPaths {
   const path = invitePathForToken(fixture.token);
 
@@ -274,10 +282,11 @@ export async function seedInviteVisualFixtures(
     email: fixture.guest.email,
     full_name: fixture.guest.fullName,
     id: fixture.guest.id,
-    invite_status: fixture.guest.inviteStatus,
+    invite_status: getInviteOpenedStatus(fixture.guest.inviteStatus),
     notes: fixture.guest.notes,
     phone: fixture.guest.phone,
     plus_one_allowed: fixture.guest.plusOneAllowed,
+    rsvp_status: getRsvpStatus(fixture.guest.inviteStatus),
     sms_opt_in: fixture.guest.smsOptIn,
     sms_opted_in_at: fixture.guest.smsOptIn ? now : null,
     sms_opted_out_at: null,
@@ -298,6 +307,7 @@ export async function seedInviteVisualFixtures(
       .insert({
         guest_id: fixture.guest.id,
         invalidated_at: null,
+        access_scope: "full",
         is_active: true,
         regenerated_at: null,
         token_hash: hashInviteToken(fixture.token),

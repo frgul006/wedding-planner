@@ -147,7 +147,7 @@ export async function sendMessageBlastAction(formData: FormData) {
     .order("full_name", { ascending: true });
 
   if (audience !== "all") {
-    guestsQuery = guestsQuery.eq("invite_status", audience);
+    guestsQuery = guestsQuery.eq("rsvp_status", audience);
   }
 
   const { data: recipientRows, error: recipientError } = await guestsQuery;

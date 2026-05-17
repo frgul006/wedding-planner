@@ -62,7 +62,7 @@ The admin composer supports these audiences:
 - RSVP no
 - RSVP maybe
 
-Only active, non-archived guests who have opted in to SMS updates and have strict E.164 phone numbers, for example `+46701234567`, are included. The optional title is prepended to the SMS body before sending.
+Only active, non-archived guests who have opted in to SMS updates and have strict E.164 phone numbers, for example `+46701234567`, are included. RSVP audiences use each Guest's dedicated `rsvp_status`, not opened-Invite activity. The optional title is prepended to the SMS body before sending.
 
 Current delivery state is the provider send attempt state only. `sent` means 46elks accepted the SMS request; it does not mean carrier/device delivery. Delivery receipt tracking is intentionally out of scope for this implementation.
 

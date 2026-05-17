@@ -31,7 +31,7 @@ type MessagesPageProps = {
 };
 
 type GuestMessagingRow = {
-  invite_status: string;
+  rsvp_status: string;
   phone: string | null;
   sms_opt_in: boolean;
   sms_opted_out_at: string | null;
@@ -145,7 +145,7 @@ function getMessage(searchParams: Awaited<MessagesPageProps["searchParams"]>) {
 function isGuestMessagingRow(value: unknown): value is GuestMessagingRow {
   return (
     isRecord(value) &&
-    typeof value.invite_status === "string" &&
+    typeof value.rsvp_status === "string" &&
     isNullableString(value.phone) &&
     typeof value.sms_opt_in === "boolean" &&
     isNullableString(value.sms_opted_out_at)
@@ -195,7 +195,7 @@ function getAudienceCounts(guestRows: GuestMessagingRow[]) {
           return false;
         }
 
-        return audience === "all" || guest.invite_status === audience;
+        return audience === "all" || guest.rsvp_status === audience;
       }).length;
       return counts;
     },
@@ -251,7 +251,7 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
   const [guestsResult, blastsResult] = await Promise.all([
     supabase
       .from("guests")
-      .select("phone, invite_status, sms_opt_in, sms_opted_out_at")
+      .select("phone, rsvp_status, sms_opt_in, sms_opted_out_at")
       .eq("wedding_id", adminProfile.wedding_id)
       .is("deleted_at", null),
     supabase

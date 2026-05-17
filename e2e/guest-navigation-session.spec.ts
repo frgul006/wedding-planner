@@ -4,7 +4,7 @@ import {
   GUEST_NAVIGATION_COOKIE_NAME,
   hashGuestNavigationCookie,
 } from "../lib/guest-navigation-session";
-import { INVITE_STATUS } from "../lib/invite-status";
+import { INVITE_STATUS, RSVP_STATUS } from "../lib/invite-status";
 import { RSVP_ATTENDANCE } from "../lib/rsvp-attendance";
 
 import {
@@ -52,11 +52,11 @@ async function getGuestNavigationSessionCountForGuest(guestId: string) {
   return count ?? 0;
 }
 
-async function getGuestInviteStatus(guestId: string) {
+async function getGuestStatuses(guestId: string) {
   const supabase = createE2eSupabaseAdminClient();
   const { data, error } = await supabase
     .from("guests")
-    .select("invite_status")
+    .select("invite_status, rsvp_status")
     .eq("id", guestId)
     .maybeSingle();
 
@@ -64,7 +64,15 @@ async function getGuestInviteStatus(guestId: string) {
     throw error;
   }
 
-  return data?.invite_status ?? null;
+  return data ?? null;
+}
+
+async function getGuestInviteStatus(guestId: string) {
+  return (await getGuestStatuses(guestId))?.invite_status ?? null;
+}
+
+async function getGuestRsvpStatus(guestId: string) {
+  return (await getGuestStatuses(guestId))?.rsvp_status ?? null;
 }
 
 test.describe("guest navigation session attribution", () => {
@@ -136,7 +144,10 @@ test.describe("guest navigation session attribution", () => {
     await expect(page.getByText(`Inbjudan till ${guestName}`)).toBeVisible();
     await expect
       .poll(async () => getGuestInviteStatus(guestId))
-      .toBe(INVITE_STATUS.rsvpYes);
+      .toBe(INVITE_STATUS.opened);
+    await expect
+      .poll(async () => getGuestRsvpStatus(guestId))
+      .toBe(RSVP_STATUS.rsvpYes);
 
     const cookie = await getGuestNavigationCookie(page);
 
@@ -159,21 +170,24 @@ test.describe("guest navigation session attribution", () => {
       token: statusToken,
     });
 
-    expect(await getGuestInviteStatus(statusGuestId)).toBe(INVITE_STATUS.rsvpYes);
+    expect(await getGuestInviteStatus(statusGuestId)).toBe(INVITE_STATUS.opened);
+    expect(await getGuestRsvpStatus(statusGuestId)).toBe(RSVP_STATUS.rsvpYes);
 
     await page.goto("/invite/not-a-real-invite-token");
     await expect(
       page.getByRole("heading", { name: "Inbjudan saknas" }),
     ).toBeVisible();
     expect(await getGuestNavigationCookie(page)).toBeUndefined();
-    expect(await getGuestInviteStatus(statusGuestId)).toBe(INVITE_STATUS.rsvpYes);
+    expect(await getGuestInviteStatus(statusGuestId)).toBe(INVITE_STATUS.opened);
+    expect(await getGuestRsvpStatus(statusGuestId)).toBe(RSVP_STATUS.rsvpYes);
 
     await page.goto("/invite");
     await expect(
       page.getByRole("heading", { name: "Inbjudan saknas" }),
     ).toBeVisible();
     expect(await getGuestNavigationCookie(page)).toBeUndefined();
-    expect(await getGuestInviteStatus(statusGuestId)).toBe(INVITE_STATUS.rsvpYes);
+    expect(await getGuestInviteStatus(statusGuestId)).toBe(INVITE_STATUS.opened);
+    expect(await getGuestRsvpStatus(statusGuestId)).toBe(RSVP_STATUS.rsvpYes);
   });
 
   test("does not set a guest navigation cookie for inactive tokens or archived guests", async ({

@@ -1,5 +1,14 @@
 import { hashInviteToken } from "../../lib/invite-token-crypto";
-import { INVITE_STATUS, type InviteStatus } from "../../lib/invite-status";
+import {
+  INVITE_OPENED_STATUS,
+  INVITE_STATUS,
+  RSVP_STATUS,
+  isInviteOpenedStatus,
+  isRsvpStatus,
+  rsvpStatusForRsvpAttendance,
+  type InviteStatus,
+  type RsvpStatus,
+} from "../../lib/invite-status";
 import type { RsvpAttendance } from "../../lib/rsvp-attendance";
 
 import { E2E_GUEST_PREFIX } from "./admin-guests";
@@ -23,6 +32,7 @@ type CreateInviteTestGuestOptions = {
   plusOneName?: string | null;
   plusOnePhone?: string | null;
   plusOneSmsOptIn?: boolean;
+  rsvpStatus?: RsvpStatus;
   token: string;
   weddingId?: string;
 };
@@ -47,19 +57,31 @@ export async function createInviteTestGuest({
   plusOneName = null,
   plusOnePhone = null,
   plusOneSmsOptIn = false,
+  rsvpStatus,
   token,
   weddingId = SEEDED_WEDDING_ID,
 }: CreateInviteTestGuestOptions) {
   const supabase = createE2eSupabaseAdminClient();
+  const resolvedRsvpStatus = rsvpStatus ?? (attendance
+    ? rsvpStatusForRsvpAttendance(attendance)
+    : isRsvpStatus(inviteStatus) && inviteStatus !== RSVP_STATUS.notReplied
+      ? inviteStatus
+      : RSVP_STATUS.notReplied);
+  const resolvedInviteStatus = isInviteOpenedStatus(inviteStatus)
+    ? resolvedRsvpStatus === RSVP_STATUS.notReplied
+      ? inviteStatus
+      : INVITE_OPENED_STATUS.opened
+    : INVITE_OPENED_STATUS.opened;
   const { data: guest, error: guestError } = await supabase
     .from("guests")
     .insert({
       email: email ?? `${token}@example.com`,
       full_name: fullName,
-      invite_status: inviteStatus,
+      invite_status: resolvedInviteStatus,
       notes,
       phone,
       plus_one_allowed: plusOneAllowed,
+      rsvp_status: resolvedRsvpStatus,
       wedding_id: weddingId,
     })
     .select("id")
@@ -73,6 +95,7 @@ export async function createInviteTestGuest({
     .from("invite_tokens")
     .insert({
       guest_id: guest.id,
+      access_scope: "full",
       is_active: true,
       token_hash: hashInviteToken(token),
       wedding_id: weddingId,

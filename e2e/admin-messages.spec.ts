@@ -41,8 +41,9 @@ test.describe("admin SMS messages", () => {
       {
         email: "e2e-sms-eligible@example.com",
         full_name: eligibleName,
-        invite_status: "rsvp maybe",
+        invite_status: "opened",
         phone: "+46709992221",
+        rsvp_status: "rsvp maybe",
         sms_opt_in: true,
         sms_opted_in_at: new Date().toISOString(),
         wedding_id: SEEDED_WEDDING_ID,
@@ -50,8 +51,9 @@ test.describe("admin SMS messages", () => {
       {
         email: "e2e-sms-skipped@example.com",
         full_name: skippedName,
-        invite_status: "rsvp maybe",
+        invite_status: "opened",
         phone: "+46709992222",
+        rsvp_status: "rsvp maybe",
         sms_opt_in: false,
         wedding_id: SEEDED_WEDDING_ID,
       },

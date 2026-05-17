@@ -149,6 +149,7 @@ test.describe("admin invite token links", () => {
     const tokens = await getInviteTokenRowsForGuest(guest!.id);
     expect(tokens).toHaveLength(2);
     expect(tokens.filter((token) => token.is_active)).toHaveLength(1);
+    expect(tokens.filter((token) => token.is_active)[0]?.access_scope).toBe("full");
     expect(tokens.filter((token) => !token.is_active && token.invalidated_at)).toHaveLength(1);
   });
 });
