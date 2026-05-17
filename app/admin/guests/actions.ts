@@ -80,10 +80,9 @@ export async function createGuestAction(formData: FormData) {
 export async function updateGuestAction(guestId: string, formData: FormData) {
   const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
-  const payload = getGuestPayload(formData);
   const { data: currentGuest, error: currentGuestError } = await supabase
     .from("guests")
-    .select("id, sms_opt_in, sms_opted_in_at, sms_opted_out_at")
+    .select("id, rsvp_managed, sms_opt_in, sms_opted_in_at, sms_opted_out_at")
     .eq("id", guestId)
     .eq("wedding_id", adminProfile.wedding_id)
     .is("deleted_at", null)
@@ -98,6 +97,11 @@ export async function updateGuestAction(guestId: string, formData: FormData) {
     redirect("/admin/guests?error=not-found");
   }
 
+  if (currentGuest.rsvp_managed) {
+    redirect("/admin/guests?error=update-failed");
+  }
+
+  const payload = getGuestPayload(formData);
   const now = new Date().toISOString();
   const smsOptedInAt = payload.sms_opt_in
     ? currentGuest.sms_opted_in_at ?? now
@@ -144,7 +148,7 @@ export async function generateInviteLinkAction(
 
   const { data: guest, error: guestError } = await supabase
     .from("guests")
-    .select("id")
+    .select("guest_kind, id")
     .eq("id", guestId)
     .eq("wedding_id", adminProfile.wedding_id)
     .is("deleted_at", null)
@@ -157,6 +161,10 @@ export async function generateInviteLinkAction(
 
   if (!guest) {
     return { guestId, error: "Guest was not found or is already archived." };
+  }
+
+  if (guest.guest_kind !== "invited") {
+    return { guestId, error: "Scoped Invite links are not available yet." };
   }
 
   try {

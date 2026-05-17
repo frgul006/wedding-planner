@@ -19,11 +19,13 @@ Important fields:
 
 - `wedding_id` scopes each guest to a wedding
 - `full_name` is required
-- `email` or `phone` is required by a database check constraint
-- `guest_kind` defaults to `invited` for current roster Guests
+- `email` or `phone` is required for Invited Guests; RSVP-managed Plus-one Guests can be name-only
+- `guest_kind` is `invited` or `plus_one`; current roster Guests default to Invited Guests
+- `invited_guest_id` ties each Plus-one Guest to the Invited Guest whose RSVP manages them
+- `rsvp_managed` marks Plus-one Guest identity/contact fields that come from RSVP sync
 - `invite_status` stores opened-Invite activity (`not replied` or `opened`)
 - `rsvp_status` stores the dedicated RSVP status (`not replied`, `rsvp yes`, `rsvp no`, `rsvp maybe`)
-- `plus_one_allowed` defaults to `false` and controls whether the Brevkort OSA UI offers a +1
+- `plus_one_allowed` defaults to `false` and controls whether the Brevkort OSA UI offers a +1 to Invited Guests
 - `deleted_at` implements soft delete/archive behavior
 
 Normal admin lists only show guests where `deleted_at is null`.
@@ -36,15 +38,21 @@ Normal admin lists only show guests where `deleted_at is null`.
 - Filter by current Guest status, including opened-Invite activity and RSVP status
 - Sort by name, status, or newest
 - Show current Invite opened status and dedicated RSVP status
+- Show Invited Guest and Plus-one Guest labels
+- Show the tied Invited Guest for each Plus-one Guest
+- Mark RSVP-managed Plus-one Guest identity/contact fields as RSVP-managed/read-only
 - Show current RSVP details when submitted, including extra guest count, food preference, allergy/special notes, and latest submission time
 - Store named +1 RSVP details for the Brevkort OSA flow when allowed by the guest's +1 permission
+- Sync future RSVP +1 details into one tied RSVP-managed Plus-one Guest; removing +1 details archives that Guest and revokes active scoped tokens
 - Reflect phone numbers updated by token-backed RSVP submissions in the editable Phone column
 - Delete with browser confirmation; delete sets `deleted_at` instead of hard-deleting
 - Generate or regenerate private invite links; raw links are shown only immediately after generation
 
 ## Brevkort +1 flow
 
-The data model, admin +1 permission controls, and public Brevkort OSA named +1 UI are in place. Admins control whether each guest sees the +1 option; guest-facing submissions store named +1 details when selected and clear them when the guest switches back to `Nej, bara jag`.
+The data model, admin +1 permission controls, and public Brevkort OSA named +1 UI are in place. Admins control whether each Invited Guest sees the +1 option; guest-facing submissions store named +1 details when selected and clear them when the guest switches back to `Nej, bara jag`.
+
+Future RSVP submissions with +1 details create or update one active RSVP-managed Plus-one Guest tied to the submitting Invited Guest. Name-only Plus-one Guests can exist without becoming Message targets because SMS targeting still requires a valid phone and SMS consent. Removing +1 details archives the tied Plus-one Guest and revokes active scoped Invite tokens. Existing historical RSVP +1 rows are not backfilled automatically.
 
 ## Local validation
 

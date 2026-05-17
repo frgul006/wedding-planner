@@ -42,25 +42,36 @@ type RsvpResponse = {
   last_submitted_at: string | null;
 };
 
+type GuestKind = "invited" | "plus_one";
+
 type Guest = {
   id: string;
   full_name: string;
   email: string | null;
   phone: string | null;
   notes: string | null;
+  guest_kind: GuestKind;
+  invited_guest_id: string | null;
   invite_status: InviteOpenedStatus;
+  rsvp_managed: boolean;
   rsvp_status: RsvpStatus;
   sms_opt_in: boolean;
   plus_one_allowed: boolean;
   created_at: string;
   hasActiveToken: boolean;
+  invitedGuestName: string | null;
   rsvpResponse: RsvpResponse | null;
 };
 
-type GuestRow = Omit<Guest, "hasActiveToken" | "rsvpResponse">;
+type GuestRow = Omit<Guest, "hasActiveToken" | "invitedGuestName" | "rsvpResponse">;
 
 type ActiveInviteTokenRow = {
   guest_id: string;
+};
+
+type TiedInvitedGuestRow = {
+  id: string;
+  full_name: string;
 };
 
 const sortOptions = new Set(["name", "name-desc", "status", "newest"]);
@@ -72,6 +83,14 @@ const rsvpSubmittedFormatter = new Intl.DateTimeFormat("sv-SE", {
 
 function getFirstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function isGuestKind(value: unknown): value is GuestKind {
+  return value === "invited" || value === "plus_one";
+}
+
+function getGuestKindLabel(guestKind: GuestKind) {
+  return guestKind === "plus_one" ? "Plus-one Guest" : "Invited Guest";
 }
 
 function getRsvpStatus(rsvpStatus: RsvpStatus) {
@@ -142,7 +161,10 @@ function isGuestRow(value: unknown): value is GuestRow {
     isNullableString(value.email) &&
     isNullableString(value.phone) &&
     isNullableString(value.notes) &&
+    isGuestKind(value.guest_kind) &&
+    isNullableString(value.invited_guest_id) &&
     isInviteOpenedStatus(value.invite_status) &&
+    typeof value.rsvp_managed === "boolean" &&
     isRsvpStatus(value.rsvp_status) &&
     typeof value.sms_opt_in === "boolean" &&
     typeof value.plus_one_allowed === "boolean" &&
@@ -152,6 +174,14 @@ function isGuestRow(value: unknown): value is GuestRow {
 
 function isActiveInviteTokenRow(value: unknown): value is ActiveInviteTokenRow {
   return isRecord(value) && typeof value.guest_id === "string";
+}
+
+function isTiedInvitedGuestRow(value: unknown): value is TiedInvitedGuestRow {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.full_name === "string"
+  );
 }
 
 function isRsvpResponse(value: unknown): value is RsvpResponse {
@@ -180,7 +210,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
 
   let guestsQuery = supabase
     .from("guests")
-    .select("id, full_name, email, phone, notes, invite_status, rsvp_status, sms_opt_in, plus_one_allowed, created_at")
+    .select("id, full_name, email, phone, notes, guest_kind, invited_guest_id, invite_status, rsvp_managed, rsvp_status, sms_opt_in, plus_one_allowed, created_at")
     .eq("wedding_id", adminProfile.wedding_id)
     .is("deleted_at", null)
     .limit(500);
@@ -216,7 +246,14 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
   const { data, error } = await guestsQuery;
   const guestRows = (data ?? []).filter(isGuestRow);
   const guestIds = guestRows.map((guest) => guest.id);
-  const [activeTokensResult, rsvpResponsesResult] = guestIds.length
+  const invitedGuestIds = Array.from(
+    new Set(
+      guestRows
+        .map((guest) => guest.invited_guest_id)
+        .filter((guestId): guestId is string => typeof guestId === "string"),
+    ),
+  );
+  const [activeTokensResult, rsvpResponsesResult, tiedInvitedGuestsResult] = guestIds.length
     ? await Promise.all([
         supabase
           .from("invite_tokens")
@@ -231,12 +268,28 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
           )
           .eq("wedding_id", adminProfile.wedding_id)
           .in("guest_id", guestIds),
+        invitedGuestIds.length
+          ? supabase
+              .from("guests")
+              .select("id, full_name")
+              .eq("wedding_id", adminProfile.wedding_id)
+              .in("id", invitedGuestIds)
+          : Promise.resolve({ data: [], error: null }),
       ])
-    : [{ data: [] }, { data: [], error: null }];
+    : [
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+      ];
   const guestsWithActiveTokens = new Set(
     (activeTokensResult.data ?? [])
       .filter(isActiveInviteTokenRow)
       .map((token) => token.guest_id),
+  );
+  const invitedGuestNamesById = new Map(
+    (tiedInvitedGuestsResult.data ?? [])
+      .filter(isTiedInvitedGuestRow)
+      .map((guest) => [guest.id, guest.full_name]),
   );
   const rsvpResponsesByGuest = new Map(
     (rsvpResponsesResult.data ?? [])
@@ -246,6 +299,9 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
   const guests = guestRows.map((guest) => ({
     ...guest,
     hasActiveToken: guestsWithActiveTokens.has(guest.id),
+    invitedGuestName: guest.invited_guest_id
+      ? invitedGuestNamesById.get(guest.invited_guest_id) ?? null
+      : null,
     rsvpResponse: rsvpResponsesByGuest.get(guest.id) ?? null,
   }));
   const message = getMessage(params);
@@ -373,17 +429,19 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
             </form>
           </div>
 
-          {error || rsvpResponsesResult.error ? (
+          {error || rsvpResponsesResult.error || tiedInvitedGuestsResult.error ? (
             <p className="mt-8 rounded-2xl bg-red-50 px-5 py-4 text-sm font-medium text-red-700 ring-1 ring-red-100">
               Could not load guests. Please try again.
             </p>
           ) : null}
 
           <div className="mt-8 overflow-x-auto">
-            <table className="w-full min-w-[1420px] border-separate border-spacing-y-3 text-left text-sm">
+            <table className="w-full min-w-[1660px] border-separate border-spacing-y-3 text-left text-sm">
               <thead className="text-xs uppercase tracking-wide text-zinc-500">
                 <tr>
                   <th className="px-4">Name</th>
+                  <th className="px-4">Kind</th>
+                  <th className="px-4">Tied Invited Guest</th>
                   <th className="px-4">Email</th>
                   <th className="px-4">Phone</th>
                   <th className="px-4">SMS</th>
@@ -403,28 +461,50 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                     <tr className="align-top" key={guest.id}>
                       <td className="rounded-l-2xl bg-zinc-50 p-3">
                         <input
-                          className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-zinc-950 outline-none focus:border-zinc-950"
+                          className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-zinc-950 outline-none focus:border-zinc-950 read-only:bg-zinc-100 read-only:text-zinc-600"
                           defaultValue={guest.full_name}
                           form={`guest-${guest.id}`}
                           name="full_name"
+                          readOnly={guest.rsvp_managed}
                           required
                         />
+                        {guest.rsvp_managed ? (
+                          <p className="mt-2 text-xs font-semibold text-amber-700">
+                            RSVP-managed
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="bg-zinc-50 p-3 text-zinc-700">
+                        <span className="inline-flex rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-800 ring-1 ring-zinc-200">
+                          {getGuestKindLabel(guest.guest_kind)}
+                        </span>
+                      </td>
+                      <td className="bg-zinc-50 p-3 text-zinc-700">
+                        {guest.guest_kind === "plus_one" ? (
+                          <span>
+                            Tied to {guest.invitedGuestName ?? "unknown Invited Guest"}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-500">—</span>
+                        )}
                       </td>
                       <td className="bg-zinc-50 p-3">
                         <input
-                          className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-zinc-950 outline-none focus:border-zinc-950"
+                          className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-zinc-950 outline-none focus:border-zinc-950 read-only:bg-zinc-100 read-only:text-zinc-600"
                           defaultValue={guest.email ?? ""}
                           form={`guest-${guest.id}`}
                           name="email"
+                          readOnly={guest.rsvp_managed}
                           type="email"
                         />
                       </td>
                       <td className="bg-zinc-50 p-3">
                         <input
-                          className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-zinc-950 outline-none focus:border-zinc-950"
+                          className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-zinc-950 outline-none focus:border-zinc-950 read-only:bg-zinc-100 read-only:text-zinc-600"
                           defaultValue={guest.phone ?? ""}
                           form={`guest-${guest.id}`}
                           name="phone"
+                          readOnly={guest.rsvp_managed}
                           type="tel"
                         />
                       </td>
@@ -433,6 +513,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                           <input
                             className="h-4 w-4"
                             defaultChecked={guest.sms_opt_in}
+                            disabled={guest.rsvp_managed}
                             form={`guest-${guest.id}`}
                             name="sms_opt_in"
                             type="checkbox"
@@ -445,6 +526,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                           <input
                             className="h-4 w-4"
                             defaultChecked={guest.plus_one_allowed}
+                            disabled={guest.rsvp_managed || guest.guest_kind === "plus_one"}
                             form={`guest-${guest.id}`}
                             name="plus_one_allowed"
                             type="checkbox"
@@ -491,18 +573,26 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                       <td className="rounded-r-2xl bg-zinc-50 p-3 text-right">
                         <form action={updateGuestWithId} id={`guest-${guest.id}`} />
                         <div className="flex justify-end gap-2">
-                          <InviteLinkButton
-                            guestId={guest.id}
-                            guestName={guest.full_name}
-                            hasActiveToken={guest.hasActiveToken}
-                          />
-                          <button
-                            className="rounded-full bg-zinc-950 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
-                            form={`guest-${guest.id}`}
-                            type="submit"
-                          >
-                            Save
-                          </button>
+                          {guest.guest_kind === "invited" ? (
+                            <InviteLinkButton
+                              guestId={guest.id}
+                              guestName={guest.full_name}
+                              hasActiveToken={guest.hasActiveToken}
+                            />
+                          ) : (
+                            <p className="max-w-40 text-left text-xs text-zinc-500">
+                              Scoped Invite links are managed separately.
+                            </p>
+                          )}
+                          {guest.rsvp_managed ? null : (
+                            <button
+                              className="rounded-full bg-zinc-950 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
+                              form={`guest-${guest.id}`}
+                              type="submit"
+                            >
+                              Save
+                            </button>
+                          )}
                           <DeleteGuestButton guestId={guest.id} guestName={guest.full_name} />
                         </div>
                       </td>
@@ -513,7 +603,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
             </table>
           </div>
 
-          {!guests.length && !error && !rsvpResponsesResult.error ? (
+          {!guests.length && !error && !rsvpResponsesResult.error && !tiedInvitedGuestsResult.error ? (
             <p className="mt-8 rounded-2xl bg-zinc-50 px-5 py-4 text-sm text-zinc-600">
               No guests found. Add the first guest above.
             </p>

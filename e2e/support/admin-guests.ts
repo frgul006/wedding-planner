@@ -23,7 +23,7 @@ export async function getGuestByName(fullName: string) {
   const supabase = createE2eSupabaseAdminClient();
   const { data, error } = await supabase
     .from("guests")
-    .select("id, deleted_at, email, full_name, guest_kind, invite_status, phone, plus_one_allowed, rsvp_status, sms_opt_in, sms_opted_in_at, sms_opted_out_at")
+    .select("id, deleted_at, email, full_name, guest_kind, invited_guest_id, invite_status, phone, plus_one_allowed, rsvp_managed, rsvp_status, sms_opt_in, sms_opted_in_at, sms_opted_out_at")
     .eq("wedding_id", SEEDED_WEDDING_ID)
     .eq("full_name", fullName)
     .maybeSingle();
