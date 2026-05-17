@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 import { isRecord } from "@/lib/type-guards";
 
@@ -28,7 +28,6 @@ type GuestNavigationSessionRow = {
   is_anonymous: boolean;
   expires_at: string | null;
 };
-
 
 export type GuestNavigationSessionLookup = {
   id: string;
@@ -141,20 +140,6 @@ export function getGuestNavigationCookieValue(request: NextRequest) {
   }
 
   return value;
-}
-
-export function setGuestNavigationCookie({
-  cookieValue,
-  expiresAt,
-  response,
-}: GuestNavigationSessionCookie & {
-  response: NextResponse;
-}) {
-  response.cookies.set({
-    name: GUEST_NAVIGATION_COOKIE_NAME,
-    value: cookieValue,
-    ...getGuestNavigationCookieOptions(expiresAt),
-  });
 }
 
 export function getGuestNavigationSessionMetadata(request: NextRequest) {

@@ -2,8 +2,12 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
 
+import {
+  recordInviteOpened,
+  resolveInviteAccess,
+  type GrantedInviteAccessWithRsvp,
+} from "@/lib/invite-access";
 import { getInviteSupportContact } from "@/lib/invite-support-contact";
-import { markInviteOpened, validateInviteToken } from "@/lib/invite-tokens";
 import { RSVP_ATTENDANCE, type RsvpAttendance } from "@/lib/rsvp-attendance";
 import { getSafeHttpUrl } from "@/lib/safe-url";
 import { parseTimePlanLine } from "@/lib/time-plan";
@@ -37,10 +41,7 @@ type InvitePageProps = {
   }>;
 };
 
-type ValidInviteResult = Extract<
-  Awaited<ReturnType<typeof validateInviteToken>>,
-  { isValid: true }
->;
+type ValidInviteResult = GrantedInviteAccessWithRsvp;
 
 const comingSoon = "Kommer snart";
 const partnerNamePlaceholders = {
@@ -634,18 +635,18 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   await connection();
 
   const [{ token }, queryParams] = await Promise.all([params, searchParams]);
-  const result = await validateInviteToken(token);
+  const access = await resolveInviteAccess(token);
 
-  if (!result.isValid) {
+  if (access.status === "denied") {
     const supportContact = await getInviteSupportContact();
 
     return <InvalidInviteMessage supportContact={supportContact} />;
   }
 
-  await markInviteOpened({ guestId: result.guestId, weddingId: result.weddingId });
+  await recordInviteOpened(access);
 
-  const updates = await getPublishedWeddingUpdates({ weddingId: result.weddingId });
-  const { guest, rsvpResponse, wedding } = result;
+  const updates = await getPublishedWeddingUpdates({ weddingId: access.weddingId });
+  const { guest, rsvpResponse, wedding } = access;
   const weddingDate = formatWeddingDate(wedding.wedding_date);
   const coverDateTime = formatCoverDateTime(wedding.wedding_date);
   const coverVenueName = getDisplayText(wedding.venue_name);

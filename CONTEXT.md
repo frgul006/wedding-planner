@@ -16,6 +16,10 @@ _Avoid_: attendee, invitee
 The private guest-facing invitation experience for a **Guest**.
 _Avoid_: invitation page, public page
 
+**Invite access**:
+Whether a private **Invite** link currently grants a **Guest** access to their **Invite**.
+_Avoid_: invite state, login session, public access
+
 **Wedding start time**:
 The intended local Stockholm date and clock time when the wedding celebration begins.
 _Avoid_: UTC time, server time, browser-local time
@@ -28,6 +32,7 @@ _Avoid_: Efterfest
 
 - A **Wedding** has exactly one **Wedding start time**.
 - An **Invite** shows the **Wedding start time** to a **Guest**.
+- **Invite access** is checked before showing Guest-specific **Invite** details.
 
 ## Example dialogue
 
@@ -37,3 +42,4 @@ _Avoid_: Efterfest
 ## Flagged ambiguities
 
 - "starting time" could mean server/browser timezone behavior — resolved: **Wedding start time** means Stockholm wall-clock time.
+- "Invite state" could mean token validity, opened/RSVP status, or panel UI state — resolved: use **Invite access** for valid/invalid link checks.

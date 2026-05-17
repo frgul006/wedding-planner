@@ -20,22 +20,24 @@ On `/admin/guests`:
 - After generation, the raw `/invite/:token` URL is displayed with a copy button.
 - Reloading the page hides the raw URL; admins must regenerate if they need a new copy.
 
-## Public validation
+## Invite access validation
 
-`/invite/[token]` validates a token by hashing the path token and looking up an active `invite_tokens` row. `/invite` without a token does not validate anything and renders the same safe invalid-link page.
+`/invite/[token]` resolves **Invite access** by hashing the path token and looking up an active `invite_tokens` row for a non-archived Guest. `/invite` without a token does not validate anything and renders the same safe invalid-link page.
 
-- Valid active token: displays the guest name and wedding event information from the linked `weddings` row.
-- Invalid, inactive, archived-guest, or missing token: displays the safe invalid-link message without guest data, venue, schedule, RSVP state, or other event logistics. When a configured/default wedding has a public `invite_support_email`, the page may show that support email and explicit partner contact names so guests can request a fresh link; otherwise it falls back to generic host copy.
+- Granted Invite access: displays the Guest name and Wedding information from the linked `weddings` row.
+- Denied Invite access for invalid, inactive, archived-guest, or missing tokens: displays the safe invalid-link message without Guest data, venue, schedule, RSVP state, or other event logistics. When a configured/default wedding has a public `invite_support_email`, the page may show that support email and explicit partner contact names so guests can request a fresh link; otherwise it falls back to generic host copy.
+
+The `lib/invite-access.ts` Module is the shared policy seam for proxy and page adapters. The proxy still extracts the raw token and writes cookies to the response, while the Module resolves granted/denied access and prepares the Guest navigation session cookie payload. The Invite page uses the same Module to resolve access and records opened status only after access is granted.
 
 ## Invite opened status
 
-After `/invite/[token]` successfully validates an active token, the server calls `public.mark_invite_opened(p_guest_id, p_wedding_id)`. The function updates the linked guest from `not replied` to `opened` only when that is still the current status. Existing `opened` and `rsvp yes/no/maybe` statuses are left unchanged, so reopening an invite after RSVP never downgrades the admin-visible status.
+After `/invite/[token]` grants Invite access, the server calls `public.mark_invite_opened(p_guest_id, p_wedding_id)`. The function updates the linked Guest from `not replied` to `opened` only when that is still the current status. Existing `opened` and `rsvp yes/no/maybe` statuses are left unchanged, so reopening an Invite after RSVP never downgrades the admin-visible status.
 
 ## Guest navigation session
 
-Opening a valid `/invite/[token]` route creates or refreshes the `wp_guest_navigation` cookie before the invite page renders. The cookie is opaque 32-byte random data, not the raw invite token or guest PII. It is set as `HttpOnly`, `Secure`, `SameSite=Lax`, path `/`, with a 180-day expiry.
+Opening a valid `/invite/[token]` route creates or refreshes the `wp_guest_navigation` cookie before the Invite page renders. The cookie is opaque 32-byte random data, not the raw invite token or Guest PII. It is set as `HttpOnly`, `Secure`, `SameSite=Lax`, path `/`, with a 180-day expiry.
 
-Only a SHA-256 hash of the cookie value is stored in `public.guest_navigation_sessions`, linked to the wedding, guest, and invite token that created the session. Invalid, inactive, archived-guest, and missing-token invite pages do not set or refresh this cookie. The cookie is for later same-device QR/photo attribution only; it does not grant invite access by itself.
+Only a SHA-256 hash of the cookie value is stored in `public.guest_navigation_sessions`, linked to the Wedding, Guest, and invite token that created the session. Invalid, inactive, archived-guest, and missing-token Invite pages do not set or refresh this cookie. The cookie is for later same-device QR/photo attribution only; it does not grant Invite access by itself.
 
 ## Guest-facing event information
 

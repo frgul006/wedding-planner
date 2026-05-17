@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import {
-  createOrRefreshGuestNavigationSession,
   getGuestNavigationCookieValue,
   getGuestNavigationSessionMetadata,
-  setGuestNavigationCookie,
 } from "@/lib/guest-navigation-session";
-import { getActiveInviteTokenIdentity } from "@/lib/invite-tokens";
+import {
+  prepareGuestNavigationSession,
+  resolveInviteAccess,
+} from "@/lib/invite-access";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { updateSupabaseSession } from "@/lib/supabase/proxy";
 
@@ -39,21 +40,27 @@ async function addGuestNavigationCookieForInvite(
   }
 
   const supabase = createSupabaseAdminClient();
-  const identity = await getActiveInviteTokenIdentity(rawToken, supabase);
+  const access = await resolveInviteAccess(rawToken, {
+    includeRsvpResponse: false,
+    supabase,
+  });
 
-  if (!identity) {
+  if (access.status === "denied") {
     return response;
   }
 
-  const sessionCookie = await createOrRefreshGuestNavigationSession({
-    ...identity,
+  const sessionCookie = await prepareGuestNavigationSession(access, {
     existingCookieValue: getGuestNavigationCookieValue(request),
     metadata: getGuestNavigationSessionMetadata(request),
     supabase,
   });
 
   if (sessionCookie) {
-    setGuestNavigationCookie({ response, ...sessionCookie });
+    response.cookies.set({
+      name: sessionCookie.name,
+      value: sessionCookie.value,
+      ...sessionCookie.options,
+    });
   }
 
   return response;
