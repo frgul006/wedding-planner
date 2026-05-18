@@ -4,7 +4,7 @@ import { hashInviteToken } from "../lib/invite-token-crypto";
 import { INVITE_STATUS, RSVP_STATUS } from "../lib/invite-status";
 import { RSVP_ATTENDANCE, type RsvpAttendance } from "../lib/rsvp-attendance";
 
-import { guestRowByName } from "./support/admin-guests";
+import { deleteGuestRow, guestRowByName } from "./support/admin-guests";
 import { signInAsSeededAdmin } from "./support/auth";
 import {
   createInviteTestGuest,
@@ -251,6 +251,65 @@ test.describe("RSVP-managed Plus-one Guests", () => {
       plus_one_phone: null,
       plus_one_sms_opt_in: false,
     });
+  });
+
+  test("archiving an Invited Guest in admin archives tied Plus-one Guest and revokes scoped tokens", async ({
+    page,
+  }) => {
+    const guestName = uniqueRsvpGuestName("Plus One Admin Archive");
+    const token = uniqueInviteToken("plus-one-admin-archive");
+    const scopedToken = uniqueInviteToken("plus-one-admin-archive-scoped");
+    const { guestId } = await createInviteTestGuest({
+      email: "e2e-plus-one-admin-archive@example.com",
+      fullName: guestName,
+      plusOneAllowed: true,
+      token,
+    });
+
+    await submitRsvp({
+      extraGuests: 1,
+      plusOneName: "E2E Admin Archived Plus One",
+      plusOnePhone: "+46701112267",
+      plusOneSmsOptIn: true,
+      token,
+    });
+    const [plusOne] = await getRsvpManagedPlusOneGuests(guestId);
+    expect(plusOne?.id).toEqual(expect.any(String));
+
+    const supabase = createE2eSupabaseAdminClient();
+    const { error: tokenError } = await supabase.from("invite_tokens").insert({
+      access_scope: "scoped",
+      guest_id: plusOne.id,
+      is_active: true,
+      token_hash: hashInviteToken(scopedToken),
+      wedding_id: SEEDED_WEDDING_ID,
+    });
+    expect(tokenError).toBeNull();
+
+    await signInAsSeededAdmin(page);
+    await page.goto("/admin/guests");
+    await deleteGuestRow(await guestRowByName(page, guestName), true);
+    await expect(page.getByText("Guest archived.")).toBeVisible();
+
+    const [archivedPlusOne] = await getRsvpManagedPlusOneGuests(guestId);
+    expect(archivedPlusOne).toMatchObject({
+      deleted_at: expect.any(String),
+      id: plusOne.id,
+    });
+    const { data: scopedTokens, error: scopedTokenError } = await supabase
+      .from("invite_tokens")
+      .select("access_scope, is_active, invalidated_at")
+      .eq("guest_id", plusOne.id)
+      .eq("access_scope", "scoped");
+
+    expect(scopedTokenError).toBeNull();
+    expect(scopedTokens).toEqual([
+      {
+        access_scope: "scoped",
+        invalidated_at: expect.any(String),
+        is_active: false,
+      },
+    ]);
   });
 
   test("does not backfill existing historical RSVP plus-one rows", async () => {

@@ -17,8 +17,9 @@ Private guest invite links are backed by `public.invite_tokens`.
 
 On `/admin/guests`:
 
-- Guests without an active token show **Generate invite link**.
-- Guests with an active token show **Regenerate invite link**.
+- Invited Guests without an active token show **Generate invite link**.
+- Invited Guests with an active token show **Regenerate invite link**.
+- Plus-one Guests do not yet show scoped Invite link generation controls; scoped Invite access rendering is reserved for a later slice.
 - After generation, the raw `/invite/:token` URL is displayed with a copy button.
 - Reloading the page hides the raw URL; admins must regenerate if they need a new copy.
 
@@ -87,7 +88,7 @@ supabase db reset
 pnpm seed:local
 pnpm lint
 pnpm build
-PORT=3100 pnpm test:e2e e2e/smoke.spec.ts e2e/rsvp.spec.ts e2e/wedding-updates.spec.ts e2e/guest-navigation-session.spec.ts e2e/admin-guests.spec.ts
+PORT=3100 pnpm test:e2e e2e/smoke.spec.ts e2e/rsvp.spec.ts e2e/plus-one-guests.spec.ts e2e/wedding-updates.spec.ts e2e/guest-navigation-session.spec.ts e2e/admin-guests.spec.ts
 ```
 
 Then log in as the seeded admin and validate the invite status workflow:

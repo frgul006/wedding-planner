@@ -46,7 +46,8 @@ Normal admin lists only show guests where `deleted_at is null`.
 - Sync future RSVP +1 details into one tied RSVP-managed Plus-one Guest; removing +1 details archives that Guest and revokes active scoped tokens
 - Reflect phone numbers updated by token-backed RSVP submissions in the editable Phone column
 - Delete with browser confirmation; delete sets `deleted_at` instead of hard-deleting
-- Generate or regenerate private invite links; raw links are shown only immediately after generation
+- Archiving an Invited Guest also archives tied RSVP-managed Plus-one Guests and revokes active scoped tokens for archived Guests
+- Generate or regenerate private invite links for Invited Guests; raw links are shown only immediately after generation
 
 ## Brevkort +1 flow
 

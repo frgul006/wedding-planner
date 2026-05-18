@@ -187,14 +187,15 @@ export async function generateInviteLinkAction(
 export async function softDeleteGuestAction(guestId: string) {
   const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
+  const now = new Date().toISOString();
 
   const { data, error } = await supabase
     .from("guests")
-    .update({ deleted_at: new Date().toISOString() })
+    .update({ deleted_at: now })
     .eq("id", guestId)
     .eq("wedding_id", adminProfile.wedding_id)
     .is("deleted_at", null)
-    .select("id")
+    .select("guest_kind, id")
     .maybeSingle();
 
   if (error) {
@@ -204,6 +205,44 @@ export async function softDeleteGuestAction(guestId: string) {
 
   if (!data) {
     redirect("/admin/guests?error=not-found");
+  }
+
+  const archivedGuestIds = [data.id];
+
+  if (data.guest_kind === "invited") {
+    const { data: tiedPlusOnes, error: tiedPlusOnesError } = await supabase
+      .from("guests")
+      .update({ deleted_at: now })
+      .eq("wedding_id", adminProfile.wedding_id)
+      .eq("invited_guest_id", data.id)
+      .eq("guest_kind", "plus_one")
+      .eq("rsvp_managed", true)
+      .is("deleted_at", null)
+      .select("id");
+
+    if (tiedPlusOnesError) {
+      console.error("Failed to archive tied Plus-one Guests", tiedPlusOnesError);
+      redirect("/admin/guests?error=delete-failed");
+    }
+
+    archivedGuestIds.push(...(tiedPlusOnes ?? []).map((guest) => guest.id));
+  }
+
+  const { error: scopedTokensError } = await supabase
+    .from("invite_tokens")
+    .update({
+      invalidated_at: now,
+      is_active: false,
+      regenerated_at: now,
+    })
+    .eq("wedding_id", adminProfile.wedding_id)
+    .eq("access_scope", "scoped")
+    .eq("is_active", true)
+    .in("guest_id", archivedGuestIds);
+
+  if (scopedTokensError) {
+    console.error("Failed to revoke scoped Invite tokens", scopedTokensError);
+    redirect("/admin/guests?error=delete-failed");
   }
 
   revalidatePath("/admin/guests");
