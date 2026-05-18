@@ -61,7 +61,6 @@ export type AdminGuestRosterRow = {
 
 export type LoadAdminGuestRosterResult = {
   error: object | null;
-  filters: AdminGuestRosterFilters;
   rows: AdminGuestRosterRow[];
 };
 
@@ -364,7 +363,7 @@ export async function loadAdminGuestRoster({
   const guestRows = (data ?? []).filter(isAdminGuestRosterGuestRow);
 
   if (error) {
-    return { error, filters, rows: [] };
+    return { error, rows: [] };
   }
 
   const guestIds = guestRows.map((guest) => guest.id);
@@ -410,7 +409,6 @@ export async function loadAdminGuestRoster({
       rsvpResponsesResult.error ??
       tiedInvitedGuestsResult.error ??
       null,
-    filters,
     rows: buildAdminGuestRosterRows({
       activeInviteTokenRows: activeTokensResult.data ?? [],
       guestRows,
