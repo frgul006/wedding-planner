@@ -101,8 +101,8 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
 - `token_hash` (string, unique)
 - `is_active` (bool)
 - `access_scope` (`full | scoped`)
-  - Full active Invite tokens grant full Invite access to Invited Guests.
-  - Scoped tokens are reserved for Plus-one Guest read-only Invite access and are revoked when the tied RSVP-managed Plus-one Guest is removed.
+  - Full active Invite tokens grant RSVP-capable Invite access to Invited Guests.
+  - Scoped tokens grant Plus-one Guest non-RSVP Invite access and Wedding hub access; they are revoked when the tied RSVP-managed Plus-one Guest is removed.
 - Raw token is not stored. If an admin needs to copy a link again, generate a new token and invalidate the previous active token.
 - `created_at`, `regenerated_at`
 - `invalidated_at` (datetime, nullable)
@@ -303,7 +303,7 @@ Implement these as migrations before building the Brevkort UI states that depend
 - QR hub photo upload is anonymous-capable by default (`allow_anonymous_hub_upload = true`).
 - Uploads do not require a `GuestNavigationSession` when anonymous upload is allowed.
 - If anonymous upload is disabled (`allow_anonymous_hub_upload = false`), photo upload requires a valid `GuestNavigationSession` cookie match and otherwise returns a clear rejection.
-- Opening a valid personal invite link creates or refreshes a secure opaque guest navigation cookie and stores only its hash.
+- Opening a valid full or scoped personal invite link creates or refreshes a secure opaque guest navigation cookie and stores only its hash.
 - QR hub upload should look up that cookie server-side and set `PhotoUpload.session_id`/`guest_id` when it matches; otherwise the upload remains anonymous.
 - Direct-to-storage uploads use app-issued signed upload URLs and signed server claims; the browser uploads originals (and optional thumbnails) directly to private Supabase Storage.
 - Direct-to-storage uploads must run a server-side post-upload verification/finalize step before they can be approved, displayed, or exported.

@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
+import type { InviteAccessScope } from "@/lib/invite-access";
 import { regenerateInviteToken } from "@/lib/invite-tokens";
 import { isE164PhoneNumber } from "@/lib/phone";
 import { getRequestOriginFromHeaders } from "@/lib/public-url";
@@ -24,6 +25,18 @@ export type GenerateInviteLinkState = {
   guestId?: string;
   inviteUrl?: string;
 };
+
+function getInviteAccessScopeForGuestKind(guestKind: string): InviteAccessScope | null {
+  if (guestKind === "invited") {
+    return "full";
+  }
+
+  if (guestKind === "plus_one") {
+    return "scoped";
+  }
+
+  return null;
+}
 
 function getGuestPayload(formData: FormData) {
   const fullName = cleanRequiredText(formData.get("full_name"));
@@ -163,13 +176,16 @@ export async function generateInviteLinkAction(
     return { guestId, error: "Guest was not found or is already archived." };
   }
 
-  if (guest.guest_kind !== "invited") {
-    return { guestId, error: "Scoped Invite links are not available yet." };
+  const accessScope = getInviteAccessScopeForGuestKind(guest.guest_kind);
+
+  if (!accessScope) {
+    return { guestId, error: "Invite links are only available for Guests." };
   }
 
   try {
     const requestOrigin = getRequestOriginFromHeaders(await headers());
     const { inviteUrl } = await regenerateInviteToken({
+      accessScope,
       guestId,
       requestOrigin,
       supabase,

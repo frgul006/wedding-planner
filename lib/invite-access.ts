@@ -14,6 +14,10 @@ import {
 } from "@/lib/wedding-settings";
 import { isNullableString, isRecord } from "@/lib/type-guards";
 
+export type InviteAccessScope = "full" | "scoped";
+
+type GuestKind = "invited" | "plus_one";
+
 type GuestRelation = {
   deleted_at: string | null;
   full_name: string | null;
@@ -24,6 +28,7 @@ type GuestRelation = {
 };
 
 export type InviteTokenIdentity = {
+  accessScope: InviteAccessScope;
   guestId: string;
   inviteTokenId: string;
   weddingId: string;
@@ -47,6 +52,7 @@ export type InviteWedding = InviteWeddingSettings;
 
 type ValidGuestRelation = GuestRelation & {
   full_name: string;
+  guest_kind: GuestKind;
 };
 
 type InviteTokenRow = {
@@ -62,6 +68,7 @@ type RsvpResponseRow = Omit<InviteRsvpResponse, "attendance"> & {
 };
 
 export type GrantedInviteAccess = InviteTokenIdentity & {
+  canSubmitRsvp: boolean;
   status: "granted";
   guest: {
     full_name: string;
@@ -130,6 +137,14 @@ function isInviteTokenRow(value: unknown): value is InviteTokenRow {
   );
 }
 
+function isInviteAccessScope(value: unknown): value is InviteAccessScope {
+  return value === "full" || value === "scoped";
+}
+
+function isGuestKind(value: unknown): value is GuestKind {
+  return value === "invited" || value === "plus_one";
+}
+
 function isRsvpResponseRow(value: unknown): value is RsvpResponseRow {
   return (
     isRecord(value) &&
@@ -172,6 +187,7 @@ function normalizeRsvpResponse(value: unknown): InviteRsvpResponse | null {
 }
 
 function toGrantedInviteAccess({
+  accessScope,
   guest,
   guestId,
   inviteTokenId,
@@ -182,6 +198,8 @@ function toGrantedInviteAccess({
   wedding: InviteWedding;
 }): GrantedInviteAccess {
   return {
+    accessScope,
+    canSubmitRsvp: accessScope === "full",
     status: "granted",
     guestId,
     inviteTokenId,
@@ -210,7 +228,6 @@ async function resolveGrantedInviteAccess(
     .select(inviteTokenContextSelect)
     .eq("token_hash", tokenHash)
     .eq("is_active", true)
-    .eq("access_scope", "full")
     .maybeSingle();
 
   if (error || !data) {
@@ -228,12 +245,20 @@ async function resolveGrantedInviteAccess(
   const guest = getSingleRelation(data.guests);
 
   if (
-    data.access_scope !== "full" ||
+    !isInviteAccessScope(data.access_scope) ||
     !isGuestRelation(guest) ||
-    guest.guest_kind !== "invited" ||
+    !isGuestKind(guest.guest_kind) ||
     !guest.full_name ||
     guest.deleted_at
   ) {
+    return null;
+  }
+
+  const hasValidScopeForGuestKind =
+    (data.access_scope === "full" && guest.guest_kind === "invited") ||
+    (data.access_scope === "scoped" && guest.guest_kind === "plus_one");
+
+  if (!hasValidScopeForGuestKind) {
     return null;
   }
 
@@ -247,9 +272,11 @@ async function resolveGrantedInviteAccess(
   }
 
   return toGrantedInviteAccess({
+    accessScope: data.access_scope,
     guest: {
       ...guest,
       full_name: guest.full_name,
+      guest_kind: guest.guest_kind,
     },
     guestId: data.guest_id,
     inviteTokenId: data.id,
@@ -318,7 +345,9 @@ export async function resolveInviteAccess(
 
   return {
     ...grantedAccess,
-    rsvpResponse: await loadInviteRsvpResponse(grantedAccess, supabase),
+    rsvpResponse: grantedAccess.canSubmitRsvp
+      ? await loadInviteRsvpResponse(grantedAccess, supabase)
+      : null,
   };
 }
 

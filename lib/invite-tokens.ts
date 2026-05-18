@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   recordInviteOpened,
   resolveInviteAccess,
+  type InviteAccessScope,
   type InviteRsvpResponse,
   type InviteTokenIdentity,
   type InviteWedding,
@@ -22,6 +23,7 @@ export type {
 export type InviteTokenValidationResult =
   | {
       isValid: true;
+      accessScope: InviteAccessScope;
       guestId: string;
       inviteTokenId: string;
       weddingId: string;
@@ -54,6 +56,7 @@ export async function getActiveInviteTokenIdentity(
   }
 
   return {
+    accessScope: access.accessScope,
     guestId: access.guestId,
     inviteTokenId: access.inviteTokenId,
     weddingId: access.weddingId,
@@ -71,12 +74,14 @@ export async function markInviteOpened({
 }
 
 export async function regenerateInviteToken({
+  accessScope = "full",
   guestId,
   requestOrigin,
   requestUrl,
   supabase,
   weddingId,
 }: {
+  accessScope?: InviteAccessScope;
   guestId: string;
   supabase: SupabaseClient;
   weddingId: string;
@@ -101,7 +106,7 @@ export async function regenerateInviteToken({
   }
 
   const { error: insertError } = await supabase.from("invite_tokens").insert({
-    access_scope: "full",
+    access_scope: accessScope,
     guest_id: guestId,
     wedding_id: weddingId,
     token_hash: tokenHash,
@@ -129,6 +134,7 @@ export async function validateInviteToken(
 
   return {
     isValid: true,
+    accessScope: access.accessScope,
     guestId: access.guestId,
     inviteTokenId: access.inviteTokenId,
     weddingId: access.weddingId,

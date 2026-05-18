@@ -49,8 +49,10 @@ const partnerNamePlaceholders = {
   one: "Partner 1",
   two: "Partner 2",
 } as const;
-const panelLabels = ["Inbjudan", "Detaljer", "OSA"] as const;
-const panelIds = ["inbjudan", "detaljer", "osa"] as const;
+const fullPanelLabels = ["Inbjudan", "Detaljer", "OSA"] as const;
+const fullPanelIds = ["inbjudan", "detaljer", "osa"] as const;
+const scopedPanelLabels = ["Inbjudan", "Detaljer"] as const;
+const scopedPanelIds = ["inbjudan", "detaljer"] as const;
 const weddingDateFormatter = new Intl.DateTimeFormat("sv-SE", {
   dateStyle: "full",
   timeStyle: "short",
@@ -283,9 +285,9 @@ function PanelShell({
 }) {
   return (
     <BrevkortPanel
-      aria-labelledby={`${panelIds[activeIndex]}-heading`}
+      aria-labelledby={`${fullPanelIds[activeIndex]}-heading`}
       className={className}
-      id={panelIds[activeIndex]}
+      id={fullPanelIds[activeIndex]}
     >
       {children}
     </BrevkortPanel>
@@ -318,6 +320,7 @@ function PanelActions({
 }
 
 function CoverPanel({
+  canSubmitRsvp,
   coverDateTime,
   guestName,
   partnerNames,
@@ -326,6 +329,7 @@ function CoverPanel({
   venueArea,
   venueName,
 }: {
+  canSubmitRsvp: boolean;
   coverDateTime: CoverDateTime;
   guestName: string;
   partnerNames: PublicPartnerNames;
@@ -334,7 +338,7 @@ function CoverPanel({
   venueArea: string;
   venueName: string;
 }) {
-  const primaryCta = rsvpResponse
+  const primaryCta = canSubmitRsvp && rsvpResponse
     ? { href: "#osa", label: "Uppdatera svar" }
     : { href: "#detaljer", label: "Öppna inbjudan" };
 
@@ -465,12 +469,14 @@ function CoverPanel({
 }
 
 function DetailsPanel({
+  canSubmitRsvp,
   mapsUrl,
   spotifyUrl,
   updates,
   wedding,
   weddingDate,
 }: {
+  canSubmitRsvp: boolean;
   mapsUrl: string | null;
   spotifyUrl: string | null;
   updates: Awaited<ReturnType<typeof getPublishedWeddingUpdates>>;
@@ -611,9 +617,11 @@ function DetailsPanel({
         </div>
 
         <PanelActions secondaryHref="#inbjudan" secondaryLabel="Till inbjudan">
-          <BrevkortLinkButton href="#osa">
-            Vidare till OSA →
-          </BrevkortLinkButton>
+          {canSubmitRsvp ? (
+            <BrevkortLinkButton href="#osa">
+              Vidare till OSA →
+            </BrevkortLinkButton>
+          ) : null}
         </PanelActions>
       </div>
     </PanelShell>
@@ -649,6 +657,8 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   );
   const publicPartnerNames = getPublicPartnerNames(wedding);
   const coupleMark = getCoupleMark(publicPartnerNames);
+  const panelIds = access.canSubmitRsvp ? fullPanelIds : scopedPanelIds;
+  const panelLabels = access.canSubmitRsvp ? fullPanelLabels : scopedPanelLabels;
 
   return (
     <BrevkortPage className="!px-0 sm:!px-6">
@@ -658,6 +668,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
           panels={panelIds.map((id, index) => ({ id, label: panelLabels[index] }))}
         >
           <CoverPanel
+            canSubmitRsvp={access.canSubmitRsvp}
             coverDateTime={coverDateTime}
             guestName={guest.full_name}
             partnerNames={publicPartnerNames}
@@ -668,6 +679,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
           />
 
           <DetailsPanel
+            canSubmitRsvp={access.canSubmitRsvp}
             mapsUrl={mapsUrl}
             spotifyUrl={spotifyUrl}
             updates={updates}
@@ -675,18 +687,20 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
             weddingDate={weddingDate}
           />
 
-          <PanelShell activeIndex={2}>
-            <div className="px-2 py-8 sm:px-6">
-              <RsvpPanel
-                guest={guest}
-                rawToken={token}
-                rsvpResponse={rsvpResponse}
-                showSubmittedConfirmation={showSubmittedConfirmation}
-                weddingDate={weddingDate}
-                weddingName={wedding.name}
-              />
-            </div>
-          </PanelShell>
+          {access.canSubmitRsvp ? (
+            <PanelShell activeIndex={2}>
+              <div className="px-2 py-8 sm:px-6">
+                <RsvpPanel
+                  guest={guest}
+                  rawToken={token}
+                  rsvpResponse={rsvpResponse}
+                  showSubmittedConfirmation={showSubmittedConfirmation}
+                  weddingDate={weddingDate}
+                  weddingName={wedding.name}
+                />
+              </div>
+            </PanelShell>
+          ) : null}
         </InvitePanelCarousel>
       </BrevkortStack>
     </BrevkortPage>

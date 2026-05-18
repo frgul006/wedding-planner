@@ -573,17 +573,12 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                       <td className="rounded-r-2xl bg-zinc-50 p-3 text-right">
                         <form action={updateGuestWithId} id={`guest-${guest.id}`} />
                         <div className="flex justify-end gap-2">
-                          {guest.guest_kind === "invited" ? (
-                            <InviteLinkButton
-                              guestId={guest.id}
-                              guestName={guest.full_name}
-                              hasActiveToken={guest.hasActiveToken}
-                            />
-                          ) : (
-                            <p className="max-w-40 text-left text-xs text-zinc-500">
-                              Scoped Invite links are managed separately.
-                            </p>
-                          )}
+                          <InviteLinkButton
+                            accessScope={guest.guest_kind === "plus_one" ? "scoped" : "full"}
+                            guestId={guest.id}
+                            guestName={guest.full_name}
+                            hasActiveToken={guest.hasActiveToken}
+                          />
                           {guest.rsvp_managed ? null : (
                             <button
                               className="rounded-full bg-zinc-950 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"

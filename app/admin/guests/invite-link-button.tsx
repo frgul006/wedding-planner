@@ -7,10 +7,12 @@ import { generateInviteLinkAction, type GenerateInviteLinkState } from "./action
 const initialState: GenerateInviteLinkState = {};
 
 export function InviteLinkButton({
+  accessScope = "full",
   guestId,
   guestName,
   hasActiveToken,
 }: {
+  accessScope?: "full" | "scoped";
   guestId: string;
   guestName: string;
   hasActiveToken: boolean;
@@ -25,6 +27,7 @@ export function InviteLinkButton({
 
   const inviteUrl = state.guestId === guestId ? state.inviteUrl : undefined;
   const error = state.guestId === guestId ? state.error : undefined;
+  const inviteLabel = accessScope === "scoped" ? "scoped invite link" : "invite link";
 
   useEffect(() => {
     if (inviteUrl) {
@@ -52,8 +55,8 @@ export function InviteLinkButton({
           {isPending
             ? "Generating..."
             : hasActiveToken
-              ? "Regenerate invite link"
-              : "Generate invite link"}
+              ? `Regenerate ${inviteLabel}`
+              : `Generate ${inviteLabel}`}
         </button>
       </form>
 
