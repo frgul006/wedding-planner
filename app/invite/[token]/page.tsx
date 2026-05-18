@@ -10,6 +10,7 @@ import {
 import { getInviteSupportContact } from "@/lib/invite-support-contact";
 import { shouldShowInviteRsvpSubmittedConfirmation } from "@/lib/invite-rsvp-navigation";
 import { RSVP_ATTENDANCE, type RsvpAttendance } from "@/lib/rsvp-attendance";
+import { getRsvpAttendanceSummary } from "@/lib/rsvp-form-contract";
 import { getSafeHttpUrl } from "@/lib/safe-url";
 import { getSafeWeddingSettingsUrl } from "@/lib/wedding-settings";
 import { getPublishedWeddingUpdates } from "@/lib/wedding-updates";
@@ -176,30 +177,6 @@ function getDisplayText(value: string | null) {
   return text ? text : comingSoon;
 }
 
-function getSwedishAttendanceLabel(attendance: RsvpAttendance) {
-  if (attendance === RSVP_ATTENDANCE.yes) {
-    return "Ja";
-  }
-
-  if (attendance === RSVP_ATTENDANCE.no) {
-    return "Nej";
-  }
-
-  return "Kanske";
-}
-
-function getSavedAnswerDetail(attendance: RsvpAttendance) {
-  if (attendance === RSVP_ATTENDANCE.yes) {
-    return "jag kommer gärna";
-  }
-
-  if (attendance === RSVP_ATTENDANCE.no) {
-    return "jag kan tyvärr inte";
-  }
-
-  return "jag återkommer";
-}
-
 function getSavedAnswerBannerClass(attendance: RsvpAttendance) {
   if (attendance === RSVP_ATTENDANCE.yes) {
     return "border-l-invite-success";
@@ -341,6 +318,9 @@ function CoverPanel({
   const primaryCta = canSubmitRsvp && rsvpResponse
     ? { href: "#osa", label: "Uppdatera svar" }
     : { href: "#detaljer", label: "Öppna inbjudan" };
+  const savedAnswer = rsvpResponse
+    ? getRsvpAttendanceSummary(rsvpResponse.attendance)
+    : null;
 
   return (
     <PanelShell
@@ -422,7 +402,7 @@ function CoverPanel({
         </section>
 
         <div className="mt-8 grid gap-5">
-          {rsvpResponse ? (
+          {rsvpResponse && savedAnswer ? (
             <div
               className={cx(
                 "border border-l-4 border-invite-border-soft bg-invite-paper-muted/80 px-3 py-2.5",
@@ -436,9 +416,9 @@ function CoverPanel({
                   </p>
                   <p className="mt-1 whitespace-nowrap text-[0.95rem] leading-5 text-invite-body">
                     <span className="brevkort-display text-lg italic text-invite-ink">
-                      {getSwedishAttendanceLabel(rsvpResponse.attendance)}
+                      {savedAnswer.label}
                     </span>{" "}
-                    · {getSavedAnswerDetail(rsvpResponse.attendance)}
+                    · {savedAnswer.detail}
                   </p>
                   {rsvpSubmittedAt ? (
                     <p className="sr-only">Senast uppdaterat {rsvpSubmittedAt}</p>
