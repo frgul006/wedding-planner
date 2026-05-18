@@ -180,7 +180,7 @@ Implemented in `public.rsvp_responses`, including Brevkort named +1 persistence 
 - `title` (string, optional)
 - `body` (string)
 - `audience` (`all | rsvp yes | rsvp no | rsvp maybe`)
-  - RSVP audiences filter by the guest's current RSVP invite status.
+  - RSVP audiences filter by the Message target's RSVP audience status: Invited Guests use their own `rsvp_status`, and Plus-one Guests inherit the tied Invited Guest's `rsvp_status`.
 - `send_status` (`queued | sent | partial | failed`)
 - `created_by_admin_id` (UUID)
 - `created_at`, `sent_at`
@@ -191,6 +191,7 @@ Implemented in `public.rsvp_responses`, including Brevkort named +1 persistence 
 - `wedding_id` (UUID)
 - `message_blast_id` (UUID)
 - `guest_id` (UUID)
+  - The specific Message target Guest that received this delivery; duplicate phone numbers still create one delivery per eligible Guest record.
 - `phone` (string, compact E.164 with no spaces)
 - `provider_message_id` (string, optional)
 - `delivery_status` (`queued | sent | failed`)

@@ -35,31 +35,67 @@ test.describe("admin SMS messages", () => {
   test("sends only opted-in guests with valid phones in mock mode", async ({ page }) => {
     const supabase = createE2eSupabaseAdminClient();
     const eligibleName = uniqueGuestName("SMS Eligible");
+    const plusOneName = uniqueGuestName("SMS Plus One");
     const skippedName = uniqueGuestName("SMS Skipped");
     const body = `E2E SMS mock body ${Date.now()}`;
-    const { error: insertGuestsError } = await supabase.from("guests").insert([
-      {
+    const now = new Date().toISOString();
+    const { data: eligibleGuest, error: insertEligibleError } = await supabase
+      .from("guests")
+      .insert({
         email: "e2e-sms-eligible@example.com",
         full_name: eligibleName,
+        guest_kind: "invited",
         invite_status: "opened",
         phone: "+46709992221",
         rsvp_status: "rsvp maybe",
         sms_opt_in: true,
-        sms_opted_in_at: new Date().toISOString(),
+        sms_opted_in_at: now,
         wedding_id: SEEDED_WEDDING_ID,
-      },
-      {
-        email: "e2e-sms-skipped@example.com",
-        full_name: skippedName,
-        invite_status: "opened",
-        phone: "+46709992222",
-        rsvp_status: "rsvp maybe",
-        sms_opt_in: false,
-        wedding_id: SEEDED_WEDDING_ID,
-      },
-    ]);
+      })
+      .select("id")
+      .single();
+
+    expect(insertEligibleError).toBeNull();
+    expect(typeof eligibleGuest?.id).toBe("string");
+
+    if (!eligibleGuest || typeof eligibleGuest.id !== "string") {
+      throw new Error("Expected eligible invited guest to be created.");
+    }
+
+    const { data: otherGuests, error: insertGuestsError } = await supabase
+      .from("guests")
+      .insert([
+        {
+          full_name: plusOneName,
+          guest_kind: "plus_one",
+          invited_guest_id: eligibleGuest.id,
+          invite_status: "not replied",
+          phone: "+46709992231",
+          rsvp_status: "rsvp no",
+          sms_opt_in: true,
+          sms_opted_in_at: now,
+          wedding_id: SEEDED_WEDDING_ID,
+        },
+        {
+          email: "e2e-sms-skipped@example.com",
+          full_name: skippedName,
+          guest_kind: "invited",
+          invite_status: "opened",
+          phone: "+46709992222",
+          rsvp_status: "rsvp maybe",
+          sms_opt_in: false,
+          wedding_id: SEEDED_WEDDING_ID,
+        },
+      ])
+      .select("id, full_name");
 
     expect(insertGuestsError).toBeNull();
+    const plusOneGuest = otherGuests?.find((guest) => guest.full_name === plusOneName);
+    expect(typeof plusOneGuest?.id).toBe("string");
+
+    if (!plusOneGuest || typeof plusOneGuest.id !== "string") {
+      throw new Error("Expected eligible Plus-one Guest to be created.");
+    }
 
     try {
       await signInAsSeededAdmin(page);
@@ -72,7 +108,7 @@ test.describe("admin SMS messages", () => {
       await page.getByLabel(/I understand this sends real SMS messages/).check();
       await page.getByRole("button", { name: "Send SMS now" }).click();
 
-      await expect(page.getByText("Message sent to 1 guest.")).toBeVisible();
+      await expect(page.getByText("Message sent to 2 guests.")).toBeVisible();
 
       const { data: blast, error: blastError } = await supabase
         .from("message_blasts")
@@ -89,16 +125,22 @@ test.describe("admin SMS messages", () => {
 
       const { data: deliveries, error: deliveriesError } = await supabase
         .from("message_deliveries")
-        .select("delivery_status, phone, provider_message_id")
+        .select("delivery_status, guest_id, phone, provider_message_id")
         .eq("message_blast_id", blast.id);
 
       expect(deliveriesError).toBeNull();
-      expect(deliveries).toHaveLength(1);
-      expect(deliveries?.[0]).toMatchObject({
-        delivery_status: "sent",
-        phone: "+46709992221",
-      });
-      expect(deliveries?.[0]?.provider_message_id).toContain("mock-");
+      expect(deliveries).toHaveLength(2);
+      expect(deliveries?.map((delivery) => delivery.phone).sort()).toEqual([
+        "+46709992221",
+        "+46709992231",
+      ]);
+      expect(deliveries?.map((delivery) => delivery.guest_id).sort()).toEqual(
+        [eligibleGuest.id, plusOneGuest.id].sort(),
+      );
+      for (const delivery of deliveries ?? []) {
+        expect(delivery.delivery_status).toBe("sent");
+        expect(delivery.provider_message_id).toContain("mock-");
+      }
     } finally {
       await supabase.from("message_blasts").delete().eq("body", body);
     }

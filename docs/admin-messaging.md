@@ -62,7 +62,7 @@ The admin composer supports these audiences:
 - RSVP no
 - RSVP maybe
 
-Only active, non-archived guests who have opted in to SMS updates and have strict E.164 phone numbers, for example `+46701234567`, are included. RSVP audiences use each Guest's dedicated `rsvp_status`, not opened-Invite activity. The optional title is prepended to the SMS body before sending.
+Only active, non-archived **Message target** Guests who have opted in to SMS updates, have no SMS opt-out timestamp, and have strict E.164 phone numbers, for example `+46701234567`, are included. Admin composer counts and sends use the same Message target selection. RSVP audiences use an Invited Guest's dedicated `rsvp_status`; Plus-one Guests inherit the tied Invited Guest's RSVP status for audience selection. Duplicate phone numbers are not deduped: each eligible Guest record gets its own delivery row. The optional title is prepended to the SMS body before sending.
 
 Current delivery state is the provider send attempt state only. `sent` means 46elks accepted the SMS request; it does not mean carrier/device delivery. Delivery receipt tracking is intentionally out of scope for this implementation.
 
@@ -71,5 +71,5 @@ Current delivery state is the provider send attempt state only. `sent` means 46e
 1. Apply Supabase migrations.
 2. Sign in as the seeded admin.
 3. Open `/admin/messages`.
-4. Verify recipient counts and the composer render. Counts include only opted-in guests with valid E.164 phone numbers.
+4. Verify Message target counts and the composer render. Counts include only opted-in, non-opted-out Guests with valid E.164 phone numbers; Plus-one Guests appear in RSVP audiences through their tied Invited Guest's RSVP status.
 5. Use `pnpm sms:test` for a one-recipient 46elks smoke test before sending real blasts.

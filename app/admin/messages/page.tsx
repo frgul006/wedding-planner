@@ -9,7 +9,10 @@ import {
   MESSAGE_AUDIENCES,
   type MessageAudience,
 } from "@/lib/message-audience";
-import { isE164PhoneNumber } from "@/lib/phone";
+import {
+  countMessageTargetsByAudience,
+  loadMessageTargets,
+} from "@/lib/message-targets";
 import { getElk46RuntimeStatus } from "@/lib/sms/elk46";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isNullableString, isRecord } from "@/lib/type-guards";
@@ -28,13 +31,6 @@ type MessagesPageProps = {
     sent?: string | string[];
     status?: string | string[];
   }>;
-};
-
-type GuestMessagingRow = {
-  rsvp_status: string;
-  phone: string | null;
-  sms_opt_in: boolean;
-  sms_opted_out_at: string | null;
 };
 
 type MessageBlastRow = {
@@ -142,16 +138,6 @@ function getMessage(searchParams: Awaited<MessagesPageProps["searchParams"]>) {
   return null;
 }
 
-function isGuestMessagingRow(value: unknown): value is GuestMessagingRow {
-  return (
-    isRecord(value) &&
-    typeof value.rsvp_status === "string" &&
-    isNullableString(value.phone) &&
-    typeof value.sms_opt_in === "boolean" &&
-    isNullableString(value.sms_opted_out_at)
-  );
-}
-
 function isSendStatus(value: unknown): value is MessageBlastRow["send_status"] {
   return value === "queued" || value === "sent" || value === "partial" || value === "failed";
 }
@@ -179,32 +165,6 @@ function isMessageDeliveryRow(value: unknown): value is MessageDeliveryRow {
     typeof value.message_blast_id === "string" &&
     isDeliveryStatus(value.delivery_status) &&
     isNullableString(value.error_text)
-  );
-}
-
-function getAudienceCounts(guestRows: GuestMessagingRow[]) {
-  return MESSAGE_AUDIENCES.reduce<Record<MessageAudience, number>>(
-    (counts, audience) => {
-      counts[audience] = guestRows.filter((guest) => {
-        if (
-          !guest.phone ||
-          !guest.sms_opt_in ||
-          guest.sms_opted_out_at ||
-          !isE164PhoneNumber(guest.phone)
-        ) {
-          return false;
-        }
-
-        return audience === "all" || guest.rsvp_status === audience;
-      }).length;
-      return counts;
-    },
-    {
-      all: 0,
-      "rsvp maybe": 0,
-      "rsvp no": 0,
-      "rsvp yes": 0,
-    },
   );
 }
 
@@ -248,12 +208,8 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
   const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
   const smsStatus = getElk46RuntimeStatus();
-  const [guestsResult, blastsResult] = await Promise.all([
-    supabase
-      .from("guests")
-      .select("phone, rsvp_status, sms_opt_in, sms_opted_out_at")
-      .eq("wedding_id", adminProfile.wedding_id)
-      .is("deleted_at", null),
+  const [messageTargetsResult, blastsResult] = await Promise.all([
+    loadMessageTargets({ supabase, weddingId: adminProfile.wedding_id }),
     supabase
       .from("message_blasts")
       .select("id, title, body, audience, send_status, created_at, sent_at")
@@ -261,8 +217,7 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
       .order("created_at", { ascending: false })
       .limit(20),
   ]);
-  const guestRows = (guestsResult.data ?? []).filter(isGuestMessagingRow);
-  const audienceCounts = getAudienceCounts(guestRows);
+  const audienceCounts = countMessageTargetsByAudience(messageTargetsResult.targets);
   const blasts = (blastsResult.data ?? []).filter(isMessageBlastRow);
   const blastIds = blasts.map((blast) => blast.id);
   const deliveriesResult = blastIds.length
@@ -354,7 +309,7 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
             </div>
           </div>
 
-          {guestsResult.error ? (
+          {messageTargetsResult.error ? (
             <p className="mt-6 rounded-2xl bg-red-50 px-5 py-4 text-sm font-medium text-red-700 ring-1 ring-red-100">
               Could not load recipient counts.
             </p>
