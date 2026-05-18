@@ -8,8 +8,8 @@ Private guest invite links are backed by `public.invite_tokens`.
 - Only a SHA-256 hash of the raw token is stored in the database.
 - `token_hash` is globally unique.
 - A partial unique index allows only one active token per guest.
-- Active tokens default to `access_scope = full`, granting full Invite access for Invited Guests.
-- `access_scope = scoped` is reserved for Plus-one Guest read-only Invite access.
+- Active tokens default to `access_scope = full`, granting RSVP-capable Invite access for Invited Guests.
+- `access_scope = scoped` grants Plus-one Guests non-RSVP Invite access and Wedding hub access.
 - Regenerating a link invalidates the previous active token before creating a new active token.
 - Raw links are shown in the admin UI only in the immediate generate/regenerate result and are not stored client-side by the app.
 
@@ -19,15 +19,17 @@ On `/admin/guests`:
 
 - Invited Guests without an active token show **Generate invite link**.
 - Invited Guests with an active token show **Regenerate invite link**.
-- Plus-one Guests do not yet show scoped Invite link generation controls; scoped Invite access rendering is reserved for a later slice.
+- Plus-one Guests without an active scoped token show **Generate scoped invite link**.
+- Plus-one Guests with an active scoped token show **Regenerate scoped invite link**.
 - After generation, the raw `/invite/:token` URL is displayed with a copy button.
 - Reloading the page hides the raw URL; admins must regenerate if they need a new copy.
 
 ## Invite access validation
 
-`/invite/[token]` resolves **Invite access** by hashing the path token and looking up an active `invite_tokens` row with `access_scope = full` for a non-archived Invited Guest. `/invite` without a token does not validate anything and renders the same safe invalid-link page. Scoped Plus-one Guest Invite rendering is reserved for a later slice; active scoped tokens are revoked when RSVP sync archives the tied Plus-one Guest.
+`/invite/[token]` resolves **Invite access** by hashing the path token and looking up an active `invite_tokens` row for a non-archived Guest with a matching access scope: `full` for Invited Guests or `scoped` for Plus-one Guests. `/invite` without a token does not validate anything and renders the same safe invalid-link page. Active scoped tokens are revoked when RSVP sync archives the tied Plus-one Guest.
 
-- Granted Invite access: displays the Guest name and Wedding information from the linked `weddings` row.
+- Granted full Invite access: displays the Guest name, Wedding information, RSVP state, and RSVP controls for an Invited Guest.
+- Granted scoped Invite access: displays the Plus-one Guest name and Wedding information without RSVP state or RSVP controls, and prepares the Guest navigation session cookie for Wedding hub access.
 - Denied Invite access for invalid, inactive, archived-guest, or missing tokens: displays the safe invalid-link message without Guest data, venue, schedule, RSVP state, or other event logistics. When a configured/default wedding has a public `invite_support_email`, the page may show that support email and explicit partner contact names so guests can request a fresh link; otherwise it falls back to generic host copy.
 
 The `lib/invite-access.ts` Module is the shared policy seam for proxy and page adapters. The proxy still extracts the raw token and writes cookies to the response, while the Module resolves granted/denied access and prepares the Guest navigation session cookie payload. The Invite page uses the same Module to resolve access and records opened status only after access is granted.
@@ -38,7 +40,7 @@ After `/invite/[token]` grants Invite access, the server calls `public.mark_invi
 
 ## Guest navigation session
 
-Opening a valid `/invite/[token]` route creates or refreshes the `wp_guest_navigation` cookie before the Invite page renders. The cookie is opaque 32-byte random data, not the raw invite token or Guest PII. It is set as `HttpOnly`, `Secure`, `SameSite=Lax`, path `/`, with a 180-day expiry.
+Opening a valid full or scoped `/invite/[token]` route creates or refreshes the `wp_guest_navigation` cookie before the Invite page renders. The cookie is opaque 32-byte random data, not the raw invite token or Guest PII. It is set as `HttpOnly`, `Secure`, `SameSite=Lax`, path `/`, with a 180-day expiry.
 
 Only a SHA-256 hash of the cookie value is stored in `public.guest_navigation_sessions`, linked to the Wedding, Guest, and invite token that created the session. Invalid, inactive, archived-guest, and missing-token Invite pages do not set or refresh this cookie. The cookie is for later same-device QR/photo attribution only; it does not grant Invite access by itself.
 
@@ -55,7 +57,7 @@ Valid invite pages render the Brevkort three-panel invite shell:
    - gift information
    - Spotify playlist link when a safe `http` or `https` URL is configured
    - latest five published wedding updates in reverse `updated_at` order
-3. `OSA` with the Brevkort RSVP states: default/edit form, allowed +1 expansion, inline validation/save errors, and submitted `Tack` confirmation.
+3. `OSA` with the Brevkort RSVP states: default/edit form, allowed +1 expansion, inline validation/save errors, and submitted `Tack` confirmation. This panel is rendered only for full Invite access.
 
 Missing optional text or list fields show `Kommer snart`; missing map URLs show `Kartlänk kommer snart`, and missing playlist URLs show non-clickable coming-soon text. If no updates are published, the guest-facing `Uppdateringar` section is omitted.
 
@@ -77,9 +79,9 @@ The Brevkort OSA UI uses a per-guest +1 toggle instead of the old generic extra 
 
 When the linked guest already has an RSVP response, the invite page shows the current answer, `last_submitted_at`, and pre-fills the OSA form so the guest can update the same response from the same link. Reopening an invite also pre-fills the latest linked guest phone so the guest can change it on a later RSVP update.
 
-Submission is handled by a server action that hashes the raw URL token and calls the `public.submit_rsvp_response` database function. That function revalidates the active full-scope invite token and atomically upserts the response into `public.rsvp_responses` for the token's `guest_id` and `wedding_id`, with `updated_via_token_id` set to the active invite token. The linked guest's `phone`, `sms_opt_in`, and opt-in/out timestamps are saved to `public.guests`; `invite_status` is preserved as opened-Invite activity and `rsvp_status` is updated in the same transaction to `rsvp yes`, `rsvp no`, or `rsvp maybe` to match the latest submitted attendance. Future +1 details also create or update one RSVP-managed Plus-one Guest tied to the Invited Guest, without backfilling historical RSVP rows.
+Submission is handled by a server action that hashes the raw URL token and calls the `public.submit_rsvp_response` database function. That function revalidates the active full-scope invite token for an Invited Guest and atomically upserts the response into `public.rsvp_responses` for the token's `guest_id` and `wedding_id`, with `updated_via_token_id` set to the active invite token. Scoped tokens fail this server-side validation and cannot create or update RSVP rows. The linked guest's `phone`, `sms_opt_in`, and opt-in/out timestamps are saved to `public.guests`; `invite_status` is preserved as opened-Invite activity and `rsvp_status` is updated in the same transaction to `rsvp yes`, `rsvp no`, or `rsvp maybe` to match the latest submitted attendance. Future +1 details also create or update one RSVP-managed Plus-one Guest tied to the Invited Guest, without backfilling historical RSVP rows.
 
-Invalid, inactive, archived-guest, or missing-token pages keep rendering the safe invalid-link message and never show the RSVP form.
+Invalid, inactive, archived-guest, missing-token, or scope/Guest-kind mismatched pages keep rendering the safe invalid-link message and never show the RSVP form.
 
 ## Local validation
 
@@ -88,7 +90,7 @@ supabase db reset
 pnpm seed:local
 pnpm lint
 pnpm build
-PORT=3100 pnpm test:e2e e2e/smoke.spec.ts e2e/rsvp.spec.ts e2e/plus-one-guests.spec.ts e2e/wedding-updates.spec.ts e2e/guest-navigation-session.spec.ts e2e/admin-guests.spec.ts
+PORT=3100 pnpm test:e2e e2e/smoke.spec.ts e2e/rsvp.spec.ts e2e/plus-one-guests.spec.ts e2e/scoped-invite.spec.ts e2e/wedding-updates.spec.ts e2e/guest-navigation-session.spec.ts e2e/admin-guests.spec.ts
 ```
 
 Then log in as the seeded admin and validate the invite status workflow:
@@ -106,7 +108,9 @@ Then log in as the seeded admin and validate the invite status workflow:
 11. Create a published update in `/admin/updates` and verify it appears in the invite Updates section.
 12. Change the update to draft or archived and verify it is hidden from the invite page.
 13. Regenerate the link and verify the old link becomes invalid while the new link remains valid.
-14. Open a valid invite and verify the browser receives the secure `wp_guest_navigation` cookie.
-15. Open `/invite` and an invalid `/invite/:token` URL in a clean browser context and verify neither sets `wp_guest_navigation`.
+14. Generate a scoped link for an active Plus-one Guest and verify it shows only the cover/details panels, with no OSA panel or RSVP controls.
+15. Open that scoped link and verify the browser receives the secure `wp_guest_navigation` cookie for the Plus-one Guest.
+16. Revoke the scoped token or archive the Plus-one Guest and verify the same link renders the invalid-link state.
+17. Open `/invite` and an invalid `/invite/:token` URL in a clean browser context and verify neither sets `wp_guest_navigation`.
 
 For the guest-facing RSVP, updates, and guest navigation session flow, also run the local app and capture a `playwright-cli snapshot` after opening a valid `/invite/[token]` page.

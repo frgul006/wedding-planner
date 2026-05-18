@@ -47,13 +47,13 @@ Normal admin lists only show guests where `deleted_at is null`.
 - Reflect phone numbers updated by token-backed RSVP submissions in the editable Phone column
 - Delete with browser confirmation; delete sets `deleted_at` instead of hard-deleting
 - Archiving an Invited Guest also archives tied RSVP-managed Plus-one Guests and revokes active scoped tokens for archived Guests
-- Generate or regenerate private invite links for Invited Guests; raw links are shown only immediately after generation
+- Generate or regenerate full private invite links for Invited Guests and scoped private invite links for Plus-one Guests; raw links are shown only immediately after generation
 
 ## Brevkort +1 flow
 
 The data model, admin +1 permission controls, and public Brevkort OSA named +1 UI are in place. Admins control whether each Invited Guest sees the +1 option; guest-facing submissions store named +1 details when selected and clear them when the guest switches back to `Nej, bara jag`.
 
-Future RSVP submissions with +1 details create or update one active RSVP-managed Plus-one Guest tied to the submitting Invited Guest. Name-only Plus-one Guests can exist without becoming Message targets because SMS targeting still requires a valid phone and SMS consent. Removing +1 details archives the tied Plus-one Guest and revokes active scoped Invite tokens. Existing historical RSVP +1 rows are not backfilled automatically.
+Future RSVP submissions with +1 details create or update one active RSVP-managed Plus-one Guest tied to the submitting Invited Guest. Name-only Plus-one Guests can exist without becoming Message targets because SMS targeting still requires a valid phone and SMS consent. Admins can generate scoped Invite links for active Plus-one Guests so they can view non-RSVP Invite details and receive Wedding hub access. Removing +1 details archives the tied Plus-one Guest and revokes active scoped Invite tokens. Existing historical RSVP +1 rows are not backfilled automatically.
 
 ## Local validation
 
