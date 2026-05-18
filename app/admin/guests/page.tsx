@@ -4,17 +4,11 @@ import { connection } from "next/server";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
 import {
-  INVITE_STATUSES,
-  INVITE_OPENED_STATUS,
-  RSVP_STATUS,
-  isInviteOpenedStatus,
-  isInviteStatus,
-  isRsvpStatus,
-  type InviteOpenedStatus,
-  type RsvpStatus,
-} from "@/lib/invite-status";
+  loadAdminGuestRoster,
+  normalizeAdminGuestRosterFilters,
+} from "@/lib/admin-guest-roster";
+import { INVITE_STATUSES } from "@/lib/invite-status";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { isNullableString, isRecord } from "@/lib/type-guards";
 
 import { AdminField } from "../_components/form-controls";
 import { createGuestAction, updateGuestAction } from "./actions";
@@ -34,81 +28,8 @@ type GuestsPageProps = {
   }>;
 };
 
-type RsvpResponse = {
-  guest_id: string;
-  allergy_notes: string | null;
-  extra_guests: number;
-  food_preference: string | null;
-  last_submitted_at: string | null;
-};
-
-type GuestKind = "invited" | "plus_one";
-
-type Guest = {
-  id: string;
-  full_name: string;
-  email: string | null;
-  phone: string | null;
-  notes: string | null;
-  guest_kind: GuestKind;
-  invited_guest_id: string | null;
-  invite_status: InviteOpenedStatus;
-  rsvp_managed: boolean;
-  rsvp_status: RsvpStatus;
-  sms_opt_in: boolean;
-  plus_one_allowed: boolean;
-  created_at: string;
-  hasActiveToken: boolean;
-  invitedGuestName: string | null;
-  rsvpResponse: RsvpResponse | null;
-};
-
-type GuestRow = Omit<Guest, "hasActiveToken" | "invitedGuestName" | "rsvpResponse">;
-
-type ActiveInviteTokenRow = {
-  guest_id: string;
-};
-
-type TiedInvitedGuestRow = {
-  id: string;
-  full_name: string;
-};
-
-const sortOptions = new Set(["name", "name-desc", "status", "newest"]);
-const rsvpSubmittedFormatter = new Intl.DateTimeFormat("sv-SE", {
-  dateStyle: "medium",
-  timeStyle: "short",
-  timeZone: "Europe/Stockholm",
-});
-
 function getFirstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
-}
-
-function isGuestKind(value: unknown): value is GuestKind {
-  return value === "invited" || value === "plus_one";
-}
-
-function getGuestKindLabel(guestKind: GuestKind) {
-  return guestKind === "plus_one" ? "Plus-one Guest" : "Invited Guest";
-}
-
-function getRsvpStatus(rsvpStatus: RsvpStatus) {
-  return rsvpStatus === RSVP_STATUS.notReplied ? "not submitted" : rsvpStatus;
-}
-
-function formatRsvpSubmittedAt(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return rsvpSubmittedFormatter.format(date);
 }
 
 function getMessage(searchParams: Awaited<GuestsPageProps["searchParams"]>) {
@@ -153,157 +74,19 @@ function getMessage(searchParams: Awaited<GuestsPageProps["searchParams"]>) {
   return null;
 }
 
-function isGuestRow(value: unknown): value is GuestRow {
-  return (
-    isRecord(value) &&
-    typeof value.id === "string" &&
-    typeof value.full_name === "string" &&
-    isNullableString(value.email) &&
-    isNullableString(value.phone) &&
-    isNullableString(value.notes) &&
-    isGuestKind(value.guest_kind) &&
-    isNullableString(value.invited_guest_id) &&
-    isInviteOpenedStatus(value.invite_status) &&
-    typeof value.rsvp_managed === "boolean" &&
-    isRsvpStatus(value.rsvp_status) &&
-    typeof value.sms_opt_in === "boolean" &&
-    typeof value.plus_one_allowed === "boolean" &&
-    typeof value.created_at === "string"
-  );
-}
-
-function isActiveInviteTokenRow(value: unknown): value is ActiveInviteTokenRow {
-  return isRecord(value) && typeof value.guest_id === "string";
-}
-
-function isTiedInvitedGuestRow(value: unknown): value is TiedInvitedGuestRow {
-  return (
-    isRecord(value) &&
-    typeof value.id === "string" &&
-    typeof value.full_name === "string"
-  );
-}
-
-function isRsvpResponse(value: unknown): value is RsvpResponse {
-  return (
-    isRecord(value) &&
-    typeof value.guest_id === "string" &&
-    isNullableString(value.allergy_notes) &&
-    typeof value.extra_guests === "number" &&
-    isNullableString(value.food_preference) &&
-    isNullableString(value.last_submitted_at)
-  );
-}
-
 export default async function GuestsPage({ searchParams }: GuestsPageProps) {
   await connection();
 
   const params = await searchParams;
   const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
-  const rawQuery = getFirstParam(params.q);
-  const rawSort = getFirstParam(params.sort);
-  const rawStatus = getFirstParam(params.status);
-  const query = (rawQuery ?? "").trim();
-  const sort = sortOptions.has(rawSort ?? "") ? rawSort : "name";
-  const status = isInviteStatus(rawStatus) ? rawStatus : "";
-
-  let guestsQuery = supabase
-    .from("guests")
-    .select("id, full_name, email, phone, notes, guest_kind, invited_guest_id, invite_status, rsvp_managed, rsvp_status, sms_opt_in, plus_one_allowed, created_at")
-    .eq("wedding_id", adminProfile.wedding_id)
-    .is("deleted_at", null)
-    .limit(500);
-
-  if (query) {
-    const escapedQuery = query.replaceAll("%", "\\%").replaceAll("_", "\\_");
-    guestsQuery = guestsQuery.or(
-      `full_name.ilike.%${escapedQuery}%,phone.ilike.%${escapedQuery}%`,
-    );
-  }
-
-  if (status === INVITE_OPENED_STATUS.notReplied || status === INVITE_OPENED_STATUS.opened) {
-    guestsQuery = guestsQuery
-      .eq("invite_status", status)
-      .eq("rsvp_status", RSVP_STATUS.notReplied);
-  } else if (isRsvpStatus(status)) {
-    guestsQuery = guestsQuery.eq("rsvp_status", status);
-  }
-
-  if (sort === "name-desc") {
-    guestsQuery = guestsQuery.order("full_name", { ascending: false });
-  } else if (sort === "status") {
-    guestsQuery = guestsQuery
-      .order("rsvp_status", { ascending: true })
-      .order("invite_status", { ascending: true })
-      .order("full_name");
-  } else if (sort === "newest") {
-    guestsQuery = guestsQuery.order("created_at", { ascending: false });
-  } else {
-    guestsQuery = guestsQuery.order("full_name", { ascending: true });
-  }
-
-  const { data, error } = await guestsQuery;
-  const guestRows = (data ?? []).filter(isGuestRow);
-  const guestIds = guestRows.map((guest) => guest.id);
-  const invitedGuestIds = Array.from(
-    new Set(
-      guestRows
-        .map((guest) => guest.invited_guest_id)
-        .filter((guestId): guestId is string => typeof guestId === "string"),
-    ),
-  );
-  const [activeTokensResult, rsvpResponsesResult, tiedInvitedGuestsResult] = guestIds.length
-    ? await Promise.all([
-        supabase
-          .from("invite_tokens")
-          .select("guest_id")
-          .eq("wedding_id", adminProfile.wedding_id)
-          .eq("is_active", true)
-          .in("guest_id", guestIds),
-        supabase
-          .from("rsvp_responses")
-          .select(
-            "guest_id, allergy_notes, extra_guests, food_preference, last_submitted_at",
-          )
-          .eq("wedding_id", adminProfile.wedding_id)
-          .in("guest_id", guestIds),
-        invitedGuestIds.length
-          ? supabase
-              .from("guests")
-              .select("id, full_name")
-              .eq("wedding_id", adminProfile.wedding_id)
-              .in("id", invitedGuestIds)
-          : Promise.resolve({ data: [], error: null }),
-      ])
-    : [
-        { data: [], error: null },
-        { data: [], error: null },
-        { data: [], error: null },
-      ];
-  const guestsWithActiveTokens = new Set(
-    (activeTokensResult.data ?? [])
-      .filter(isActiveInviteTokenRow)
-      .map((token) => token.guest_id),
-  );
-  const invitedGuestNamesById = new Map(
-    (tiedInvitedGuestsResult.data ?? [])
-      .filter(isTiedInvitedGuestRow)
-      .map((guest) => [guest.id, guest.full_name]),
-  );
-  const rsvpResponsesByGuest = new Map(
-    (rsvpResponsesResult.data ?? [])
-      .filter(isRsvpResponse)
-      .map((response) => [response.guest_id, response]),
-  );
-  const guests = guestRows.map((guest) => ({
-    ...guest,
-    hasActiveToken: guestsWithActiveTokens.has(guest.id),
-    invitedGuestName: guest.invited_guest_id
-      ? invitedGuestNamesById.get(guest.invited_guest_id) ?? null
-      : null,
-    rsvpResponse: rsvpResponsesByGuest.get(guest.id) ?? null,
-  }));
+  const filters = normalizeAdminGuestRosterFilters(params);
+  const roster = await loadAdminGuestRoster({
+    filters,
+    supabase,
+    weddingId: adminProfile.wedding_id,
+  });
+  const guests = roster.rows;
   const message = getMessage(params);
 
   return (
@@ -387,7 +170,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                 Search name or phone
                 <input
                   className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950"
-                  defaultValue={query}
+                  defaultValue={filters.query}
                   name="q"
                   placeholder="Search"
                 />
@@ -396,7 +179,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                 Status
                 <select
                   className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950"
-                  defaultValue={status}
+                  defaultValue={filters.status}
                   name="status"
                 >
                   <option value="">All</option>
@@ -411,7 +194,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                 Sort
                 <select
                   className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950"
-                  defaultValue={sort}
+                  defaultValue={filters.sort}
                   name="sort"
                 >
                   <option value="name">Name A-Z</option>
@@ -429,7 +212,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
             </form>
           </div>
 
-          {error || rsvpResponsesResult.error || tiedInvitedGuestsResult.error ? (
+          {roster.error ? (
             <p className="mt-8 rounded-2xl bg-red-50 px-5 py-4 text-sm font-medium text-red-700 ring-1 ring-red-100">
               Could not load guests. Please try again.
             </p>
@@ -462,13 +245,13 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                       <td className="rounded-l-2xl bg-zinc-50 p-3">
                         <input
                           className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-zinc-950 outline-none focus:border-zinc-950 read-only:bg-zinc-100 read-only:text-zinc-600"
-                          defaultValue={guest.full_name}
+                          defaultValue={guest.fullName}
                           form={`guest-${guest.id}`}
                           name="full_name"
-                          readOnly={guest.rsvp_managed}
+                          readOnly={!guest.canEditIdentity}
                           required
                         />
-                        {guest.rsvp_managed ? (
+                        {guest.rsvpManaged ? (
                           <p className="mt-2 text-xs font-semibold text-amber-700">
                             RSVP-managed
                           </p>
@@ -476,14 +259,12 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                       </td>
                       <td className="bg-zinc-50 p-3 text-zinc-700">
                         <span className="inline-flex rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-800 ring-1 ring-zinc-200">
-                          {getGuestKindLabel(guest.guest_kind)}
+                          {guest.guestKindLabel}
                         </span>
                       </td>
                       <td className="bg-zinc-50 p-3 text-zinc-700">
-                        {guest.guest_kind === "plus_one" ? (
-                          <span>
-                            Tied to {guest.invitedGuestName ?? "unknown Invited Guest"}
-                          </span>
+                        {guest.tiedInvitedGuestText ? (
+                          <span>{guest.tiedInvitedGuestText}</span>
                         ) : (
                           <span className="text-zinc-500">—</span>
                         )}
@@ -494,7 +275,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                           defaultValue={guest.email ?? ""}
                           form={`guest-${guest.id}`}
                           name="email"
-                          readOnly={guest.rsvp_managed}
+                          readOnly={!guest.canEditIdentity}
                           type="email"
                         />
                       </td>
@@ -504,7 +285,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                           defaultValue={guest.phone ?? ""}
                           form={`guest-${guest.id}`}
                           name="phone"
-                          readOnly={guest.rsvp_managed}
+                          readOnly={!guest.canEditIdentity}
                           type="tel"
                         />
                       </td>
@@ -512,8 +293,8 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                         <label className="flex items-center gap-2">
                           <input
                             className="h-4 w-4"
-                            defaultChecked={guest.sms_opt_in}
-                            disabled={guest.rsvp_managed}
+                            defaultChecked={guest.smsOptIn}
+                            disabled={!guest.canEditSmsOptIn}
                             form={`guest-${guest.id}`}
                             name="sms_opt_in"
                             type="checkbox"
@@ -525,8 +306,8 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                         <label className="flex items-center gap-2">
                           <input
                             className="h-4 w-4"
-                            defaultChecked={guest.plus_one_allowed}
-                            disabled={guest.rsvp_managed || guest.guest_kind === "plus_one"}
+                            defaultChecked={guest.plusOneAllowed}
+                            disabled={!guest.canEditPlusOneAllowed}
                             form={`guest-${guest.id}`}
                             name="plus_one_allowed"
                             type="checkbox"
@@ -535,26 +316,26 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                         </label>
                       </td>
                       <td className="bg-zinc-50 p-3 capitalize text-zinc-700">
-                        {guest.invite_status}
+                        {guest.inviteStatus}
                       </td>
                       <td className="bg-zinc-50 p-3 capitalize text-zinc-700">
-                        {getRsvpStatus(guest.rsvp_status)}
+                        {guest.rsvpStatusLabel}
                       </td>
                       <td className="bg-zinc-50 p-3 text-zinc-700">
-                        {guest.rsvpResponse ? (
+                        {guest.rsvpDetails ? (
                           <div className="grid gap-1">
-                            <p>Extra guests: {guest.rsvpResponse.extra_guests}</p>
+                            <p>Extra guests: {guest.rsvpDetails.extraGuests}</p>
                             <p>
-                              Food: {guest.rsvpResponse.food_preference ?? "No preference"}
+                              Food: {guest.rsvpDetails.foodPreference ?? "No preference"}
                             </p>
-                            {guest.rsvpResponse.allergy_notes ? (
+                            {guest.rsvpDetails.allergyNotes ? (
                               <p className="max-w-56 whitespace-pre-line">
-                                Notes: {guest.rsvpResponse.allergy_notes}
+                                Notes: {guest.rsvpDetails.allergyNotes}
                               </p>
                             ) : null}
-                            {formatRsvpSubmittedAt(guest.rsvpResponse.last_submitted_at) ? (
+                            {guest.rsvpDetails.submittedAtLabel ? (
                               <p className="text-xs text-zinc-500">
-                                Updated {formatRsvpSubmittedAt(guest.rsvpResponse.last_submitted_at)}
+                                Updated {guest.rsvpDetails.submittedAtLabel}
                               </p>
                             ) : null}
                           </div>
@@ -574,12 +355,12 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                         <form action={updateGuestWithId} id={`guest-${guest.id}`} />
                         <div className="flex justify-end gap-2">
                           <InviteLinkButton
-                            accessScope={guest.guest_kind === "plus_one" ? "scoped" : "full"}
+                            accessScope={guest.inviteAccessScope}
                             guestId={guest.id}
-                            guestName={guest.full_name}
+                            guestName={guest.fullName}
                             hasActiveToken={guest.hasActiveToken}
                           />
-                          {guest.rsvp_managed ? null : (
+                          {guest.canSave ? (
                             <button
                               className="rounded-full bg-zinc-950 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
                               form={`guest-${guest.id}`}
@@ -587,8 +368,8 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
                             >
                               Save
                             </button>
-                          )}
-                          <DeleteGuestButton guestId={guest.id} guestName={guest.full_name} />
+                          ) : null}
+                          <DeleteGuestButton guestId={guest.id} guestName={guest.fullName} />
                         </div>
                       </td>
                     </tr>
@@ -598,7 +379,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
             </table>
           </div>
 
-          {!guests.length && !error && !rsvpResponsesResult.error && !tiedInvitedGuestsResult.error ? (
+          {!guests.length && !roster.error ? (
             <p className="mt-8 rounded-2xl bg-zinc-50 px-5 py-4 text-sm text-zinc-600">
               No guests found. Add the first guest above.
             </p>

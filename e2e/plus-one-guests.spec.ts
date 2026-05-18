@@ -350,7 +350,9 @@ test.describe("RSVP-managed Plus-one Guests", () => {
 
     await submitRsvp({
       extraGuests: 1,
+      plusOneAllergyNotes: "No almonds.",
       plusOneEmail: "admin-plus-one@example.com",
+      plusOneFoodPreference: "Vegetarian",
       plusOneName,
       plusOnePhone: "+46701112288",
       token,
@@ -366,6 +368,8 @@ test.describe("RSVP-managed Plus-one Guests", () => {
     const plusOneRow = await guestRowByName(page, plusOneName);
     await expect(plusOneRow.getByText("Plus-one Guest", { exact: true })).toBeVisible();
     await expect(plusOneRow.getByText(`Tied to ${guestName}`)).toBeVisible();
+    await expect(plusOneRow.getByText("Food: Vegetarian")).toBeVisible();
+    await expect(plusOneRow.getByText("Notes: No almonds.")).toBeVisible();
     await expect(plusOneRow.getByText("RSVP-managed", { exact: true })).toBeVisible();
     await expect(plusOneRow.locator('input[name="full_name"]')).toHaveAttribute(
       "readonly",
