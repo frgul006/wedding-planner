@@ -26,7 +26,7 @@ On `/admin/guests`:
 
 ## Invite access validation
 
-`/invite/[token]` resolves **Invite access** by hashing the path token and looking up an active `invite_tokens` row for a non-archived Guest with a matching access scope: `full` for Invited Guests or `scoped` for Plus-one Guests. `/invite` without a token does not validate anything and renders the same safe invalid-link page. Active scoped tokens are revoked when RSVP sync archives the tied Plus-one Guest.
+`/invite/[token]` resolves **Invite access** by hashing the path token and looking up an active `invite_tokens` row for a non-archived Guest with a matching access scope: `full` for Invited Guests or `scoped` for Plus-one Guests. `/invite` without a token does not validate anything and renders the same safe invalid-link page. Active scoped tokens are revoked when RSVP sync or an admin **Guest lifecycle mutation** archives the tied Plus-one Guest.
 
 - Granted full Invite access: displays the Guest name, Wedding information, RSVP state, and RSVP controls for an Invited Guest.
 - Granted scoped Invite access: displays the Plus-one Guest name and Wedding information without RSVP state or RSVP controls, and prepares the Guest navigation session cookie for Wedding hub access.
