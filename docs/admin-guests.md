@@ -1,6 +1,6 @@
 # Admin guest management
 
-Admin guest management is implemented at `/admin/guests`. The **Admin Guest roster** read model lives in `lib/admin-guest-roster.ts`; the page is the rendering Adapter.
+Admin guest management is implemented at `/admin/guests`. The **Admin Guest roster** read model lives in `lib/admin-guest-roster.ts`; the page is the rendering Adapter. The **Guest lifecycle mutation** archive path lives in `lib/guest-lifecycle.ts` and the `public.archive_guest_lifecycle` RPC.
 
 ## Access
 
@@ -9,7 +9,7 @@ The page requires:
 - a valid Supabase Auth session
 - an active `admin_profiles` row for the signed-in user
 
-Server actions verify the active admin profile before creating, updating, or deleting guests.
+Server actions verify the active admin profile before creating, updating, or archiving guests.
 
 ## Data model
 
@@ -45,8 +45,8 @@ Normal admin lists only show guests where `deleted_at is null`.
 - Store named +1 RSVP details for the Brevkort OSA flow when allowed by the guest's +1 permission
 - Sync future RSVP +1 details into one tied RSVP-managed Plus-one Guest; removing +1 details archives that Guest and revokes active scoped tokens
 - Reflect phone numbers updated by token-backed RSVP submissions in the editable Phone column
-- Delete with browser confirmation; delete sets `deleted_at` instead of hard-deleting
-- Archiving an Invited Guest also archives tied RSVP-managed Plus-one Guests and revokes active scoped tokens for archived Guests
+- Delete with browser confirmation; archive uses one **Guest lifecycle mutation** RPC that sets `deleted_at` instead of hard-deleting
+- Archiving an Invited Guest also archives tied RSVP-managed Plus-one Guests and revokes active scoped tokens for archived Guests atomically
 - Generate or regenerate full private invite links for Invited Guests and scoped private invite links for Plus-one Guests; raw links are shown only immediately after generation
 
 ## Brevkort +1 flow
