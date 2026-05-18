@@ -24,6 +24,10 @@ _Avoid_: embedded plus-one field, extra attendee, anonymous plus-one
 The private guest-facing invitation experience for a **Guest**.
 _Avoid_: invitation page, public page
 
+**Admin Guest roster**:
+The admin-facing read view of active **Guest** records with their **Invite access** affordances and **RSVP** summary.
+_Avoid_: raw guests table, invitee list
+
 **Invite access**:
 Whether a private **Invite** link currently grants a **Guest** access to their **Invite**.
 _Avoid_: invite state, login session, public access
@@ -68,7 +72,7 @@ _Avoid_: Efterfest
 - An **Invite** shows the **Wedding start time** and **Time Plan** to a **Guest**.
 - An **Invited Guest** may have zero or one **Plus-one Guest**.
 - A **Plus-one Guest** is tied to exactly one **Invited Guest**.
-- Admin Guest management shows both **Invited Guest** and **Plus-one Guest**, labels which kind each **Guest** is, and shows the tied **Invited Guest** for each **Plus-one Guest**.
+- The **Admin Guest roster** shows both **Invited Guest** and **Plus-one Guest**, labels which kind each **Guest** is, and shows the tied **Invited Guest** for each **Plus-one Guest**.
 - A **Plus-one Guest** created from RSVP plus-one details remains RSVP-managed: admin can view, archive, and manage **Scoped Invite access**, while identity and contact fields sync from the tied **Invited Guest**'s **RSVP**.
 - **Invite access** is checked before showing Guest-specific **Invite** details.
 - **Invite access** scope is a property of an Invite token: full scope grants an **Invited Guest** RSVP-capable access, while scoped tokens grant **Scoped Invite access** to a **Plus-one Guest**.

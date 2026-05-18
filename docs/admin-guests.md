@@ -1,6 +1,6 @@
 # Admin guest management
 
-Admin guest management is implemented at `/admin/guests`.
+Admin guest management is implemented at `/admin/guests`. The **Admin Guest roster** read model lives in `lib/admin-guest-roster.ts`; the page is the rendering Adapter.
 
 ## Access
 
@@ -41,7 +41,7 @@ Normal admin lists only show guests where `deleted_at is null`.
 - Show Invited Guest and Plus-one Guest labels
 - Show the tied Invited Guest for each Plus-one Guest
 - Mark RSVP-managed Plus-one Guest identity/contact fields as RSVP-managed/read-only
-- Show current RSVP details when submitted, including extra guest count, food preference, allergy/special notes, and latest submission time
+- Show current RSVP details when submitted, including extra guest count, food preference, allergy/special notes, and latest submission time; Plus-one Guest rows show their tied Invited Guest RSVP's plus-one details
 - Store named +1 RSVP details for the Brevkort OSA flow when allowed by the guest's +1 permission
 - Sync future RSVP +1 details into one tied RSVP-managed Plus-one Guest; removing +1 details archives that Guest and revokes active scoped tokens
 - Reflect phone numbers updated by token-backed RSVP submissions in the editable Phone column
