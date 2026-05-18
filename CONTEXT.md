@@ -13,12 +13,12 @@ A person associated with the **Wedding** as either an **Invited Guest** or a **P
 _Avoid_: attendee, invitee
 
 **Invited Guest**:
-A **Guest** who receives full **Invite access** and owns the **RSVP** for themself and any **Plus-one Guest**.
-_Avoid_: primary guest, invitee
+A **Guest** with full **Invite access** who owns an **RSVP** for themself and any **Plus-one Guest**.
+_Avoid_: primary attendee, RSVP owner, invitee
 
 **Plus-one Guest**:
-A **Guest** tied to an **Invited Guest** through RSVP plus-one details.
-_Avoid_: extra guest, anonymous plus-one
+A **Guest** tied to an **Invited Guest** through that Invited Guest's **RSVP**.
+_Avoid_: embedded plus-one field, extra attendee, anonymous plus-one
 
 **Invite**:
 The private guest-facing invitation experience for a **Guest**.
@@ -76,6 +76,7 @@ _Avoid_: Efterfest
 - **Invite access** and opened-Invite activity are distinct from **RSVP** status.
 - **Scoped Invite access** lets a **Plus-one Guest** view non-RSVP **Invite** details and access the Wedding hub, but not submit an **RSVP**.
 - An **Invite** lets an **Invited Guest** submit or update an **RSVP**.
+- An **RSVP** can name one **Plus-one Guest** when the **Invited Guest** has +1 permission.
 - A **Plus-one Guest** inherits the tied **Invited Guest**'s **RSVP** status for Message target audiences.
 - A **Message target** is an active, non-archived **Guest** with valid phone, SMS consent, and no SMS opt-out timestamp, not a raw phone number.
 - **Invite RSVP navigation** brings an **Invited Guest** back to the **Invite** RSVP confirmation after a successful save.

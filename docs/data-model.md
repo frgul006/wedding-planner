@@ -70,16 +70,19 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
 - `full_name` (string)
 - `email` (string, optional)
 - `phone` (string, optional, compact E.164 with no spaces)
-  - Validation rule: at least one of `email` or `phone` must be set.
+  - Validation rule: Invited Guests need at least one of `email` or `phone`; Plus-one Guests can be name-only.
 - `sms_opt_in` (bool)
   - Guests are included in SMS blasts only when this is true and a valid E.164 phone is present.
 - `sms_opted_in_at` (datetime, nullable)
 - `sms_opted_out_at` (datetime, nullable)
-- `guest_kind` (`invited`)
-  - Current roster rows are Invited Guests.
+- `guest_kind` (`invited | plus_one`)
+  - Current roster rows are Invited Guests. Future RSVP plus-one submissions create RSVP-managed Plus-one Guests.
+- `invited_guest_id` (UUID, nullable) -> tied Invited Guest for Plus-one Guests
+- `rsvp_managed` (bool, default `false`)
+  - True when a Plus-one Guest identity/contact fields are owned by RSVP sync.
 - `plus_one_allowed` (bool, default `false`)
-  - Controls whether this guest sees the Brevkort +1 option on their invite.
-  - Admins enable this per guest; explicitly invited partners should usually have this off.
+  - Controls whether an Invited Guest sees the Brevkort +1 option on their invite.
+  - Admins enable this per Invited Guest; explicitly invited partners should usually have this off.
 - `side_id` (UUID, optional) -> relation to `CoupleMember`
 - `notes` (string, optional)
 - `deleted_at` (datetime, nullable)
@@ -87,7 +90,7 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
 - `invite_status` (`not replied | opened`)
   - Opened-Invite activity only.
 - `rsvp_status` (`not replied | rsvp yes | rsvp no | rsvp maybe`)
-  - Dedicated RSVP status, separate from opened-Invite activity.
+  - Dedicated RSVP status for Invited Guests, separate from opened-Invite activity. RSVP-managed Plus-one Guests store the tied Invited Guest's latest RSVP status as a derived snapshot.
 - `created_at`, `updated_at`
 
 ### InviteToken
@@ -97,8 +100,9 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
 - `guest_id` (UUID)
 - `token_hash` (string, unique)
 - `is_active` (bool)
-- `access_scope` (`full`)
-  - Current active Invite tokens grant full Invite access to Invited Guests.
+- `access_scope` (`full | scoped`)
+  - Full active Invite tokens grant full Invite access to Invited Guests.
+  - Scoped tokens are reserved for Plus-one Guest read-only Invite access and are revoked when the tied RSVP-managed Plus-one Guest is removed.
 - Raw token is not stored. If an admin needs to copy a link again, generate a new token and invalidate the previous active token.
 - `created_at`, `regenerated_at`
 - `invalidated_at` (datetime, nullable)
@@ -123,7 +127,7 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
 
 ### RSVPResponse (single current response per guest)
 
-Implemented in `public.rsvp_responses`, including Brevkort named +1 persistence fields.
+Implemented in `public.rsvp_responses`, including Brevkort named +1 persistence fields. Future token-backed RSVP submissions sync named +1 identity/contact details into one tied RSVP-managed Plus-one Guest; existing historical rows are not backfilled.
 
 - `id` (UUID)
 - `wedding_id` (UUID)
@@ -290,6 +294,9 @@ Implement these as migrations before building the Brevkort UI states that depend
 - RSVP submission by invite token must resolve the active token first and save the response against that token's `guest_id` and `wedding_id`.
 - Guests may submit +1 details only when their `guests.plus_one_allowed = true`.
 - Server-side RSVP submission must reject or ignore +1 payloads when `plus_one_allowed = false`; do not rely only on hiding UI fields.
+- Future RSVP submissions with +1 details create or update one RSVP-managed Plus-one Guest tied to the submitting Invited Guest.
+- Future RSVP submissions that remove +1 details archive the tied RSVP-managed Plus-one Guest and revoke active scoped Invite tokens for that Guest.
+- Existing historical RSVP +1 rows are not backfilled into Plus-one Guests automatically.
 
 ## 6) Photo upload/session decisions
 
