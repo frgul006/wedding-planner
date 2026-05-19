@@ -46,6 +46,10 @@ A photo is accepted only when all of these are true:
 
 Pending, rejected, hidden, and deleted photos are excluded from both the public wedding hub gallery/feed and the admin ZIP export.
 
+## Wedding hub access
+
+When anonymous hub uploads are enabled, visitors can upload without attribution. When anonymous uploads are disabled, photo upload requires **Wedding hub access** from a valid Guest navigation cookie whose Guest is still active and non-archived. Stale cookies for archived Guests no longer unlock uploads or photo attribution.
+
 ## ZIP export
 
 `/admin/photos/export` returns an attachment ZIP named `approved-wedding-photos-YYYY-MM-DD.zip`.

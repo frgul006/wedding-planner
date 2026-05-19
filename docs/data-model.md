@@ -303,7 +303,7 @@ Implement these as migrations before building the Brevkort UI states that depend
 
 - QR hub photo upload is anonymous-capable by default (`allow_anonymous_hub_upload = true`).
 - Uploads do not require a `GuestNavigationSession` when anonymous upload is allowed.
-- If anonymous upload is disabled (`allow_anonymous_hub_upload = false`), photo upload requires a valid `GuestNavigationSession` cookie match and otherwise returns a clear rejection.
+- If anonymous upload is disabled (`allow_anonymous_hub_upload = false`), photo upload requires a valid `GuestNavigationSession` cookie match whose Guest is still active and non-archived; stale cookies for archived Guests return a clear rejection.
 - Opening a valid full or scoped personal invite link creates or refreshes a secure opaque guest navigation cookie and stores only its hash.
 - QR hub upload should look up that cookie server-side and set `PhotoUpload.session_id`/`guest_id` when it matches; otherwise the upload remains anonymous.
 - Direct-to-storage uploads use app-issued signed upload URLs and signed server claims; the browser uploads originals (and optional thumbnails) directly to private Supabase Storage.

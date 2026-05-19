@@ -4,7 +4,7 @@ import { connection } from "next/server";
 
 import { WeddingHubClient } from "@/app/wedding-hub/_components/wedding-hub-client";
 import { getSafeHttpUrl } from "@/lib/safe-url";
-import { resolveWeddingHubContext } from "@/lib/wedding-hub-photo";
+import { resolveWeddingHubAccess } from "@/lib/wedding-hub-access";
 import { getWeddingHubPhotoData } from "@/lib/wedding-hub-photo-verification";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { GUEST_NAVIGATION_COOKIE_NAME } from "@/lib/guest-navigation-session";
@@ -19,7 +19,7 @@ export default async function WeddingHubPage() {
   const cookieStore = await cookies();
   const cookieValue = cookieStore.get(GUEST_NAVIGATION_COOKIE_NAME)?.value ?? null;
   const supabase = createSupabaseAdminClient();
-  const context = await resolveWeddingHubContext({
+  const context = await resolveWeddingHubAccess({
     supabase,
     existingCookieValue: cookieValue,
   });

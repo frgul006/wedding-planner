@@ -124,6 +124,18 @@ async function getPhotoUploadByStoragePath(storagePath: string) {
   return data;
 }
 
+async function archiveGuestForHubAccess(guestId: string) {
+  const supabase = createE2eSupabaseAdminClient();
+  const { error } = await supabase
+    .from("guests")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", guestId);
+
+  if (error) {
+    throw error;
+  }
+}
+
 async function getGuestCookieHeader(page: Page) {
   const cookies = await page.context().cookies();
   const cookie = cookies.find((entry) => entry.name === GUEST_NAVIGATION_COOKIE_NAME);
@@ -527,6 +539,50 @@ test.describe("wedding hub QR", () => {
     expect(typeof row?.session_id).toBe("string");
   });
 
+  test("archived guest cookie uploads anonymously when anonymous uploads are enabled", async ({
+    page,
+  }) => {
+    const guestName = uniqueRsvpGuestName("Hub Upload Archived Anonymous");
+    const token = uniqueInviteToken("hub-upload-archived-anonymous");
+    await createInviteTestGuest({
+      email: "e2e-hub-upload-archived-anonymous@example.com",
+      fullName: guestName,
+      token,
+    });
+
+    await page.goto(invitePathForToken(token));
+    await expect(page.getByText(`Inbjudan till ${guestName}`)).toBeVisible();
+    const cookieHeader = await getGuestCookieHeader(page);
+    expect(cookieHeader).toBeTruthy();
+    const guestRows = await createE2eSupabaseAdminClient()
+      .from("guests")
+      .select("id")
+      .eq("full_name", guestName)
+      .single();
+    expect(guestRows.error).toBeNull();
+    await archiveGuestForHubAccess(guestRows.data.id);
+
+    const fileName = `${E2E_PHOTO_PREFIX}-archived-anonymous.png`;
+    const note = "Archived cookie anonymous upload";
+    const intent = await signAndFinalizePngUpload({
+      page,
+      clientId: "e2e-archived-anonymous-upload",
+      fileName,
+      note,
+      cookieHeader,
+    });
+
+    const row = await getPhotoUploadByStoragePath(intent.uploadPath);
+    expect(row).toMatchObject({
+      guest_id: null,
+      session_id: null,
+      moderation_status: "approved",
+      note,
+      storage_path: intent.uploadPath,
+      verification_status: "verified",
+    });
+  });
+
   test("valid guest cookie can upload when anonymous uploads are disabled", async ({
     page,
   }) => {
@@ -563,5 +619,71 @@ test.describe("wedding hub QR", () => {
     });
 
     expect(response.ok()).toBeTruthy();
+  });
+
+  test("archived guest cookie cannot unlock uploads when anonymous uploads are disabled", async ({
+    page,
+  }) => {
+    const guestName = uniqueRsvpGuestName("Hub Upload Archived Guest");
+    const token = uniqueInviteToken("hub-upload-archived-guest");
+    const { guestId } = await createInviteTestGuest({
+      email: "e2e-hub-upload-archived-guest@example.com",
+      fullName: guestName,
+      token,
+    });
+
+    await page.goto(invitePathForToken(token));
+    await expect(page.getByText(`Inbjudan till ${guestName}`)).toBeVisible();
+    const cookieHeader = await getGuestCookieHeader(page);
+    expect(cookieHeader).toBeTruthy();
+    await updateWeddingSettings({ allow_anonymous_hub_upload: false });
+    await archiveGuestForHubAccess(guestId);
+
+    const response = await page.request.post("/api/wedding-hub/photos/sign", {
+      data: JSON.stringify({
+        uploads: [
+          {
+            clientId: "e2e-archived-cookie-denied",
+            fileName: `${E2E_PHOTO_PREFIX}-archived-cookie-denied.png`,
+            mimeType: "image/png",
+            sizeBytes: ONE_BY_ONE_PNG.byteLength,
+            note: "Archived cookie denied",
+          },
+        ],
+      }),
+      headers: {
+        "content-type": "application/json",
+        ...(cookieHeader ? { cookie: cookieHeader } : {}),
+      },
+    });
+
+    expect(response.status()).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      uploadAllowed: false,
+      uploadIntents: [],
+    });
+
+    const finalizeResponse = await page.request.post("/api/wedding-hub/photos/finalize", {
+      data: JSON.stringify({
+        uploads: [
+          {
+            clientId: "e2e-archived-cookie-finalize-denied",
+            originalClaim: "not-a-valid-claim",
+            originalFileName: `${E2E_PHOTO_PREFIX}-archived-cookie-denied.png`,
+            note: "Archived cookie finalize denied",
+          },
+        ],
+      }),
+      headers: {
+        "content-type": "application/json",
+        ...(cookieHeader ? { cookie: cookieHeader } : {}),
+      },
+    });
+
+    expect(finalizeResponse.status()).toBe(403);
+    await expect(finalizeResponse.json()).resolves.toMatchObject({
+      error: "upload_not_allowed",
+      uploadAllowed: false,
+    });
   });
 });
