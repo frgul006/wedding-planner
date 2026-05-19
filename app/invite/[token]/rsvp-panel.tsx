@@ -7,12 +7,15 @@ import {
   getInviteRsvpEditHrefFromLocation,
   getInviteRsvpSubmittedHref,
 } from "@/lib/invite-rsvp-navigation";
+import { PHONE_FORMAT_EXAMPLE, PHONE_INPUT_PATTERN } from "@/lib/phone";
+import type { RsvpAttendance } from "@/lib/rsvp-attendance";
 import {
-  isE164PhoneNumber,
-  PHONE_FORMAT_EXAMPLE,
-  PHONE_INPUT_PATTERN,
-} from "@/lib/phone";
-import { RSVP_ATTENDANCE, type RsvpAttendance } from "@/lib/rsvp-attendance";
+  getInitialRsvpFormModel,
+  getRsvpAttendanceSummary,
+  RSVP_ATTENDANCE_OPTIONS,
+  RSVP_FORM_FIELDS,
+  type RsvpSmsOptInField,
+} from "@/lib/rsvp-form-contract";
 import {
   idleRsvpActionState,
   type RsvpActionField,
@@ -50,50 +53,8 @@ type RsvpPanelProps = {
   weddingName: string;
 };
 
-const attendanceOptions: Array<{
-  description: string;
-  label: string;
-  value: RsvpAttendance;
-}> = [
-  { description: "kommer", label: "Ja", value: RSVP_ATTENDANCE.yes },
-  { description: "kan inte", label: "Nej", value: RSVP_ATTENDANCE.no },
-  { description: "återkommer", label: "Kanske", value: RSVP_ATTENDANCE.maybe },
-];
-
 function getGuestFirstName(fullName: string) {
   return fullName.trim().split(/\s+/)[0] || fullName;
-}
-
-function getAttendanceSummary(attendance: RsvpAttendance) {
-  if (attendance === RSVP_ATTENDANCE.yes) {
-    return { detail: "jag kommer gärna", label: "Ja" };
-  }
-
-  if (attendance === RSVP_ATTENDANCE.no) {
-    return { detail: "jag kan tyvärr inte", label: "Nej" };
-  }
-
-  return { detail: "jag återkommer", label: "Kanske" };
-}
-
-function getInitialAttendance(rsvpResponse: InviteRsvpResponse | null) {
-  return rsvpResponse?.attendance ?? RSVP_ATTENDANCE.yes;
-}
-
-function getInitialSmsOptIn({
-  hasExistingRsvp,
-  phone,
-  smsOptIn,
-}: {
-  hasExistingRsvp: boolean;
-  phone: string;
-  smsOptIn: boolean;
-}) {
-  if (!isE164PhoneNumber(phone)) {
-    return false;
-  }
-
-  return hasExistingRsvp ? smsOptIn : true;
 }
 
 function getFieldError(
@@ -189,7 +150,7 @@ function AttendanceChoice({
       defaultChecked={defaultChecked}
       description={description}
       label={label}
-      name="attendance"
+      name={RSVP_FORM_FIELDS.attendance}
       required
       value={value}
     />
@@ -214,7 +175,7 @@ function PlusOneChoice({
       checked={checked}
       description={description}
       label={label}
-      name="include_plus_one"
+      name={RSVP_FORM_FIELDS.includePlusOne}
       onChange={() => onChange()}
       value={value}
     />
@@ -228,7 +189,7 @@ function SmsCheckbox({
 }: {
   defaultChecked: boolean;
   label: string;
-  name: "plus_one_sms_opt_in" | "sms_opt_in";
+  name: RsvpSmsOptInField;
 }) {
   return (
     <BrevkortCheckbox defaultChecked={defaultChecked} name={name}>
@@ -237,10 +198,20 @@ function SmsCheckbox({
   );
 }
 
-function SubmitButton({ hasExistingRsvp, pending }: { hasExistingRsvp: boolean; pending: boolean }) {
+function SubmitButton({
+  hasExistingRsvp,
+  pending,
+}: {
+  hasExistingRsvp: boolean;
+  pending: boolean;
+}) {
   return (
     <BrevkortButton className="w-full" disabled={pending} tone="rust" type="submit">
-      {pending ? "Skickar…" : hasExistingRsvp ? "Spara ändringar →" : "Skicka mitt svar →"}
+      {pending
+        ? "Skickar…"
+        : hasExistingRsvp
+          ? "Spara ändringar →"
+          : "Skicka mitt svar →"}
     </BrevkortButton>
   );
 }
@@ -260,7 +231,7 @@ function Confirmation({
   weddingDate: string;
   weddingName: string;
 }) {
-  const attendance = getAttendanceSummary(rsvpResponse.attendance);
+  const attendance = getRsvpAttendanceSummary(rsvpResponse.attendance);
   const closingLine =
     weddingDate === "Kommer snart" ? "Vi ses på bröllopet." : `Vi ses ${weddingDate}.`;
   const hasPlusOne = rsvpResponse.extra_guests > 0 && rsvpResponse.plus_one_name;
@@ -281,7 +252,10 @@ function Confirmation({
             Närvaro
           </dt>
           <dd className="text-lg font-semibold text-invite-ink">
-            {attendance.label} <span className="font-normal text-invite-walnut">— {attendance.detail}</span>
+            {attendance.label}{" "}
+            <span className="font-normal text-invite-walnut">
+              — {attendance.detail}
+            </span>
           </dd>
         </div>
         {phone ? (
@@ -328,12 +302,10 @@ export function RsvpPanel({
   weddingName,
 }: RsvpPanelProps) {
   const hasExistingRsvp = Boolean(rsvpResponse);
-  const initialAttendance = getInitialAttendance(rsvpResponse);
-  const initialPhone = guest.phone ?? "";
-  const initialPlusOneSelected = Boolean(
-    guest.plus_one_allowed && rsvpResponse?.extra_guests && rsvpResponse.plus_one_name,
+  const initialModel = getInitialRsvpFormModel({ guest, rsvpResponse });
+  const [plusOneSelected, setPlusOneSelected] = useState(
+    initialModel.includePlusOne,
   );
-  const [plusOneSelected, setPlusOneSelected] = useState(initialPlusOneSelected);
   const [showConfirmation, setShowConfirmation] = useState(
     showSubmittedConfirmation && Boolean(rsvpResponse),
   );
@@ -342,15 +314,6 @@ export function RsvpPanel({
     idleRsvpActionState,
   );
   const fieldErrors = state.fieldErrors;
-  const defaultSmsOptIn = getInitialSmsOptIn({
-    hasExistingRsvp,
-    phone: initialPhone,
-    smsOptIn: guest.sms_opt_in,
-  });
-  const plusOnePhone = rsvpResponse?.plus_one_phone ?? "";
-  const defaultPlusOneSmsOptIn = isE164PhoneNumber(plusOnePhone)
-    ? Boolean(rsvpResponse?.plus_one_sms_opt_in)
-    : false;
 
   useEffect(() => {
     // Complete successful client actions even after hash-only panel navigation.
@@ -369,7 +332,7 @@ export function RsvpPanel({
           clearSubmittedRsvpMarker();
           setShowConfirmation(false);
         }}
-        phone={initialPhone}
+        phone={initialModel.phone}
         rsvpResponse={rsvpResponse}
         weddingDate={weddingDate}
         weddingName={weddingName}
@@ -399,9 +362,9 @@ export function RsvpPanel({
         <fieldset className="grid gap-3">
           <BrevkortLegend>Närvaro</BrevkortLegend>
           <div className="grid grid-cols-3 gap-2">
-            {attendanceOptions.map((option) => (
+            {RSVP_ATTENDANCE_OPTIONS.map((option) => (
               <AttendanceChoice
-                defaultChecked={initialAttendance === option.value}
+                defaultChecked={initialModel.attendance === option.value}
                 description={option.description}
                 key={option.value}
                 label={option.label}
@@ -409,43 +372,45 @@ export function RsvpPanel({
               />
             ))}
           </div>
-          {getFieldError(fieldErrors, "attendance") ? (
-            <BrevkortErrorText>— {getFieldError(fieldErrors, "attendance")}</BrevkortErrorText>
+          {getFieldError(fieldErrors, RSVP_FORM_FIELDS.attendance) ? (
+            <BrevkortErrorText>
+              — {getFieldError(fieldErrors, RSVP_FORM_FIELDS.attendance)}
+            </BrevkortErrorText>
           ) : null}
         </fieldset>
 
         <TextField
           autoComplete="tel"
-          defaultValue={state.values?.phone ?? initialPhone}
-          error={getFieldError(fieldErrors, "phone")}
+          defaultValue={state.values?.phone ?? initialModel.phone}
+          error={getFieldError(fieldErrors, RSVP_FORM_FIELDS.phone)}
           inputMode="tel"
           label="Telefon"
-          name="phone"
+          name={RSVP_FORM_FIELDS.phone}
           pattern={PHONE_INPUT_PATTERN}
           placeholder={PHONE_FORMAT_EXAMPLE}
           type="tel"
         />
 
         <TextField
-          defaultValue={state.values?.foodPreference ?? rsvpResponse?.food_preference ?? ""}
-          error={getFieldError(fieldErrors, "food_preference")}
+          defaultValue={state.values?.foodPreference ?? initialModel.foodPreference}
+          error={getFieldError(fieldErrors, RSVP_FORM_FIELDS.foodPreference)}
           label="Matpreferens"
-          name="food_preference"
+          name={RSVP_FORM_FIELDS.foodPreference}
           placeholder="Vegetariskt, veganskt eller annat"
         />
 
         <TextAreaField
-          defaultValue={state.values?.allergyNotes ?? rsvpResponse?.allergy_notes ?? ""}
-          error={getFieldError(fieldErrors, "allergy_notes")}
+          defaultValue={state.values?.allergyNotes ?? initialModel.allergyNotes}
+          error={getFieldError(fieldErrors, RSVP_FORM_FIELDS.allergyNotes)}
           label="Allergier & övriga önskemål"
-          name="allergy_notes"
+          name={RSVP_FORM_FIELDS.allergyNotes}
           placeholder="Berätta om allergier eller annat vi bör veta."
         />
 
         <SmsCheckbox
-          defaultChecked={state.values?.smsOptIn ?? defaultSmsOptIn}
+          defaultChecked={state.values?.smsOptIn ?? initialModel.smsOptIn}
           label="Skicka mig viktiga SMS-uppdateringar."
-          name="sms_opt_in"
+          name={RSVP_FORM_FIELDS.smsOptIn}
         />
 
         {guest.plus_one_allowed ? (
@@ -477,29 +442,29 @@ export function RsvpPanel({
             </BrevkortHeading>
             <TextField
               autoComplete="name"
-              defaultValue={state.values?.plusOneName ?? rsvpResponse?.plus_one_name ?? ""}
-              error={getFieldError(fieldErrors, "plus_one_name")}
+              defaultValue={state.values?.plusOneName ?? initialModel.plusOneName}
+              error={getFieldError(fieldErrors, RSVP_FORM_FIELDS.plusOneName)}
               label="Namn"
-              name="plus_one_name"
+              name={RSVP_FORM_FIELDS.plusOneName}
               placeholder="För- och efternamn"
             />
             <TextField
               autoComplete="email"
-              defaultValue={state.values?.plusOneEmail ?? rsvpResponse?.plus_one_email ?? ""}
-              error={getFieldError(fieldErrors, "plus_one_email")}
+              defaultValue={state.values?.plusOneEmail ?? initialModel.plusOneEmail}
+              error={getFieldError(fieldErrors, RSVP_FORM_FIELDS.plusOneEmail)}
               inputMode="email"
               label="E-post"
-              name="plus_one_email"
+              name={RSVP_FORM_FIELDS.plusOneEmail}
               placeholder="namn@example.com"
               type="email"
             />
             <TextField
               autoComplete="tel"
-              defaultValue={state.values?.plusOnePhone ?? rsvpResponse?.plus_one_phone ?? ""}
-              error={getFieldError(fieldErrors, "plus_one_phone")}
+              defaultValue={state.values?.plusOnePhone ?? initialModel.plusOnePhone}
+              error={getFieldError(fieldErrors, RSVP_FORM_FIELDS.plusOnePhone)}
               inputMode="tel"
               label="Telefon"
-              name="plus_one_phone"
+              name={RSVP_FORM_FIELDS.plusOnePhone}
               pattern={PHONE_INPUT_PATTERN}
               placeholder={PHONE_FORMAT_EXAMPLE}
               type="tel"
@@ -507,29 +472,35 @@ export function RsvpPanel({
             <TextField
               defaultValue={
                 state.values?.plusOneFoodPreference ??
-                rsvpResponse?.plus_one_food_preference ??
-                ""
+                initialModel.plusOneFoodPreference
               }
-              error={getFieldError(fieldErrors, "plus_one_food_preference")}
+              error={getFieldError(
+                fieldErrors,
+                RSVP_FORM_FIELDS.plusOneFoodPreference,
+              )}
               label="Matpreferens"
-              name="plus_one_food_preference"
+              name={RSVP_FORM_FIELDS.plusOneFoodPreference}
               placeholder="Veganskt, glutenfritt eller annat"
             />
             <TextAreaField
               defaultValue={
                 state.values?.plusOneAllergyNotes ??
-                rsvpResponse?.plus_one_allergy_notes ??
-                ""
+                initialModel.plusOneAllergyNotes
               }
-              error={getFieldError(fieldErrors, "plus_one_allergy_notes")}
+              error={getFieldError(
+                fieldErrors,
+                RSVP_FORM_FIELDS.plusOneAllergyNotes,
+              )}
               label="Allergier & övriga önskemål"
-              name="plus_one_allergy_notes"
+              name={RSVP_FORM_FIELDS.plusOneAllergyNotes}
               placeholder="Allergier eller annat vi bör veta om din gäst."
             />
             <SmsCheckbox
-              defaultChecked={state.values?.plusOneSmsOptIn ?? defaultPlusOneSmsOptIn}
+              defaultChecked={
+                state.values?.plusOneSmsOptIn ?? initialModel.plusOneSmsOptIn
+              }
               label="Skicka även SMS-uppdateringar till din gäst."
-              name="plus_one_sms_opt_in"
+              name={RSVP_FORM_FIELDS.plusOneSmsOptIn}
             />
           </BrevkortCard>
         ) : null}

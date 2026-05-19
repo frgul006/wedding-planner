@@ -1,13 +1,16 @@
 import { hashInviteToken } from "./invite-token-crypto";
-import { parseOptionalPhone } from "./phone";
-import { isRsvpAttendance, type RsvpAttendance } from "./rsvp-attendance";
+import type { RsvpAttendance } from "./rsvp-attendance";
+import {
+  parseRsvpFormData,
+  RSVP_ACTION_COPY,
+  validateRsvpIntent,
+  type RsvpFormValues,
+  type RsvpIntent,
+} from "./rsvp-form-contract";
 import {
   buildRsvpErrorState,
   buildSubmittedRsvpState,
-  RSVP_ACTION_COPY,
-  type RsvpActionField,
   type RsvpActionState,
-  type RsvpFormValues,
 } from "./rsvp-form-state";
 
 export type SubmitRsvpResponseRpcArgs = {
@@ -49,120 +52,6 @@ type SubmitRsvpCommandInput = {
   rawToken: string;
   rpcAdapter: RsvpResponseRpcAdapter;
 };
-
-type RsvpIntent = {
-  allergyNotes: string | null;
-  attendance: RsvpAttendance | null;
-  foodPreference: string | null;
-  hasPlusOnePayload: boolean;
-  phone: ReturnType<typeof parseOptionalPhone>;
-  plusOneAllergyNotes: string | null;
-  plusOneEmail: string | null;
-  plusOneFoodPreference: string | null;
-  plusOneName: string | null;
-  plusOnePhone: ReturnType<typeof parseOptionalPhone>;
-  values: RsvpFormValues;
-};
-
-function getTextValue(value: FormDataEntryValue | null) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function getBooleanValue(value: FormDataEntryValue | null) {
-  return value === "on" || value === "true";
-}
-
-function cleanOptionalText(value: string) {
-  return value.length > 0 ? value : null;
-}
-
-function parseAttendance(value: string): RsvpAttendance | null {
-  if (!isRsvpAttendance(value)) {
-    return null;
-  }
-
-  return value;
-}
-
-function hasOptionalText(value: string | null) {
-  return value !== null;
-}
-
-function getFormValues(formData: FormData): RsvpFormValues {
-  return {
-    allergyNotes: getTextValue(formData.get("allergy_notes")),
-    attendance: getTextValue(formData.get("attendance")),
-    foodPreference: getTextValue(formData.get("food_preference")),
-    includePlusOne: getBooleanValue(formData.get("include_plus_one")),
-    phone: getTextValue(formData.get("phone")),
-    plusOneAllergyNotes: getTextValue(formData.get("plus_one_allergy_notes")),
-    plusOneEmail: getTextValue(formData.get("plus_one_email")),
-    plusOneFoodPreference: getTextValue(formData.get("plus_one_food_preference")),
-    plusOneName: getTextValue(formData.get("plus_one_name")),
-    plusOnePhone: getTextValue(formData.get("plus_one_phone")),
-    plusOneSmsOptIn: getBooleanValue(formData.get("plus_one_sms_opt_in")),
-    smsOptIn: getBooleanValue(formData.get("sms_opt_in")),
-  };
-}
-
-function parseRsvpIntent(formData: FormData): RsvpIntent {
-  const values = getFormValues(formData);
-  const phone = parseOptionalPhone(values.phone);
-  const plusOnePhone = parseOptionalPhone(values.plusOnePhone);
-  const foodPreference = cleanOptionalText(values.foodPreference);
-  const allergyNotes = cleanOptionalText(values.allergyNotes);
-  const plusOneName = cleanOptionalText(values.plusOneName);
-  const plusOneEmail = cleanOptionalText(values.plusOneEmail);
-  const plusOneFoodPreference = cleanOptionalText(values.plusOneFoodPreference);
-  const plusOneAllergyNotes = cleanOptionalText(values.plusOneAllergyNotes);
-  const hasPlusOnePayload =
-    values.includePlusOne ||
-    [plusOneName, plusOneEmail, plusOneFoodPreference, plusOneAllergyNotes].some(
-      hasOptionalText,
-    ) ||
-    plusOnePhone.phone !== null ||
-    values.plusOneSmsOptIn;
-
-  return {
-    allergyNotes,
-    attendance: parseAttendance(values.attendance),
-    foodPreference,
-    hasPlusOnePayload,
-    phone,
-    plusOneAllergyNotes,
-    plusOneEmail,
-    plusOneFoodPreference,
-    plusOneName,
-    plusOnePhone,
-    values,
-  };
-}
-
-function validateRsvpIntent(intent: RsvpIntent) {
-  const fieldErrors: Partial<Record<RsvpActionField, string>> = {};
-
-  if (!intent.attendance) {
-    fieldErrors.attendance = RSVP_ACTION_COPY.validation.attendanceRequired;
-  }
-
-  if (!intent.phone.isValid) {
-    fieldErrors.phone = RSVP_ACTION_COPY.validation.phoneFormat;
-  } else if (intent.values.smsOptIn && !intent.phone.phone) {
-    fieldErrors.phone = RSVP_ACTION_COPY.validation.smsPhoneRequired;
-  }
-
-  if (!intent.plusOnePhone.isValid) {
-    fieldErrors.plus_one_phone = RSVP_ACTION_COPY.validation.phoneFormat;
-  } else if (intent.values.plusOneSmsOptIn && !intent.plusOnePhone.phone) {
-    fieldErrors.plus_one_phone = RSVP_ACTION_COPY.validation.plusOneSmsPhoneRequired;
-  }
-
-  if (intent.hasPlusOnePayload && !intent.plusOneName) {
-    fieldErrors.plus_one_name = RSVP_ACTION_COPY.validation.plusOneNameRequired;
-  }
-
-  return fieldErrors;
-}
 
 function buildSubmitRsvpResponseArgs(
   intent: RsvpIntent,
@@ -270,7 +159,7 @@ export async function submitRsvpCommand({
   rawToken,
   rpcAdapter,
 }: SubmitRsvpCommandInput): Promise<RsvpActionState> {
-  const intent = parseRsvpIntent(formData);
+  const intent = parseRsvpFormData(formData);
   const fieldErrors = validateRsvpIntent(intent);
 
   if (Object.keys(fieldErrors).length > 0) {
