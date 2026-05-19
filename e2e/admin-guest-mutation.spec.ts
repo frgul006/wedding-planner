@@ -1,18 +1,31 @@
 import { expect, test } from "@playwright/test";
 
 import {
+  archiveAdminGuestMutation,
   createAdminGuestMutation,
+  generateAdminGuestInviteLinkMutation,
   updateAdminGuestMutation,
   type AdminGuestCreateRow,
+  type AdminGuestInviteLinkGenerator,
+  type AdminGuestInviteLinkGuestRow,
   type AdminGuestMutationStore,
   type AdminGuestUpdateRow,
   type EditableAdminGuestRow,
 } from "../lib/admin-guest-mutation";
+import {
+  getInviteAccessScopeForGuestKind,
+  isValidInviteAccessScopeForGuestKind,
+} from "../lib/guest-access-policy";
+import type { GuestLifecycleRpcAdapter } from "../lib/guest-lifecycle";
 
 class FakeAdminGuestMutationStore implements AdminGuestMutationStore {
   readonly createdGuests: AdminGuestCreateRow[] = [];
   readonly updatedGuests: Array<{
     guest: AdminGuestUpdateRow;
+    guestId: string;
+    weddingId: string;
+  }> = [];
+  readonly loadedInviteLinkGuests: Array<{
     guestId: string;
     weddingId: string;
   }> = [];
@@ -25,6 +38,11 @@ class FakeAdminGuestMutationStore implements AdminGuestMutationStore {
     sms_opted_in_at: null,
     sms_opted_out_at: null,
   };
+  currentInviteLinkGuest: AdminGuestInviteLinkGuestRow | null = {
+    guest_kind: "invited",
+    id: "guest-1",
+  };
+  inviteLinkLoadError: object | null = null;
   loadError: object | null = null;
   updateError: object | null = null;
   updateSucceeds = true;
@@ -36,6 +54,14 @@ class FakeAdminGuestMutationStore implements AdminGuestMutationStore {
 
   async loadEditableGuest() {
     return { error: this.loadError, guest: this.currentGuest };
+  }
+
+  async loadInviteLinkGuest(input: { guestId: string; weddingId: string }) {
+    this.loadedInviteLinkGuests.push(input);
+    return {
+      error: this.inviteLinkLoadError,
+      guest: this.currentInviteLinkGuest,
+    };
   }
 
   async updateGuest(input: {
@@ -90,6 +116,16 @@ function logger() {
     calls,
     logger: { error: (...args: unknown[]) => calls.push(args) },
   };
+}
+
+function inviteLinkGenerator() {
+  const calls: Parameters<AdminGuestInviteLinkGenerator>[0][] = [];
+  const generateInviteLink: AdminGuestInviteLinkGenerator = async (input) => {
+    calls.push(input);
+    return { inviteUrl: `https://example.test/invite/${input.accessScope}` };
+  };
+
+  return { calls, generateInviteLink };
 }
 
 test.describe("Admin Guest mutation Module", () => {
@@ -249,5 +285,184 @@ test.describe("Admin Guest mutation Module", () => {
     ).resolves.toEqual({ status: "create-failed" });
 
     expect(log.calls).toEqual([["Failed to create guest", error]]);
+  });
+
+  test("maps Guest kind to Invite access scope in one policy Module", () => {
+    expect(getInviteAccessScopeForGuestKind("invited")).toBe("full");
+    expect(getInviteAccessScopeForGuestKind("plus_one")).toBe("scoped");
+    expect(
+      isValidInviteAccessScopeForGuestKind({
+        accessScope: "full",
+        guestKind: "invited",
+      }),
+    ).toBe(true);
+    expect(
+      isValidInviteAccessScopeForGuestKind({
+        accessScope: "scoped",
+        guestKind: "invited",
+      }),
+    ).toBe(false);
+  });
+
+  test("generates Invite links with Guest-kind scoped access", async () => {
+    const store = new FakeAdminGuestMutationStore();
+    const invitedGenerator = inviteLinkGenerator();
+
+    await expect(
+      generateAdminGuestInviteLinkMutation({
+        generateInviteLink: invitedGenerator.generateInviteLink,
+        guestId: "guest-1",
+        store,
+        weddingId: "wedding-1",
+      }),
+    ).resolves.toEqual({
+      guestId: "guest-1",
+      inviteUrl: "https://example.test/invite/full",
+      status: "generated",
+    });
+    expect(invitedGenerator.calls).toEqual([
+      {
+        accessScope: "full",
+        guestId: "guest-1",
+        weddingId: "wedding-1",
+      },
+    ]);
+
+    store.currentInviteLinkGuest = { guest_kind: "plus_one", id: "plus-one-1" };
+    const plusOneGenerator = inviteLinkGenerator();
+    await expect(
+      generateAdminGuestInviteLinkMutation({
+        generateInviteLink: plusOneGenerator.generateInviteLink,
+        guestId: "plus-one-1",
+        store,
+        weddingId: "wedding-1",
+      }),
+    ).resolves.toEqual({
+      guestId: "plus-one-1",
+      inviteUrl: "https://example.test/invite/scoped",
+      status: "generated",
+    });
+    expect(plusOneGenerator.calls).toEqual([
+      {
+        accessScope: "scoped",
+        guestId: "plus-one-1",
+        weddingId: "wedding-1",
+      },
+    ]);
+    expect(store.loadedInviteLinkGuests).toEqual([
+      { guestId: "guest-1", weddingId: "wedding-1" },
+      { guestId: "plus-one-1", weddingId: "wedding-1" },
+    ]);
+  });
+
+  test("keeps Invite link generation failures behind the mutation Interface", async () => {
+    const store = new FakeAdminGuestMutationStore();
+    const generator = inviteLinkGenerator();
+
+    store.currentInviteLinkGuest = null;
+    await expect(
+      generateAdminGuestInviteLinkMutation({
+        generateInviteLink: generator.generateInviteLink,
+        guestId: "missing-guest",
+        store,
+        weddingId: "wedding-1",
+      }),
+    ).resolves.toEqual({ guestId: "missing-guest", status: "not-found" });
+    expect(generator.calls).toEqual([]);
+
+    store.currentInviteLinkGuest = { guest_kind: null, id: "legacy-guest" };
+    await expect(
+      generateAdminGuestInviteLinkMutation({
+        generateInviteLink: generator.generateInviteLink,
+        guestId: "legacy-guest",
+        store,
+        weddingId: "wedding-1",
+      }),
+    ).resolves.toEqual({ guestId: "legacy-guest", status: "unavailable" });
+    expect(generator.calls).toEqual([]);
+
+    const loadError = new Error("read failed");
+    const log = logger();
+    store.inviteLinkLoadError = loadError;
+    await expect(
+      generateAdminGuestInviteLinkMutation({
+        generateInviteLink: generator.generateInviteLink,
+        guestId: "guest-1",
+        logger: log.logger,
+        store,
+        weddingId: "wedding-1",
+      }),
+    ).resolves.toEqual({ guestId: "guest-1", status: "error" });
+    expect(log.calls).toEqual([
+      ["Failed to verify guest before invite token generation", loadError],
+    ]);
+
+    const tokenError = new Error("token failed");
+    const tokenLog = logger();
+    store.inviteLinkLoadError = null;
+    store.currentInviteLinkGuest = { guest_kind: "invited", id: "guest-1" };
+    await expect(
+      generateAdminGuestInviteLinkMutation({
+        generateInviteLink: async () => {
+          throw tokenError;
+        },
+        guestId: "guest-1",
+        logger: tokenLog.logger,
+        store,
+        weddingId: "wedding-1",
+      }),
+    ).resolves.toEqual({ guestId: "guest-1", status: "error" });
+    expect(tokenLog.calls).toEqual([
+      ["Failed to generate invite token", tokenError],
+    ]);
+  });
+
+  test("maps Guest lifecycle archive results to Admin Guest mutation statuses", async () => {
+    const calls: Array<{
+      args: { p_guest_id: string; p_wedding_id: string };
+      functionName: "archive_guest_lifecycle";
+    }> = [];
+    let rpcError: { code?: string; message?: string } | null = null;
+    const rpcAdapter: GuestLifecycleRpcAdapter = {
+      async rpc(functionName, args) {
+        calls.push({ args, functionName });
+        return { error: rpcError };
+      },
+    };
+
+    await expect(
+      archiveAdminGuestMutation({
+        guestId: "guest-1",
+        rpcAdapter,
+        weddingId: "wedding-1",
+      }),
+    ).resolves.toEqual({ status: "deleted" });
+
+    rpcError = { code: "P0002", message: "Guest not found" };
+    await expect(
+      archiveAdminGuestMutation({
+        guestId: "missing-guest",
+        rpcAdapter,
+        weddingId: "wedding-1",
+      }),
+    ).resolves.toEqual({ status: "not-found" });
+
+    const log = logger();
+    rpcError = { code: "XX000", message: "boom" };
+    await expect(
+      archiveAdminGuestMutation({
+        guestId: "guest-1",
+        logger: log.logger,
+        rpcAdapter,
+        weddingId: "wedding-1",
+      }),
+    ).resolves.toEqual({ status: "delete-failed" });
+    expect(log.calls).toEqual([
+      ["Failed to archive Guest lifecycle", rpcError],
+    ]);
+    expect(calls).toContainEqual({
+      args: { p_guest_id: "guest-1", p_wedding_id: "wedding-1" },
+      functionName: "archive_guest_lifecycle",
+    });
   });
 });

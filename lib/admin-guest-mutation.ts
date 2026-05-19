@@ -1,5 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  getInviteAccessScopeForGuestKind,
+  isGuestKind,
+  type InviteAccessScope,
+} from "@/lib/guest-access-policy";
+import {
+  archiveGuestLifecycle,
+  type GuestLifecycleRpcAdapter,
+} from "@/lib/guest-lifecycle";
 import { isE164PhoneNumber } from "@/lib/phone";
 import { isNullableString, isRecord } from "@/lib/type-guards";
 
@@ -48,6 +57,30 @@ export type EditableAdminGuestRow = {
   sms_opted_out_at: string | null;
 };
 
+export type AdminGuestInviteLinkGuestRow = {
+  guest_kind: unknown;
+  id: string;
+};
+
+export type AdminGuestInviteLinkGenerator = (input: {
+  accessScope: InviteAccessScope;
+  guestId: string;
+  weddingId: string;
+}) => Promise<{ inviteUrl: string }>;
+
+export type GenerateAdminGuestInviteLinkResult =
+  | { guestId: string; inviteUrl: string; status: "generated" }
+  | { guestId: string; status: "error" | "not-found" | "unavailable" };
+
+export type AdminGuestArchiveMutationStatus =
+  | "delete-failed"
+  | "deleted"
+  | "not-found";
+
+export type AdminGuestArchiveMutationResult = {
+  status: AdminGuestArchiveMutationStatus;
+};
+
 type AdminGuestMutationStoreError = object;
 
 export type AdminGuestMutationStore = {
@@ -60,6 +93,13 @@ export type AdminGuestMutationStore = {
   }): Promise<{
     error: AdminGuestMutationStoreError | null;
     guest: EditableAdminGuestRow | null;
+  }>;
+  loadInviteLinkGuest(input: {
+    guestId: string;
+    weddingId: string;
+  }): Promise<{
+    error: AdminGuestMutationStoreError | null;
+    guest: AdminGuestInviteLinkGuestRow | null;
   }>;
   updateGuest(input: {
     guest: AdminGuestUpdateRow;
@@ -98,6 +138,12 @@ function isEditableAdminGuestRow(value: unknown): value is EditableAdminGuestRow
     isNullableString(value.sms_opted_in_at) &&
     isNullableString(value.sms_opted_out_at)
   );
+}
+
+function isAdminGuestInviteLinkGuestRow(
+  value: unknown,
+): value is AdminGuestInviteLinkGuestRow {
+  return isRecord(value) && typeof value.id === "string" && "guest_kind" in value;
 }
 
 export function parseAdminGuestMutationPayload(
@@ -155,6 +201,20 @@ export function createSupabaseAdminGuestMutationStore(
       return {
         error,
         guest: isEditableAdminGuestRow(data) ? data : null,
+      };
+    },
+    async loadInviteLinkGuest({ guestId, weddingId }) {
+      const { data, error } = await supabase
+        .from("guests")
+        .select("guest_kind, id")
+        .eq("id", guestId)
+        .eq("wedding_id", weddingId)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      return {
+        error,
+        guest: isAdminGuestInviteLinkGuestRow(data) ? data : null,
       };
     },
     async updateGuest({ guest, guestId, weddingId }) {
@@ -274,4 +334,81 @@ export async function updateAdminGuestMutation({
   }
 
   return { status: "updated" };
+}
+
+export async function generateAdminGuestInviteLinkMutation({
+  generateInviteLink,
+  guestId,
+  logger = console,
+  store,
+  weddingId,
+}: {
+  generateInviteLink: AdminGuestInviteLinkGenerator;
+  guestId: string;
+  logger?: AdminGuestMutationLogger;
+  store: AdminGuestMutationStore;
+  weddingId: string;
+}): Promise<GenerateAdminGuestInviteLinkResult> {
+  const currentGuest = await store.loadInviteLinkGuest({ guestId, weddingId });
+
+  if (currentGuest.error) {
+    logger.error(
+      "Failed to verify guest before invite token generation",
+      currentGuest.error,
+    );
+    return { guestId, status: "error" };
+  }
+
+  if (!currentGuest.guest) {
+    return { guestId, status: "not-found" };
+  }
+
+  const guestKind = currentGuest.guest.guest_kind;
+
+  if (!isGuestKind(guestKind)) {
+    return { guestId, status: "unavailable" };
+  }
+
+  try {
+    const accessScope = getInviteAccessScopeForGuestKind(guestKind);
+    const { inviteUrl } = await generateInviteLink({
+      accessScope,
+      guestId,
+      weddingId,
+    });
+
+    return { guestId, inviteUrl, status: "generated" };
+  } catch (error) {
+    logger.error("Failed to generate invite token", error);
+    return { guestId, status: "error" };
+  }
+}
+
+export async function archiveAdminGuestMutation({
+  guestId,
+  logger = console,
+  rpcAdapter,
+  weddingId,
+}: {
+  guestId: string;
+  logger?: AdminGuestMutationLogger;
+  rpcAdapter: GuestLifecycleRpcAdapter;
+  weddingId: string;
+}): Promise<AdminGuestArchiveMutationResult> {
+  const result = await archiveGuestLifecycle({
+    guestId,
+    logger,
+    rpcAdapter,
+    weddingId,
+  });
+
+  if (result.status === "archived") {
+    return { status: "deleted" };
+  }
+
+  if (result.status === "not_found") {
+    return { status: "not-found" };
+  }
+
+  return { status: "delete-failed" };
 }
