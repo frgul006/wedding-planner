@@ -5,21 +5,16 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
+import {
+  createAdminGuestMutation,
+  createSupabaseAdminGuestMutationStore,
+  updateAdminGuestMutation,
+} from "@/lib/admin-guest-mutation";
 import { archiveGuestLifecycle } from "@/lib/guest-lifecycle";
 import type { InviteAccessScope } from "@/lib/invite-access";
 import { regenerateInviteToken } from "@/lib/invite-tokens";
-import { isE164PhoneNumber } from "@/lib/phone";
 import { getRequestOriginFromHeaders } from "@/lib/public-url";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-function cleanOptionalText(value: FormDataEntryValue | null) {
-  const text = typeof value === "string" ? value.trim() : "";
-  return text.length > 0 ? text : null;
-}
-
-function cleanRequiredText(value: FormDataEntryValue | null) {
-  return typeof value === "string" ? value.trim() : "";
-}
 
 export type GenerateInviteLinkState = {
   error?: string;
@@ -39,117 +34,47 @@ function getInviteAccessScopeForGuestKind(guestKind: string): InviteAccessScope 
   return null;
 }
 
-function getGuestPayload(formData: FormData) {
-  const fullName = cleanRequiredText(formData.get("full_name"));
-  const email = cleanOptionalText(formData.get("email"));
-  const phone = cleanOptionalText(formData.get("phone"));
-  const notes = cleanOptionalText(formData.get("notes"));
-  const smsOptIn = formData.get("sms_opt_in") === "on";
-  const plusOneAllowed = formData.get("plus_one_allowed") === "on";
-
-  if (!fullName) {
-    redirect("/admin/guests?error=missing-name");
+function redirectToGuestMutationResult(result: { status: string }): never {
+  if (result.status === "created" || result.status === "updated") {
+    redirect(`/admin/guests?status=${result.status}`);
   }
 
-  if (!email && !phone) {
-    redirect("/admin/guests?error=missing-contact");
-  }
-
-  if (smsOptIn && (!phone || !isE164PhoneNumber(phone))) {
-    redirect("/admin/guests?error=invalid-sms-phone");
-  }
-
-  return {
-    full_name: fullName,
-    email,
-    notes,
-    phone,
-    plus_one_allowed: plusOneAllowed,
-    sms_opt_in: smsOptIn,
-  };
+  redirect(`/admin/guests?error=${result.status}`);
 }
 
 export async function createGuestAction(formData: FormData) {
   const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
-  const payload = getGuestPayload(formData);
-  const now = new Date().toISOString();
-
-  const { error } = await supabase.from("guests").insert({
-    ...payload,
-    sms_opted_in_at: payload.sms_opt_in ? now : null,
-    sms_opted_out_at: null,
-    wedding_id: adminProfile.wedding_id,
+  const result = await createAdminGuestMutation({
+    formData,
+    store: createSupabaseAdminGuestMutationStore(supabase),
+    weddingId: adminProfile.wedding_id,
   });
 
-  if (error) {
-    console.error("Failed to create guest", error);
-    redirect("/admin/guests?error=create-failed");
+  if (result.status !== "created") {
+    redirectToGuestMutationResult(result);
   }
 
   revalidatePath("/admin/guests");
-  redirect("/admin/guests?status=created");
+  redirectToGuestMutationResult(result);
 }
 
 export async function updateGuestAction(guestId: string, formData: FormData) {
   const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
-  const { data: currentGuest, error: currentGuestError } = await supabase
-    .from("guests")
-    .select("id, rsvp_managed, sms_opt_in, sms_opted_in_at, sms_opted_out_at")
-    .eq("id", guestId)
-    .eq("wedding_id", adminProfile.wedding_id)
-    .is("deleted_at", null)
-    .maybeSingle();
+  const result = await updateAdminGuestMutation({
+    formData,
+    guestId,
+    store: createSupabaseAdminGuestMutationStore(supabase),
+    weddingId: adminProfile.wedding_id,
+  });
 
-  if (currentGuestError) {
-    console.error("Failed to load guest before update", currentGuestError);
-    redirect("/admin/guests?error=update-failed");
-  }
-
-  if (!currentGuest) {
-    redirect("/admin/guests?error=not-found");
-  }
-
-  if (currentGuest.rsvp_managed) {
-    redirect("/admin/guests?error=update-failed");
-  }
-
-  const payload = getGuestPayload(formData);
-  const now = new Date().toISOString();
-  const smsOptedInAt = payload.sms_opt_in
-    ? currentGuest.sms_opted_in_at ?? now
-    : currentGuest.sms_opted_in_at;
-  const smsOptedOutAt = payload.sms_opt_in
-    ? null
-    : currentGuest.sms_opt_in
-      ? now
-      : currentGuest.sms_opted_out_at;
-
-  const { data, error } = await supabase
-    .from("guests")
-    .update({
-      ...payload,
-      sms_opted_in_at: smsOptedInAt,
-      sms_opted_out_at: smsOptedOutAt,
-    })
-    .eq("id", guestId)
-    .eq("wedding_id", adminProfile.wedding_id)
-    .is("deleted_at", null)
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    console.error("Failed to update guest", error);
-    redirect("/admin/guests?error=update-failed");
-  }
-
-  if (!data) {
-    redirect("/admin/guests?error=not-found");
+  if (result.status !== "updated") {
+    redirectToGuestMutationResult(result);
   }
 
   revalidatePath("/admin/guests");
-  redirect("/admin/guests?status=updated");
+  redirectToGuestMutationResult(result);
 }
 
 export async function generateInviteLinkAction(

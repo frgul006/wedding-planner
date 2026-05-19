@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { resolveWeddingHubContext } from "@/lib/wedding-hub-photo";
+import { resolveWeddingHubAccess } from "@/lib/wedding-hub-access";
 import { getWeddingHubPhotoData } from "@/lib/wedding-hub-photo-verification";
 
 export async function GET() {
   const supabase = createSupabaseAdminClient();
-  const context = await resolveWeddingHubContext({
+  const context = await resolveWeddingHubAccess({
     supabase,
     existingCookieValue: null,
   });

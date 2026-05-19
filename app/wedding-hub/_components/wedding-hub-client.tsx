@@ -15,7 +15,7 @@ import type {
   HubGalleryPhoto,
   HubPhotoData,
 } from "@/lib/wedding-hub-photo-verification";
-import type { HubContext } from "@/lib/wedding-hub-photo";
+import type { HubContext } from "@/lib/wedding-hub-access";
 import { getMonogram, type HubWedding } from "@/lib/wedding-hub";
 
 type UploadIntent = {

@@ -10,7 +10,7 @@ import {
 import { normalizePhotoGuestName } from "@/lib/photo-upload-display";
 import { isRecord } from "@/lib/type-guards";
 import { verifySignedUploadClaim } from "@/lib/wedding-hub-photo-upload";
-import type { HubUploadAttribution } from "@/lib/wedding-hub-photo";
+import type { HubUploadAttribution } from "@/lib/wedding-hub-access";
 import type { HubWedding } from "@/lib/wedding-hub";
 
 export type FinalizeRequestItem = {

@@ -32,6 +32,10 @@ _Avoid_: ad hoc delete cascade, scattered guest cleanup
 The admin-facing read view of active **Guest** records with their **Invite access** affordances and **RSVP** summary.
 _Avoid_: raw guests table, invitee list
 
+**Admin Guest mutation**:
+The admin-facing write path for adding or editing active **Guest** identity, contact, +1 permission, SMS consent, and notes.
+_Avoid_: ad hoc guest form parsing, raw guest update action
+
 **Invite access**:
 Whether a private **Invite** link currently grants a **Guest** access to their **Invite**.
 _Avoid_: invite state, login session, public access
@@ -39,6 +43,10 @@ _Avoid_: invite state, login session, public access
 **Scoped Invite access**:
 **Invite access** for a **Plus-one Guest** that shows non-RSVP **Invite** information and grants Wedding hub access.
 _Avoid_: read-only login, partial invite, limited access
+
+**Wedding hub access**:
+Whether the shared Wedding hub can be used for guest actions such as photo upload, granted either by open anonymous uploads or by a valid Guest navigation session tied to an active, non-archived **Guest**.
+_Avoid_: stale invite cookie permission, QR upload bypass
 
 **RSVP**:
 An **Invited Guest**'s answer to whether they and any **Plus-one Guest** will attend the **Wedding**, captured inside their **Invite**.
@@ -77,14 +85,17 @@ _Avoid_: Efterfest
 - An **Invited Guest** may have zero or one **Plus-one Guest**.
 - A **Plus-one Guest** is tied to exactly one **Invited Guest**.
 - The **Admin Guest roster** shows both **Invited Guest** and **Plus-one Guest**, labels which kind each **Guest** is, and shows the tied **Invited Guest** for each **Plus-one Guest**.
+- An **Admin Guest mutation** adds or edits active **Invited Guest** records; RSVP-managed **Plus-one Guest** identity and contact fields stay read-only to admins.
 - A **Plus-one Guest** created from RSVP plus-one details remains RSVP-managed: admin can view, archive, and manage **Scoped Invite access**, while identity and contact fields sync from the tied **Invited Guest**'s **RSVP**.
 - A **Guest lifecycle mutation** archives a **Guest** and any tied RSVP-managed **Plus-one Guest** records in one atomic write path.
 - **Invite access** is checked before showing Guest-specific **Invite** details.
 - **Invite access** scope is a property of an Invite token: full scope grants an **Invited Guest** RSVP-capable access, while scoped tokens grant **Scoped Invite access** to a **Plus-one Guest**.
 - Archived **Guest** records and revoked Invite tokens deny **Invite access** regardless of scope.
+- Archived **Guest** records also stop Guest-cookie-based **Wedding hub access** when anonymous uploads are disabled.
 - A **Guest lifecycle mutation** revokes active scoped Invite tokens for archived **Plus-one Guest** records.
 - **Invite access** and opened-Invite activity are distinct from **RSVP** status.
 - **Scoped Invite access** lets a **Plus-one Guest** view non-RSVP **Invite** details and access the Wedding hub, but not submit an **RSVP**.
+- **Wedding hub access** for guest-only uploads requires a valid Guest navigation session whose **Guest** is still active and non-archived.
 - An **Invite** lets an **Invited Guest** submit or update an **RSVP**.
 - An **RSVP** can name one **Plus-one Guest** when the **Invited Guest** has +1 permission.
 - A **Plus-one Guest** inherits the tied **Invited Guest**'s **RSVP** status for Message target audiences.
