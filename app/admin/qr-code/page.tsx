@@ -7,6 +7,7 @@ import { connection } from "next/server";
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
 import { getRequestOriginFromHeaders } from "@/lib/public-url";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatWeddingSettingsDate } from "@/lib/wedding-settings-display";
 import { getWeddingHubUrl } from "@/lib/wedding-hub-url";
 
 import { QrCodeActions } from "./qr-code-actions";
@@ -20,26 +21,6 @@ type WeddingQrDetails = {
   venue_name: string | null;
   wedding_date: string | null;
 };
-
-const weddingDateFormatter = new Intl.DateTimeFormat("sv-SE", {
-  dateStyle: "full",
-  timeStyle: "short",
-  timeZone: "Europe/Stockholm",
-});
-
-function formatWeddingDate(value: string | null) {
-  if (!value) {
-    return "Wedding date not set";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Wedding date not set";
-  }
-
-  return weddingDateFormatter.format(date);
-}
 
 function getWeddingDetails(value: unknown): WeddingQrDetails | null {
   if (!value || typeof value !== "object") {
@@ -131,7 +112,11 @@ export default async function QrCodePage() {
             <p className="mt-3 text-sm text-zinc-500 print:text-zinc-700">
               {wedding?.name ?? "Wedding hub"}
               {wedding?.venue_name ? ` · ${wedding.venue_name}` : ""}
-              {wedding?.wedding_date ? ` · ${formatWeddingDate(wedding.wedding_date)}` : ""}
+              {wedding?.wedding_date
+                ? ` · ${formatWeddingSettingsDate(wedding.wedding_date, {
+                    fallback: "Wedding date not set",
+                  })}`
+                : ""}
             </p>
           </section>
 

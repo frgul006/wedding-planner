@@ -15,7 +15,6 @@ export type HubContext = {
   wedding: HubWedding;
   attribution: HubUploadAttribution;
   uploadAllowed: boolean;
-  spotifyUrl: string | null;
 };
 
 type ActiveHubGuestRow = {
@@ -103,7 +102,6 @@ export async function resolveWeddingHubAccess({
     wedding,
     attribution,
     uploadAllowed,
-    spotifyUrl: wedding.spotify_playlist_url,
   };
 }
 

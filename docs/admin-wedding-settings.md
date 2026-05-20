@@ -37,7 +37,7 @@ Editable fields:
 
 `time_plan` is edited as one item per textarea line, such as `16:30 - Välkomstdrinkar`, and saved as a structured JSON array of `{ time, label }` rows. Each non-blank row requires a valid local clock time and a label; label-only rows are invalid and block saving with an error. Blank lines are ignored. Existing string rows are still normalized when rendered.
 
-`partner_one_name` and `partner_two_name` drive the public invite cover names. They are optional and intentionally separate from `name`, which remains the general wedding title / legacy display name. Blank partner fields render safe public placeholders instead of parsing `name`.
+`partner_one_name` and `partner_two_name` drive the **Public Wedding identity** used by the Invite cover, invalid-Invite contact, and Wedding hub monogram. They are optional and intentionally separate from `name`, which remains the general wedding title / legacy display name. Blank partner fields render safe public placeholders instead of parsing `name`.
 
 `wedding_date` is the wedding start time as Stockholm wall-clock time. Admin-entered `datetime-local` values are interpreted in `Europe/Stockholm`, not in the production server timezone or the admin browser timezone.
 

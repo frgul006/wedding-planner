@@ -64,6 +64,10 @@ _Avoid_: redirect hack, query flag, client action workaround
 The admin-maintained **Wedding** details that become guest-facing **Invite** and Wedding hub information.
 _Avoid_: event details, app config, settings form
 
+**Public Wedding identity**:
+The guest-facing partner names and couple mark derived from explicit **Wedding settings** partner fields, reused by the **Invite**, invalid-Invite contact, and Wedding hub.
+_Avoid_: parsed wedding name, legacy title initials, inferred couple names
+
 **Wedding start time**:
 The intended local Stockholm date and clock time when the wedding celebration begins.
 _Avoid_: UTC time, server time, browser-local time
@@ -79,9 +83,10 @@ _Avoid_: Efterfest
 ## Relationships
 
 - A **Wedding** has exactly one set of **Wedding settings**.
+- **Wedding settings** include one **Public Wedding identity** derived from explicit partner-name fields.
 - **Wedding settings** include exactly one **Wedding start time**.
 - **Wedding settings** include zero or more **Time Plan** entries.
-- An **Invite** shows the **Wedding start time** and **Time Plan** to a **Guest**.
+- An **Invite** shows the **Public Wedding identity**, **Wedding start time**, and **Time Plan** to a **Guest**.
 - An **Invited Guest** may have zero or one **Plus-one Guest**.
 - A **Plus-one Guest** is tied to exactly one **Invited Guest**.
 - The **Admin Guest roster** shows both **Invited Guest** and **Plus-one Guest**, labels which kind each **Guest** is, and shows the tied **Invited Guest** for each **Plus-one Guest**.

@@ -3,7 +3,6 @@ import { cookies } from "next/headers";
 import { connection } from "next/server";
 
 import { WeddingHubClient } from "@/app/wedding-hub/_components/wedding-hub-client";
-import { getSafeHttpUrl } from "@/lib/safe-url";
 import { resolveWeddingHubAccess } from "@/lib/wedding-hub-access";
 import { getWeddingHubPhotoData } from "@/lib/wedding-hub-photo-verification";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
@@ -38,14 +37,11 @@ export default async function WeddingHubPage() {
     wedding: context.wedding,
   });
 
-  const spotifyEnabled = Boolean(getSafeHttpUrl(context.wedding.spotify_playlist_url));
-
   return (
     <WeddingHubClient
       context={context}
       wedding={context.wedding}
       initialPhotoData={photoData}
-      spotifyEnabled={spotifyEnabled}
     />
   );
 }

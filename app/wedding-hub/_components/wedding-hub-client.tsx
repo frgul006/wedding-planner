@@ -16,7 +16,8 @@ import type {
   HubPhotoData,
 } from "@/lib/wedding-hub-photo-verification";
 import type { HubContext } from "@/lib/wedding-hub-access";
-import { getMonogram, type HubWedding } from "@/lib/wedding-hub";
+import type { HubWedding } from "@/lib/wedding-hub";
+import { getWeddingHubDisplay } from "@/lib/wedding-settings-display";
 
 type UploadIntent = {
   clientId: string;
@@ -58,7 +59,6 @@ type WeddingHubClientProps = {
   context: HubContext | null;
   wedding: HubWedding;
   initialPhotoData: HubPhotoData;
-  spotifyEnabled: boolean;
 };
 
 const PHOTO_UPLOAD_ALLOWED_MIME_TYPE_SET = new Set<string>(PHOTO_UPLOAD_ALLOWED_MIME_TYPES);
@@ -215,8 +215,8 @@ export function WeddingHubClient({
   context,
   wedding,
   initialPhotoData,
-  spotifyEnabled,
 }: WeddingHubClientProps) {
+  const hubDisplay = getWeddingHubDisplay(wedding);
   const [activeTab, setActiveTab] = useState<"flow" | "gallery">("flow");
   const [photos, setPhotos] = useState<HubGalleryPhoto[]>(initialPhotoData.photos.photos);
   const [feed, setFeed] = useState<HubFeedItem[]>(initialPhotoData.feed);
@@ -739,16 +739,6 @@ export function WeddingHubClient({
     }
   }, [canUpload, isUploadingAll, refreshGallery, selectedPhotos, updateSelected, wedding.photo_upload_requires_review]);
 
-  const dateBadge = wedding.wedding_date
-    ? new Intl.DateTimeFormat("sv-SE", {
-        day: "numeric",
-        month: "short",
-      })
-        .format(new Date(wedding.wedding_date))
-        .replace(".", "")
-        .toLocaleUpperCase("sv-SE")
-    : "BRÖLLOPSHUBB";
-
   return (
     <main className="min-h-dvh bg-[#f1eadc] pb-28 text-[#15130f]" style={{
       backgroundImage:
@@ -758,10 +748,10 @@ export function WeddingHubClient({
       <section className="mx-auto flex min-h-dvh w-full max-w-md flex-col shadow-[0_0_0_1px_rgba(21,19,15,0.08)]">
         <header className="flex items-center justify-between border-b border-[#15130f]/15 px-5 py-4">
           <p className="font-serif text-2xl italic tracking-tight text-[#6f4f33]">
-            {getMonogram(wedding.name)}
+            {hubDisplay.monogram}
           </p>
           <p className="font-mono text-[0.65rem] uppercase tracking-[0.25em] text-[#6b6358]">
-            Bröllopshub · {dateBadge}
+            Bröllopshub · {hubDisplay.dateBadge}
           </p>
         </header>
 
@@ -792,15 +782,15 @@ export function WeddingHubClient({
 
           <a
             className={`min-h-34 flex min-w-0 flex-col items-center justify-center gap-3 border px-3 py-6 text-center ${
-              spotifyEnabled ? "text-[#15130f]" : "text-[#15130f]/50"
+              hubDisplay.spotifyEnabled ? "text-[#15130f]" : "text-[#15130f]/50"
             } border-[#15130f]/30`}
-            href={spotifyEnabled ? wedding.spotify_playlist_url ?? "" : undefined}
+            href={hubDisplay.spotifyEnabled ? hubDisplay.spotifyUrl ?? "" : undefined}
             rel="noopener noreferrer"
             target="_blank"
           >
             <span className="flex h-11 w-11 items-center justify-center rounded-full border border-current text-2xl">♪</span>
             <span className="max-w-full break-words font-serif text-2xl italic leading-none tracking-tight">Spellista</span>
-            <span className="font-mono text-[0.65rem] uppercase tracking-[0.28em]">{spotifyEnabled ? "Öppna" : "Saknas"}</span>
+            <span className="font-mono text-[0.65rem] uppercase tracking-[0.28em]">{hubDisplay.spotifyEnabled ? "Öppna" : "Saknas"}</span>
           </a>
         </section>
 
@@ -974,10 +964,10 @@ export function WeddingHubClient({
             >
               {selectedPhotos.length > 0 ? "↑ Ladda upp" : "↑ Välj bilder"}
             </button>
-            {spotifyEnabled ? (
+            {hubDisplay.spotifyEnabled ? (
               <a
                 className="border border-white/25 px-3 py-4 text-center font-mono text-[0.75rem] font-semibold uppercase tracking-[0.28em] text-[#f1eadc] no-underline"
-                href={wedding.spotify_playlist_url ?? ""}
+                href={hubDisplay.spotifyUrl ?? ""}
                 rel="noopener noreferrer"
                 target="_blank"
               >

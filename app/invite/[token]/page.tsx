@@ -12,7 +12,13 @@ import { shouldShowInviteRsvpSubmittedConfirmation } from "@/lib/invite-rsvp-nav
 import { RSVP_ATTENDANCE, type RsvpAttendance } from "@/lib/rsvp-attendance";
 import { getRsvpAttendanceSummary } from "@/lib/rsvp-form-contract";
 import { getSafeHttpUrl } from "@/lib/safe-url";
-import { getSafeWeddingSettingsUrl } from "@/lib/wedding-settings";
+import {
+  getGuestFacingWeddingSettingsDisplay,
+  getWeddingSettingsDisplayText,
+  WEDDING_SETTINGS_DISPLAY_FALLBACK,
+  type PublicPartnerNames,
+  type WeddingCoverDateTime,
+} from "@/lib/wedding-settings-display";
 import { getPublishedWeddingUpdates } from "@/lib/wedding-updates";
 
 import {
@@ -45,47 +51,11 @@ type InvitePageProps = {
 
 type ValidInviteResult = GrantedInviteAccessWithRsvp;
 
-const comingSoon = "Kommer snart";
-const partnerNamePlaceholders = {
-  one: "Partner 1",
-  two: "Partner 2",
-} as const;
+const comingSoon = WEDDING_SETTINGS_DISPLAY_FALLBACK;
 const fullPanelLabels = ["Inbjudan", "Detaljer", "OSA"] as const;
 const fullPanelIds = ["inbjudan", "detaljer", "osa"] as const;
 const scopedPanelLabels = ["Inbjudan", "Detaljer"] as const;
 const scopedPanelIds = ["inbjudan", "detaljer"] as const;
-const weddingDateFormatter = new Intl.DateTimeFormat("sv-SE", {
-  dateStyle: "full",
-  timeStyle: "short",
-  timeZone: "Europe/Stockholm",
-});
-
-const coverDatePartsFormatter = new Intl.DateTimeFormat("sv-SE", {
-  day: "numeric",
-  month: "numeric",
-  timeZone: "Europe/Stockholm",
-});
-
-const coverTimeFormatter = new Intl.DateTimeFormat("sv-SE", {
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: "Europe/Stockholm",
-});
-
-const swedishShortMonths = [
-  "jan",
-  "feb",
-  "mars",
-  "apr",
-  "maj",
-  "juni",
-  "juli",
-  "aug",
-  "sept",
-  "okt",
-  "nov",
-  "dec",
-] as const;
 
 const rsvpSubmittedFormatter = new Intl.DateTimeFormat("sv-SE", {
   dateStyle: "medium",
@@ -98,55 +68,6 @@ const updatePublishedFormatter = new Intl.DateTimeFormat("sv-SE", {
   timeStyle: "short",
   timeZone: "Europe/Stockholm",
 });
-
-function formatWeddingDate(value: string | null) {
-  if (!value) {
-    return comingSoon;
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return comingSoon;
-  }
-
-  return weddingDateFormatter.format(date);
-}
-
-type CoverDateTime = {
-  dateText: string;
-  dayText: string | null;
-  monthText: string | null;
-  timeText: string | null;
-};
-
-function formatCoverDateTime(value: string | null): CoverDateTime {
-  if (!value) {
-    return { dateText: comingSoon, dayText: null, monthText: null, timeText: null };
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return { dateText: comingSoon, dayText: null, monthText: null, timeText: null };
-  }
-
-  const parts = coverDatePartsFormatter.formatToParts(date);
-  const day = parts.find((part) => part.type === "day")?.value;
-  const month = Number(parts.find((part) => part.type === "month")?.value);
-  const monthText = Number.isInteger(month) ? swedishShortMonths[month - 1] : null;
-
-  if (!day || !monthText) {
-    return { dateText: comingSoon, dayText: null, monthText: null, timeText: null };
-  }
-
-  return {
-    dateText: `${day} ${monthText}`,
-    dayText: day,
-    monthText,
-    timeText: `kl. ${coverTimeFormatter.format(date)}`,
-  };
-}
 
 function formatRsvpSubmittedAt(value: string | null) {
   if (!value) {
@@ -172,11 +93,6 @@ function formatPublishedUpdateAt(value: string) {
   return updatePublishedFormatter.format(date);
 }
 
-function getDisplayText(value: string | null) {
-  const text = value?.trim();
-  return text ? text : comingSoon;
-}
-
 function getSavedAnswerBannerClass(attendance: RsvpAttendance) {
   if (attendance === RSVP_ATTENDANCE.yes) {
     return "border-l-invite-success";
@@ -199,48 +115,6 @@ function getSavedAnswerReceiptClass(attendance: RsvpAttendance) {
   }
 
   return "border-invite-border bg-invite-paper text-invite-walnut";
-}
-
-type PublicPartnerNames = {
-  displayName: string;
-  hasExplicitPartnerOneName: boolean;
-  hasExplicitPartnerTwoName: boolean;
-  partnerOneName: string;
-  partnerTwoName: string;
-};
-
-function cleanPublicPartnerName(value: string | null) {
-  const text = value?.trim();
-  return text ? text : null;
-}
-
-function getPublicPartnerNames({
-  partner_one_name: partnerOneName,
-  partner_two_name: partnerTwoName,
-}: Pick<ValidInviteResult["wedding"], "partner_one_name" | "partner_two_name">): PublicPartnerNames {
-  const explicitPartnerOneName = cleanPublicPartnerName(partnerOneName);
-  const explicitPartnerTwoName = cleanPublicPartnerName(partnerTwoName);
-  const publicPartnerOneName = explicitPartnerOneName ?? partnerNamePlaceholders.one;
-  const publicPartnerTwoName = explicitPartnerTwoName ?? partnerNamePlaceholders.two;
-
-  return {
-    displayName: `${publicPartnerOneName} & ${publicPartnerTwoName}`,
-    hasExplicitPartnerOneName: Boolean(explicitPartnerOneName),
-    hasExplicitPartnerTwoName: Boolean(explicitPartnerTwoName),
-    partnerOneName: publicPartnerOneName,
-    partnerTwoName: publicPartnerTwoName,
-  };
-}
-
-function getCoupleMark(partnerNames: PublicPartnerNames) {
-  if (
-    !partnerNames.hasExplicitPartnerOneName ||
-    !partnerNames.hasExplicitPartnerTwoName
-  ) {
-    return "♡";
-  }
-
-  return `${partnerNames.partnerOneName.charAt(0)} & ${partnerNames.partnerTwoName.charAt(0)}`.toUpperCase();
 }
 
 function ExternalLink({ children, href }: { children: ReactNode; href: string }) {
@@ -307,7 +181,7 @@ function CoverPanel({
   venueName,
 }: {
   canSubmitRsvp: boolean;
-  coverDateTime: CoverDateTime;
+  coverDateTime: WeddingCoverDateTime;
   guestName: string;
   partnerNames: PublicPartnerNames;
   rsvpResponse: null | { attendance: RsvpAttendance };
@@ -501,13 +375,13 @@ function DetailsPanel({
             <div className="grid gap-4">
               <div>
                 <p className="text-2xl font-semibold tracking-tight">
-                  {getDisplayText(wedding.venue_name)}
+                  {getWeddingSettingsDisplayText(wedding.venue_name)}
                 </p>
                 {wedding.venue_area ? (
                   <p className="mt-1 text-invite-walnut">{wedding.venue_area}</p>
                 ) : null}
                 <p className="mt-2 whitespace-pre-line leading-7 text-invite-body">
-                  {getDisplayText(wedding.venue_address)}
+                  {getWeddingSettingsDisplayText(wedding.venue_address)}
                 </p>
                 <p className="mt-2 text-sm text-invite-walnut">{weddingDate}</p>
               </div>
@@ -523,7 +397,7 @@ function DetailsPanel({
             <DetailCard title="Klädkod">
               <div className="grid gap-3 leading-7">
                 <p className="whitespace-pre-line">
-                  {getDisplayText(wedding.dress_code ?? wedding.policy)}
+                  {getWeddingSettingsDisplayText(wedding.dress_code ?? wedding.policy)}
                 </p>
                 {wedding.child_policy ? (
                   <p className="whitespace-pre-line text-invite-walnut">
@@ -540,7 +414,7 @@ function DetailsPanel({
 
             <DetailCard title="Gåvor">
               <p className="whitespace-pre-line leading-7">
-                {getDisplayText(wedding.gift_info)}
+                {getWeddingSettingsDisplayText(wedding.gift_info)}
               </p>
             </DetailCard>
           </div>
@@ -624,19 +498,12 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
 
   const updates = await getPublishedWeddingUpdates({ weddingId: access.weddingId });
   const { guest, rsvpResponse, wedding } = access;
-  const weddingDate = formatWeddingDate(wedding.wedding_date);
-  const coverDateTime = formatCoverDateTime(wedding.wedding_date);
-  const coverVenueName = getDisplayText(wedding.venue_name);
-  const coverVenueArea = getDisplayText(wedding.venue_area ?? wedding.venue_address);
-  const mapsUrl = getSafeWeddingSettingsUrl(wedding.google_maps_url);
-  const spotifyUrl = getSafeWeddingSettingsUrl(wedding.spotify_playlist_url);
+  const weddingDisplay = getGuestFacingWeddingSettingsDisplay(wedding);
   const showSubmittedConfirmation =
     shouldShowInviteRsvpSubmittedConfirmation(queryParams);
   const rsvpSubmittedAt = formatRsvpSubmittedAt(
     rsvpResponse?.last_submitted_at ?? null,
   );
-  const publicPartnerNames = getPublicPartnerNames(wedding);
-  const coupleMark = getCoupleMark(publicPartnerNames);
   const panelIds = access.canSubmitRsvp ? fullPanelIds : scopedPanelIds;
   const panelLabels = access.canSubmitRsvp ? fullPanelLabels : scopedPanelLabels;
 
@@ -644,27 +511,27 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
     <BrevkortPage className="!px-0 sm:!px-6">
       <BrevkortStack className="max-w-[390px]">
         <InvitePanelCarousel
-          coupleMark={coupleMark}
+          coupleMark={weddingDisplay.coupleMark}
           panels={panelIds.map((id, index) => ({ id, label: panelLabels[index] }))}
         >
           <CoverPanel
             canSubmitRsvp={access.canSubmitRsvp}
-            coverDateTime={coverDateTime}
+            coverDateTime={weddingDisplay.coverDateTime}
             guestName={guest.full_name}
-            partnerNames={publicPartnerNames}
+            partnerNames={weddingDisplay.partnerNames}
             rsvpResponse={rsvpResponse ? { attendance: rsvpResponse.attendance } : null}
             rsvpSubmittedAt={rsvpSubmittedAt}
-            venueArea={coverVenueArea}
-            venueName={coverVenueName}
+            venueArea={weddingDisplay.coverVenueArea}
+            venueName={weddingDisplay.coverVenueName}
           />
 
           <DetailsPanel
             canSubmitRsvp={access.canSubmitRsvp}
-            mapsUrl={mapsUrl}
-            spotifyUrl={spotifyUrl}
+            mapsUrl={weddingDisplay.mapsUrl}
+            spotifyUrl={weddingDisplay.spotifyUrl}
             updates={updates}
             wedding={wedding}
-            weddingDate={weddingDate}
+            weddingDate={weddingDisplay.weddingDate}
           />
 
           {access.canSubmitRsvp ? (
@@ -675,7 +542,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
                   rawToken={token}
                   rsvpResponse={rsvpResponse}
                   showSubmittedConfirmation={showSubmittedConfirmation}
-                  weddingDate={weddingDate}
+                  weddingDate={weddingDisplay.weddingDate}
                   weddingName={wedding.name}
                 />
               </div>
