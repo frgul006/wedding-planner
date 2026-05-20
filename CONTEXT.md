@@ -48,6 +48,10 @@ _Avoid_: read-only login, partial invite, limited access
 Whether the shared Wedding hub can be used for guest actions such as photo upload, granted either by open anonymous uploads or by a valid Guest navigation session tied to an active, non-archived **Guest**.
 _Avoid_: stale invite cookie permission, QR upload bypass
 
+**Wedding hub photo upload**:
+A Wedding hub action that signs direct photo upload intents, verifies uploaded photo objects, attributes them through **Wedding hub access**, and applies the **Wedding settings** photo review policy before photos appear to Guests.
+_Avoid_: raw storage upload, public bucket write, QR photo post
+
 **RSVP**:
 An **Invited Guest**'s answer to whether they and any **Plus-one Guest** will attend the **Wedding**, captured inside their **Invite**.
 _Avoid_: generic response, attendance record
@@ -97,6 +101,9 @@ _Avoid_: Efterfest
 - **Invite access** scope is a property of an Invite token: full scope grants an **Invited Guest** RSVP-capable access, while scoped tokens grant **Scoped Invite access** to a **Plus-one Guest**.
 - Archived **Guest** records and revoked Invite tokens deny **Invite access** regardless of scope.
 - Archived **Guest** records also stop Guest-cookie-based **Wedding hub access** when anonymous uploads are disabled.
+- **Wedding hub access** controls whether a **Wedding hub photo upload** can be signed or finalized.
+- A **Wedding hub photo upload** can be anonymous or attributed to the active, non-archived **Guest** behind **Wedding hub access**.
+- The **Wedding settings** photo review policy determines whether a verified **Wedding hub photo upload** appears to Guests immediately or waits for admin review.
 - A **Guest lifecycle mutation** revokes active scoped Invite tokens for archived **Plus-one Guest** records.
 - **Invite access** and opened-Invite activity are distinct from **RSVP** status.
 - **Scoped Invite access** lets a **Plus-one Guest** view non-RSVP **Invite** details and access the Wedding hub, but not submit an **RSVP**.
