@@ -6,12 +6,12 @@ import { redirect } from "next/navigation";
 
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
 import {
+  archiveAdminGuestMutation,
   createAdminGuestMutation,
   createSupabaseAdminGuestMutationStore,
+  generateAdminGuestInviteLinkMutation,
   updateAdminGuestMutation,
 } from "@/lib/admin-guest-mutation";
-import { archiveGuestLifecycle } from "@/lib/guest-lifecycle";
-import type { InviteAccessScope } from "@/lib/invite-access";
 import { regenerateInviteToken } from "@/lib/invite-tokens";
 import { getRequestOriginFromHeaders } from "@/lib/public-url";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -21,18 +21,6 @@ export type GenerateInviteLinkState = {
   guestId?: string;
   inviteUrl?: string;
 };
-
-function getInviteAccessScopeForGuestKind(guestKind: string): InviteAccessScope | null {
-  if (guestKind === "invited") {
-    return "full";
-  }
-
-  if (guestKind === "plus_one") {
-    return "scoped";
-  }
-
-  return null;
-}
 
 function redirectToGuestMutationResult(result: { status: string }): never {
   if (result.status === "created" || result.status === "updated") {
@@ -84,63 +72,54 @@ export async function generateInviteLinkAction(
   void previousState;
   const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
+  const store = createSupabaseAdminGuestMutationStore(supabase);
+  const result = await generateAdminGuestInviteLinkMutation({
+    generateInviteLink: async ({
+      accessScope,
+      guestId: inviteGuestId,
+      weddingId,
+    }) => {
+      const requestOrigin = getRequestOriginFromHeaders(await headers());
+      return regenerateInviteToken({
+        accessScope,
+        guestId: inviteGuestId,
+        requestOrigin,
+        supabase,
+        weddingId,
+      });
+    },
+    guestId,
+    store,
+    weddingId: adminProfile.wedding_id,
+  });
 
-  const { data: guest, error: guestError } = await supabase
-    .from("guests")
-    .select("guest_kind, id")
-    .eq("id", guestId)
-    .eq("wedding_id", adminProfile.wedding_id)
-    .is("deleted_at", null)
-    .maybeSingle();
-
-  if (guestError) {
-    console.error("Failed to verify guest before invite token generation", guestError);
-    return { guestId, error: "Could not generate invite link." };
+  if (result.status === "generated") {
+    revalidatePath("/admin/guests");
+    return { guestId, inviteUrl: result.inviteUrl };
   }
 
-  if (!guest) {
+  if (result.status === "not-found") {
     return { guestId, error: "Guest was not found or is already archived." };
   }
 
-  const accessScope = getInviteAccessScopeForGuestKind(guest.guest_kind);
-
-  if (!accessScope) {
+  if (result.status === "unavailable") {
     return { guestId, error: "Invite links are only available for Guests." };
   }
 
-  try {
-    const requestOrigin = getRequestOriginFromHeaders(await headers());
-    const { inviteUrl } = await regenerateInviteToken({
-      accessScope,
-      guestId,
-      requestOrigin,
-      supabase,
-      weddingId: adminProfile.wedding_id,
-    });
-
-    revalidatePath("/admin/guests");
-    return { guestId, inviteUrl };
-  } catch (error) {
-    console.error("Failed to generate invite token", error);
-    return { guestId, error: "Could not generate invite link." };
-  }
+  return { guestId, error: "Could not generate invite link." };
 }
 
 export async function softDeleteGuestAction(guestId: string) {
   const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
-  const result = await archiveGuestLifecycle({
+  const result = await archiveAdminGuestMutation({
     guestId,
     rpcAdapter: supabase,
     weddingId: adminProfile.wedding_id,
   });
 
-  if (result.status === "not_found") {
-    redirect("/admin/guests?error=not-found");
-  }
-
-  if (result.status === "error") {
-    redirect("/admin/guests?error=delete-failed");
+  if (result.status !== "deleted") {
+    redirect(`/admin/guests?error=${result.status}`);
   }
 
   revalidatePath("/admin/guests");

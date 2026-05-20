@@ -1,6 +1,6 @@
 # Admin guest management
 
-Admin guest management is implemented at `/admin/guests`. The **Admin Guest roster** read model lives in `lib/admin-guest-roster.ts`; the page is the rendering Adapter. The **Admin Guest mutation** add/edit path lives in `lib/admin-guest-mutation.ts`; server actions are redirect/revalidation Adapters. The **Guest lifecycle mutation** archive path lives in `lib/guest-lifecycle.ts` and the `public.archive_guest_lifecycle` RPC.
+Admin guest management is implemented at `/admin/guests`. The **Admin Guest roster** read model lives in `lib/admin-guest-roster.ts`; the page is the rendering Adapter. The **Admin Guest mutation** add/edit and Invite-link orchestration lives in `lib/admin-guest-mutation.ts`; server actions are thin revalidation, redirect, or action-state Adapters. The **Guest lifecycle mutation** archive path lives in `lib/guest-lifecycle.ts` and the `public.archive_guest_lifecycle` RPC, with admin status mapping behind the Admin Guest mutation Interface.
 
 ## Access
 

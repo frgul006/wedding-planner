@@ -32,7 +32,7 @@ On `/admin/guests`:
 - Granted scoped Invite access: displays the Plus-one Guest name and Wedding information without RSVP state or RSVP controls, and prepares the Guest navigation session cookie for Wedding hub access.
 - Denied Invite access for invalid, inactive, archived-guest, or missing tokens: displays the safe invalid-link message without Guest data, venue, schedule, RSVP state, or other event logistics. When a configured/default wedding has a public `invite_support_email`, the page may show that support email and explicit partner contact names so guests can request a fresh link; otherwise it falls back to generic host copy.
 
-The `lib/invite-access.ts` Module is the shared policy seam for proxy and page adapters. The proxy still extracts the raw token and writes cookies to the response, while the Module resolves granted/denied access and prepares the Guest navigation session cookie payload. The Invite page uses the same Module to resolve access and records opened status only after access is granted.
+The `lib/invite-access.ts` Module is the shared policy seam for proxy and page adapters. The `lib/guest-access-policy.ts` Module owns the Guest-kind to Invite access scope Interface used by admin generation, roster projection, and Invite access validation. The proxy still extracts the raw token and writes cookies to the response, while the Module resolves granted/denied access and prepares the Guest navigation session cookie payload. The Invite page uses the same Module to resolve access and records opened status only after access is granted.
 
 ## Invite opened status
 

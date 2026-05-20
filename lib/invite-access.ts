@@ -1,6 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
+  isGuestKind,
+  isInviteAccessScope,
+  isValidInviteAccessScopeForGuestKind,
+  type GuestKind,
+  type InviteAccessScope,
+} from "@/lib/guest-access-policy";
+import {
   createOrRefreshGuestNavigationSession,
   GUEST_NAVIGATION_COOKIE_NAME,
   getGuestNavigationCookieOptions,
@@ -14,9 +21,7 @@ import {
 } from "@/lib/wedding-settings";
 import { isNullableString, isRecord } from "@/lib/type-guards";
 
-export type InviteAccessScope = "full" | "scoped";
-
-type GuestKind = "invited" | "plus_one";
+export type { InviteAccessScope } from "@/lib/guest-access-policy";
 
 type GuestRelation = {
   deleted_at: string | null;
@@ -137,14 +142,6 @@ function isInviteTokenRow(value: unknown): value is InviteTokenRow {
   );
 }
 
-function isInviteAccessScope(value: unknown): value is InviteAccessScope {
-  return value === "full" || value === "scoped";
-}
-
-function isGuestKind(value: unknown): value is GuestKind {
-  return value === "invited" || value === "plus_one";
-}
-
 function isRsvpResponseRow(value: unknown): value is RsvpResponseRow {
   return (
     isRecord(value) &&
@@ -254,11 +251,12 @@ async function resolveGrantedInviteAccess(
     return null;
   }
 
-  const hasValidScopeForGuestKind =
-    (data.access_scope === "full" && guest.guest_kind === "invited") ||
-    (data.access_scope === "scoped" && guest.guest_kind === "plus_one");
-
-  if (!hasValidScopeForGuestKind) {
+  if (
+    !isValidInviteAccessScopeForGuestKind({
+      accessScope: data.access_scope,
+      guestKind: guest.guest_kind,
+    })
+  ) {
     return null;
   }
 

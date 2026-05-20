@@ -1,10 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { isGuestKind, type GuestKind } from "@/lib/guest-access-policy";
 import { MESSAGE_AUDIENCES, type MessageAudience } from "@/lib/message-audience";
 import { isE164PhoneNumber } from "@/lib/phone";
 import { isNullableString, isRecord } from "@/lib/type-guards";
 
-export type GuestKind = "invited" | "plus_one";
+export type { GuestKind } from "@/lib/guest-access-policy";
 export type MessageRsvpAudience = Exclude<MessageAudience, "all">;
 
 export type MessageTargetGuestRow = {
@@ -40,10 +41,6 @@ const EMPTY_AUDIENCE_COUNTS: Record<MessageAudience, number> = {
   "rsvp no": 0,
   "rsvp yes": 0,
 };
-
-function isGuestKind(value: unknown): value is GuestKind {
-  return value === "invited" || value === "plus_one";
-}
 
 function isMessageRsvpAudience(value: unknown): value is MessageRsvpAudience {
   return value === "rsvp yes" || value === "rsvp no" || value === "rsvp maybe";

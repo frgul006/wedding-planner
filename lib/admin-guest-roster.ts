@@ -1,6 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
+  getGuestKindLabel,
+  getInviteAccessScopeForGuestKind,
+  isGuestKind,
+  type GuestKind,
+  type InviteAccessScope,
+} from "@/lib/guest-access-policy";
+import {
   INVITE_OPENED_STATUS,
   RSVP_STATUS,
   isInviteOpenedStatus,
@@ -12,9 +19,9 @@ import {
 } from "@/lib/invite-status";
 import { isNullableString, isRecord } from "@/lib/type-guards";
 
+export type { GuestKind, InviteAccessScope } from "@/lib/guest-access-policy";
+
 export type AdminGuestRosterSort = "name" | "name-desc" | "status" | "newest";
-export type GuestKind = "invited" | "plus_one";
-export type InviteAccessScope = "full" | "scoped";
 
 export type AdminGuestRosterSearchParams = {
   q?: string | string[];
@@ -126,18 +133,6 @@ function isAdminGuestRosterSort(value: unknown): value is AdminGuestRosterSort {
     typeof value === "string" &&
     ADMIN_GUEST_ROSTER_SORTS.some((sort) => sort === value)
   );
-}
-
-function isGuestKind(value: unknown): value is GuestKind {
-  return value === "invited" || value === "plus_one";
-}
-
-function getGuestKindLabel(guestKind: GuestKind) {
-  return guestKind === "plus_one" ? "Plus-one Guest" : "Invited Guest";
-}
-
-function getInviteAccessScope(guestKind: GuestKind): InviteAccessScope {
-  return guestKind === "plus_one" ? "scoped" : "full";
 }
 
 function getRsvpStatusLabel(rsvpStatus: RsvpStatus) {
@@ -294,7 +289,7 @@ export function buildAdminGuestRosterRows({
       guestKindLabel: getGuestKindLabel(guest.guest_kind),
       hasActiveToken: guestsWithActiveTokens.has(guest.id),
       id: guest.id,
-      inviteAccessScope: getInviteAccessScope(guest.guest_kind),
+      inviteAccessScope: getInviteAccessScopeForGuestKind(guest.guest_kind),
       inviteStatus: guest.invite_status,
       notes: guest.notes,
       phone: guest.phone,
