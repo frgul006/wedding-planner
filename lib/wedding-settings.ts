@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getSafeHttpUrl, parseOptionalHttpUrl } from "@/lib/safe-url";
+import { parseOptionalHttpUrl } from "@/lib/safe-url";
 import { isMissingPartnerNameColumnError } from "@/lib/supabase/schema-compat";
 import {
   formatStockholmDateTimeLocal,
@@ -397,9 +397,7 @@ export function getWeddingSettingsFormValues(
   };
 }
 
-export function getSafeWeddingSettingsUrl(value: string | null) {
-  return getSafeHttpUrl(value);
-}
+export { getSafeWeddingSettingsUrl } from "@/lib/wedding-settings-display";
 
 export async function updateAdminWeddingSettings({
   formData,

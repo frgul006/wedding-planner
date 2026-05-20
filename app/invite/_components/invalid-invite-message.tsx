@@ -1,4 +1,5 @@
 import type { InviteSupportContact } from "@/lib/invite-support-contact";
+import { getInviteSupportFooterMark } from "@/lib/wedding-settings-display";
 
 import { BrevkortPage } from "./brevkort-primitives";
 
@@ -10,28 +11,11 @@ function getSupportDisplayName(supportContact: InviteSupportContact) {
   return supportContact.displayName ?? "värdparet";
 }
 
-function getSupportFooterMark(displayName: string | null) {
-  if (!displayName) {
-    return null;
-  }
-
-  const parts = displayName
-    .split("&")
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  if (parts.length !== 2) {
-    return displayName;
-  }
-
-  return `${parts[0].charAt(0)} & ${parts[1].charAt(0)}`.toUpperCase();
-}
-
 export function InvalidInviteMessage({ supportContact = null }: InvalidInviteMessageProps) {
   const supportDisplayName = supportContact
     ? getSupportDisplayName(supportContact)
     : null;
-  const supportFooterMark = getSupportFooterMark(supportContact?.displayName ?? null);
+  const supportFooterMark = getInviteSupportFooterMark(supportContact?.displayName ?? null);
 
   return (
     <BrevkortPage className="flex flex-col items-center px-7 py-[60px] sm:px-7 sm:py-[60px]">

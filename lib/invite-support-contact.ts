@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isMissingPartnerNameColumnError } from "@/lib/supabase/schema-compat";
 import { isNullableString, isRecord } from "@/lib/type-guards";
+import { getInviteSupportDisplayName } from "@/lib/wedding-settings-display";
 
 type InviteSupportWeddingRow = {
   invite_support_email: string | null;
@@ -36,20 +37,6 @@ function cleanSupportEmail(value: string | null) {
   }
 
   return email;
-}
-
-function getContactDisplayName({
-  partner_one_name: partnerOneName,
-  partner_two_name: partnerTwoName,
-}: InviteSupportWeddingRow) {
-  const firstName = cleanText(partnerOneName);
-  const secondName = cleanText(partnerTwoName);
-
-  if (!firstName || !secondName) {
-    return null;
-  }
-
-  return `${firstName} & ${secondName}`;
 }
 
 function normalizeInviteSupportWedding(value: unknown): InviteSupportWeddingRow | null {
@@ -178,7 +165,7 @@ export async function getInviteSupportContact(
   }
 
   return {
-    displayName: getContactDisplayName(wedding),
+    displayName: getInviteSupportDisplayName(wedding),
     email,
   };
 }

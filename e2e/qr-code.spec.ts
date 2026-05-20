@@ -263,6 +263,8 @@ test.describe("wedding hub QR", () => {
     await page.setViewportSize({ width: 390, height: 500 });
     await page.goto("/wedding-hub");
 
+    await expect(page.getByText("F & M", { exact: true })).toBeVisible();
+    await expect(page.getByText("Bröllopshub · 26 SEP", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: /Lägg till en låt/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Ladda upp/ })).toBeVisible();
     await expect(page.getByText("TODO")).toBeVisible();
