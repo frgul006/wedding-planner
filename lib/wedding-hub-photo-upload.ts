@@ -49,6 +49,18 @@ export type SignedHubUploadIntentResponse = {
   maxFilesPerRequest: number;
 };
 
+export type SignedUploadUrl = {
+  signedUrl: string;
+  token: string;
+};
+
+export type HubPhotoUploadSigningAdapter = {
+  createSignedUploadUrl(
+    path: string,
+    options: { upsert: boolean },
+  ): Promise<SignedUploadUrl | null>;
+};
+
 type UploadClaimType = "original" | "thumbnail";
 
 type UploadClaimPayload = {
@@ -225,14 +237,37 @@ export function verifySignedUploadClaim(
   };
 }
 
+export function createSupabaseHubPhotoUploadSigningAdapter(
+  supabase: SupabaseClient,
+): HubPhotoUploadSigningAdapter {
+  return {
+    async createSignedUploadUrl(path, options) {
+      const { data, error } = await supabase.storage
+        .from(PHOTO_UPLOAD_BUCKET)
+        .createSignedUploadUrl(path, options);
+
+      if (error || !data) {
+        return null;
+      }
+
+      return {
+        signedUrl: data.signedUrl,
+        token: data.token,
+      };
+    },
+  };
+}
+
 export async function createSignedUploadIntents({
   inputs,
+  newFileId = crypto.randomUUID,
+  signingAdapter,
   wedding,
-  supabase,
 }: {
   inputs: UploadFileInput[];
+  newFileId?: () => string;
+  signingAdapter: HubPhotoUploadSigningAdapter;
   wedding: HubWedding;
-  supabase: SupabaseClient;
 }): Promise<SignedHubUploadIntentResponse> {
   if (!inputs.length || inputs.length > MAX_HUB_FILES_PER_REQUEST) {
     throw new Error("invalid_file_count");
@@ -268,14 +303,14 @@ export async function createSignedUploadIntents({
       throw new Error("invalid_note_length");
     }
 
-    const fileId = crypto.randomUUID();
+    const fileId = newFileId();
     const originalPath = `${wedding.id}/originals/${fileId}-${safeFileName}`;
 
-    const originalSigned = await supabase.storage
-      .from(PHOTO_UPLOAD_BUCKET)
-      .createSignedUploadUrl(originalPath, { upsert: false });
+    const originalSigned = await signingAdapter.createSignedUploadUrl(originalPath, {
+      upsert: false,
+    });
 
-    if (originalSigned.error || !originalSigned.data) {
+    if (!originalSigned) {
       throw new Error("failed_to_sign_upload");
     }
 
@@ -283,8 +318,8 @@ export async function createSignedUploadIntents({
     const intent: SignedUploadIntent = {
       clientId: input.clientId,
       uploadPath: originalPath,
-      uploadUrl: originalSigned.data.signedUrl,
-      uploadToken: originalSigned.data.token,
+      uploadUrl: originalSigned.signedUrl,
+      uploadToken: originalSigned.token,
       signedUploadClaim: buildUploadClaim({
         weddingId: wedding.id,
         storagePath: originalPath,
@@ -300,17 +335,17 @@ export async function createSignedUploadIntents({
     if (includeThumbnail) {
       const thumbFile = `${fileId}-thumb.jpg`;
       const thumbnailPath = `${wedding.id}/thumbnails/${thumbFile}`;
-      const thumbnailSigned = await supabase.storage
-        .from(PHOTO_UPLOAD_BUCKET)
-        .createSignedUploadUrl(thumbnailPath, { upsert: false });
+      const thumbnailSigned = await signingAdapter.createSignedUploadUrl(thumbnailPath, {
+        upsert: false,
+      });
 
-      if (thumbnailSigned.error || !thumbnailSigned.data) {
+      if (!thumbnailSigned) {
         throw new Error("failed_to_sign_thumbnail");
       }
 
       intent.thumbnailPath = thumbnailPath;
-      intent.thumbnailUploadUrl = thumbnailSigned.data.signedUrl;
-      intent.thumbnailToken = thumbnailSigned.data.token;
+      intent.thumbnailUploadUrl = thumbnailSigned.signedUrl;
+      intent.thumbnailToken = thumbnailSigned.token;
       intent.thumbnailClaim = buildUploadClaim({
         weddingId: wedding.id,
         storagePath: thumbnailPath,
