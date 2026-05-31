@@ -33,6 +33,8 @@ Start with one wedding in one app install, but include `wedding_id` on child tab
 - `spotify_playlist_url` (string, optional)
 - `invite_support_email` (string, optional)
   - Public contact reserved for the Brevkort invalid invite-link state; not guest-specific.
+- `invite_sms_template` (string)
+  - Saved Invite SMS template. It must include `{{first_name}}` and `{{invite_link}}`; raw Invite links are rendered at send time and are not stored in the template.
 - `allow_anonymous_hub_upload` (bool, default `true`)
   - QR hub visitors can upload without a guest cookie when this is true.
   - If false, photo upload requires a valid `GuestNavigationSession` cookie match.
@@ -182,6 +184,9 @@ Implemented in `public.rsvp_responses`, including Brevkort named +1 persistence 
 - `audience` (`all | rsvp yes | rsvp no | rsvp maybe`)
   - RSVP audiences filter by the Message target's RSVP audience status: Invited Guests use their own `rsvp_status`, and Plus-one Guests inherit the tied Invited Guest's `rsvp_status`.
 - `send_status` (`queued | sent | partial | failed`)
+- `message_kind` (`custom | invite_sms`)
+  - `custom` is the normal admin SMS composer.
+  - `invite_sms` records Invite SMS sends and stores the template text in `body`, not per-Guest raw links.
 - `created_by_admin_id` (UUID)
 - `created_at`, `sent_at`
 
@@ -194,6 +199,8 @@ Implemented in `public.rsvp_responses`, including Brevkort named +1 persistence 
   - The specific Message target Guest that received this delivery; duplicate phone numbers still create one delivery per eligible Guest record.
 - `phone` (string, compact E.164 with no spaces)
 - `provider_message_id` (string, optional)
+- `invite_token_id` (UUID, optional) -> relation to `InviteToken`
+  - Set for Invite SMS deliveries after the fresh link is generated. Raw Invite links are not stored in message history.
 - `delivery_status` (`queued | sent | failed`)
 - `error_text` (string, optional)
 - `created_at`

@@ -20,6 +20,7 @@ export type WeddingSettings = {
   dress_code: string | null;
   gift_info: string | null;
   google_maps_url: string | null;
+  invite_sms_template: string;
   invite_support_email: string | null;
   name: string;
   partner_one_name: string | null;
@@ -36,7 +37,7 @@ export type WeddingSettings = {
 
 export type InviteWeddingSettings = Omit<
   WeddingSettings,
-  "allow_anonymous_hub_upload" | "photo_upload_requires_review"
+  "allow_anonymous_hub_upload" | "invite_sms_template" | "photo_upload_requires_review"
 >;
 
 export type WeddingSettingsFormValues = Omit<
@@ -66,9 +67,9 @@ export type WeddingSettingsUpdateStatus =
   | "update-failed";
 
 const weddingSettingsSelect =
-  "name, partner_one_name, partner_two_name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, allow_anonymous_hub_upload, photo_upload_requires_review";
+  "name, partner_one_name, partner_two_name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, invite_sms_template, allow_anonymous_hub_upload, photo_upload_requires_review";
 const legacyWeddingSettingsSelect =
-  "name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, allow_anonymous_hub_upload, photo_upload_requires_review";
+  "name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, invite_sms_template, allow_anonymous_hub_upload, photo_upload_requires_review";
 const inviteWeddingSettingsSelect =
   "name, partner_one_name, partner_two_name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email";
 const legacyInviteWeddingSettingsSelect =
@@ -112,6 +113,7 @@ function normalizeWeddingSettingsRow(value: unknown): WeddingSettings | null {
     !isNullableString(value.gift_info) ||
     !isNullableString(value.spotify_playlist_url) ||
     !isNullableString(value.invite_support_email) ||
+    typeof value.invite_sms_template !== "string" ||
     typeof value.allow_anonymous_hub_upload !== "boolean" ||
     typeof value.photo_upload_requires_review !== "boolean"
   ) {
@@ -124,6 +126,7 @@ function normalizeWeddingSettingsRow(value: unknown): WeddingSettings | null {
     dress_code: value.dress_code,
     gift_info: value.gift_info,
     google_maps_url: value.google_maps_url,
+    invite_sms_template: value.invite_sms_template,
     invite_support_email: value.invite_support_email,
     name: value.name,
     partner_one_name: value.partner_one_name,
@@ -382,6 +385,7 @@ export function getWeddingSettingsFormValues(
     dress_code: settings.dress_code,
     gift_info: settings.gift_info,
     google_maps_url: settings.google_maps_url,
+    invite_sms_template: settings.invite_sms_template,
     invite_support_email: settings.invite_support_email,
     name: settings.name,
     partner_one_name: settings.partner_one_name,

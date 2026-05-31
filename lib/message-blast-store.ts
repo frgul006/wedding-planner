@@ -50,13 +50,14 @@ export function createSupabaseMessageBlastStore(supabase: SupabaseClient): Messa
 
       return result.targets;
     },
-    async createMessageBlast({ adminId, audience, body, title, weddingId }) {
+    async createMessageBlast({ adminId, audience, body, messageKind = "custom", title, weddingId }) {
       const { data, error } = await supabase
         .from("message_blasts")
         .insert({
           audience,
           body,
           created_by_admin_id: adminId,
+          message_kind: messageKind,
           send_status: "queued",
           title,
           wedding_id: weddingId,

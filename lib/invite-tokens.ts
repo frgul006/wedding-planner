@@ -105,19 +105,28 @@ export async function regenerateInviteToken({
     throw invalidateError;
   }
 
-  const { error: insertError } = await supabase.from("invite_tokens").insert({
-    access_scope: accessScope,
-    guest_id: guestId,
-    wedding_id: weddingId,
-    token_hash: tokenHash,
-    is_active: true,
-  });
+  const { data: inviteToken, error: insertError } = await supabase
+    .from("invite_tokens")
+    .insert({
+      access_scope: accessScope,
+      guest_id: guestId,
+      wedding_id: weddingId,
+      token_hash: tokenHash,
+      is_active: true,
+    })
+    .select("id")
+    .single();
 
   if (insertError) {
     throw insertError;
   }
 
+  if (!inviteToken || typeof inviteToken.id !== "string") {
+    throw new Error("Failed to create invite token.");
+  }
+
   return {
+    inviteTokenId: inviteToken.id,
     inviteUrl: buildInviteUrl(rawToken, { requestOrigin, requestUrl }),
     rawToken,
   };
