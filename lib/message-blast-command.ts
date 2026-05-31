@@ -1,4 +1,5 @@
 import { type MessageAudience } from "@/lib/message-audience";
+import { type MessageKind } from "@/lib/message-kind";
 import { filterMessageTargetsByAudience, type MessageTarget } from "@/lib/message-targets";
 
 export const MAX_MESSAGE_BODY_LENGTH = 1_000;
@@ -23,6 +24,7 @@ export type MessageBlastStore = {
     adminId: string;
     audience: MessageAudience;
     body: string;
+    messageKind?: MessageKind;
     title: string | null;
     weddingId: string;
   }): Promise<CreatedMessageBlast>;
@@ -129,6 +131,7 @@ export async function sendMessageBlastCommand({
     adminId,
     audience,
     body,
+    messageKind: "custom",
     title,
     weddingId,
   });

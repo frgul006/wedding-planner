@@ -11,7 +11,8 @@ Private guest invite links are backed by `public.invite_tokens`.
 - Active tokens default to `access_scope = full`, granting RSVP-capable Invite access for Invited Guests.
 - `access_scope = scoped` grants Plus-one Guests non-RSVP Invite access and Wedding hub access.
 - Regenerating a link invalidates the previous active token before creating a new active token.
-- Raw links are shown in the admin UI only in the immediate generate/regenerate result and are not stored client-side by the app.
+- Sending an Invite SMS generates a fresh full-scope token for that Invited Guest and invalidates any previous active full link.
+- Raw links are shown in the admin UI only in the immediate generate/regenerate result and are not stored client-side by the app. Invite SMS history stores token references, not raw links.
 
 ## Admin behavior
 
@@ -23,6 +24,7 @@ On `/admin/guests`:
 - Plus-one Guests with an active scoped token show **Regenerate scoped invite link**.
 - After generation, the raw `/invite/:token` URL is displayed with a copy button.
 - Reloading the page hides the raw URL; admins must regenerate if they need a new copy.
+- On `/admin/messages`, Invite SMS sends generate and send raw links directly to eligible Invited Guests without displaying or storing those raw links in admin history.
 
 ## Invite access validation
 

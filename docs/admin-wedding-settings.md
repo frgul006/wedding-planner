@@ -32,6 +32,7 @@ Editable fields:
 - `gift_info`
 - `spotify_playlist_url`
 - `invite_support_email`
+- `invite_sms_template` (edited from `/admin/messages`)
 - `allow_anonymous_hub_upload` (default `true`)
 - `photo_upload_requires_review` (default `false`)
 
@@ -42,6 +43,8 @@ Editable fields:
 `wedding_date` is the wedding start time as Stockholm wall-clock time. Admin-entered `datetime-local` values are interpreted in `Europe/Stockholm`, not in the production server timezone or the admin browser timezone.
 
 Guest-facing links stored in `google_maps_url` and `spotify_playlist_url` must be `http` or `https` URLs. Unsafe values are rejected when saving Wedding settings and still hidden when rendering the Invite as a defensive fallback.
+
+`invite_sms_template` stores the Wedding's Invite SMS copy. It is part of Wedding settings but edited from `/admin/messages` because admins preview, test, and send it there.
 
 ## Features
 

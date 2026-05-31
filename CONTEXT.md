@@ -60,6 +60,14 @@ _Avoid_: generic response, attendance record
 An active, non-archived **Guest** eligible to receive a Wedding SMS because they have a compact E.164 phone number, SMS consent is granted, and SMS opt-out is absent.
 _Avoid_: SMS recipient, contact, raw phone row
 
+**Invite SMS**:
+A Wedding SMS sent to an **Invited Guest** who is a **Message target** for the purpose of delivering that Guest's individual **Invite** link.
+_Avoid_: invite blast, invitation text, bulk invite link message
+
+**Invite SMS template**:
+The **Wedding settings** text pattern used to render each **Invite SMS** with that **Invited Guest**'s first name and individual **Invite** link.
+_Avoid_: hardcoded invite text, one-off SMS body, message copy
+
 **Invite RSVP navigation**:
 The URL and panel-navigation contract that returns an **Invited Guest** to the **Invite** RSVP confirmation after saving an **RSVP**.
 _Avoid_: redirect hack, query flag, client action workaround
@@ -90,6 +98,7 @@ _Avoid_: Efterfest
 - **Wedding settings** include one **Public Wedding identity** derived from explicit partner-name fields.
 - **Wedding settings** include exactly one **Wedding start time**.
 - **Wedding settings** include zero or more **Time Plan** entries.
+- **Wedding settings** include one **Invite SMS template**.
 - An **Invite** shows the **Public Wedding identity**, **Wedding start time**, and **Time Plan** to a **Guest**.
 - An **Invited Guest** may have zero or one **Plus-one Guest**.
 - A **Plus-one Guest** is tied to exactly one **Invited Guest**.
@@ -105,13 +114,20 @@ _Avoid_: Efterfest
 - A **Wedding hub photo upload** can be anonymous or attributed to the active, non-archived **Guest** behind **Wedding hub access**.
 - The **Wedding settings** photo review policy determines whether a verified **Wedding hub photo upload** appears to Guests immediately or waits for admin review.
 - A **Guest lifecycle mutation** revokes active scoped Invite tokens for archived **Plus-one Guest** records.
-- **Invite access** and opened-Invite activity are distinct from **RSVP** status.
+- **Invite access**, **Invite SMS** sent activity, opened-Invite activity, and **RSVP** status are distinct.
 - **Scoped Invite access** lets a **Plus-one Guest** view non-RSVP **Invite** details and access the Wedding hub, but not submit an **RSVP**.
 - **Wedding hub access** for guest-only uploads requires a valid Guest navigation session whose **Guest** is still active and non-archived.
 - An **Invite** lets an **Invited Guest** submit or update an **RSVP**.
 - An **RSVP** can name one **Plus-one Guest** when the **Invited Guest** has +1 permission.
 - A **Plus-one Guest** inherits the tied **Invited Guest**'s **RSVP** status for Message target audiences.
 - A **Message target** is an active, non-archived **Guest** with valid phone, SMS consent, and no SMS opt-out timestamp, not a raw phone number.
+- An **Invite SMS template** must render the **Invited Guest**'s first name and individual **Invite** link.
+- An **Invite SMS** goes only to an **Invited Guest** who is a **Message target** and carries that Guest's individual **Invite** link.
+- Sending an **Invite SMS** replaces any previous full **Invite access** link for that **Invited Guest** with the link in that SMS.
+- Bulk **Invite SMS** sends skip **Invited Guest** records that already have an **Invite SMS** accepted for sending, opened their **Invite**, or submitted an **RSVP**, unless an admin explicitly resends.
+- An admin may explicitly send or resend an **Invite SMS** to one eligible **Invited Guest** regardless of **RSVP** status.
+- Failed **Invite SMS** attempts do not count as previously sent.
+- A failed **Invite SMS** attempt may leave its generated **Invite** link active; a later retry replaces it.
 - **Invite RSVP navigation** brings an **Invited Guest** back to the **Invite** RSVP confirmation after a successful save.
 
 ## Example dialogue
@@ -128,10 +144,14 @@ _Avoid_: Efterfest
 - "event details" could mean admin form fields, guest-facing copy, or deployment config — resolved: use **Wedding settings** for Wedding-specific editable details.
 - "timeline", "itinerary", and `time_plan` strings all describe schedule entries — resolved: use **Time Plan** for the domain concept and keep storage/UI formats as implementation details.
 - Label-only schedule notes look like **Time Plan** entries but lack a clock time — resolved: **Time Plan** entries require a local clock time.
-- "Invite state" could mean token validity, opened/RSVP status, or panel UI state — resolved: use **Invite access** for valid/invalid link checks.
+- "Invite state" could mean token validity, Invite SMS sent activity, opened/RSVP status, or panel UI state — resolved: use **Invite access** for valid/invalid link checks, and keep sent/opened/RSVP activity separate.
 - `invite_status` mixed opened-Invite activity with **RSVP** status — resolved: model opened-Invite activity separately from a dedicated **RSVP** status for **Invited Guest**.
 - "Guest" previously meant only the person who owns an **RSVP** — resolved: use **Invited Guest** for the RSVP owner and **Plus-one Guest** for the tied guest.
 - **Invite access** does not always imply RSVP permission — resolved: **Scoped Invite access** grants non-RSVP Invite details and Wedding hub access to a **Plus-one Guest**.
 - "recipient" can mean a phone number, delivery row, or person — resolved: use **Message target** for a **Guest** eligible to receive Wedding SMS.
+- "send invites to everyone" could mean regenerating links for every eligible Guest on every send — resolved: bulk **Invite SMS** sends target eligible **Invited Guest** records without a prior sent **Invite SMS**, opened **Invite**, or submitted **RSVP** unless an admin explicitly resends.
+- "unsent" could mean no active Invite link or no prior Invite SMS — resolved: it means no prior sent **Invite SMS**; active admin-generated links do not make an **Invited Guest** sent, but opened **Invite** or submitted **RSVP** still skips bulk sends.
+- "received an Invite SMS" could mean attempted, accepted for sending, carrier-delivered, opened, or read — resolved: accepted for sending counts as sent; failed attempts do not.
+- Plural **Invite SMS** copy could imply one **Guest** row represents a couple or household — resolved: **Guest** remains one person; plural copy is tone, not the data model.
 - Older data-model text says every **Guest** owns an RSVP response — resolved target model: only **Invited Guest** owns **RSVP**; **Plus-one Guest** inherits RSVP status through the tied **Invited Guest**.
 - `rsvp_status=submitted#osa` is an implementation detail of **Invite RSVP navigation**, not a durable **RSVP** status.

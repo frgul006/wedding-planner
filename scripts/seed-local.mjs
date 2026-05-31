@@ -325,6 +325,7 @@ async function main() {
     gift_info: "Din närvaro är den bästa presenten.",
     spotify_playlist_url: "https://open.spotify.com/",
     invite_support_email: "osa@example.com",
+    invite_sms_template: "Hej {{first_name}}! Välkomna att fira vår dag tillsammans med oss. Här är er personliga inbjudan där ni kan OSA: {{invite_link}} / Fredrik & Matilda",
     allow_anonymous_hub_upload: true,
     photo_upload_requires_review: false,
   });
