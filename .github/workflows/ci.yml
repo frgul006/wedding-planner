@@ -156,23 +156,11 @@ jobs:
             echo "available=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Cache Playwright runtime
-        if: steps.e2e-changes.outputs.run-e2e == 'true'
-        uses: actions/cache@v5
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-runtime-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            playwright-runtime-${{ runner.os }}-
-            playwright-shell-${{ runner.os }}-
-
-      - name: Install Playwright video renderer
-        if: steps.e2e-changes.outputs.run-e2e == 'true' && steps.system-chrome.outputs.available == 'true'
-        run: pnpm exec playwright install ffmpeg
-
-      - name: Install Playwright browser fallback
+      - name: Require system Chrome
         if: steps.e2e-changes.outputs.run-e2e == 'true' && steps.system-chrome.outputs.available != 'true'
-        run: pnpm exec playwright install --with-deps --only-shell chromium
+        run: |
+          echo "::error::System Chrome is required for CI e2e runs. This workflow avoids Playwright browser downloads because CDN installs can hang until the job timeout."
+          exit 1
 
       - name: Start local Supabase
         if: steps.e2e-changes.outputs.run-e2e == 'true'
