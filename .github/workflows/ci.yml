@@ -42,10 +42,20 @@ jobs:
       - name: Build
         run: pnpm build
 
-  e2e:
-    name: E2E regression
+  e2e_shard:
+    name: E2E shard ${{ matrix.shard }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: "1/3"
+            artifact_suffix: 1-of-3
+          - shard: "2/3"
+            artifact_suffix: 2-of-3
+          - shard: "3/3"
+            artifact_suffix: 3-of-3
 
     steps:
       - name: Check out repository
@@ -63,7 +73,7 @@ jobs:
             exit 0
           fi
 
-          if ! git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"; then
+          if ! git fetch --no-tags --depth=1 origin "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"; then
             echo "run-e2e=true" >> "$GITHUB_OUTPUT"
             echo "Could not fetch base ref; running e2e to fail safe."
             exit 0
@@ -91,7 +101,7 @@ jobs:
 
       - name: Skip e2e suite
         if: steps.e2e-changes.outputs.run-e2e != 'true'
-        run: echo "Only docs/Markdown files changed; skipping e2e."
+        run: echo "Only docs/Markdown files changed; skipping e2e shard ${{ matrix.shard }}."
 
       - name: Set up pnpm
         if: steps.e2e-changes.outputs.run-e2e == 'true'
@@ -114,8 +124,8 @@ jobs:
         if: steps.e2e-changes.outputs.run-e2e == 'true'
         shell: bash
         run: |
-          # Disable config-backed services before startup so the CLI skips their
-          # schema/init work; the start command also excludes companion containers.
+          # Disable config-backed services before startup so CLI skips
+          # schema/init work; command also excludes companion containers.
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -138,61 +148,103 @@ jobs:
           config_path.write_text("".join(updated_lines))
           PY
 
+      - name: Initialize e2e timing summary
+        if: steps.e2e-changes.outputs.run-e2e == 'true'
+        shell: bash
+        run: |
+          {
+            echo "## E2E shard ${{ matrix.shard }} timings"
+            echo ""
+            echo "| Step | Duration |"
+            echo "| --- | ---: |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Install dependencies
         if: steps.e2e-changes.outputs.run-e2e == 'true'
-        run: pnpm install --frozen-lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          SECONDS=0
+          pnpm install --frozen-lockfile
+          duration=$SECONDS
+          echo "Install dependencies took ${duration}s"
+          echo "| Install dependencies | ${duration}s |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Detect system Chrome
         id: system-chrome
         if: steps.e2e-changes.outputs.run-e2e == 'true'
         shell: bash
         run: |
+          set -euo pipefail
+          SECONDS=0
           chrome_binary="$(command -v google-chrome || command -v google-chrome-stable || true)"
-
           if [[ -n "$chrome_binary" ]]; then
             "$chrome_binary" --version
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
           fi
+          duration=$SECONDS
+          echo "Browser runtime check took ${duration}s"
+          echo "| Browser runtime check | ${duration}s |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Require system Chrome
         if: steps.e2e-changes.outputs.run-e2e == 'true' && steps.system-chrome.outputs.available != 'true'
         run: |
-          echo "::error::System Chrome is required for CI e2e runs. This workflow avoids Playwright browser downloads because CDN installs can hang until the job timeout."
+          echo "::error::System Chrome is required for CI e2e runs. This workflow avoids Playwright browser downloads because CDN installs can hang until job timeout."
           exit 1
 
       - name: Start local Supabase
         if: steps.e2e-changes.outputs.run-e2e == 'true'
-        run: supabase start -x studio,mailpit,realtime,edge-runtime,imgproxy,postgres-meta,logflare,vector,supavisor
+        shell: bash
+        run: |
+          set -euo pipefail
+          SECONDS=0
+          supabase start -x studio,inbucket,realtime,edge-runtime,functions,imgproxy,meta,analytics,vector
+          duration=$SECONDS
+          echo "Start local Supabase took ${duration}s"
+          echo "| Start local Supabase | ${duration}s |" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Write local Supabase environment
+      - name: Write and seed local Supabase environment
         if: steps.e2e-changes.outputs.run-e2e == 'true'
         shell: bash
         run: |
+          set -euo pipefail
+          SECONDS=0
           supabase status -o env > supabase.env
           source supabase.env
+
           {
             echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
             echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${PUBLISHABLE_KEY}"
             echo "SUPABASE_SECRET_KEY=${SECRET_KEY}"
           } > .env.local
 
-      - name: Seed local database
-        if: steps.e2e-changes.outputs.run-e2e == 'true'
-        run: pnpm seed:local
+          pnpm seed:local
+          duration=$SECONDS
+          echo "Write env and seed local database took ${duration}s"
+          echo "| Write env and seed local database | ${duration}s |" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Run Playwright e2e suite
+      - name: Run Playwright e2e shard
         if: steps.e2e-changes.outputs.run-e2e == 'true'
         env:
           PLAYWRIGHT_USE_SYSTEM_CHROME: ${{ steps.system-chrome.outputs.available }}
-        run: pnpm test:e2e
+        shell: bash
+        run: |
+          set -uo pipefail
+          SECONDS=0
+          pnpm test:e2e --shard=${{ matrix.shard }}
+          status=$?
+          duration=$SECONDS
+          echo "Playwright e2e shard ${{ matrix.shard }} took ${duration}s"
+          echo "| Playwright e2e shard ${{ matrix.shard }} | ${duration}s |" >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
 
       - name: Upload invite visual QA screenshots
         if: always() && steps.e2e-changes.outputs.run-e2e == 'true'
         uses: actions/upload-artifact@v6
         with:
-          name: invite-visual-qa-screenshots
+          name: invite-visual-qa-screenshots-${{ matrix.artifact_suffix }}
           path: test-results/e2e/**/invite-visual-qa/*.png
           if-no-files-found: ignore
 
@@ -200,8 +252,25 @@ jobs:
         if: failure() && steps.e2e-changes.outputs.run-e2e == 'true'
         uses: actions/upload-artifact@v6
         with:
-          name: playwright-artifacts
+          name: playwright-artifacts-${{ matrix.artifact_suffix }}
           path: |
             playwright-report/
             test-results/
           if-no-files-found: ignore
+
+  e2e:
+    name: E2E regression
+    runs-on: ubuntu-latest
+    needs: e2e_shard
+    if: always()
+
+    steps:
+      - name: Check e2e shard results
+        shell: bash
+        run: |
+          if [[ "${{ needs.e2e_shard.result }}" != "success" ]]; then
+            echo "::error::E2E shard matrix result was ${{ needs.e2e_shard.result }}."
+            exit 1
+          fi
+
+          echo "E2E shard matrix result: ${{ needs.e2e_shard.result }}."
