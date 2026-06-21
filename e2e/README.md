@@ -49,7 +49,7 @@ The Playwright config starts the Next.js dev server on `http://127.0.0.1:3000` b
 
 ## CI
 
-GitHub Actions runs the same suite in the `E2E regression` job. The job installs the Supabase CLI, starts local Supabase, writes `.env.local` from `supabase status -o env`, resets/seeds the local database, runs `pnpm test:e2e`, and uploads `playwright-report/` plus `test-results/` when the suite fails. Successful runs also upload the invite visual QA screenshots as an `invite-visual-qa-screenshots` artifact so visual review can use current captures without committed baselines.
+GitHub Actions runs the same suite in the `E2E regression` job. The job uses runner-provided system Chrome, installs the Supabase CLI, starts local Supabase, writes `.env.local` from `supabase status -o env`, resets/seeds the local database, runs `pnpm test:e2e`, and uploads `playwright-report/` plus `test-results/` when the suite fails. Successful runs also upload the invite visual QA screenshots as an `invite-visual-qa-screenshots` artifact so visual review can use current captures without committed baselines. CI disables Playwright video to avoid bundled FFmpeg downloads.
 
 ## Seeded data helpers
 
