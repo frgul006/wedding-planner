@@ -155,6 +155,19 @@ test.describe.serial("invite one-panel shell", () => {
     await seedInviteVisualFixtures();
   });
 
+  test("keeps mobile carousel at 390px", async ({ page }) => {
+    const fixture = getInviteVisualFixture("updatesPublished");
+
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto(fixture.path);
+
+    const shell = page.getByTestId("invite-panel-carousel");
+    await expect(shell).toBeVisible();
+    await expect
+      .poll(async () => Math.round((await shell.boundingBox())?.width ?? 0))
+      .toBe(390);
+  });
+
   test("centers wider desktop carousel keeps cover art narrow and navigation in sync", async ({
     page,
   }) => {
@@ -175,6 +188,23 @@ test.describe.serial("invite one-panel shell", () => {
     await expect
       .poll(async () => Math.round((await coverArt.boundingBox())?.width ?? 0))
       .toBeGreaterThanOrEqual(388);
+    await expect
+      .poll(async () => {
+        const [shellBox, coverArtBox] = await Promise.all([
+          shell.boundingBox(),
+          coverArt.boundingBox(),
+        ]);
+
+        if (!shellBox || !coverArtBox) {
+          return Number.POSITIVE_INFINITY;
+        }
+
+        const shellCenter = shellBox.x + shellBox.width / 2;
+        const coverArtCenter = coverArtBox.x + coverArtBox.width / 2;
+
+        return Math.abs(shellCenter - coverArtCenter);
+      })
+      .toBeLessThanOrEqual(1);
     await expectActivePanel(page, "inbjudan");
     await expect(page.getByRole("button", { name: "Föregående panel" }))
       .toBeDisabled();
