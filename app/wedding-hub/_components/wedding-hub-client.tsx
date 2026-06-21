@@ -923,7 +923,11 @@ export function WeddingHubClient({
             ) : (
               <div className="rounded-none border border-[#15130f]/15 bg-[#f1eadc]/70 p-4">
                 <h2 className="font-mono text-[0.7rem] font-semibold uppercase tracking-[0.32em]">Inga nya bidrag än</h2>
-                <p className="mt-1 text-sm leading-6 text-[#6b6358]">Dela din bild så visar vi den här efter godkännande.</p>
+                <p className="mt-1 text-sm leading-6 text-[#6b6358]">
+                  {wedding.photo_upload_requires_review
+                    ? "Dela din bild så visar vi den här efter godkännande."
+                    : "Dela din bild så visar vi den här direkt."}
+                </p>
               </div>
             )
           ) : photos.length ? (
