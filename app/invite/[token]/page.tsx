@@ -36,9 +36,25 @@ import { InvalidInviteMessage } from "../_components/invalid-invite-message";
 import { InvitePanelCarousel } from "./invite-panel-carousel";
 import { RsvpPanel } from "./rsvp-panel";
 
-export const metadata: Metadata = {
-  title: "Inbjudan | Wedding Planner",
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{
+    token: string;
+  }>;
+}): Promise<Metadata> {
+  await connection();
+
+  const { token } = await params;
+  const access = await resolveInviteAccess(token);
+
+  if (access.status === "denied") {
+    return { title: "Inbjudan | Wedding Planner" };
+  }
+
+  const weddingDisplay = getGuestFacingWeddingSettingsDisplay(access.wedding);
+  return { title: `Inbjudan | ${weddingDisplay.coupleMark}` };
+}
 
 type InvitePageProps = {
   params: Promise<{
