@@ -270,6 +270,8 @@ test.describe("wedding hub QR", () => {
     await expect(page.getByText("TODO")).toBeVisible();
     await expect(page.getByText(/teknisk verifiering/)).toHaveCount(0);
     await expect(page.getByText("Inga nya bidrag än")).toBeVisible();
+    await expect(page.getByText("Dela din bild så visar vi den här direkt.")).toBeVisible();
+    await expect(page.getByText("Dela din bild så visar vi den här efter godkännande.")).toHaveCount(0);
     await page.getByRole("button", { name: "Galleriet" }).click();
     await expect(page.getByText("Galleriet är tomt")).toBeVisible();
     await expect(page.getByRole("link", { name: /Spellista/ })).toHaveAttribute(
@@ -277,6 +279,16 @@ test.describe("wedding hub QR", () => {
       BASELINE_WEDDING_SETTINGS.spotify_playlist_url,
     );
     await expect(page.getByRole("link", { name: /Lägg till låt/ })).toHaveCount(0);
+  });
+
+  test("public wedding hub empty-state copy reflects review setting", async ({ page }) => {
+    await updateWeddingSettings({ photo_upload_requires_review: true });
+
+    await page.goto("/wedding-hub");
+
+    await expect(page.getByText("Inga nya bidrag än")).toBeVisible();
+    await expect(page.getByText("Dela din bild så visar vi den här efter godkännande.")).toBeVisible();
+    await expect(page.getByText("Dela din bild så visar vi den här direkt.")).toHaveCount(0);
   });
 
   test("public wedding hub shows clear error for unsupported selected files", async ({
