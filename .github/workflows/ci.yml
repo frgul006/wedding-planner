@@ -118,7 +118,7 @@ jobs:
         if: steps.e2e-changes.outputs.run-e2e == 'true'
         uses: supabase/setup-cli@v2
         with:
-          version: 2.95.4
+          version: 2.102.0
 
       - name: Disable unused Supabase services
         if: steps.e2e-changes.outputs.run-e2e == 'true'
