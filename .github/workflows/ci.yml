@@ -233,8 +233,10 @@ jobs:
         run: |
           set -uo pipefail
           SECONDS=0
+          set +e
           pnpm test:e2e --shard=${{ matrix.shard }}
           status=$?
+          set -e
           duration=$SECONDS
           echo "Playwright e2e shard ${{ matrix.shard }} took ${duration}s"
           echo "| Playwright e2e shard ${{ matrix.shard }} | ${duration}s |" >> "$GITHUB_STEP_SUMMARY"
