@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -826,11 +827,16 @@ export function WeddingHubClient({
                   key={photo.id}
                   className="grid grid-cols-[56px_1fr_auto] items-center gap-3 border border-[#15130f]/20 bg-[#f5efe3] px-2 py-2"
                 >
-                  <img
-                    alt="Miniatur"
-                    className="h-14 w-14 object-cover"
-                    src={photo.thumbnailBlobUrl ?? photo.previewUrl}
-                  />
+                  <span className="relative block h-14 w-14 overflow-hidden">
+                    <Image
+                      alt="Miniatur"
+                      className="object-cover"
+                      fill
+                      sizes="56px"
+                      src={photo.thumbnailBlobUrl ?? photo.previewUrl}
+                      unoptimized
+                    />
+                  </span>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{photo.fileName}</p>
                     <input
@@ -899,15 +905,18 @@ export function WeddingHubClient({
                   <div key={entry.id} className="grid grid-cols-[2.75rem_1fr] gap-3 border-b border-[#15130f]/20 pb-4">
                     <a
                       aria-label={`Öppna foto från ${entry.who}`}
-                      className="block h-11 w-11 border border-[#15130f]/20 bg-[#e6dcc7]"
+                      className="relative block h-11 w-11 overflow-hidden border border-[#15130f]/20 bg-[#e6dcc7]"
                       href={entry.photoUrl}
                       rel="noopener noreferrer"
                       target="_blank"
                     >
-                      <img
+                      <Image
                         src={entry.thumbnailUrl}
                         alt=""
-                        className="h-full w-full object-cover"
+                        className="object-cover"
+                        fill
+                        sizes="44px"
+                        unoptimized
                       />
                     </a>
                     <div>
@@ -935,15 +944,18 @@ export function WeddingHubClient({
               {photos.map((photo) => (
                 <a
                   key={photo.id}
-                  className="block h-28 w-full"
+                  className="relative block h-28 w-full overflow-hidden"
                   href={photo.photoUrl}
                   rel="noopener noreferrer"
                   target="_blank"
                 >
-                  <img
+                  <Image
                     alt={`Foto från ${photo.who}`}
-                    className="h-full w-full object-cover"
+                    className="object-cover"
+                    fill
+                    sizes="(max-width: 448px) 33vw, 149px"
                     src={photo.thumbnailUrl}
+                    unoptimized
                   />
                 </a>
               ))}
