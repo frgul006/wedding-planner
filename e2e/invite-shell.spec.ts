@@ -155,7 +155,7 @@ test.describe.serial("invite one-panel shell", () => {
     await seedInviteVisualFixtures();
   });
 
-  test("centers a 390px postcard and keeps dot, arrow, and hash navigation in sync", async ({
+  test("centers wider desktop carousel keeps cover art narrow and navigation in sync", async ({
     page,
   }) => {
     const fixture = getInviteVisualFixture("updatesPublished");
@@ -167,7 +167,14 @@ test.describe.serial("invite one-panel shell", () => {
     await expect(shell).toBeVisible();
     await expect
       .poll(async () => Math.round((await shell.boundingBox())?.width ?? 0))
-      .toBe(390);
+      .toBe(704);
+    const coverArt = page.locator("#inbjudan section[aria-label='Inbjudan']");
+    await expect
+      .poll(async () => Math.round((await coverArt.boundingBox())?.width ?? 0))
+      .toBeLessThanOrEqual(390);
+    await expect
+      .poll(async () => Math.round((await coverArt.boundingBox())?.width ?? 0))
+      .toBeGreaterThanOrEqual(388);
     await expectActivePanel(page, "inbjudan");
     await expect(page.getByRole("button", { name: "Föregående panel" }))
       .toBeDisabled();
