@@ -246,7 +246,7 @@ The invite visual QA spec visits the deterministic seeded invite fixture URLs an
 
 By default, Playwright starts the Next.js dev server on `http://127.0.0.1:3000`. Set `PLAYWRIGHT_SKIP_WEB_SERVER=1` and `PLAYWRIGHT_BASE_URL` to target an already-running app.
 
-In CI, the `E2E regression` GitHub Actions job uses the runner-provided system Chrome, starts local Supabase, writes `.env.local` from `supabase status -o env`, resets/seeds the database, runs `pnpm test:e2e`, uploads invite visual QA screenshots after successful runs, and uploads broader Playwright artifacts on failure. CI disables Playwright video so the job does not download the bundled FFmpeg runtime.
+In CI, the stable `E2E regression` GitHub Actions check is an aggregate over five Playwright shard jobs (`--shard=1/5` through `--shard=5/5`). Each shard uses runner-provided system Chrome, starts its own local Supabase, writes `.env.local` from `supabase status -o env`, seeds the database, and runs `pnpm test:e2e --shard=<N/5>`. CI logs timings for install, browser runtime check, Supabase startup, env/seed, and Playwright runtime. Invite visual QA screenshots and failure artifacts are shard-suffixed, for example `invite-visual-qa-screenshots-1-of-5` and `playwright-artifacts-1-of-5`. CI disables Playwright video so the job does not download the bundled FFmpeg runtime.
 
 ## How the coding agent can spin up local dev
 
