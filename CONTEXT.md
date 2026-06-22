@@ -8,6 +8,10 @@ This context captures guest-facing wedding invitation language for the wedding p
 The celebration being planned and administered in the app.
 _Avoid_: event, app install
 
+**Wedding name**:
+The admin-maintained title of the **Wedding** used for the **Calendar action** event title and legacy display contexts.
+_Avoid_: Public Wedding identity, partner-name display
+
 **Guest**:
 A person associated with the **Wedding** as either an **Invited Guest** or a **Plus-one Guest**.
 _Avoid_: attendee, invitee
@@ -72,6 +76,10 @@ _Avoid_: hardcoded invite text, one-off SMS body, message copy
 The URL and panel-navigation contract that returns an **Invited Guest** to the **Invite** RSVP confirmation after saving an **RSVP**.
 _Avoid_: redirect hack, query flag, client action workaround
 
+**Calendar action**:
+A guest-facing action for saving the **Wedding** time and place in a personal calendar.
+_Avoid_: calendar invite, calendar RSVP, appointment
+
 **Wedding settings**:
 The admin-maintained **Wedding** details that become guest-facing **Invite** and Wedding hub information.
 _Avoid_: event details, app config, settings form
@@ -83,6 +91,10 @@ _Avoid_: parsed wedding name, legacy title initials, inferred couple names
 **Wedding start time**:
 The intended local Stockholm date and clock time when the wedding celebration begins.
 _Avoid_: UTC time, server time, browser-local time
+
+**Wedding end time**:
+The intended local Stockholm date and clock time when the wedding celebration ends.
+_Avoid_: inferred duration, same-day closing time, browser-local time
 
 **Time Plan**:
 The ordered schedule entries for the **Wedding**, each with a local clock time and guest-facing label.
@@ -97,9 +109,14 @@ _Avoid_: Efterfest
 - A **Wedding** has exactly one set of **Wedding settings**.
 - **Wedding settings** include one **Public Wedding identity** derived from explicit partner-name fields.
 - **Wedding settings** include exactly one **Wedding start time**.
+- **Wedding settings** may include one **Wedding end time** later than **Wedding start time**.
 - **Wedding settings** include zero or more **Time Plan** entries.
 - **Wedding settings** include one **Invite SMS template**.
 - An **Invite** shows the **Public Wedding identity**, **Wedding start time**, and **Time Plan** to a **Guest**.
+- A **Calendar action** title uses **Wedding name**.
+- A **Calendar action** requires **Wedding start time** and **Wedding end time**, and includes **Wedding settings** place details when configured.
+- A **Calendar action** is available to an **Invited Guest** after a submitted yes/maybe **RSVP** and to any **Plus-one Guest** with **Scoped Invite access**.
+- A **Calendar action** respects current **Invite access**; revoked or regenerated **Invite** links stop working.
 - An **Invited Guest** may have zero or one **Plus-one Guest**.
 - A **Plus-one Guest** is tied to exactly one **Invited Guest**.
 - The **Admin Guest roster** shows both **Invited Guest** and **Plus-one Guest**, labels which kind each **Guest** is, and shows the tied **Invited Guest** for each **Plus-one Guest**.
@@ -141,9 +158,13 @@ _Avoid_: Efterfest
 ## Flagged ambiguities
 
 - "starting time" could mean server/browser timezone behavior — resolved: **Wedding start time** means Stockholm wall-clock time.
+- "end time" could mean inferred duration, same-day clock time, or explicit closing date/time — resolved: **Wedding end time** means optional explicit Stockholm date and clock time later than **Wedding start time**.
 - "event details" could mean admin form fields, guest-facing copy, or deployment config — resolved: use **Wedding settings** for Wedding-specific editable details.
 - "timeline", "itinerary", and `time_plan` strings all describe schedule entries — resolved: use **Time Plan** for the domain concept and keep storage/UI formats as implementation details.
 - Label-only schedule notes look like **Time Plan** entries but lack a clock time — resolved: **Time Plan** entries require a local clock time.
+- "Add to calendar" means **Calendar action**; "calendar invite" is avoided because **Invite** already means the private guest-facing invitation experience.
+- **Calendar action** title intentionally uses **Wedding name** rather than **Public Wedding identity**; **Public Wedding identity** remains the normal guest-facing Invite/Wedding hub identity.
+- "after RSVP" for **Calendar action** applies to **Invited Guest** access; **Scoped Invite access** **Plus-one Guest** may use **Calendar action** without owning an **RSVP**.
 - "Invite state" could mean token validity, Invite SMS sent activity, opened/RSVP status, or panel UI state — resolved: use **Invite access** for valid/invalid link checks, and keep sent/opened/RSVP activity separate.
 - `invite_status` mixed opened-Invite activity with **RSVP** status — resolved: model opened-Invite activity separately from a dedicated **RSVP** status for **Invited Guest**.
 - "Guest" previously meant only the person who owns an **RSVP** — resolved: use **Invited Guest** for the RSVP owner and **Plus-one Guest** for the tied guest.

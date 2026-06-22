@@ -44,6 +44,13 @@ function getMessage(searchParams: Awaited<SettingsPageProps["searchParams"]>) {
     return { tone: "error", text: "Wedding date must be a valid date and time." };
   }
 
+  if (error === "invalid-end-date") {
+    return {
+      tone: "error",
+      text: "Wedding end time must be after the wedding date and time.",
+    };
+  }
+
   if (error === "invalid-time-plan") {
     return {
       tone: "error",
@@ -181,6 +188,13 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                 defaultValue={formValues.weddingDateLocal}
                 label="Wedding date and time"
                 name="wedding_date"
+                type="datetime-local"
+              />
+              <AdminField
+                defaultValue={formValues.weddingEndDateLocal}
+                helpText="Optional. Used only in calendar downloads; must be after the wedding date and time."
+                label="Wedding end time"
+                name="wedding_end_date"
                 type="datetime-local"
               />
               <AdminField
