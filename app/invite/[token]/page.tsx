@@ -7,6 +7,10 @@ import {
   resolveInviteAccess,
   type GrantedInviteAccessWithRsvp,
 } from "@/lib/invite-access";
+import {
+  CALENDAR_ACTION_LABEL,
+  getInviteCalendarActionHref,
+} from "@/lib/invite-calendar";
 import { getInviteSupportContact } from "@/lib/invite-support-contact";
 import { shouldShowInviteRsvpSubmittedConfirmation } from "@/lib/invite-rsvp-navigation";
 import { RSVP_ATTENDANCE, type RsvpAttendance } from "@/lib/rsvp-attendance";
@@ -141,6 +145,25 @@ function ExternalLink({ children, href }: { children: ReactNode; href: string })
   );
 }
 
+function CalendarActionLink({
+  calendarHref,
+  className,
+}: {
+  calendarHref: string;
+  className?: string;
+}) {
+  return (
+    <BrevkortLinkButton
+      className={cx("w-fit", className)}
+      download
+      href={calendarHref}
+      tone="outline"
+    >
+      {CALENDAR_ACTION_LABEL}
+    </BrevkortLinkButton>
+  );
+}
+
 function PanelShell({
   activeIndex,
   children,
@@ -187,6 +210,7 @@ function PanelActions({
 }
 
 function CoverPanel({
+  calendarHref,
   canSubmitRsvp,
   coverDateTime,
   guestName,
@@ -196,6 +220,7 @@ function CoverPanel({
   venueArea,
   venueName,
 }: {
+  calendarHref: string | null;
   canSubmitRsvp: boolean;
   coverDateTime: WeddingCoverDateTime;
   guestName: string;
@@ -326,6 +351,15 @@ function CoverPanel({
             </div>
           ) : null}
 
+          {calendarHref && rsvpResponse ? (
+            <div className="grid gap-2 border border-invite-border-soft bg-invite-paper-light/75 p-4">
+              <p className="text-sm leading-6 text-invite-walnut">
+                Spara bröllopsfesten i din kalender.
+              </p>
+              <CalendarActionLink calendarHref={calendarHref} className="w-full" />
+            </div>
+          ) : null}
+
           <BrevkortLinkButton className="!min-h-[55px] w-full" href={primaryCta.href}>
             <span className="flex w-full items-center justify-between gap-3">
               <span>{primaryCta.label}</span>
@@ -339,6 +373,7 @@ function CoverPanel({
 }
 
 function DetailsPanel({
+  calendarHref,
   canSubmitRsvp,
   mapsUrl,
   spotifyUrl,
@@ -346,6 +381,7 @@ function DetailsPanel({
   wedding,
   weddingDate,
 }: {
+  calendarHref: string | null;
   canSubmitRsvp: boolean;
   mapsUrl: string | null;
   spotifyUrl: string | null;
@@ -406,6 +442,14 @@ function DetailsPanel({
               ) : (
                 <p className="text-sm text-invite-walnut">Kartlänk kommer snart</p>
               )}
+              {calendarHref ? (
+                <div className="grid gap-2">
+                  <p className="text-sm text-invite-walnut">
+                    Spara platsen och tiden i din kalender.
+                  </p>
+                  <CalendarActionLink calendarHref={calendarHref} />
+                </div>
+              ) : null}
             </div>
           </DetailCard>
 
@@ -520,6 +564,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
   const rsvpSubmittedAt = formatRsvpSubmittedAt(
     rsvpResponse?.last_submitted_at ?? null,
   );
+  const calendarHref = getInviteCalendarActionHref({ access, rawToken: token });
   const panelIds = access.canSubmitRsvp ? fullPanelIds : scopedPanelIds;
   const panelLabels = access.canSubmitRsvp ? fullPanelLabels : scopedPanelLabels;
 
@@ -531,6 +576,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
           panels={panelIds.map((id, index) => ({ id, label: panelLabels[index] }))}
         >
           <CoverPanel
+            calendarHref={calendarHref}
             canSubmitRsvp={access.canSubmitRsvp}
             coverDateTime={weddingDisplay.coverDateTime}
             guestName={guest.full_name}
@@ -542,6 +588,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
           />
 
           <DetailsPanel
+            calendarHref={calendarHref}
             canSubmitRsvp={access.canSubmitRsvp}
             mapsUrl={weddingDisplay.mapsUrl}
             spotifyUrl={weddingDisplay.spotifyUrl}
@@ -554,6 +601,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
             <PanelShell activeIndex={2}>
               <div className="px-2 py-8 sm:px-6 md:px-8 md:py-10">
                 <RsvpPanel
+                  calendarHref={calendarHref}
                   guest={guest}
                   rawToken={token}
                   rsvpResponse={rsvpResponse}

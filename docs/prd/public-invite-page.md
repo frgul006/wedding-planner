@@ -40,14 +40,15 @@ Guests need one simple, personal place to open their invite, read wedding detail
   - It may show an intentionally public support email so the guest can ask for a new link.
 - If token is valid, render the Brevkort folded invite experience with three mobile-first panels:
   1. `Inbjudan` — personalized cover with guest name, couple names, date/time, venue summary, and primary CTA.
-  2. `Detaljer` — event details, map/music links, gifts/dress-code cards, and an updates feed when updates exist.
-  3. `OSA` — RSVP form, edit form, or submitted confirmation.
+  2. `Detaljer` — event details, map/music links, Calendar action when eligible, gifts/dress-code cards, and an updates feed when updates exist.
+  3. `OSA` — RSVP form, edit form, or submitted confirmation with Calendar action when eligible.
 - The top navigation must show the monogram/couple mark, current panel count (`01/03`, `02/03`, `03/03`), three progress dots, and active panel label.
 - Guests can move between panels by tapping dots, next/back controls, or equivalent swipe-friendly controls.
 - First valid open with no answer starts on the cover panel and prompts the guest toward details/OSA, including the sticky/persistent OSA prompt from the artboard when space allows.
 - If the linked guest already has an RSVP response:
   - Show the current answer on the cover as a saved/current-answer banner or chip.
   - Show the sticky/current-answer bar variant with the guest's saved answer where the layout supports it.
+  - Show Calendar action on the cover only for submitted `Ja`/`Kanske` RSVP responses when Wedding start/end times are valid.
   - Change the primary CTA copy to an update action, such as `Uppdatera svar`.
   - Pre-fill the OSA form with the current saved values.
 - Show a clear event summary (names, date/time, venue) only for valid tokens.
@@ -57,6 +58,7 @@ Guests need one simple, personal place to open their invite, read wedding detail
   - Dress code and child policy where configured
   - Gift info
   - Spotify playlist link
+  - Calendar action in Details/Plats for eligible Invited Guests (`Ja`/`Kanske`) and scoped Plus-one Guests when Wedding start/end times are valid
 - Wedding settings are defined in `wedding-event-settings.md` (single source of truth).
 - If token is valid, show an interactive OSA/RSVP area where guests can submit or update their RSVP.
 - The OSA panel must only show +1 controls when the linked guest has `plus_one_allowed = true`; guests without +1 permission must not see or be able to submit +1 details.
@@ -76,13 +78,13 @@ Guests need one simple, personal place to open their invite, read wedding detail
 - `OSA — phone validation error`: phone field shows a rust/error underline and helper text.
 - `OSA — submitting`: submit button is disabled and shows progress/spinner; form values are preserved.
 - `OSA — save error`: error banner appears above the form and retry is available.
-- `OSA — submitted (Tack)`: confirmation replaces the form and summarizes the saved answer.
+- `OSA — submitted (Tack)`: confirmation replaces the form, summarizes the saved answer, and shows Calendar action when eligible.
 - `Edit — already RSVP'd Ja/Nej/Kanske`: existing answer has distinct saved-state treatment and update copy.
 - `Detaljer — no updates`: the `Uppdateringar` section is omitted.
 - `Detaljer — updates published`: published updates render inline in the details panel.
 
 ## Data dependencies
-- Brevkort details require explicit or deliberately mapped wedding settings for venue area/city, structured time-plan rows, dress code, child policy, gift info, Spotify URL, and public support email.
+- Brevkort details require explicit or deliberately mapped wedding settings for venue area/city, structured time-plan rows, dress code, child policy, gift info, Spotify URL, public support email, and Wedding end time for Calendar action visibility.
 - Brevkort OSA +1 behavior requires `guests.plus_one_allowed` and named +1 RSVP detail fields.
 - Phone values are compact E.164 with no spaces, for example `+46701234567`.
 
@@ -117,7 +119,7 @@ Guests need one simple, personal place to open their invite, read wedding detail
 - First valid open updates status to `opened` and shows the cover panel with a path toward OSA.
 - Wedding details section is visible before the OSA form.
 - Valid invite pages include the interactive RSVP form and include an Updates section only when published updates exist.
-- Existing RSVP responses show saved-state treatment, pre-fill the form, and use update copy.
+- Existing RSVP responses show saved-state treatment, pre-fill the form, use update copy, and show Calendar action only for `Ja`/`Kanske` when configured.
 - Submit, validation-error, save-error, plus-one-hidden, plus-one-expanded, and submitted-confirmation states match the Brevkort requirements.
 - Opening a valid personal invite creates or refreshes a secure guest navigation cookie that can later link same-device QR hub uploads to the guest.
 

@@ -63,6 +63,8 @@ Valid invite pages render the Brevkort three-panel invite shell:
 
 Missing optional text or list fields show `Kommer snart`; missing map URLs show `Kartlänk kommer snart`, and missing playlist URLs show non-clickable coming-soon text. If no updates are published, the guest-facing `Uppdateringar` section is omitted.
 
+Calendar action links download a token-protected `.ics` file at `/invite/[token]/calendar.ics`. The action is shown only when Wedding start/end times form a valid range. Full Invite access requires the linked Invited Guest to have a submitted `yes` or `maybe` RSVP; `no` and missing RSVP responses hide the action. Scoped Invite access for Plus-one Guests shows the action without checking a tied RSVP. The `.ics` file uses Wedding name as the event title, includes the current personal Invite link and safe Google Maps URL when configured, and adds 1-week and 1-day display reminders. Wedding end time is calendar-only and is not otherwise rendered on the Invite page.
+
 ## RSVP submission
 
 Valid `/invite/[token]` pages let the linked guest submit or update:

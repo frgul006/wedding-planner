@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 
 import type { InviteRsvpResponse } from "@/lib/invite-access";
+import { CALENDAR_ACTION_LABEL } from "@/lib/invite-calendar";
 import {
   getInviteRsvpEditHrefFromLocation,
   getInviteRsvpSubmittedHref,
@@ -31,6 +32,7 @@ import {
   BrevkortErrorText,
   BrevkortHeading,
   BrevkortLegend,
+  BrevkortLinkButton,
   BrevkortStatusStrip,
   BrevkortTextInput,
   BrevkortTextarea,
@@ -45,6 +47,7 @@ type InviteGuest = {
 };
 
 type RsvpPanelProps = {
+  calendarHref: string | null;
   guest: InviteGuest;
   rawToken: string;
   rsvpResponse: InviteRsvpResponse | null;
@@ -217,6 +220,7 @@ function SubmitButton({
 }
 
 function Confirmation({
+  calendarHref,
   guestName,
   onEdit,
   phone,
@@ -224,6 +228,7 @@ function Confirmation({
   weddingDate,
   weddingName,
 }: {
+  calendarHref: string | null;
   guestName: string;
   onEdit: () => void;
   phone: string;
@@ -284,7 +289,17 @@ function Confirmation({
         ) : null}
       </dl>
 
-      <BrevkortButton className="mt-6" onClick={onEdit} tone="outline" type="button">
+      {calendarHref ? (
+        <BrevkortLinkButton className="mt-6 w-full" download href={calendarHref} tone="rust">
+          {CALENDAR_ACTION_LABEL}
+        </BrevkortLinkButton>
+      ) : null}
+      <BrevkortButton
+        className={calendarHref ? "mt-3" : "mt-6"}
+        onClick={onEdit}
+        tone="outline"
+        type="button"
+      >
         Uppdatera mitt svar
       </BrevkortButton>
       <p className="mt-6 text-sm text-invite-walnut">{closingLine}</p>
@@ -294,6 +309,7 @@ function Confirmation({
 }
 
 export function RsvpPanel({
+  calendarHref,
   guest,
   rawToken,
   rsvpResponse,
@@ -327,6 +343,7 @@ export function RsvpPanel({
   if (showConfirmation && rsvpResponse) {
     return (
       <Confirmation
+        calendarHref={calendarHref}
         guestName={guest.full_name}
         onEdit={() => {
           clearSubmittedRsvpMarker();

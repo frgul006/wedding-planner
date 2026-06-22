@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { parseOptionalHttpUrl } from "@/lib/safe-url";
-import { isMissingPartnerNameColumnError } from "@/lib/supabase/schema-compat";
+import {
+  isWeddingSettingsSchemaCompatibilityError,
+} from "@/lib/supabase/schema-compat";
 import {
   formatStockholmDateTimeLocal,
   parseStockholmDateTimeLocal,
@@ -33,6 +35,7 @@ export type WeddingSettings = {
   venue_area: string | null;
   venue_name: string | null;
   wedding_date: string | null;
+ wedding_end_date: string | null;
 };
 
 export type InviteWeddingSettings = Omit<
@@ -42,10 +45,11 @@ export type InviteWeddingSettings = Omit<
 
 export type WeddingSettingsFormValues = Omit<
   WeddingSettings,
-  "time_plan" | "wedding_date"
+  "time_plan" | "wedding_date" | "wedding_end_date"
 > & {
   timePlanText: string;
   weddingDateLocal: string;
+ weddingEndDateLocal: string;
 };
 
 type WeddingSettingsLoadError = { message?: string } | null;
@@ -60,6 +64,7 @@ export type WeddingSettingsUpdateStatus =
   | "updated"
   | "missing-name"
   | "invalid-date"
+ | "invalid-end-date"
   | "invalid-time-plan"
   | "invalid-google-maps-url"
   | "invalid-spotify-url"
@@ -67,12 +72,20 @@ export type WeddingSettingsUpdateStatus =
   | "update-failed";
 
 const weddingSettingsSelect =
-  "name, partner_one_name, partner_two_name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, invite_sms_template, allow_anonymous_hub_upload, photo_upload_requires_review";
+  "name, partner_one_name, partner_two_name, wedding_date, wedding_end_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, invite_sms_template, allow_anonymous_hub_upload, photo_upload_requires_review";
 const legacyWeddingSettingsSelect =
+  "name, wedding_date, wedding_end_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, invite_sms_template, allow_anonymous_hub_upload, photo_upload_requires_review";
+const weddingSettingsWithoutEndDateSelect =
+  "name, partner_one_name, partner_two_name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, invite_sms_template, allow_anonymous_hub_upload, photo_upload_requires_review";
+const legacyWeddingSettingsWithoutEndDateSelect =
   "name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, invite_sms_template, allow_anonymous_hub_upload, photo_upload_requires_review";
 const inviteWeddingSettingsSelect =
-  "name, partner_one_name, partner_two_name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email";
+  "name, partner_one_name, partner_two_name, wedding_date, wedding_end_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email";
 const legacyInviteWeddingSettingsSelect =
+  "name, wedding_date, wedding_end_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email";
+const inviteWeddingSettingsWithoutEndDateSelect =
+  "name, partner_one_name, partner_two_name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email";
+const legacyInviteWeddingSettingsWithoutEndDateSelect =
   "name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email";
 
 function cleanOptionalText(value: FormDataEntryValue | null) {
@@ -84,15 +97,25 @@ function cleanRequiredText(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function withMissingPartnerNameColumns(value: unknown) {
+function withMissingWeddingSettingsColumns({
+  partnerNameFieldsAvailable,
+  value,
+  weddingEndDateFieldAvailable,
+}: {
+  partnerNameFieldsAvailable: boolean;
+  value: unknown;
+  weddingEndDateFieldAvailable: boolean;
+}) {
   if (!isRecord(value)) {
     return value;
   }
 
   return {
     ...value,
-    partner_one_name: null,
-    partner_two_name: null,
+    ...(partnerNameFieldsAvailable
+      ? {}
+      : { partner_one_name: null, partner_two_name: null }),
+    ...(weddingEndDateFieldAvailable ? {} : { wedding_end_date: null }),
   };
 }
 
@@ -103,6 +126,7 @@ function normalizeWeddingSettingsRow(value: unknown): WeddingSettings | null {
     !isNullableString(value.partner_one_name) ||
     !isNullableString(value.partner_two_name) ||
     !isNullableString(value.wedding_date) ||
+    !isNullableString(value.wedding_end_date) ||
     !isNullableString(value.venue_name) ||
     !isNullableString(value.venue_address) ||
     !isNullableString(value.venue_area) ||
@@ -139,6 +163,7 @@ function normalizeWeddingSettingsRow(value: unknown): WeddingSettings | null {
     venue_area: value.venue_area,
     venue_name: value.venue_name,
     wedding_date: value.wedding_date,
+    wedding_end_date: value.wedding_end_date,
   };
 }
 
@@ -152,6 +177,7 @@ function normalizeInviteWeddingSettingsRow(
     !isNullableString(value.partner_one_name) ||
     !isNullableString(value.partner_two_name) ||
     !isNullableString(value.wedding_date) ||
+    !isNullableString(value.wedding_end_date) ||
     !isNullableString(value.venue_name) ||
     !isNullableString(value.venue_address) ||
     !isNullableString(value.venue_area) ||
@@ -182,8 +208,61 @@ function normalizeInviteWeddingSettingsRow(
     venue_area: value.venue_area,
     venue_name: value.venue_name,
     wedding_date: value.wedding_date,
+    wedding_end_date: value.wedding_end_date,
   };
 }
+
+type WeddingSettingsSelectOption = {
+  partnerNameFieldsAvailable: boolean;
+  select: string;
+  weddingEndDateFieldAvailable: boolean;
+};
+
+const adminWeddingSettingsSelectOptions: WeddingSettingsSelectOption[] = [
+  {
+    partnerNameFieldsAvailable: true,
+    select: weddingSettingsSelect,
+    weddingEndDateFieldAvailable: true,
+  },
+  {
+    partnerNameFieldsAvailable: false,
+    select: legacyWeddingSettingsSelect,
+    weddingEndDateFieldAvailable: true,
+  },
+  {
+    partnerNameFieldsAvailable: true,
+    select: weddingSettingsWithoutEndDateSelect,
+    weddingEndDateFieldAvailable: false,
+  },
+  {
+    partnerNameFieldsAvailable: false,
+    select: legacyWeddingSettingsWithoutEndDateSelect,
+    weddingEndDateFieldAvailable: false,
+  },
+];
+
+const inviteWeddingSettingsSelectOptions: WeddingSettingsSelectOption[] = [
+  {
+    partnerNameFieldsAvailable: true,
+    select: inviteWeddingSettingsSelect,
+    weddingEndDateFieldAvailable: true,
+  },
+  {
+    partnerNameFieldsAvailable: false,
+    select: legacyInviteWeddingSettingsSelect,
+    weddingEndDateFieldAvailable: true,
+  },
+  {
+    partnerNameFieldsAvailable: true,
+    select: inviteWeddingSettingsWithoutEndDateSelect,
+    weddingEndDateFieldAvailable: false,
+  },
+  {
+    partnerNameFieldsAvailable: false,
+    select: legacyInviteWeddingSettingsWithoutEndDateSelect,
+    weddingEndDateFieldAvailable: false,
+  },
+];
 
 async function loadWeddingSettingsRow({
   supabase,
@@ -192,32 +271,32 @@ async function loadWeddingSettingsRow({
   supabase: SupabaseClient;
   weddingId: string;
 }): Promise<LoadWeddingSettingsResult> {
-  const result = await supabase
-    .from("weddings")
-    .select(weddingSettingsSelect)
-    .eq("id", weddingId)
-    .maybeSingle();
+  for (const option of adminWeddingSettingsSelectOptions) {
+    const result = await supabase
+      .from("weddings")
+      .select(option.select)
+      .eq("id", weddingId)
+      .maybeSingle();
 
-  if (!isMissingPartnerNameColumnError(result.error)) {
-    return {
-      error: result.error,
-      partnerNameFieldsAvailable: true,
-      settings: normalizeWeddingSettingsRow(result.data),
-    };
+    if (!isWeddingSettingsSchemaCompatibilityError(result.error)) {
+      return {
+        error: result.error,
+        partnerNameFieldsAvailable: option.partnerNameFieldsAvailable,
+        settings: normalizeWeddingSettingsRow(
+          withMissingWeddingSettingsColumns({
+            partnerNameFieldsAvailable: option.partnerNameFieldsAvailable,
+            value: result.data,
+            weddingEndDateFieldAvailable: option.weddingEndDateFieldAvailable,
+          }),
+        ),
+      };
+    }
   }
 
-  const fallbackResult = await supabase
-    .from("weddings")
-    .select(legacyWeddingSettingsSelect)
-    .eq("id", weddingId)
-    .maybeSingle();
-
   return {
-    error: fallbackResult.error,
+    error: { message: "Wedding settings schema compatibility fallback failed." },
     partnerNameFieldsAvailable: false,
-    settings: normalizeWeddingSettingsRow(
-      withMissingPartnerNameColumns(fallbackResult.data),
-    ),
+    settings: null,
   };
 }
 
@@ -231,30 +310,30 @@ async function loadInviteWeddingSettingsRow({
   error: WeddingSettingsLoadError;
   settings: InviteWeddingSettings | null;
 }> {
-  const result = await supabase
-    .from("weddings")
-    .select(inviteWeddingSettingsSelect)
-    .eq("id", weddingId)
-    .maybeSingle();
+  for (const option of inviteWeddingSettingsSelectOptions) {
+    const result = await supabase
+      .from("weddings")
+      .select(option.select)
+      .eq("id", weddingId)
+      .maybeSingle();
 
-  if (!isMissingPartnerNameColumnError(result.error)) {
-    return {
-      error: result.error,
-      settings: normalizeInviteWeddingSettingsRow(result.data),
-    };
+    if (!isWeddingSettingsSchemaCompatibilityError(result.error)) {
+      return {
+        error: result.error,
+        settings: normalizeInviteWeddingSettingsRow(
+          withMissingWeddingSettingsColumns({
+            partnerNameFieldsAvailable: option.partnerNameFieldsAvailable,
+            value: result.data,
+            weddingEndDateFieldAvailable: option.weddingEndDateFieldAvailable,
+          }),
+        ),
+      };
+    }
   }
 
-  const fallbackResult = await supabase
-    .from("weddings")
-    .select(legacyInviteWeddingSettingsSelect)
-    .eq("id", weddingId)
-    .maybeSingle();
-
   return {
-    error: fallbackResult.error,
-    settings: normalizeInviteWeddingSettingsRow(
-      withMissingPartnerNameColumns(fallbackResult.data),
-    ),
+    error: { message: "Invite Wedding settings schema compatibility fallback failed." },
+    settings: null,
   };
 }
 
@@ -269,6 +348,39 @@ function parseWeddingDate(value: FormDataEntryValue | null) {
 
   if (!stockholmDateTime) {
     return { status: "invalid-date" as const };
+  }
+
+  return { status: "ok" as const, value: stockholmDateTime };
+}
+
+function parseWeddingEndDate({
+  endValue,
+  startValue,
+}: {
+  endValue: FormDataEntryValue | null;
+  startValue: string | null;
+}) {
+  const rawValue = cleanOptionalText(endValue);
+
+  if (!rawValue) {
+    return { status: "ok" as const, value: null };
+  }
+
+  const stockholmDateTime = parseStockholmDateTimeLocal(rawValue);
+
+  if (!stockholmDateTime || !startValue) {
+    return { status: "invalid-end-date" as const };
+  }
+
+  const startDate = new Date(startValue);
+  const endDate = new Date(stockholmDateTime);
+
+  if (
+    Number.isNaN(startDate.getTime()) ||
+    Number.isNaN(endDate.getTime()) ||
+    endDate <= startDate
+  ) {
+    return { status: "invalid-end-date" as const };
   }
 
   return { status: "ok" as const, value: stockholmDateTime };
@@ -301,6 +413,15 @@ function getWeddingSettingsUpdate(formData: FormData) {
 
   if (weddingDate.status !== "ok") {
     return weddingDate;
+  }
+
+  const weddingEndDate = parseWeddingEndDate({
+    endValue: formData.get("wedding_end_date"),
+    startValue: weddingDate.value,
+  });
+
+  if (weddingEndDate.status !== "ok") {
+    return weddingEndDate;
   }
 
   const googleMapsUrl = parseGuestFacingUrl(
@@ -351,6 +472,7 @@ function getWeddingSettingsUpdate(formData: FormData) {
       venue_area: cleanOptionalText(formData.get("venue_area")),
       venue_name: cleanOptionalText(formData.get("venue_name")),
       wedding_date: weddingDate.value,
+      wedding_end_date: weddingEndDate.value,
     },
   };
 }
@@ -398,6 +520,7 @@ export function getWeddingSettingsFormValues(
     venue_area: settings.venue_area,
     venue_name: settings.venue_name,
     weddingDateLocal: formatStockholmDateTimeLocal(settings.wedding_date),
+    weddingEndDateLocal: formatStockholmDateTimeLocal(settings.wedding_end_date),
   };
 }
 
@@ -418,20 +541,33 @@ export async function updateAdminWeddingSettings({
     return { status: parsed.status };
   }
 
-  let { data, error } = await supabase
-    .from("weddings")
-    .update({ ...parsed.update, ...parsed.partnerNameUpdate })
-    .eq("id", weddingId)
-    .select("id")
-    .maybeSingle();
+  const updateWithoutEndDate = Object.fromEntries(
+    Object.entries(parsed.update).filter(([key]) => key !== "wedding_end_date"),
+  );
+  const updateAttempts = [
+    { ...parsed.update, ...parsed.partnerNameUpdate },
+    parsed.update,
+    { ...updateWithoutEndDate, ...parsed.partnerNameUpdate },
+    updateWithoutEndDate,
+  ];
 
-  if (isMissingPartnerNameColumnError(error)) {
-    ({ data, error } = await supabase
+  let data: { id: string } | null = null;
+  let error: WeddingSettingsLoadError = null;
+
+  for (const update of updateAttempts) {
+    const result = await supabase
       .from("weddings")
-      .update(parsed.update)
+      .update(update)
       .eq("id", weddingId)
       .select("id")
-      .maybeSingle());
+      .maybeSingle();
+
+    data = result.data;
+    error = result.error;
+
+    if (!isWeddingSettingsSchemaCompatibilityError(error)) {
+      break;
+    }
   }
 
   if (error) {

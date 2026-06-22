@@ -310,6 +310,7 @@ async function main() {
     partner_one_name: "Fredrik",
     partner_two_name: "Matilda",
     wedding_date: "2026-09-26T16:30:00+02:00",
+    wedding_end_date: "2026-09-27T01:00:00+02:00",
     venue_name: "Cicada",
     venue_address: "Veterinärgränd 6, Johanneshov",
     venue_area: "Johanneshov",

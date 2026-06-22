@@ -21,6 +21,7 @@ Editable fields:
 - `partner_one_name`
 - `partner_two_name`
 - `wedding_date`
+- `wedding_end_date`
 - `venue_name`
 - `venue_address`
 - `venue_area`
@@ -41,6 +42,7 @@ Editable fields:
 `partner_one_name` and `partner_two_name` drive the **Public Wedding identity** used by the Invite cover, invalid-Invite contact, and Wedding hub monogram. They are optional and intentionally separate from `name`, which remains the general wedding title / legacy display name. Blank partner fields render safe public placeholders instead of parsing `name`.
 
 `wedding_date` is the wedding start time as Stockholm wall-clock time. Admin-entered `datetime-local` values are interpreted in `Europe/Stockholm`, not in the production server timezone or the admin browser timezone.
+`wedding_end_date` is optional and used only for Calendar action `.ics` downloads. It is not displayed on the Invite page; when provided, it must be later than `wedding_date`.
 
 Guest-facing links stored in `google_maps_url` and `spotify_playlist_url` must be `http` or `https` URLs. Unsafe values are rejected when saving Wedding settings and still hidden when rendering the Invite as a defensive fallback.
 

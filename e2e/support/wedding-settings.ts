@@ -25,6 +25,7 @@ export const BASELINE_WEDDING_SETTINGS = {
   venue_area: "Johanneshov",
   venue_name: "Cicada",
   wedding_date: "2026-09-26T14:30:00.000Z",
+  wedding_end_date: null,
 } as const;
 
 export type WeddingSettingsPatch = Partial<{
@@ -45,6 +46,7 @@ export type WeddingSettingsPatch = Partial<{
   venue_area: string | null;
   venue_name: string | null;
   wedding_date: string | null;
+  wedding_end_date: string | null;
 }>;
 
 export async function updateWeddingSettings(patch: WeddingSettingsPatch) {
