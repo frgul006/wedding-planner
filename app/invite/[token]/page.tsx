@@ -220,7 +220,7 @@ function CoverPanel({
       <div className="pb-6 pt-0">
         <section
           aria-label="Inbjudan"
-          className="mx-1 border border-invite-border/90 bg-invite-paper-light/40 px-7 py-4 text-center"
+          className="mx-1 border border-invite-border/90 bg-invite-paper-light/40 px-7 py-4 text-center md:mx-auto md:max-w-[390px]"
         >
           <p className="sr-only">Inbjudan till {guestName}</p>
           <BrevkortKicker>Inbjudan</BrevkortKicker>
@@ -355,7 +355,7 @@ function DetailsPanel({
 }) {
   return (
     <PanelShell activeIndex={1}>
-      <div className="px-2 py-8 sm:px-6">
+      <div className="px-2 py-8 sm:px-6 md:px-8 md:py-10">
         <BrevkortKicker>Allt inför dagen</BrevkortKicker>
         <BrevkortHeading className="mt-3 text-4xl" id="detaljer-heading">
           Detaljer
@@ -525,7 +525,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
 
   return (
     <BrevkortPage className="!px-0 sm:!px-6">
-      <BrevkortStack className="max-w-[390px]">
+      <BrevkortStack className="max-w-[390px] md:max-w-[44rem]">
         <InvitePanelCarousel
           coupleMark={weddingDisplay.coupleMark}
           panels={panelIds.map((id, index) => ({ id, label: panelLabels[index] }))}
@@ -552,7 +552,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
 
           {access.canSubmitRsvp ? (
             <PanelShell activeIndex={2}>
-              <div className="px-2 py-8 sm:px-6">
+              <div className="px-2 py-8 sm:px-6 md:px-8 md:py-10">
                 <RsvpPanel
                   guest={guest}
                   rawToken={token}

@@ -1073,7 +1073,7 @@ export function InvitePanelCarousel({
 
   return (
     <div
-      className="relative mx-auto min-h-[926px] w-full max-w-[390px]"
+      className="relative mx-auto min-h-[926px] w-full max-w-[390px] md:max-w-[44rem]"
       data-testid="invite-panel-carousel"
       onPointerCancel={(event) => finishDragSession(event, { cancel: true })}
       onPointerDown={handlePointerDown}
