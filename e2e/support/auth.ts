@@ -7,11 +7,10 @@ export async function signInAsSeededAdmin(page: Page) {
   await page.getByLabel("Email").fill(SEEDED_ADMIN.email);
   await page.getByLabel("Password").fill(SEEDED_ADMIN.password);
   await page.getByRole("button", { name: "Sign in" }).click();
-
-  await expect(page.getByRole("heading", { name: "Admin dashboard" })).toBeVisible();
+  await expect(page.getByText("Admin · Brevet Console")).toBeVisible();
 }
 
 export async function signOutAdmin(page: Page) {
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("button", { name: "Logga ut" }).click();
   await expect(page.getByRole("heading", { name: "Admin login" })).toBeVisible();
 }

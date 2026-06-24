@@ -64,6 +64,8 @@ export type AdminGuestRosterRow = {
   rsvpStatusLabel: string;
   smsOptIn: boolean;
   tiedInvitedGuestText: string | null;
+  updatedAt: string;
+  updatedAtLabel: string;
 };
 
 export type LoadAdminGuestRosterResult = {
@@ -85,6 +87,7 @@ export type AdminGuestRosterGuestRow = {
   rsvp_managed: boolean;
   rsvp_status: RsvpStatus;
   sms_opt_in: boolean;
+  updated_at: string;
 };
 
 export type AdminGuestRosterActiveInviteTokenRow = {
@@ -114,7 +117,7 @@ export const ADMIN_GUEST_ROSTER_SORTS = [
 ] as const satisfies readonly AdminGuestRosterSort[];
 
 const GUEST_SELECT =
-  "id, full_name, email, phone, notes, guest_kind, invited_guest_id, invite_status, rsvp_managed, rsvp_status, sms_opt_in, plus_one_allowed, created_at";
+  "id, full_name, email, phone, notes, guest_kind, invited_guest_id, invite_status, rsvp_managed, rsvp_status, sms_opt_in, plus_one_allowed, created_at, updated_at";
 const RSVP_RESPONSE_SELECT =
   "guest_id, allergy_notes, extra_guests, food_preference, plus_one_allergy_notes, plus_one_food_preference, last_submitted_at";
 
@@ -182,7 +185,8 @@ function isAdminGuestRosterGuestRow(value: unknown): value is AdminGuestRosterGu
     isRsvpStatus(value.rsvp_status) &&
     typeof value.sms_opt_in === "boolean" &&
     typeof value.plus_one_allowed === "boolean" &&
-    typeof value.created_at === "string"
+    typeof value.created_at === "string" &&
+    typeof value.updated_at === "string"
   );
 }
 
@@ -303,6 +307,8 @@ export function buildAdminGuestRosterRows({
         isPlusOneGuest && guest.invited_guest_id
           ? `Tied to ${invitedGuestNamesById.get(guest.invited_guest_id) ?? "unknown Invited Guest"}`
           : null,
+      updatedAt: guest.updated_at,
+      updatedAtLabel: formatRsvpSubmittedAt(guest.updated_at) ?? "—",
     };
   });
 }

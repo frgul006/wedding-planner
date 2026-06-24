@@ -96,3 +96,60 @@ body {
   font-style: italic;
   font-weight: 400;
 }
+
+@layer components {
+  .cell-input {
+    border: 1px solid #d8c7a3;
+    border-radius: 0.75rem;
+    background: rgb(255 255 255 / 90%);
+    color: #1f1a14;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    outline: none;
+    padding: 0.5rem 0.75rem;
+    transition: border-color 150ms ease, background-color 150ms ease;
+  }
+
+  .cell-input:focus {
+    border-color: #1f1a14;
+  }
+
+  .cell-input:disabled {
+    background: #efe6d3;
+    color: #7b6d5b;
+    cursor: not-allowed;
+  }
+
+  .bulk-button,
+  .bulk-button-danger {
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid #c9ad7e;
+    color: #4d351f;
+    display: inline-flex;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1rem;
+    padding: 0.5rem 1rem;
+    transition: background-color 150ms ease, opacity 150ms ease;
+  }
+
+  .bulk-button:hover {
+    background: white;
+  }
+
+  .bulk-button:disabled,
+  .bulk-button-danger:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .bulk-button-danger {
+    border-color: #fca5a5;
+    color: #991b1b;
+  }
+
+  .bulk-button-danger:hover {
+    background: #fef2f2;
+  }
+}

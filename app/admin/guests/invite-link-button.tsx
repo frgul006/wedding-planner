@@ -8,11 +8,13 @@ const initialState: GenerateInviteLinkState = {};
 
 export function InviteLinkButton({
   accessScope = "full",
+  disabled = false,
   guestId,
   guestName,
   hasActiveToken,
 }: {
   accessScope?: "full" | "scoped";
+  disabled?: boolean;
   guestId: string;
   guestName: string;
   hasActiveToken: boolean;
@@ -49,14 +51,16 @@ export function InviteLinkButton({
       <form action={formAction}>
         <button
           className="rounded-full border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isPending}
+          disabled={disabled || isPending}
           type="submit"
         >
-          {isPending
-            ? "Generating..."
-            : hasActiveToken
-              ? `Regenerate ${inviteLabel}`
-              : `Generate ${inviteLabel}`}
+          {disabled
+            ? "Spara listan först"
+            : isPending
+              ? "Generating..."
+              : hasActiveToken
+                ? `Regenerate ${inviteLabel}`
+                : `Generate ${inviteLabel}`}
         </button>
       </form>
 
