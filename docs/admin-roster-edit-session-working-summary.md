@@ -1,114 +1,104 @@
 # Admin roster edit session working summary
 
-Status: current PR `#120` (`design-admin-roster-edit-session`)
+Status: PR `#120` (`design-admin-roster-edit-session`) merge-blocking feedback implemented
 Date: 2026-06-24
 
 ## Implemented in PR #120
 
-- Direction B / Brevet Console admin shell for `/admin/*`.
+- Plain admin shell copy (`Admin – Wedding Planner`) with no visible `Brevet Console` / PR-design framing.
+- Compact admin shell and overview hero; sidebar/nav consumes less roster width.
 - Direction B `/admin` overview using real counts only.
-- Restyled `/admin/guests` around one Admin Guest roster edit session.
+- Restyled `/admin/guests` around one **Admin Guest roster edit session**.
 - Draft Invited Guest rows created inline in roster.
-- Dirty row/cell tracking with sticky Save/Discard bar outside horizontal overflow.
-- Batch save RPC commits all changed roster rows atomically, rejects invalid/stale rows, and returns row errors.
+- Dirty row/cell tracking with contextual sticky Save/Discard bar outside horizontal overflow.
+- Sticky save footer hidden on clean initial load; shows dirty/saving/saved/error states only.
+- Swedish dirty-count pluralization: `1 osparad rad`, `N osparade rader`.
+- Batch save RPC commits all changed roster rows atomically, rejects invalid/stale rows, returns row errors.
 - Editable roster fields limited to admin-owned fields: full name, email, phone, SMS consent, +1 permission, admin note.
 - RSVP-managed Plus-one Guest identity/contact fields stay read-only.
-- Selected-row actions implemented for bulk +1, bulk SMS consent, and lifecycle archive.
-- Roster Invite-link generation remains explicit per row via Generate/Regenerate Invite link.
-- Clean-state gating blocks side-effect actions while roster has dirty edits.
+- Selected-row actions implemented: bulk +1, bulk SMS consent, lifecycle archive.
+- Archive action now removes all DB-archived rows from client state, including tied RSVP-managed Plus-one Guests archived by lifecycle RPC.
+- Roster Invite-link generation remains explicit per row via Swedish `Skapa` / `Skapa om inbjudningslänk`; no copy-existing-link affordance.
+- Clean-state gating blocks side-effect actions while roster dirty edits exist.
 - Search/filter/sort preserve dirty edit session and expose hidden dirty-row count.
-- Cmd/Ctrl+S save shortcut and browser-level unsaved navigation guard.
-- Compatibility hooks keep existing E2E coverage stable while visible copy stays Swedish.
+- Roster read-only metadata (`Typ`, `Koppling`, `Status`, `Updated`, food/allergy details) moved into compact secondary chips under Guest name.
+- Selected roster SMS CTA clarified; it opens `/admin/messages?selected_guests=...` for selected Guests.
+- `/admin/messages` consumes `selected_guests`, previews eligible selected SMS targets and excluded Guests/reasons, and sends only eligible selected targets.
+- Selected SMS flow sends general SMS updates only; it does not send Invite SMS or regenerate Invite access.
+- Visible admin copy swept for the review blockers across admin shell, roster, messages, QR, and basic load errors.
+- Compatibility hooks/selectors keep existing E2E coverage stable while visible copy is Swedish.
 
 ## Explicitly dropped
 
 - Bulk copy invite links for selected Guests will not be implemented.
-- Reason: active Invite links are stored as hashes, so existing raw URLs cannot be recovered. Admins should use each row's explicit Generate/Regenerate Invite link action when a raw URL is needed.
+- Reason: active Invite links are stored as hashes, so existing raw URLs cannot be recovered. Admins use each row's explicit generate/regenerate inbjudningslänk action when a raw URL is needed.
 
-## Merge-blocking review feedback before PR #120 can merge
+## Merge-blocking review feedback status
 
-1. **Replace PR/internal admin-shell copy with user-facing product copy**
-- Current: visible labels still reference `Brevet Console`, `Svensk adminvy för Wedding Planner`, `Admin · Brevet Console`, and PR/ADR language.
-- Needed: use plain product/admin copy such as `Admin – Wedding Planner`; remove “Swedish admin view” framing because there is no English admin view.
+All user-raised merge blockers are implemented:
 
-2. **Remove Swenglish from admin UI**
-- Current examples: `Förhandsgranska Invite SMS`, `Invited Guest`, `RSVP status`, `(Re)generate invite link`, mixed English status/help text.
-- Needed: choose Swedish user-facing labels or intentional domain terms, then apply consistently across `/admin`, `/admin/guests`, `/admin/messages`.
+1. Admin-shell copy no longer references `Brevet Console` or “Swedish admin view”.
+2. Admin visible copy is localized/polished in touched admin flows.
+3. Sidebar/nav is more compact, giving roster more width.
+4. `/admin` hero is materially smaller.
+5. Roster page headings no longer use PR/internal copy.
+6. Sticky save footer is contextual and pluralization is fixed.
+7. Guest-list copy-existing-link actions are removed/renamed to generation of new inbjudningslänkar only.
+8. Selected SMS CTA and selected message flow now explain exactly what happens.
+9. Roster table is compressed by moving read-only metadata into secondary chips.
+10. Selected Wedding SMS update flow is implemented end-to-end.
 
-3. **Make admin shell/sidebar less width-hungry**
-- Current: fixed sidebar consumes useful horizontal space while bulk editing roster.
-- Needed: collapsible sidebar or equivalent compact mode so roster edit session can use more width.
+## Still not complete vs broader docs/CONTEXT
 
-4. **Compress `/admin` overview hero**
-- Current: hero block with `Admin · Brevet Console`, couple names, signed-in text, and real-data note takes prime screen space.
-- Needed: reduce hero height to at most ~50% of current size and move low-priority signed-in/context copy out of the hero.
+These remain non-blocking unless promoted:
 
-5. **Replace roster page PR-context copy**
-- Current examples: `Gästlista utan dolda spara-knappar`, `Spara allt som en granskad Admin Guest roster edit session.`, `Redigera Gäster i en session`.
-- Needed: user-facing copy that describes the task, not implementation/design-review terms.
+1. **Action feedback across all admin pages**
+   - Current: dashboard logout reusable pending button; roster/messages have improved feedback.
+   - Missing: every submit/test/send/update button across all admin pages converted to shared pending/disabled/status primitives.
 
-6. **Make sticky save footer contextual**
-- Current: footer is visible immediately on page load and says `Gästlistan är sparad` even before user edits.
-- Needed: hide footer until relevant (dirty, saving, saved confirmation, error, conflict), and fix singular/plural copy (`1 osparad rad`, `N osparade rader`).
-
-7. **Audit/remove guest-list copy-link actions**
-- Current: a `Kopiera länkar`/copy-link affordance is still visible somewhere in guest list.
-- Needed: drop any copy-existing-link action that cannot work without regenerating raw Invite link. If an action regenerates, label it as Generate/Regenerate, not Copy.
-
-8. **Clarify selected SMS action copy**
-- Current: `SMS markerade` is ambiguous.
-- Needed: make CTA say what happens next, e.g. open composer for selected Guests, preview selected recipients, or send selected SMS flow.
-
-9. **Compress roster table by moving read-only metadata into secondary row content**
-- Current: read-only intel like `Typ`, `Koppling`, `Status`, and `Updated` each reserve their own columns.
-- Needed: keep editable fields in primary row, move read-only status/details into a compact secondary line/chips under the name/row with self-evident labels. Goal: fewer columns, less horizontal overflow, better bulk-edit density.
-
-## Still not complete vs current docs/CONTEXT
-
-1. **Roster Send SMS selected flow**
-   - Current: `/admin/guests` links to `/admin/messages?selected_guests=...`.
-   - Missing: messages page does not consume selected IDs, build eligible Message targets, or show excluded Guests/reasons.
-
-2. **Action feedback across all admin pages**
-   - Current: dashboard logout has reusable pending button; roster has rich feedback.
-   - Missing: every submit/test/send/update button across all admin pages has not been converted to pending/disabled/status primitives.
-
-3. **Keyboard/edit polish**
+2. **Keyboard/edit polish**
    - Current: tab naturally moves through fields; Cmd/Ctrl+S saves.
    - Missing: Enter-to-edit and Esc-to-revert-cell semantics.
 
-4. **Unsaved navigation prompt**
+3. **Unsaved navigation prompt**
    - Current: browser confirm prevents accidental navigation.
    - Missing: custom Save / Discard / Stay prompt.
 
-5. **Review changes**
+4. **Review changes**
    - Current: not implemented.
    - Requirement says optional, not blocking valid saves.
 
-6. **Overview prioritization**
-   - Current: overview shows real counts for Guests, pending photos, SMS, updates.
+5. **Overview prioritization**
+   - Current: overview shows real counts Guests, pending photos, SMS, updates.
    - Missing: prioritised Guest operations like unanswered RSVPs, missing phone/SMS eligibility, allergy notes to share.
 
-7. **Live validation**
+6. **Live validation**
    - Current: validation appears on Save and clears on edit.
    - Missing: fully live per-cell validation before Save.
 
-8. **Plus-one action eligibility visibility**
+7. **Plus-one action eligibility visibility**
    - Current: non-qualifying selected rows are filtered out by bulk actions.
    - Missing: clearer visible per-action eligibility/disabled affordances for selected Plus-one Guests.
 
-## Validation run after final fixes
+## Validation run after merge-blocker fixes
 
 - `supabase db reset && pnpm seed:local`
 - `pnpm lint`
 - `pnpm build`
-- `pnpm test:e2e --reporter=list` → 174 passed
-- `playwright-cli snapshot` captured `/admin/guests` after admin login against local dev server.
+- `pnpm test:e2e --reporter=list` → 177 passed
+- `playwright-cli snapshot` captured `/admin/guests` after admin login.
+- `playwright-cli snapshot` captured `/admin/messages?selected_guests=...` selected SMS flow after admin login.
+
+Snapshot artifacts from final local run:
+
+- `/Users/fredrik/dev/wedding-planner/.playwright-cli/page-2026-06-24T21-47-21-624Z.yml`
+- `/Users/fredrik/dev/wedding-planner/.playwright-cli/page-2026-06-24T21-47-21-921Z.yml`
 
 ## References
 
 - Domain terms: `CONTEXT.md`
 - PRD: `docs/prd/admin-guest-crud.md`
 - ADR: `docs/adr/0003-admin-guest-roster-edit-session.md`
-- PR: https://github.com/frgul006/wedding-planner/pull/120
+- Branch decisions: `docs/admin-roster-pr120-decisions.md`
 - Branch execution PRD/parallelization plan: `docs/admin-roster-pr120-merge-plan.md`
+- PR: https://github.com/frgul006/wedding-planner/pull/120
