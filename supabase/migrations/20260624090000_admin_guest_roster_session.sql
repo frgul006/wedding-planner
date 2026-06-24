@@ -230,6 +230,7 @@ as $$
 declare
   archived_at timestamptz := now();
   archived_count integer := 0;
+  archived_guest_ids uuid[] := '{}'::uuid[];
   errors jsonb := '{}'::jsonb;
   revoked_count integer := 0;
   v_guest_id uuid;
@@ -239,7 +240,7 @@ begin
   end if;
 
   if p_guest_ids is null or array_length(p_guest_ids, 1) is null then
-    return jsonb_build_object('status', 'success', 'archived_count', 0, 'revoked_scoped_token_count', 0);
+    return jsonb_build_object('status', 'success', 'archived_count', 0, 'archived_guest_ids', '[]'::jsonb, 'revoked_scoped_token_count', 0);
   end if;
 
   for v_guest_id in select distinct unnest(p_guest_ids) loop
@@ -313,12 +314,14 @@ begin
   )
   select
     (select count(*)::integer from archived_guests),
+    (select coalesce(array_agg(id), '{}'::uuid[]) from archived_guests),
     (select count(*)::integer from revoked_scoped_tokens)
-  into archived_count, revoked_count;
+  into archived_count, archived_guest_ids, revoked_count;
 
   return jsonb_build_object(
     'status', 'success',
     'archived_count', archived_count,
+    'archived_guest_ids', to_jsonb(archived_guest_ids),
     'revoked_scoped_token_count', revoked_count
   );
 end;

@@ -289,7 +289,7 @@ test.describe("RSVP-managed Plus-one Guests", () => {
     await signInAsSeededAdmin(page);
     await page.goto("/admin/guests");
     await deleteGuestRow(await guestRowByName(page, guestName), true);
-    await expect(page.getByText("Guest archived.")).toBeVisible();
+    await expect(page.getByText("Arkiverade 2 Gäster.")).toBeVisible();
 
     const [archivedPlusOne] = await getRsvpManagedPlusOneGuests(guestId);
     expect(archivedPlusOne).toMatchObject({
@@ -363,14 +363,14 @@ test.describe("RSVP-managed Plus-one Guests", () => {
     await page.goto("/admin/guests");
 
     const invitedRow = await guestRowByName(page, guestName);
-    await expect(invitedRow.getByText("Invited Guest", { exact: true })).toBeVisible();
+    await expect(invitedRow.getByText("Inbjuden Gäst", { exact: true })).toBeVisible();
 
     const plusOneRow = await guestRowByName(page, plusOneName);
-    await expect(plusOneRow.getByText("Plus-one Guest", { exact: true })).toBeVisible();
-    await expect(plusOneRow.getByText(`Tied to ${guestName}`)).toBeVisible();
-    await expect(plusOneRow.getByText("Food: Vegetarian")).toBeVisible();
-    await expect(plusOneRow.getByText("Notes: No almonds.")).toBeVisible();
-    await expect(plusOneRow.getByText("RSVP-managed", { exact: true })).toBeVisible();
+    await expect(plusOneRow.getByText("Plus-one Gäst", { exact: true })).toBeVisible();
+    await expect(plusOneRow.getByText(`Kopplad till ${guestName}`)).toBeVisible();
+    await expect(plusOneRow.getByText("Mat: Vegetarian")).toBeVisible();
+    await expect(plusOneRow.getByText("Allergier: No almonds.")).toBeVisible();
+    await expect(plusOneRow.getByText("OSA-styrd", { exact: true })).toBeVisible();
     await expect(plusOneRow.locator('input[name="full_name"]')).toHaveAttribute(
       "readonly",
       "",

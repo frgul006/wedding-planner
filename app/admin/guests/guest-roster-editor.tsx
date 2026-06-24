@@ -642,14 +642,14 @@ export function GuestRosterEditor({
       const result = await archiveSelectedGuestsAction(ids);
 
       if (result.status === "success") {
-        const archivedIds = new Set(ids);
+        const archivedIds = new Set(result.archivedGuestIds);
         const nextRows = rows.filter((row) => !archivedIds.has(row.id));
         setRows(nextRows);
         setValuesByKey(makeValuesByKey(nextRows));
         setSelectedIds(new Set());
         setStatus({
           tone: "success",
-          text: `Guest archived. Arkiverade ${result.archivedCount} Gäst${result.archivedCount === 1 ? "" : "er"}.`,
+          text: `Arkiverade ${result.archivedCount} Gäst${result.archivedCount === 1 ? "" : "er"}.`,
         });
         return;
       }

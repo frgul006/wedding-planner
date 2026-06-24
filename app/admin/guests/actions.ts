@@ -38,6 +38,7 @@ export type SaveGuestRosterSessionActionResult = Awaited<
 export type ArchiveSelectedGuestsActionResult =
   | {
       archivedCount: number;
+      archivedGuestIds: string[];
       revokedScopedTokenCount: number;
       status: "success";
     }
@@ -58,6 +59,7 @@ function redirectToGuestMutationResult(result: { status: string }): never {
 
 function isArchiveRpcSuccess(value: unknown): value is {
   archived_count: number;
+  archived_guest_ids: string[];
   revoked_scoped_token_count: number;
   status: "success";
 } {
@@ -65,6 +67,8 @@ function isArchiveRpcSuccess(value: unknown): value is {
     isRecord(value) &&
     value.status === "success" &&
     typeof value.archived_count === "number" &&
+    Array.isArray(value.archived_guest_ids) &&
+    value.archived_guest_ids.every((id) => typeof id === "string") &&
     typeof value.revoked_scoped_token_count === "number"
   );
 }
@@ -163,6 +167,7 @@ export async function archiveSelectedGuestsAction(
   if (guestIds.length === 0) {
     return {
       archivedCount: 0,
+      archivedGuestIds: [],
       revokedScopedTokenCount: 0,
       status: "success",
     };
@@ -184,6 +189,7 @@ export async function archiveSelectedGuestsAction(
     revalidatePath("/admin/guests");
     return {
       archivedCount: data.archived_count,
+      archivedGuestIds: data.archived_guest_ids,
       revokedScopedTokenCount: data.revoked_scoped_token_count,
       status: "success",
     };
