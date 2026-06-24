@@ -898,6 +898,7 @@ export function GuestRosterEditor({
                   <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
                     <label className="inline-flex items-center gap-2 text-xs font-bold text-[#5b4027]">
                       <input
+                        aria-label={`SMS-samtycke ${row.fullName || "ny Gäst"}`}
                         checked={values.smsOptIn}
                         disabled={!editable || !row.canEditSmsOptIn}
                         name="sms_opt_in"
@@ -910,6 +911,7 @@ export function GuestRosterEditor({
                   <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
                     <label className="inline-flex items-center gap-2 text-xs font-bold text-[#5b4027]">
                       <input
+                        aria-label={`+1 ${row.fullName || "ny Gäst"}`}
                         checked={values.plusOneAllowed}
                         disabled={!editable || !row.canEditPlusOneAllowed}
                         name="plus_one_allowed"
