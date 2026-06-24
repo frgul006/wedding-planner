@@ -12,13 +12,8 @@ import {
   type InviteSmsGuestSummary,
   type InviteSmsPreview,
 } from "@/lib/invite-sms";
-import {
-  getMessageAudienceLabel,
-  isMessageAudience,
-  MESSAGE_AUDIENCES,
-  type MessageAudience,
-} from "@/lib/message-audience";
-import { getMessageKindLabel, isMessageKind, type MessageKind } from "@/lib/message-kind";
+import { isMessageAudience, MESSAGE_AUDIENCES, type MessageAudience } from "@/lib/message-audience";
+import { isMessageKind, type MessageKind } from "@/lib/message-kind";
 import {
   countMessageTargetsByAudience,
   loadMessageTargets,
@@ -42,7 +37,7 @@ import {
 } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Messages | Wedding Planner",
+  title: "Meddelanden | Wedding Planner",
 };
 
 type MessagesPageProps = {
@@ -81,6 +76,25 @@ type MessageDeliveryRow = {
 
 type DeliveryCounts = Record<MessageDeliveryStatus, number>;
 
+const PAGE_MESSAGE_AUDIENCE_LABELS: Record<MessageAudience, string> = {
+  all: "Alla Gäster",
+  "rsvp maybe": "RSVP kanske",
+  "rsvp no": "RSVP nej",
+  "rsvp yes": "RSVP ja",
+};
+
+const PAGE_MESSAGE_KIND_LABELS: Record<MessageKind, string> = {
+  custom: "SMS-meddelande",
+  invite_sms: "Invite SMS",
+};
+
+const PAGE_SEND_STATUS_LABELS: Record<MessageBlastRow["send_status"], string> = {
+  failed: "Misslyckat",
+  partial: "Delvis skickat",
+  queued: "Köat",
+  sent: "Skickat",
+};
+
 const dateFormatter = new Intl.DateTimeFormat("sv-SE", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -102,13 +116,13 @@ function parseCount(value: string | undefined) {
 
 function formatDate(value: string | null) {
   if (!value) {
-    return "Not sent yet";
+    return "Inte skickat än";
   }
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return "Unknown time";
+    return "Okänd tid";
   }
 
   return dateFormatter.format(date);
@@ -121,46 +135,46 @@ function getMessage(searchParams: Awaited<MessagesPageProps["searchParams"]>) {
   const failed = parseCount(getFirstParam(searchParams.failed));
 
   if (error === "missing-body") {
-    return { tone: "error", text: "Message body is required." };
+    return { tone: "error", text: "Meddelandetext krävs." };
   }
 
   if (error === "body-too-long") {
-    return { tone: "error", text: "Message body must be 1,000 characters or fewer." };
+    return { tone: "error", text: "Meddelandetexten får vara högst 1 000 tecken." };
   }
 
   if (error === "invalid-audience") {
-    return { tone: "error", text: "Choose a valid message audience." };
+    return { tone: "error", text: "Välj en giltig mottagargrupp." };
   }
 
   if (error === "confirm-required") {
-    return { tone: "error", text: "Confirm the SMS send before submitting." };
+    return { tone: "error", text: "Bekräfta SMS-utskicket innan du skickar." };
   }
 
   if (error === "sms-config") {
-    return { tone: "error", text: "SMS provider settings are missing or invalid." };
+    return { tone: "error", text: "SMS-inställningar saknas eller är ogiltiga." };
   }
 
   if (error === "no-recipients") {
-    return { tone: "error", text: "No guests in that audience have a valid SMS phone number." };
+    return { tone: "error", text: "Inga Gäster i mottagargruppen har giltigt SMS-nummer." };
   }
 
   if (error) {
-    return { tone: "error", text: "Could not send the message. Please try again." };
+    return { tone: "error", text: "Meddelandet kunde inte skickas. Försök igen." };
   }
 
   if (status === "sent") {
-    return { tone: "success", text: `Message sent to ${sent} guest${sent === 1 ? "" : "s"}.` };
+    return { tone: "success", text: `SMS skickat till ${sent} Gäst${sent === 1 ? "" : "er"}.` };
   }
 
   if (status === "partial") {
     return {
       tone: "warning",
-      text: `Message sent to ${sent} guest${sent === 1 ? "" : "s"}; ${failed} failed.`,
+      text: `SMS skickat till ${sent} Gäst${sent === 1 ? "" : "er"}; ${failed} misslyckades.`,
     };
   }
 
   if (status === "failed") {
-    return { tone: "error", text: `Message failed for ${failed} guest${failed === 1 ? "" : "s"}.` };
+    return { tone: "error", text: `SMS misslyckades för ${failed} Gäst${failed === 1 ? "" : "er"}.` };
   }
 
   return null;
@@ -173,93 +187,93 @@ function getInviteMessage(searchParams: Awaited<MessagesPageProps["searchParams"
   const failed = parseCount(getFirstParam(searchParams.invite_failed));
 
   if (error === "invite-template-missing") {
-    return { tone: "error", text: "Invite SMS template is required." };
+    return { tone: "error", text: "Invite SMS-mall krävs." };
   }
 
   if (error === "invite-template-missing-first-name") {
-    return { tone: "error", text: "Invite SMS template must include {{first_name}}." };
+    return { tone: "error", text: "Invite SMS-mallen måste innehålla {{first_name}}." };
   }
 
   if (error === "invite-template-missing-link") {
-    return { tone: "error", text: "Invite SMS template must include {{invite_link}}." };
+    return { tone: "error", text: "Invite SMS-mallen måste innehålla {{invite_link}}." };
   }
 
   if (error === "invite-template-unknown-placeholder") {
     return {
       tone: "error",
-      text: "Invite SMS template can only use {{first_name}} and {{invite_link}}.",
+      text: "Invite SMS-mallen får bara använda {{first_name}} och {{invite_link}}.",
     };
   }
 
   if (error === "invite-template-too-long") {
-    return { tone: "error", text: "Rendered Invite SMS messages must be 1,000 characters or fewer." };
+    return { tone: "error", text: "Renderade Invite SMS får vara högst 1 000 tecken." };
   }
 
   if (error === "invite-template-save-failed") {
-    return { tone: "error", text: "Could not save the Invite SMS template." };
+    return { tone: "error", text: "Invite SMS-mallen kunde inte sparas." };
   }
 
   if (error === "invite-test-phone") {
-    return { tone: "error", text: "ELK46_TEST_PHONE_NUMBER is missing or invalid." };
+    return { tone: "error", text: "ELK46_TEST_PHONE_NUMBER saknas eller är ogiltigt." };
   }
 
   if (error === "invite-test-failed") {
-    return { tone: "error", text: "Could not send the Invite SMS test." };
+    return { tone: "error", text: "Invite SMS-test kunde inte skickas." };
   }
 
   if (error === "invite-confirm-required") {
-    return { tone: "error", text: "Confirm before sending real Invite SMS messages." };
+    return { tone: "error", text: "Bekräfta innan riktiga Invite SMS skickas." };
   }
 
   if (error === "invite-single-confirm-required") {
-    return { tone: "error", text: "Confirm before sending this Invite SMS." };
+    return { tone: "error", text: "Bekräfta innan detta Invite SMS skickas." };
   }
 
   if (error === "invite-no-targets") {
-    return { tone: "error", text: "No eligible unsent Invited Guests match the Invite SMS rules." };
+    return { tone: "error", text: "Inga ej skickade Invited Guests uppfyller Invite SMS-reglerna." };
   }
 
   if (error === "invite-guest-not-eligible") {
-    return { tone: "error", text: "That Guest is not currently eligible for Invite SMS." };
+    return { tone: "error", text: "Den Gästen kan inte få Invite SMS just nu." };
   }
 
   if (error === "missing-site-url") {
-    return { tone: "error", text: "Set SITE_URL or NEXT_PUBLIC_SITE_URL before real Invite SMS sends." };
+    return { tone: "error", text: "Sätt SITE_URL eller NEXT_PUBLIC_SITE_URL innan riktiga Invite SMS skickas." };
   }
 
   if (error === "non-production-origin") {
-    return { tone: "error", text: "Real Invite SMS sends are blocked for local, preview, or staging origins." };
+    return { tone: "error", text: "Riktiga Invite SMS blockeras för lokala, preview- och staging-ursprung." };
   }
 
   if (error === "sms-config") {
-    return { tone: "error", text: "SMS provider settings are missing or invalid." };
+    return { tone: "error", text: "SMS-inställningar saknas eller är ogiltiga." };
   }
 
   if (error) {
-    return { tone: "error", text: "Could not complete the Invite SMS action. Please try again." };
+    return { tone: "error", text: "Invite SMS-åtgärden kunde inte slutföras. Försök igen." };
   }
 
   if (status === "preview-ready") {
-    return { tone: "success", text: "Invite SMS template saved and preview refreshed." };
+    return { tone: "success", text: "Invite SMS-mall sparad och förhandsvisning uppdaterad." };
   }
 
   if (status === "test-sent") {
-    return { tone: "success", text: "Invite SMS test sent." };
+    return { tone: "success", text: "Invite SMS-test skickat." };
   }
 
   if (status === "sent") {
-    return { tone: "success", text: `Invite SMS sent to ${sent} guest${sent === 1 ? "" : "s"}.` };
+    return { tone: "success", text: `Invite SMS skickat till ${sent} Gäst${sent === 1 ? "" : "er"}.` };
   }
 
   if (status === "partial") {
     return {
       tone: "warning",
-      text: `Invite SMS sent to ${sent} guest${sent === 1 ? "" : "s"}; ${failed} failed.`,
+      text: `Invite SMS skickat till ${sent} Gäst${sent === 1 ? "" : "er"}; ${failed} misslyckades.`,
     };
   }
 
   if (status === "failed") {
-    return { tone: "error", text: `Invite SMS failed for ${failed} guest${failed === 1 ? "" : "s"}.` };
+    return { tone: "error", text: `Invite SMS misslyckades för ${failed} Gäst${failed === 1 ? "" : "er"}.` };
   }
 
   return null;
@@ -343,7 +357,7 @@ function getMessageToneClass(tone: string) {
 
 function GuestList({ guests }: { guests: InviteSmsGuestSummary[] }) {
   if (!guests.length) {
-    return <p className="text-sm text-zinc-500">None.</p>;
+    return <p className="text-sm text-zinc-500">Inga.</p>;
   }
 
   return (
@@ -353,7 +367,7 @@ function GuestList({ guests }: { guests: InviteSmsGuestSummary[] }) {
           {guest.fullName}{guest.phone ? ` · ${guest.phone}` : ""}
         </li>
       ))}
-      {guests.length > 20 ? <li className="text-zinc-500">+{guests.length - 20} more</li> : null}
+      {guests.length > 20 ? <li className="text-zinc-500">+{guests.length - 20} till</li> : null}
     </ul>
   );
 }
@@ -385,11 +399,11 @@ function SelectedMessageTargetsPanel({
       <div>
         <p className="text-sm font-bold uppercase tracking-[0.18em] text-sky-800">Markerade Gäster</p>
         <h3 className="mt-1 text-lg font-semibold text-sky-950">
-          SMS-uppdatering till markerade Gäster
+          Wedding SMS update till markerade Gäster
         </h3>
         <p className="mt-2 text-sm leading-6 text-sky-900">
-          Skickas bara till markerade Gäster som kan få SMS. Mottagarvalet används inte,
-          inga inbjudningslänkar skapas och befintlig inbjudningsåtkomst ändras inte.
+          Skickas bara till markerade Gäster som kan få SMS. Detta är inte Invite SMS,
+          inga Invite-länkar skapas och befintlig Invite access ändras inte.
         </p>
       </div>
 
@@ -464,25 +478,25 @@ function InviteSmsPreviewDetails({
   return (
     <div className="mt-6 grid gap-5">
       <div className="rounded-2xl bg-zinc-50 p-5">
-        <h3 className="text-base font-semibold text-zinc-950">Rendered example</h3>
+        <h3 className="text-base font-semibold text-zinc-950">Renderat exempel</h3>
         <p className="mt-2 whitespace-pre-line text-sm text-zinc-700">
           {invitePreview.sampleMessage}
         </p>
         <p className="mt-3 text-xs font-medium text-zinc-500">
-          Estimated {invitePreview.sampleEstimate.segments} SMS segment
-          {invitePreview.sampleEstimate.segments === 1 ? "" : "s"} · {invitePreview.sampleEstimate.length} {invitePreview.sampleEstimate.encoding === "gsm-7" ? "GSM-7 units" : "Unicode characters"}
+          Beräknat {invitePreview.sampleEstimate.segments} SMS-segment
+          · {invitePreview.sampleEstimate.length} {invitePreview.sampleEstimate.encoding === "gsm-7" ? "GSM-7-tecken" : "Unicode-tecken"}
         </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl bg-emerald-50 p-5 ring-1 ring-emerald-100">
           <h3 className="text-base font-semibold text-emerald-900">
-            Eligible for bulk send ({invitePreview.eligibleGuests.length})
+            Kan få bulkutskick ({invitePreview.eligibleGuests.length})
           </h3>
           <GuestList guests={invitePreview.eligibleGuests} />
         </div>
         <div className="rounded-2xl bg-amber-50 p-5 ring-1 ring-amber-100">
-          <h3 className="text-base font-semibold text-amber-900">Duplicate phone warnings</h3>
+          <h3 className="text-base font-semibold text-amber-900">Varningar för dubbla telefonnummer</h3>
           {invitePreview.duplicatePhoneGroups.length ? (
             <ul className="mt-2 grid gap-2 text-sm text-amber-800">
               {invitePreview.duplicatePhoneGroups.map((group) => (
@@ -492,13 +506,13 @@ function InviteSmsPreviewDetails({
               ))}
             </ul>
           ) : (
-            <p className="mt-2 text-sm text-amber-800">No duplicate eligible phones.</p>
+            <p className="mt-2 text-sm text-amber-800">Inga dubbla giltiga telefonnummer.</p>
           )}
         </div>
       </div>
 
       <div className="rounded-2xl bg-zinc-50 p-5">
-        <h3 className="text-base font-semibold text-zinc-950">Skipped Guests</h3>
+        <h3 className="text-base font-semibold text-zinc-950">Överhoppade Gäster</h3>
         <div className="mt-3 grid gap-4 lg:grid-cols-2">
           {INVITE_SMS_SKIP_REASONS.map((reason) => {
             const guests = invitePreview.skippedByReason[reason];
@@ -518,7 +532,7 @@ function InviteSmsPreviewDetails({
         <label className="flex gap-3 text-sm font-medium text-amber-900">
           <input className="mt-1 h-4 w-4" name="confirm_invite_sms_send" required type="checkbox" />
           <span>
-            I understand this sends real Invite SMS messages and regenerates a fresh full Invite link for each eligible Guest.
+            Jag förstår att riktiga Invite SMS skickas och att en ny full Invite-länk skapas för varje Gäst.
           </span>
         </label>
         <button
@@ -526,7 +540,7 @@ function InviteSmsPreviewDetails({
           disabled={!canSend || invitePreview.eligibleGuests.length === 0}
           type="submit"
         >
-          Send Invite SMS to {invitePreview.eligibleGuests.length} Guest
+          Skicka Invite SMS till {invitePreview.eligibleGuests.length} Gäst
           {invitePreview.eligibleGuests.length === 1 ? "" : "s"}
         </button>
       </form>
@@ -549,9 +563,9 @@ function SingleInviteSmsList({
 
   return (
     <div className="mt-6 rounded-2xl bg-zinc-50 p-5">
-      <h3 className="text-base font-semibold text-zinc-950">Send or resend one Guest</h3>
+      <h3 className="text-base font-semibold text-zinc-950">Skicka eller skicka om för en Gäst</h3>
       <p className="mt-1 text-sm text-zinc-600">
-        Available for current Invited Guest Message targets, regardless of RSVP status. Each send regenerates that Guest&apos;s full Invite link.
+        Tillgängligt för aktuella Invited Guest Message targets oavsett RSVP-status. Varje utskick skapar en ny full Invite-länk för den Gästen.
       </p>
       <div className="mt-4 grid gap-3">
         {guests.slice(0, 50).map((guest) => {
@@ -565,11 +579,11 @@ function SingleInviteSmsList({
               <div>
                 <p className="font-medium text-zinc-950">{guest.fullName}</p>
                 <p className="text-sm text-zinc-500">
-                  {guest.phone} · {guest.hasPriorSentInviteSms ? "prior Invite SMS sent" : "no prior Invite SMS"} · {guest.rsvpStatus}
+                  {guest.phone} · {guest.hasPriorSentInviteSms ? "Invite SMS skickat tidigare" : "inget tidigare Invite SMS"} · {guest.rsvpStatus}
                 </p>
                 <label className="mt-2 flex gap-2 text-xs font-medium text-amber-800">
                   <input className="mt-0.5 h-3.5 w-3.5" name="confirm_single_invite_sms_send" required type="checkbox" />
-                  Confirm one real SMS and fresh Invite link
+                  Bekräfta ett riktigt SMS med ny Invite-länk
                 </label>
               </div>
               <button
@@ -577,7 +591,7 @@ function SingleInviteSmsList({
                 disabled={!canSend}
                 type="submit"
               >
-                {guest.hasPriorSentInviteSms ? "Resend Invite SMS" : "Send Invite SMS"}
+                {guest.hasPriorSentInviteSms ? "Skicka om Invite SMS" : "Skicka Invite SMS"}
               </button>
             </form>
           );
@@ -585,7 +599,7 @@ function SingleInviteSmsList({
       </div>
       {!guests.length ? (
         <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm text-zinc-600 ring-1 ring-zinc-200">
-          No current Invited Guest Message targets are eligible for single sends.
+          Inga aktuella Invited Guest Message targets kan få enskilt utskick.
         </p>
       ) : null}
     </div>
@@ -675,17 +689,17 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
               Wedding Planner
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
-              Messages
+              Meddelanden
             </h1>
             <p className="mt-2 text-zinc-600">
-              Send SMS updates and individual Invite links to guests with saved phone numbers.
+              Skicka Wedding SMS update och separata Invite SMS-länkar till Gäster med sparade telefonnummer.
             </p>
           </div>
           <Link
             className="rounded-full border border-zinc-300 px-5 py-3 text-center font-medium text-zinc-900 transition hover:bg-zinc-100"
             href="/admin"
           >
-            Back to dashboard
+            Tillbaka till översikten
           </Link>
         </div>
 
@@ -702,9 +716,9 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
         <section className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-200">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-zinc-950">Send invite links</h2>
+              <h2 className="text-xl font-semibold text-zinc-950">Skicka Invite SMS-länkar</h2>
               <p className="mt-2 text-sm text-zinc-600">
-                Send personal Invite links to unsent Invited Guests who are current Message targets. Bulk sends skip Guests who already received an Invite SMS, opened their Invite, or submitted an RSVP.
+                Skicka personliga Invite-länkar med Invite SMS till Invited Guests som är Message targets och inte fått Invite SMS. Bulkutskick hoppar över Gäster som redan fått Invite SMS, öppnat sin Invite eller skickat RSVP.
               </p>
             </div>
             <div
@@ -714,14 +728,14 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
                   : "bg-red-50 text-red-700 ring-1 ring-red-100"
               }`}
             >
-              Invite link origin: {inviteOriginStatus.origin}
-              {inviteOriginStatus.isAllowed ? "" : " (blocked for real sends)"}
+              Ursprung för Invite-länkar: {inviteOriginStatus.origin}
+              {inviteOriginStatus.isAllowed ? "" : " (blockerar riktiga utskick)"}
             </div>
           </div>
 
           {invitePreviewResult.error ? (
             <p className="mt-6 rounded-2xl bg-red-50 px-5 py-4 text-sm font-medium text-red-700 ring-1 ring-red-100">
-              Could not load Invite SMS preview data.
+              Kunde inte ladda Invite SMS-förhandsvisning.
             </p>
           ) : null}
 
@@ -729,19 +743,19 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
             <>
               <dl className="mt-6 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl bg-zinc-50 p-4">
-                  <dt className="text-sm font-medium text-zinc-600">Bulk eligible</dt>
+                  <dt className="text-sm font-medium text-zinc-600">Kan få bulkutskick</dt>
                   <dd className="mt-1 text-2xl font-semibold text-zinc-950">
                     {invitePreviewResult.preview.eligibleGuests.length}
                   </dd>
                 </div>
                 <div className="rounded-2xl bg-zinc-50 p-4">
-                  <dt className="text-sm font-medium text-zinc-600">Skipped</dt>
+                  <dt className="text-sm font-medium text-zinc-600">Överhoppade</dt>
                   <dd className="mt-1 text-2xl font-semibold text-zinc-950">
                     {Object.values(invitePreviewResult.preview.skippedByReason).flat().length}
                   </dd>
                 </div>
                 <div className="rounded-2xl bg-zinc-50 p-4">
-                  <dt className="text-sm font-medium text-zinc-600">Single-send eligible</dt>
+                  <dt className="text-sm font-medium text-zinc-600">Kan få enskilt utskick</dt>
                   <dd className="mt-1 text-2xl font-semibold text-zinc-950">
                     {invitePreviewResult.preview.singleSendGuests.length}
                   </dd>
@@ -751,8 +765,8 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
               <form action={previewInviteSmsAction} className="mt-8 grid gap-5">
                 <AdminTextArea
                   defaultValue={invitePreviewResult.preview.template}
-                  helpText="Requires {{first_name}} and {{invite_link}}. Unknown placeholders are rejected. Preview saves the template without creating Invite links."
-                  label="Invite SMS template"
+                  helpText="Kräver {{first_name}} och {{invite_link}}. Okända platshållare nekas. Förhandsvisning sparar mallen utan att skapa Invite-länkar."
+                  label="Invite SMS-mall"
                   name="invite_sms_template"
                   required
                   rows={5}
@@ -762,7 +776,7 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
                     className="rounded-full bg-zinc-950 px-5 py-3 font-medium text-white transition hover:bg-zinc-800 sm:w-fit"
                     type="submit"
                   >
-                    Save and preview
+                    Spara och förhandsvisa
                   </button>
                   <button
                     className="rounded-full border border-zinc-300 px-5 py-3 font-medium text-zinc-900 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400 sm:w-fit"
@@ -770,7 +784,7 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
                     formAction={sendInviteSmsTestAction}
                     type="submit"
                   >
-                    Save and send test
+                    Spara och skicka test
                   </button>
                 </div>
               </form>
@@ -792,10 +806,10 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
         <section className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-200">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-zinc-950">SMS composer</h2>
+              <h2 className="text-xl font-semibold text-zinc-950">Skriv Wedding SMS update</h2>
               <p className="mt-2 text-sm text-zinc-600">
-                Provider: 46elks. Sender: {smsStatus.sender}. Only guests who opted in
-                with strict E.164 phone numbers, for example +46701234567, are included.
+                Leverantör: 46elks. Avsändare: {smsStatus.sender}. Endast Gäster med SMS-samtycke
+                och strikt E.164-telefonnummer, till exempel +46701234567, inkluderas.
               </p>
             </div>
             <div
@@ -807,24 +821,24 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
             >
               {smsStatus.isConfigured
                 ? smsStatus.mockSend
-                  ? "46elks mock send mode"
-                  : "46elks is configured"
-                : `46elks is not ready${
-                    smsStatus.missingEnv.length ? `: missing ${smsStatus.missingEnv.join(", ")}` : ""
-                  }${smsStatus.senderIsValid ? "" : ": invalid sender"}`}
+                  ? "46elks mockläge för utskick"
+                  : "46elks är konfigurerat"
+                : `46elks är inte klart${
+                    smsStatus.missingEnv.length ? `: saknar ${smsStatus.missingEnv.join(", ")}` : ""
+                  }${smsStatus.senderIsValid ? "" : ": ogiltig avsändare"}`}
             </div>
           </div>
 
           {messageTargetsResult.error ? (
             <p className="mt-6 rounded-2xl bg-red-50 px-5 py-4 text-sm font-medium text-red-700 ring-1 ring-red-100">
-              Could not load recipient counts.
+              Kunde inte ladda mottagarantal.
             </p>
           ) : (
             <dl className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {MESSAGE_AUDIENCES.map((audience) => (
                 <div className="rounded-2xl bg-zinc-50 p-4" key={audience}>
                   <dt className="text-sm font-medium text-zinc-600">
-                    {getMessageAudienceLabel(audience)}
+                    {PAGE_MESSAGE_AUDIENCE_LABELS[audience]}
                   </dt>
                   <dd className="mt-1 text-2xl font-semibold text-zinc-950">
                     {audienceCounts[audience]}
@@ -847,25 +861,25 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
               <input name="selected_guests" type="hidden" value={selectedGuestIds.join(",")} />
             ) : null}
             <AdminField
-              label="Title"
+              label="Rubrik"
               name="title"
-              placeholder="Optional heading, included at the start of the SMS"
+              placeholder="Valfri rubrik, läggs först i SMS:et"
             />
             <AdminTextArea
-              helpText="Keep it short. SMS is billed per message segment; Unicode characters and emojis can reduce segment length. Maximum 1,000 characters."
-              label="Body text"
+              helpText="Håll texten kort. SMS debiteras per meddelandesegment; Unicode-tecken och emojis kan minska segmentlängden. Högst 1 000 tecken."
+              label="Meddelandetext"
               name="body"
-              placeholder="Bring an umbrella for the ceremony today."
+              placeholder="Ta med paraply till ceremonin idag."
               required
               rows={5}
             />
             {isSelectedMode ? (
               <div className="rounded-2xl bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-700">
-                Mottagarvalet är dolt. SMS-uppdateringen skickas bara till markerade Gäster som kan få SMS.
+                Mottagarvalet är dolt. Wedding SMS update skickas bara till markerade Gäster som kan få SMS.
               </div>
             ) : (
               <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700">
-                Audience
+                Mottagare
                 <select
                   className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950"
                   defaultValue="all"
@@ -874,7 +888,7 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
                 >
                   {MESSAGE_AUDIENCES.map((audience) => (
                     <option key={audience} value={audience}>
-                      {getMessageAudienceLabel(audience)} ({audienceCounts[audience]})
+                      {PAGE_MESSAGE_AUDIENCE_LABELS[audience]} ({audienceCounts[audience]})
                     </option>
                   ))}
                 </select>
@@ -883,8 +897,8 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
             <label className="flex gap-3 rounded-2xl bg-amber-50 p-4 text-sm font-medium text-amber-800 ring-1 ring-amber-100">
               <input className="mt-1 h-4 w-4" name="confirm_send" required type="checkbox" />
               <span>
-                I understand this sends real SMS messages through 46elks and may incur
-                per-segment costs.
+                Jag förstår att riktiga SMS skickas via 46elks och kan kosta
+                per segment.
               </span>
             </label>
             <button
@@ -892,20 +906,20 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
               disabled={selectedSendDisabled}
               type="submit"
             >
-              Send SMS now
+              Skicka SMS nu
             </button>
           </form>
         </section>
 
         <section className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-200">
-          <h2 className="text-xl font-semibold text-zinc-950">Message history</h2>
+          <h2 className="text-xl font-semibold text-zinc-950">Meddelandehistorik</h2>
           <p className="mt-2 text-sm text-zinc-600">
-            Latest SMS blasts and delivery attempts for this wedding. Invite SMS history stores templates and token references, not raw Invite links.
+            Senaste SMS-utskick och leveransförsök för bröllopet. Invite SMS-historik lagrar mallar och tokenreferenser, inte råa Invite-länkar.
           </p>
 
           {blastsResult.error || deliveriesResult.error ? (
             <p className="mt-6 rounded-2xl bg-red-50 px-5 py-4 text-sm font-medium text-red-700 ring-1 ring-red-100">
-              Could not load message history.
+              Kunde inte ladda meddelandehistorik.
             </p>
           ) : null}
 
@@ -919,10 +933,10 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <h3 className="text-lg font-semibold text-zinc-950">
-                        {blast.title ?? (blast.message_kind === "invite_sms" ? "Invite SMS" : "Untitled SMS")}
+                        {blast.title ?? (blast.message_kind === "invite_sms" ? "Invite SMS" : "SMS utan rubrik")}
                       </h3>
                       <p className="mt-1 text-sm text-zinc-500">
-                        {getMessageKindLabel(blast.message_kind)} · {getMessageAudienceLabel(blast.audience)} · created {formatDate(blast.created_at)} · sent {formatDate(blast.sent_at)}
+                        {PAGE_MESSAGE_KIND_LABELS[blast.message_kind]} · {PAGE_MESSAGE_AUDIENCE_LABELS[blast.audience]} · skapat {formatDate(blast.created_at)} · skickat {formatDate(blast.sent_at)}
                       </p>
                     </div>
                     <span
@@ -930,29 +944,29 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
                         blast.send_status,
                       )}`}
                     >
-                      {blast.send_status}
+                      {PAGE_SEND_STATUS_LABELS[blast.send_status]}
                     </span>
                   </div>
                   <p className="mt-4 whitespace-pre-line text-sm text-zinc-700">
-                    {blast.message_kind === "invite_sms" ? `Template: ${blast.body}` : blast.body}
+                    {blast.message_kind === "invite_sms" ? `Mall: ${blast.body}` : blast.body}
                   </p>
                   <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
                     <div>
-                      <dt className="font-medium text-zinc-950">Queued</dt>
+                      <dt className="font-medium text-zinc-950">Köade</dt>
                       <dd className="text-zinc-600">{counts.queued}</dd>
                     </div>
                     <div>
-                      <dt className="font-medium text-zinc-950">Sent</dt>
+                      <dt className="font-medium text-zinc-950">Skickade</dt>
                       <dd className="text-zinc-600">{counts.sent}</dd>
                     </div>
                     <div>
-                      <dt className="font-medium text-zinc-950">Failed</dt>
+                      <dt className="font-medium text-zinc-950">Misslyckade</dt>
                       <dd className="text-zinc-600">{counts.failed}</dd>
                     </div>
                   </dl>
                   {failedErrors.length ? (
                     <div className="mt-4 rounded-2xl bg-red-50 p-4 text-sm text-red-700 ring-1 ring-red-100">
-                      <p className="font-medium">Latest provider errors</p>
+                      <p className="font-medium">Senaste leverantörsfel</p>
                       <ul className="mt-2 list-disc space-y-1 pl-5">
                         {failedErrors.map((error) => (
                           <li key={error}>{error}</li>
@@ -967,7 +981,7 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
 
           {!blasts.length && !blastsResult.error ? (
             <p className="mt-6 rounded-2xl bg-zinc-50 px-5 py-4 text-sm text-zinc-600">
-              No SMS messages have been sent yet.
+              Inga SMS-meddelanden har skickats än.
             </p>
           ) : null}
         </section>
