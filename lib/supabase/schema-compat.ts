@@ -40,11 +40,18 @@ export function isMissingWeddingEndDateColumnError(
   return isMissingColumnError(error, ["wedding_end_date"]);
 }
 
+export function isMissingFoodAndDrinkInfoColumnError(
+  error: SupabaseErrorLike | null | undefined,
+) {
+  return isMissingColumnError(error, ["food_and_drink_info"]);
+}
+
 export function isWeddingSettingsSchemaCompatibilityError(
   error: SupabaseErrorLike | null | undefined,
 ) {
   return (
     isMissingPartnerNameColumnError(error) ||
-    isMissingWeddingEndDateColumnError(error)
+    isMissingWeddingEndDateColumnError(error) ||
+    isMissingFoodAndDrinkInfoColumnError(error)
   );
 }

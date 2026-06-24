@@ -104,6 +104,9 @@ test.describe("wedding settings propagation", () => {
     await page.getByLabel("Dress code").fill("E2E dress code: festive regression.");
     await page.getByLabel("Child policy").fill("E2E child policy from settings.");
     await page.getByLabel("Legacy policy notes").fill("E2E legacy policy from settings.");
+    await page
+      .getByLabel("Food & drink information")
+      .fill("E2E food and drink from settings.");
     await page.getByLabel("Gift information").fill("E2E gift info from settings.");
     await page.getByRole("button", { name: "Save wedding settings" }).click();
 
@@ -123,6 +126,9 @@ test.describe("wedding settings propagation", () => {
     );
     await expect(page.getByLabel("Time plan")).toHaveValue(
       "15:45 - Doors open\n16:30 - Ceremony\n19:00 - Dinner",
+    );
+    await expect(page.getByLabel("Food & drink information")).toHaveValue(
+      "E2E food and drink from settings.",
     );
 
     await page.goto(invitePathForToken(token));
@@ -145,6 +151,8 @@ test.describe("wedding settings propagation", () => {
     await expect(detailsPanel.getByText("16:30 - Ceremony")).toBeVisible();
     await expect(detailsPanel.getByText("19:00 - Dinner")).toBeVisible();
     await expect(detailsPanel.getByText("E2E dress code: festive regression.")).toBeVisible();
+    await expect(detailsPanel.getByRole("heading", { name: "Mat & dryck" })).toBeVisible();
+    await expect(detailsPanel.getByText("E2E food and drink from settings.")).toBeVisible();
     await expect(detailsPanel.getByRole("heading", { name: "Barn" })).toBeVisible();
     await expect(detailsPanel.getByText("E2E child policy from settings.")).toBeVisible();
     await expect(detailsPanel.getByText("E2E legacy policy from settings.")).toHaveCount(0);
@@ -165,6 +173,7 @@ test.describe("wedding settings propagation", () => {
     await updateWeddingSettings({
       child_policy: null,
       dress_code: null,
+      food_and_drink_info: null,
       gift_info: null,
       google_maps_url: null,
       invite_support_email: null,
@@ -202,6 +211,11 @@ test.describe("wedding settings propagation", () => {
     ).toBeVisible();
     await expect(
       page.locator("section", { has: page.getByRole("heading", { name: "Klädkod" }) })
+        .getByText("Kommer snart"),
+    ).toBeVisible();
+    await expect(
+      page
+        .locator("section", { has: page.getByRole("heading", { name: "Mat & dryck" }) })
         .getByText("Kommer snart"),
     ).toBeVisible();
     await expect(

@@ -8,6 +8,8 @@ export const BASELINE_WEDDING_SETTINGS = {
   photo_upload_requires_review: false,
   child_policy: "Vi älskar era barn, men firar vuxet den här kvällen.",
   dress_code: "Klädkod: festlig sommarformal",
+  food_and_drink_info:
+    "Snittar, middagsbuffé & snacks för alla smaker. Fri bar.",
   gift_info: "Din närvaro är den bästa presenten.",
   google_maps_url: "https://maps.app.goo.gl/KCgGXBcyeanMhsZx5",
   invite_support_email: "osa@example.com",
@@ -33,6 +35,7 @@ export type WeddingSettingsPatch = Partial<{
   photo_upload_requires_review: boolean;
   child_policy: string | null;
   dress_code: string | null;
+  food_and_drink_info: string | null;
   gift_info: string | null;
   google_maps_url: string | null;
   invite_support_email: string | null;

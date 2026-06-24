@@ -453,6 +453,12 @@ function DetailsPanel({
             </div>
           </DetailCard>
 
+          <DetailCard title="Mat & dryck">
+            <p className="whitespace-pre-line leading-7">
+              {getWeddingSettingsDisplayText(wedding.food_and_drink_info)}
+            </p>
+          </DetailCard>
+
           <div className="grid gap-5 md:grid-cols-2">
             <DetailCard title="Klädkod">
               <p className="whitespace-pre-line leading-7">

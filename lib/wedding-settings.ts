@@ -20,6 +20,7 @@ export type WeddingSettings = {
   allow_anonymous_hub_upload: boolean;
   child_policy: string | null;
   dress_code: string | null;
+  food_and_drink_info: string | null;
   gift_info: string | null;
   google_maps_url: string | null;
   invite_sms_template: string;
@@ -72,21 +73,42 @@ export type WeddingSettingsUpdateStatus =
   | "update-failed";
 
 const weddingSettingsSelect =
-  "name, partner_one_name, partner_two_name, wedding_date, wedding_end_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, invite_sms_template, allow_anonymous_hub_upload, photo_upload_requires_review";
+  "name, partner_one_name, partner_two_name, wedding_date, wedding_end_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, food_and_drink_info, gift_info, spotify_playlist_url, invite_support_email, invite_sms_template, allow_anonymous_hub_upload, photo_upload_requires_review";
 const legacyWeddingSettingsSelect =
-  "name, wedding_date, wedding_end_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, invite_sms_template, allow_anonymous_hub_upload, photo_upload_requires_review";
+  "name, wedding_date, wedding_end_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, food_and_drink_info, gift_info, spotify_playlist_url, invite_support_email, invite_sms_template, allow_anonymous_hub_upload, photo_upload_requires_review";
 const weddingSettingsWithoutEndDateSelect =
-  "name, partner_one_name, partner_two_name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, invite_sms_template, allow_anonymous_hub_upload, photo_upload_requires_review";
+  "name, partner_one_name, partner_two_name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, food_and_drink_info, gift_info, spotify_playlist_url, invite_support_email, invite_sms_template, allow_anonymous_hub_upload, photo_upload_requires_review";
 const legacyWeddingSettingsWithoutEndDateSelect =
-  "name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email, invite_sms_template, allow_anonymous_hub_upload, photo_upload_requires_review";
+  "name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, food_and_drink_info, gift_info, spotify_playlist_url, invite_support_email, invite_sms_template, allow_anonymous_hub_upload, photo_upload_requires_review";
 const inviteWeddingSettingsSelect =
-  "name, partner_one_name, partner_two_name, wedding_date, wedding_end_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email";
+  "name, partner_one_name, partner_two_name, wedding_date, wedding_end_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, food_and_drink_info, gift_info, spotify_playlist_url, invite_support_email";
 const legacyInviteWeddingSettingsSelect =
-  "name, wedding_date, wedding_end_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email";
+  "name, wedding_date, wedding_end_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, food_and_drink_info, gift_info, spotify_playlist_url, invite_support_email";
 const inviteWeddingSettingsWithoutEndDateSelect =
-  "name, partner_one_name, partner_two_name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email";
+  "name, partner_one_name, partner_two_name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, food_and_drink_info, gift_info, spotify_playlist_url, invite_support_email";
 const legacyInviteWeddingSettingsWithoutEndDateSelect =
-  "name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, gift_info, spotify_playlist_url, invite_support_email";
+  "name, wedding_date, venue_name, venue_address, venue_area, google_maps_url, time_plan, policy, dress_code, child_policy, food_and_drink_info, gift_info, spotify_playlist_url, invite_support_email";
+const weddingSettingsWithoutFoodAndDrinkInfoSelect = weddingSettingsSelect.replace(
+  "food_and_drink_info, ",
+  "",
+);
+const legacyWeddingSettingsWithoutFoodAndDrinkInfoSelect =
+  legacyWeddingSettingsSelect.replace("food_and_drink_info, ", "");
+const weddingSettingsWithoutEndDateAndFoodAndDrinkInfoSelect =
+  weddingSettingsWithoutEndDateSelect.replace("food_and_drink_info, ", "");
+const legacyWeddingSettingsWithoutEndDateAndFoodAndDrinkInfoSelect =
+  legacyWeddingSettingsWithoutEndDateSelect.replace("food_and_drink_info, ", "");
+const inviteWeddingSettingsWithoutFoodAndDrinkInfoSelect =
+  inviteWeddingSettingsSelect.replace("food_and_drink_info, ", "");
+const legacyInviteWeddingSettingsWithoutFoodAndDrinkInfoSelect =
+  legacyInviteWeddingSettingsSelect.replace("food_and_drink_info, ", "");
+const inviteWeddingSettingsWithoutEndDateAndFoodAndDrinkInfoSelect =
+  inviteWeddingSettingsWithoutEndDateSelect.replace("food_and_drink_info, ", "");
+const legacyInviteWeddingSettingsWithoutEndDateAndFoodAndDrinkInfoSelect =
+  legacyInviteWeddingSettingsWithoutEndDateSelect.replace(
+    "food_and_drink_info, ",
+    "",
+  );
 
 function cleanOptionalText(value: FormDataEntryValue | null) {
   const text = typeof value === "string" ? value.trim() : "";
@@ -98,10 +120,12 @@ function cleanRequiredText(value: FormDataEntryValue | null) {
 }
 
 function withMissingWeddingSettingsColumns({
+  foodAndDrinkInfoFieldAvailable,
   partnerNameFieldsAvailable,
   value,
   weddingEndDateFieldAvailable,
 }: {
+  foodAndDrinkInfoFieldAvailable: boolean;
   partnerNameFieldsAvailable: boolean;
   value: unknown;
   weddingEndDateFieldAvailable: boolean;
@@ -116,6 +140,9 @@ function withMissingWeddingSettingsColumns({
       ? {}
       : { partner_one_name: null, partner_two_name: null }),
     ...(weddingEndDateFieldAvailable ? {} : { wedding_end_date: null }),
+    ...(foodAndDrinkInfoFieldAvailable
+      ? {}
+      : { food_and_drink_info: null }),
   };
 }
 
@@ -134,6 +161,7 @@ function normalizeWeddingSettingsRow(value: unknown): WeddingSettings | null {
     !isNullableString(value.policy) ||
     !isNullableString(value.dress_code) ||
     !isNullableString(value.child_policy) ||
+    !isNullableString(value.food_and_drink_info) ||
     !isNullableString(value.gift_info) ||
     !isNullableString(value.spotify_playlist_url) ||
     !isNullableString(value.invite_support_email) ||
@@ -148,6 +176,7 @@ function normalizeWeddingSettingsRow(value: unknown): WeddingSettings | null {
     allow_anonymous_hub_upload: value.allow_anonymous_hub_upload,
     child_policy: value.child_policy,
     dress_code: value.dress_code,
+    food_and_drink_info: value.food_and_drink_info,
     gift_info: value.gift_info,
     google_maps_url: value.google_maps_url,
     invite_sms_template: value.invite_sms_template,
@@ -185,6 +214,7 @@ function normalizeInviteWeddingSettingsRow(
     !isNullableString(value.policy) ||
     !isNullableString(value.dress_code) ||
     !isNullableString(value.child_policy) ||
+    !isNullableString(value.food_and_drink_info) ||
     !isNullableString(value.gift_info) ||
     !isNullableString(value.spotify_playlist_url) ||
     !isNullableString(value.invite_support_email)
@@ -195,6 +225,7 @@ function normalizeInviteWeddingSettingsRow(
   return {
     child_policy: value.child_policy,
     dress_code: value.dress_code,
+    food_and_drink_info: value.food_and_drink_info,
     gift_info: value.gift_info,
     google_maps_url: value.google_maps_url,
     invite_support_email: value.invite_support_email,
@@ -213,6 +244,7 @@ function normalizeInviteWeddingSettingsRow(
 }
 
 type WeddingSettingsSelectOption = {
+  foodAndDrinkInfoFieldAvailable: boolean;
   partnerNameFieldsAvailable: boolean;
   select: string;
   weddingEndDateFieldAvailable: boolean;
@@ -220,46 +252,102 @@ type WeddingSettingsSelectOption = {
 
 const adminWeddingSettingsSelectOptions: WeddingSettingsSelectOption[] = [
   {
+    foodAndDrinkInfoFieldAvailable: true,
     partnerNameFieldsAvailable: true,
     select: weddingSettingsSelect,
     weddingEndDateFieldAvailable: true,
   },
   {
+    foodAndDrinkInfoFieldAvailable: false,
+    partnerNameFieldsAvailable: true,
+    select: weddingSettingsWithoutFoodAndDrinkInfoSelect,
+    weddingEndDateFieldAvailable: true,
+  },
+  {
+    foodAndDrinkInfoFieldAvailable: true,
     partnerNameFieldsAvailable: false,
     select: legacyWeddingSettingsSelect,
     weddingEndDateFieldAvailable: true,
   },
   {
+    foodAndDrinkInfoFieldAvailable: false,
+    partnerNameFieldsAvailable: false,
+    select: legacyWeddingSettingsWithoutFoodAndDrinkInfoSelect,
+    weddingEndDateFieldAvailable: true,
+  },
+  {
+    foodAndDrinkInfoFieldAvailable: true,
     partnerNameFieldsAvailable: true,
     select: weddingSettingsWithoutEndDateSelect,
     weddingEndDateFieldAvailable: false,
   },
   {
+    foodAndDrinkInfoFieldAvailable: false,
+    partnerNameFieldsAvailable: true,
+    select: weddingSettingsWithoutEndDateAndFoodAndDrinkInfoSelect,
+    weddingEndDateFieldAvailable: false,
+  },
+  {
+    foodAndDrinkInfoFieldAvailable: true,
     partnerNameFieldsAvailable: false,
     select: legacyWeddingSettingsWithoutEndDateSelect,
+    weddingEndDateFieldAvailable: false,
+  },
+  {
+    foodAndDrinkInfoFieldAvailable: false,
+    partnerNameFieldsAvailable: false,
+    select: legacyWeddingSettingsWithoutEndDateAndFoodAndDrinkInfoSelect,
     weddingEndDateFieldAvailable: false,
   },
 ];
 
 const inviteWeddingSettingsSelectOptions: WeddingSettingsSelectOption[] = [
   {
+    foodAndDrinkInfoFieldAvailable: true,
     partnerNameFieldsAvailable: true,
     select: inviteWeddingSettingsSelect,
     weddingEndDateFieldAvailable: true,
   },
   {
+    foodAndDrinkInfoFieldAvailable: false,
+    partnerNameFieldsAvailable: true,
+    select: inviteWeddingSettingsWithoutFoodAndDrinkInfoSelect,
+    weddingEndDateFieldAvailable: true,
+  },
+  {
+    foodAndDrinkInfoFieldAvailable: true,
     partnerNameFieldsAvailable: false,
     select: legacyInviteWeddingSettingsSelect,
     weddingEndDateFieldAvailable: true,
   },
   {
+    foodAndDrinkInfoFieldAvailable: false,
+    partnerNameFieldsAvailable: false,
+    select: legacyInviteWeddingSettingsWithoutFoodAndDrinkInfoSelect,
+    weddingEndDateFieldAvailable: true,
+  },
+  {
+    foodAndDrinkInfoFieldAvailable: true,
     partnerNameFieldsAvailable: true,
     select: inviteWeddingSettingsWithoutEndDateSelect,
     weddingEndDateFieldAvailable: false,
   },
   {
+    foodAndDrinkInfoFieldAvailable: false,
+    partnerNameFieldsAvailable: true,
+    select: inviteWeddingSettingsWithoutEndDateAndFoodAndDrinkInfoSelect,
+    weddingEndDateFieldAvailable: false,
+  },
+  {
+    foodAndDrinkInfoFieldAvailable: true,
     partnerNameFieldsAvailable: false,
     select: legacyInviteWeddingSettingsWithoutEndDateSelect,
+    weddingEndDateFieldAvailable: false,
+  },
+  {
+    foodAndDrinkInfoFieldAvailable: false,
+    partnerNameFieldsAvailable: false,
+    select: legacyInviteWeddingSettingsWithoutEndDateAndFoodAndDrinkInfoSelect,
     weddingEndDateFieldAvailable: false,
   },
 ];
@@ -284,6 +372,8 @@ async function loadWeddingSettingsRow({
         partnerNameFieldsAvailable: option.partnerNameFieldsAvailable,
         settings: normalizeWeddingSettingsRow(
           withMissingWeddingSettingsColumns({
+            foodAndDrinkInfoFieldAvailable:
+              option.foodAndDrinkInfoFieldAvailable,
             partnerNameFieldsAvailable: option.partnerNameFieldsAvailable,
             value: result.data,
             weddingEndDateFieldAvailable: option.weddingEndDateFieldAvailable,
@@ -322,6 +412,8 @@ async function loadInviteWeddingSettingsRow({
         error: result.error,
         settings: normalizeInviteWeddingSettingsRow(
           withMissingWeddingSettingsColumns({
+            foodAndDrinkInfoFieldAvailable:
+              option.foodAndDrinkInfoFieldAvailable,
             partnerNameFieldsAvailable: option.partnerNameFieldsAvailable,
             value: result.data,
             weddingEndDateFieldAvailable: option.weddingEndDateFieldAvailable,
@@ -459,6 +551,9 @@ function getWeddingSettingsUpdate(formData: FormData) {
         formData.get("allow_anonymous_hub_upload") === "on",
       child_policy: cleanOptionalText(formData.get("child_policy")),
       dress_code: cleanOptionalText(formData.get("dress_code")),
+      food_and_drink_info: cleanOptionalText(
+        formData.get("food_and_drink_info"),
+      ),
       gift_info: cleanOptionalText(formData.get("gift_info")),
       google_maps_url: googleMapsUrl.value,
       invite_support_email: cleanOptionalText(formData.get("invite_support_email")),
@@ -505,6 +600,7 @@ export function getWeddingSettingsFormValues(
     allow_anonymous_hub_upload: settings.allow_anonymous_hub_upload,
     child_policy: settings.child_policy,
     dress_code: settings.dress_code,
+    food_and_drink_info: settings.food_and_drink_info,
     gift_info: settings.gift_info,
     google_maps_url: settings.google_maps_url,
     invite_sms_template: settings.invite_sms_template,
@@ -541,14 +637,32 @@ export async function updateAdminWeddingSettings({
     return { status: parsed.status };
   }
 
+  const updateWithoutFoodAndDrinkInfo = Object.fromEntries(
+    Object.entries(parsed.update).filter(
+      ([key]) => key !== "food_and_drink_info",
+    ),
+  );
   const updateWithoutEndDate = Object.fromEntries(
     Object.entries(parsed.update).filter(([key]) => key !== "wedding_end_date"),
+  );
+  const updateWithoutEndDateOrFoodAndDrinkInfo = Object.fromEntries(
+    Object.entries(parsed.update).filter(
+      ([key]) =>
+        key !== "wedding_end_date" && key !== "food_and_drink_info",
+    ),
   );
   const updateAttempts = [
     { ...parsed.update, ...parsed.partnerNameUpdate },
     parsed.update,
+    { ...updateWithoutFoodAndDrinkInfo, ...parsed.partnerNameUpdate },
+    updateWithoutFoodAndDrinkInfo,
     { ...updateWithoutEndDate, ...parsed.partnerNameUpdate },
     updateWithoutEndDate,
+    {
+      ...updateWithoutEndDateOrFoodAndDrinkInfo,
+      ...parsed.partnerNameUpdate,
+    },
+    updateWithoutEndDateOrFoodAndDrinkInfo,
   ];
 
   let data: { id: string } | null = null;

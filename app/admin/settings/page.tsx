@@ -246,6 +246,13 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
               placeholder={"15:00 - Ceremony\n17:00 - Dinner\n21:00 - Dancing"}
               rows={5}
             />
+            <AdminTextArea
+              defaultValue={formValues.food_and_drink_info}
+              helpText="Host-provided guest-facing food and drink details. Separate from RSVP dietary details."
+              label="Food & drink information"
+              name="food_and_drink_info"
+              placeholder="Snittar, middagsbuffé & snacks för alla smaker. Fri bar."
+            />
             <div className="grid gap-4 sm:grid-cols-2">
               <AdminTextArea
                 defaultValue={formValues.dress_code}
