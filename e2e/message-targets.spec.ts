@@ -4,6 +4,7 @@ import {
   countMessageTargetsByAudience,
   filterMessageTargetsByAudience,
   selectEligibleMessageTargets,
+  selectSelectedMessageTargetsPreview,
   type MessageTarget,
   type MessageTargetGuestRow,
 } from "../lib/message-targets";
@@ -46,6 +47,7 @@ function sortedGuestIds(targets: MessageTarget[]) {
 
 class FakeMessageBlastStore implements MessageBlastStore {
   readonly blastUpdates: Array<{ sendStatus: string; sentAt: string }> = [];
+  readonly blastInputs: Array<{ audience: string }> = [];
   readonly createdDeliveryRows: CreatedMessageDelivery[] = [];
   readonly deliveryUpdates: Array<{
     deliveryId: string;
@@ -60,7 +62,8 @@ class FakeMessageBlastStore implements MessageBlastStore {
     return this.targets;
   }
 
-  async createMessageBlast() {
+  async createMessageBlast({ audience }: { audience: string }) {
+    this.blastInputs.push({ audience });
     return { id: "blast-1" };
   }
 
@@ -189,6 +192,73 @@ test.describe("Message targets", () => {
     ]);
   });
 
+  test("selected Message targets preview preserves selected scope and explains exclusions", () => {
+    const rows = [
+      guestRow({ full_name: "Eligible Invited", id: "eligible-invited" }),
+      guestRow({ full_name: "Parent No", id: "parent-no", rsvp_status: "rsvp no" }),
+      guestRow({
+        full_name: "Eligible Plus One",
+        guest_kind: "plus_one",
+        id: "eligible-plus-one",
+        invited_guest_id: "parent-no",
+        phone: "+46700000002",
+        rsvp_status: "rsvp yes",
+      }),
+      guestRow({ deleted_at: "2026-05-18T08:00:00.000Z", full_name: "Archived", id: "archived" }),
+      guestRow({ full_name: "Missing Phone", id: "missing-phone", phone: null }),
+      guestRow({ full_name: "Empty Phone", id: "empty-phone", phone: "  " }),
+      guestRow({ full_name: "Invalid Phone", id: "invalid-phone", phone: "0700000000" }),
+      guestRow({ full_name: "No Consent", id: "no-consent", sms_opt_in: false }),
+      guestRow({
+        full_name: "Opted Out",
+        id: "opted-out",
+        sms_opted_out_at: "2026-05-18T08:00:00.000Z",
+      }),
+    ];
+
+    const preview = selectSelectedMessageTargetsPreview({
+      rows,
+      selectedGuestIds: [
+        "eligible-plus-one",
+        "unknown-guest",
+        "eligible-invited",
+        "eligible-plus-one",
+        "archived",
+        "missing-phone",
+        "empty-phone",
+        "invalid-phone",
+        "no-consent",
+        "opted-out",
+      ],
+    });
+
+    expect(preview.selectedGuestIds).toEqual([
+      "eligible-plus-one",
+      "unknown-guest",
+      "eligible-invited",
+      "archived",
+      "missing-phone",
+      "empty-phone",
+      "invalid-phone",
+      "no-consent",
+      "opted-out",
+    ]);
+    expect(preview.eligibleTargets.map((messageTarget) => messageTarget.guestId)).toEqual([
+      "eligible-plus-one",
+      "eligible-invited",
+    ]);
+    expect(preview.eligibleTargets[0].audienceRsvpStatus).toBe("rsvp no");
+    expect(preview.excludedGuests.map((guest) => [guest.guestId, guest.reason])).toEqual([
+      ["unknown-guest", "not-found"],
+      ["archived", "archived"],
+      ["missing-phone", "missing-phone"],
+      ["empty-phone", "missing-phone"],
+      ["invalid-phone", "invalid-phone"],
+      ["no-consent", "no-sms-consent"],
+      ["opted-out", "sms-opted-out"],
+    ]);
+  });
+
   test("MessageBlast command sends one delivery per target Guest even when phones match", async () => {
     const store = new FakeMessageBlastStore([
       target({ fullName: "Invited", guestId: "invited-1", phone: "+46700000001" }),
@@ -229,6 +299,35 @@ test.describe("Message targets", () => {
       "provider-2",
     ]);
     expect(store.blastUpdates.at(-1)?.sendStatus).toBe("sent");
+  });
+
+
+  test("MessageBlast command selected targets bypass audience filter", async () => {
+    const store = new FakeMessageBlastStore([
+      target({ audienceRsvpStatus: "rsvp no", guestId: "unselected-1", phone: "+46700000001" }),
+      target({ audienceRsvpStatus: "rsvp no", guestId: "unselected-2", phone: "+46700000002" }),
+    ]);
+    const sends: Array<{ message: string; to: string }> = [];
+    const provider = fakeSmsProvider(async (input) => {
+      sends.push(input);
+      return { providerMessageId: `provider-${sends.length}` };
+    });
+
+    const result = await sendMessageBlastCommand({
+      adminId: "admin-1",
+      audience: "rsvp no",
+      body: "Selected body",
+      selectedTargets: [target({ guestId: "selected-1", phone: "+46700000003" })],
+      smsProvider: provider,
+      store,
+      title: null,
+      weddingId: "wedding-1",
+    });
+
+    expect(result).toMatchObject({ failedCount: 0, sendStatus: "sent", sentCount: 1 });
+    expect(store.createdDeliveryRows.map((delivery) => delivery.guestId)).toEqual(["selected-1"]);
+    expect(sends).toEqual([{ message: "Selected body", to: "+46700000003" }]);
+    expect(store.blastInputs.at(-1)).toEqual({ audience: "rsvp no" });
   });
 
   test("MessageBlast command continues through provider failures and marks partial", async () => {

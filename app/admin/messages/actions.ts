@@ -28,6 +28,7 @@ import {
 } from "@/lib/message-blast-command";
 import { createSupabaseMessageBlastStore } from "@/lib/message-blast-store";
 import { isMessageAudience, type MessageAudience } from "@/lib/message-audience";
+import { loadSelectedMessageTargetsPreview, parseSelectedGuestIds } from "@/lib/message-targets";
 import { isE164PhoneNumber } from "@/lib/phone";
 import { getRequestOriginFromHeaders } from "@/lib/public-url";
 import { regenerateInviteToken } from "@/lib/invite-tokens";
@@ -204,54 +205,87 @@ export async function sendMessageBlastAction(formData: FormData) {
   const adminProfile = await requireActiveAdminProfile();
   const title = cleanOptionalText(formData.get("title"));
   const body = cleanRequiredText(formData.get("body"));
-  const audience = getAudienceFromForm(formData);
+  const selectedGuestIds = parseSelectedGuestIds(formData.get("selected_guests"));
+  const isSelectedMode = selectedGuestIds.length > 0;
+  const selectedRedirectParams: Record<string, string> = isSelectedMode
+    ? { selected_guests: selectedGuestIds.join(",") }
+    : {};
+  const redirectMessageError = (params: Record<string, string>): never =>
+    redirectToMessages({ ...selectedRedirectParams, ...params });
+  const audience = isSelectedMode ? "all" : getAudienceFromForm(formData);
   const isConfirmed = formData.get("confirm_send") === "on";
 
   if (!body) {
-    redirectToMessages({ error: "missing-body" });
+    redirectMessageError({ error: "missing-body" });
   }
 
   if (body.length > MAX_MESSAGE_BODY_LENGTH) {
-    redirectToMessages({ error: "body-too-long" });
+    redirectMessageError({ error: "body-too-long" });
   }
 
   if (!audience) {
-    redirectToMessages({ error: "invalid-audience" });
+    redirectMessageError({ error: "invalid-audience" });
+    throw new Error("Redirected after invalid message audience.");
   }
 
   if (!isConfirmed) {
-    redirectToMessages({ error: "confirm-required" });
+    redirectMessageError({ error: "confirm-required" });
   }
 
   const smsStatus = getElk46RuntimeStatus();
 
   if (!smsStatus.isConfigured) {
-    redirectToMessages({ error: "sms-config" });
+    redirectMessageError({ error: "sms-config" });
   }
 
   const supabase = await createSupabaseServerClient();
   const store = createSupabaseMessageBlastStore(supabase);
+  const selectedTargets = isSelectedMode
+    ? await loadSelectedMessageTargetsPreview({
+        selectedGuestIds,
+        supabase,
+        weddingId: adminProfile.wedding_id,
+      }).then((result) => {
+        if (result.error || !result.preview) {
+          console.error("Failed load selected Message targets", result.error);
+          redirectMessageError({ error: "send-failed" });
+          throw new Error("Redirected after selected Message target load failure.");
+        }
+
+        const preview = result.preview;
+
+        if (preview.eligibleTargets.length === 0) {
+          redirectMessageError({ error: "no-recipients" });
+          throw new Error("Redirected after selected Message target empty result.");
+        }
+
+        return preview.eligibleTargets;
+      })
+    : undefined;
 
   const result = await sendMessageBlastCommand({
     adminId: adminProfile.id,
     audience,
     body,
     formatSendError: getSendErrorText,
+    selectedTargets,
     smsProvider: { sendSms: sendElk46Sms },
     store,
     title,
     weddingId: adminProfile.wedding_id,
   }).catch((error: unknown) => {
     if (error instanceof NoMessageTargetsError) {
-      redirectToMessages({ error: "no-recipients" });
+      redirectMessageError({ error: "no-recipients" });
     }
 
-    console.error("Failed to send message blast", error);
-    redirectToMessages({ error: "send-failed" });
+    console.error("Failed send message blast", error);
+    redirectMessageError({ error: "send-failed" });
+    throw new Error("Redirected after message blast failure.");
   });
 
   revalidatePath("/admin/messages");
   redirectToMessages({
+    ...selectedRedirectParams,
     failed: String(result.failedCount),
     sent: String(result.sentCount),
     status: result.sendStatus,

@@ -343,4 +343,107 @@ test.describe("admin SMS messages", () => {
       await supabase.from("message_blasts").delete().eq("body", body);
     }
   });
+
+  test("selected Wedding SMS update sends only selected eligible Message targets", async ({ page }) => {
+    const supabase = createE2eSupabaseAdminClient();
+    const eligibleName = uniqueGuestName("Selected SMS Eligible");
+    const skippedName = uniqueGuestName("Selected SMS Skipped");
+    const unselectedName = uniqueGuestName("Selected SMS Unselected");
+    const body = `E2E selected SMS body ${Date.now()}`;
+    const now = new Date().toISOString();
+
+    const { data: guests, error: guestsError } = await supabase
+      .from("guests")
+      .insert([
+        {
+          email: `e2e-selected-eligible-${Date.now()}@example.com`,
+          full_name: eligibleName,
+          guest_kind: "invited",
+          invite_status: "opened",
+          phone: "+46709994441",
+          rsvp_status: "rsvp yes",
+          sms_opt_in: true,
+          sms_opted_in_at: now,
+          wedding_id: SEEDED_WEDDING_ID,
+        },
+        {
+          email: `e2e-selected-skipped-${Date.now()}@example.com`,
+          full_name: skippedName,
+          guest_kind: "invited",
+          invite_status: "opened",
+          phone: "+46709994442",
+          rsvp_status: "rsvp yes",
+          sms_opt_in: false,
+          wedding_id: SEEDED_WEDDING_ID,
+        },
+        {
+          email: `e2e-selected-unselected-${Date.now()}@example.com`,
+          full_name: unselectedName,
+          guest_kind: "invited",
+          invite_status: "opened",
+          phone: "+46709994443",
+          rsvp_status: "rsvp yes",
+          sms_opt_in: true,
+          sms_opted_in_at: now,
+          wedding_id: SEEDED_WEDDING_ID,
+        },
+      ])
+      .select("id, full_name");
+    expect(guestsError).toBeNull();
+
+    const eligibleGuest = guests?.find((guest) => guest.full_name === eligibleName);
+    const skippedGuest = guests?.find((guest) => guest.full_name === skippedName);
+    const unselectedGuest = guests?.find((guest) => guest.full_name === unselectedName);
+
+    if (!eligibleGuest?.id || !skippedGuest?.id || !unselectedGuest?.id) {
+      throw new Error("Expected selected SMS test Guests.");
+    }
+
+    try {
+      await signInAsSeededAdmin(page);
+      const selectedGuests = [eligibleGuest.id, skippedGuest.id, "not-a-uuid", eligibleGuest.id].join(",");
+      await page.goto(`/admin/messages?selected_guests=${encodeURIComponent(selectedGuests)}`);
+
+      await expect(page.getByTestId("selected-message-preview")).toBeVisible();
+      await expect(page.getByTestId("eligible-selected-guests").getByText(eligibleName)).toBeVisible();
+      await expect(page.getByTestId("excluded-selected-guests").getByText(skippedName)).toBeVisible();
+      await expect(page.getByTestId("excluded-selected-guests").getByText("SMS-samtycke saknas")).toBeVisible();
+      await expect(page.getByTestId("excluded-selected-guests").getByText("Okänd Gäst")).toBeVisible();
+      await expect(page.getByLabel("Audience")).toHaveCount(0);
+ await expect(page.getByText("Mottagarvalet är dolt")).toBeVisible();
+
+      await page.getByLabel("Body text").fill(body);
+      await page.getByLabel(/I understand sends real SMS messages/).check();
+      await page.getByRole("button", { name: "Send SMS now" }).click();
+      await expect(page.getByText("Message sent to 1 guest.")).toBeVisible();
+
+      const { data: blast, error: blastError } = await supabase
+        .from("message_blasts")
+        .select("id, message_kind")
+        .eq("body", body)
+        .single();
+      expect(blastError).toBeNull();
+      expect(blast?.message_kind).toBe("custom");
+
+      if (!blast || typeof blast.id !== "string") {
+        throw new Error("Expected selected SMS blast.");
+      }
+
+      const { data: deliveries, error: deliveriesError } = await supabase
+        .from("message_deliveries")
+        .select("guest_id, invite_token_id, phone")
+        .eq("message_blast_id", blast.id);
+      expect(deliveriesError).toBeNull();
+      expect(deliveries).toEqual([
+        {
+          guest_id: eligibleGuest.id,
+          invite_token_id: null,
+          phone: "+46709994441",
+        },
+      ]);
+    } finally {
+      await supabase.from("message_blasts").delete().eq("body", body);
+    }
+  });
+
 });

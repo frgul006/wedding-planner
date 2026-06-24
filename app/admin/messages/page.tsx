@@ -22,6 +22,10 @@ import { getMessageKindLabel, isMessageKind, type MessageKind } from "@/lib/mess
 import {
   countMessageTargetsByAudience,
   loadMessageTargets,
+  loadSelectedMessageTargetsPreview,
+  parseSelectedGuestIds,
+  SELECTED_MESSAGE_TARGET_EXCLUSION_LABELS,
+  type SelectedMessageTargetsPreview,
 } from "@/lib/message-targets";
 import { getRequestOriginFromHeaders } from "@/lib/public-url";
 import { getElk46RuntimeStatus } from "@/lib/sms/elk46";
@@ -50,6 +54,7 @@ type MessagesPageProps = {
     invite_preview?: string | string[];
     invite_sent?: string | string[];
     invite_status?: string | string[];
+    selected_guests?: string | string[];
     sent?: string | string[];
     status?: string | string[];
   }>;
@@ -353,6 +358,96 @@ function GuestList({ guests }: { guests: InviteSmsGuestSummary[] }) {
   );
 }
 
+
+function SelectedMessageTargetsPanel({
+  error,
+  preview,
+  selectedGuestIds,
+}: {
+  error: unknown;
+  preview: SelectedMessageTargetsPreview | null;
+  selectedGuestIds: string[];
+}) {
+  if (error) {
+    return (
+      <div className="mt-6 rounded-2xl bg-red-50 p-5 text-sm font-medium text-red-700 ring-1 ring-red-100">
+        Kunde inte kontrollera markerade SMS-mottagare. Sändning är avstängd tills markerade Gäster kan kontrolleras.
+      </div>
+    );
+  }
+
+  if (!preview) {
+    return null;
+  }
+
+  return (
+    <div className="mt-6 grid gap-4 rounded-2xl bg-sky-50 p-5 ring-1 ring-sky-100" data-testid="selected-message-preview">
+      <div>
+        <p className="text-sm font-bold uppercase tracking-[0.18em] text-sky-800">Markerade Gäster</p>
+        <h3 className="mt-1 text-lg font-semibold text-sky-950">
+          SMS-uppdatering till markerade Gäster
+        </h3>
+        <p className="mt-2 text-sm leading-6 text-sky-900">
+          Skickas bara till markerade Gäster som kan få SMS. Mottagarvalet används inte,
+          inga inbjudningslänkar skapas och befintlig inbjudningsåtkomst ändras inte.
+        </p>
+      </div>
+
+      <dl className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl bg-white/80 p-4">
+          <dt className="text-sm font-medium text-sky-800">Markerade</dt>
+          <dd className="mt-1 text-2xl font-semibold text-sky-950">{selectedGuestIds.length}</dd>
+        </div>
+        <div className="rounded-2xl bg-white/80 p-4">
+          <dt className="text-sm font-medium text-sky-800">Kan få SMS</dt>
+          <dd className="mt-1 text-2xl font-semibold text-sky-950">{preview.eligibleTargets.length}</dd>
+        </div>
+        <div className="rounded-2xl bg-white/80 p-4">
+          <dt className="text-sm font-medium text-sky-800">Exkluderade</dt>
+          <dd className="mt-1 text-2xl font-semibold text-sky-950">{preview.excludedGuests.length}</dd>
+        </div>
+      </dl>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl bg-white/80 p-4">
+          <h4 className="font-semibold text-sky-950">
+            Valda SMS-mottagare ({preview.eligibleTargets.length})
+          </h4>
+          {preview.eligibleTargets.length ? (
+            <ul className="mt-3 grid gap-2 text-sm text-sky-900" data-testid="eligible-selected-guests">
+              {preview.eligibleTargets.map((target) => (
+                <li key={target.guestId}>
+                  {target.fullName} · {target.phone}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-sm text-sky-900">Inga markerade Gäster kan få SMS.</p>
+          )}
+        </div>
+
+        <div className="rounded-2xl bg-white/80 p-4">
+          <h4 className="font-semibold text-sky-950">
+            Exkluderade markerade Gäster ({preview.excludedGuests.length})
+          </h4>
+          {preview.excludedGuests.length ? (
+            <ul className="mt-3 grid gap-2 text-sm text-sky-900" data-testid="excluded-selected-guests">
+              {preview.excludedGuests.map((guest) => (
+                <li key={guest.guestId}>
+                  {guest.fullName ?? `Okänd Gäst (${guest.guestId.slice(0, 8)})`}
+                  {guest.phone ? ` · ${guest.phone}` : ""} · {SELECTED_MESSAGE_TARGET_EXCLUSION_LABELS[guest.reason]}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-sm text-sky-900">Ingen markerad Gäst exkluderas.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function InviteSmsPreviewDetails({
   invitePreview,
   canSend,
@@ -501,6 +596,8 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
   await connection();
 
   const params = await searchParams;
+  const selectedGuestIds = parseSelectedGuestIds(params.selected_guests);
+  const isSelectedMode = selectedGuestIds.length > 0;
   const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
   const requestOrigin = getRequestOriginFromHeaders(await headers());
@@ -509,23 +606,31 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
     mockSend: smsStatus.mockSend,
     requestOrigin,
   });
-  const [messageTargetsResult, blastsResult, invitePreviewResult] = await Promise.all([
-    loadMessageTargets({ supabase, weddingId: adminProfile.wedding_id }),
-    supabase
-      .from("message_blasts")
-      .select("id, title, body, audience, message_kind, send_status, created_at, sent_at")
-      .eq("wedding_id", adminProfile.wedding_id)
-      .order("created_at", { ascending: false })
-      .limit(20),
-    loadInviteSmsPreview({
-      requestOrigin,
-      supabase,
-      weddingId: adminProfile.wedding_id,
-    }).then(
-      (preview) => ({ error: null, preview }),
-      (error: unknown) => ({ error, preview: null }),
-    ),
-  ]);
+  const [messageTargetsResult, blastsResult, invitePreviewResult, selectedPreviewResult] =
+    await Promise.all([
+      loadMessageTargets({ supabase, weddingId: adminProfile.wedding_id }),
+      supabase
+        .from("message_blasts")
+        .select("id, title, body, audience, message_kind, send_status, created_at, sent_at")
+        .eq("wedding_id", adminProfile.wedding_id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      loadInviteSmsPreview({
+        requestOrigin,
+        supabase,
+        weddingId: adminProfile.wedding_id,
+      }).then(
+        (preview) => ({ error: null, preview }),
+        (error: unknown) => ({ error, preview: null }),
+      ),
+      isSelectedMode
+        ? loadSelectedMessageTargetsPreview({
+            selectedGuestIds,
+            supabase,
+            weddingId: adminProfile.wedding_id,
+          })
+        : Promise.resolve({ error: null, preview: null }),
+    ]);
   const audienceCounts = countMessageTargetsByAudience(messageTargetsResult.targets);
   const blasts = (blastsResult.data ?? []).filter(isMessageBlastRow);
   const blastIds = blasts.map((blast) => blast.id);
@@ -541,6 +646,11 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
   const message = getMessage(params);
   const inviteMessage = getInviteMessage(params);
   const showInvitePreview = getFirstParam(params.invite_preview) === "1";
+  const selectedPreview = selectedPreviewResult.preview;
+  const selectedSendDisabled =
+    !smsStatus.isConfigured ||
+    (isSelectedMode &&
+      (Boolean(selectedPreviewResult.error) || !selectedPreview || selectedPreview.eligibleTargets.length === 0));
   const latestErrorsByBlast = deliveries.reduce<Map<string, string[]>>((errors, delivery) => {
     if (delivery.delivery_status !== "failed" || !delivery.error_text) {
       return errors;
@@ -724,7 +834,18 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
             </dl>
           )}
 
+          {isSelectedMode ? (
+            <SelectedMessageTargetsPanel
+              error={selectedPreviewResult.error}
+              preview={selectedPreview}
+              selectedGuestIds={selectedGuestIds}
+            />
+          ) : null}
+
           <form action={sendMessageBlastAction} className="mt-8 grid gap-5">
+            {isSelectedMode ? (
+              <input name="selected_guests" type="hidden" value={selectedGuestIds.join(",")} />
+            ) : null}
             <AdminField
               label="Title"
               name="title"
@@ -738,21 +859,27 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
               required
               rows={5}
             />
-            <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700">
-              Audience
-              <select
-                className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950"
-                defaultValue="all"
-                name="audience"
-                required
-              >
-                {MESSAGE_AUDIENCES.map((audience) => (
-                  <option key={audience} value={audience}>
-                    {getMessageAudienceLabel(audience)} ({audienceCounts[audience]})
-                  </option>
-                ))}
-              </select>
-            </label>
+            {isSelectedMode ? (
+              <div className="rounded-2xl bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-700">
+                Mottagarvalet är dolt. SMS-uppdateringen skickas bara till markerade Gäster som kan få SMS.
+              </div>
+            ) : (
+              <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700">
+                Audience
+                <select
+                  className="rounded-2xl border border-zinc-300 px-4 py-3 font-normal text-zinc-950 outline-none transition focus:border-zinc-950"
+                  defaultValue="all"
+                  name="audience"
+                  required
+                >
+                  {MESSAGE_AUDIENCES.map((audience) => (
+                    <option key={audience} value={audience}>
+                      {getMessageAudienceLabel(audience)} ({audienceCounts[audience]})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className="flex gap-3 rounded-2xl bg-amber-50 p-4 text-sm font-medium text-amber-800 ring-1 ring-amber-100">
               <input className="mt-1 h-4 w-4" name="confirm_send" required type="checkbox" />
               <span>
@@ -762,7 +889,7 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
             </label>
             <button
               className="rounded-full bg-zinc-950 px-5 py-3 font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400 sm:w-fit"
-              disabled={!smsStatus.isConfigured}
+              disabled={selectedSendDisabled}
               type="submit"
             >
               Send SMS now
