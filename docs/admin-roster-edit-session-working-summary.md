@@ -111,3 +111,4 @@ Date: 2026-06-24
 - PRD: `docs/prd/admin-guest-crud.md`
 - ADR: `docs/adr/0003-admin-guest-roster-edit-session.md`
 - PR: https://github.com/frgul006/wedding-planner/pull/120
+- Branch execution PRD/parallelization plan: `docs/admin-roster-pr120-merge-plan.md`
