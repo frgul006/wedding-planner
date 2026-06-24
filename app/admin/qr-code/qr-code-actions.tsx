@@ -33,7 +33,7 @@ export function QrCodeActions({ hubUrl }: { hubUrl: string }) {
         onClick={() => window.print()}
         type="button"
       >
-        Print QR sheet
+        Skriv ut QR-blad
       </button>
     </div>
   );
