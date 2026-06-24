@@ -95,8 +95,8 @@ test.describe("admin invite token links", () => {
     });
 
     let guestRow = await guestRowByName(page, guestName);
-    await guestRow.getByRole("button", { name: "Skapa Invite-länk" }).click();
-    const firstInviteInput = page.getByLabel(`Ny Invite-länk för ${guestName}`);
+    await guestRow.getByRole("button", { name: "Skapa inbjudningslänk" }).click();
+    const firstInviteInput = page.getByLabel(`Ny inbjudningslänk för ${guestName}`);
     await expect(firstInviteInput).toBeVisible();
 
     const firstInviteUrl = await firstInviteInput.inputValue();
@@ -111,11 +111,11 @@ test.describe("admin invite token links", () => {
     await invitePage.close();
 
     await page.reload();
-    await expect(page.getByLabel(`Ny Invite-länk för ${guestName}`)).toHaveCount(0);
+    await expect(page.getByLabel(`Ny inbjudningslänk för ${guestName}`)).toHaveCount(0);
 
     guestRow = await guestRowByName(page, guestName);
-    await guestRow.getByRole("button", { name: "Skapa om Invite-länk" }).click();
-    const secondInviteInput = page.getByLabel(`Ny Invite-länk för ${guestName}`);
+    await guestRow.getByRole("button", { name: "Skapa om inbjudningslänk" }).click();
+    const secondInviteInput = page.getByLabel(`Ny inbjudningslänk för ${guestName}`);
     await expect(secondInviteInput).toBeVisible();
 
     const secondInviteUrl = await secondInviteInput.inputValue();

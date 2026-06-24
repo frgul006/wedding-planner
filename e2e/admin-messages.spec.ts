@@ -41,7 +41,7 @@ test.describe("admin SMS messages", () => {
     await page.getByRole("link", { name: "Send messages" }).click();
 
     await expect(page.getByRole("heading", { name: "Meddelanden" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Skriv Wedding SMS update" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Skriv SMS-uppdatering" })).toBeVisible();
     await expect(page.getByText(/Leverantör: 46elks/)).toBeVisible();
     await expect(page.getByText("Alla Gäster").first()).toBeVisible();
     await expect(page.getByLabel("Rubrik")).toBeVisible();
@@ -154,12 +154,12 @@ test.describe("admin SMS messages", () => {
     try {
       await signInAsSeededAdmin(page);
       await page.goto("/admin/messages");
-      await expect(page.getByRole("heading", { name: "Skicka Invite SMS-länkar" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Skicka inbjudnings-SMS-länkar" })).toBeVisible();
 
-      await page.getByLabel("Invite SMS-mall").fill(template);
+      await page.getByLabel("Mall för inbjudnings-SMS").fill(template);
       await page.getByRole("button", { name: "Spara och förhandsvisa" }).click();
 
-      await expect(page.getByText("Invite SMS-mall sparad och förhandsvisning uppdaterad.")).toBeVisible();
+      await expect(page.getByText("Mall för inbjudnings-SMS sparad och förhandsvisning uppdaterad.")).toBeVisible();
       await expect(page.getByRole("heading", { name: "Renderat exempel" })).toBeVisible();
       await expect(page.getByText(eligibleName).first()).toBeVisible();
       await expect(page.getByText(openedName).first()).toBeVisible();
@@ -167,9 +167,9 @@ test.describe("admin SMS messages", () => {
       await expect(page.getByText(priorSentName).first()).toBeVisible();
       await expect(page.getByText("Beräknat")).toBeVisible();
 
-      await page.getByLabel(/Jag förstår att riktiga Invite SMS skickas/).check();
-      await page.getByRole("button", { name: "Skicka Invite SMS till 1 Gäst" }).click();
-      await expect(page.getByText("Invite SMS skickat till 1 Gäst.")).toBeVisible();
+      await page.getByLabel(/Jag förstår att riktiga inbjudnings-SMS skickas/).check();
+      await page.getByRole("button", { name: "Skicka inbjudnings-SMS till 1 Gäst" }).click();
+      await expect(page.getByText("Inbjudnings-SMS skickat till 1 Gäst.")).toBeVisible();
 
       const { data: bulkBlast, error: bulkBlastError } = await supabase
         .from("message_blasts")
@@ -205,9 +205,9 @@ test.describe("admin SMS messages", () => {
       expect(typeof bulkDeliveries?.[0]?.invite_token_id).toBe("string");
 
       const openedSingleForm = page.locator("form").filter({ hasText: openedName }).last();
-      await openedSingleForm.getByLabel("Bekräfta ett riktigt SMS med ny Invite-länk").check();
-      await openedSingleForm.getByRole("button", { name: "Skicka Invite SMS" }).click();
-      await expect(page.getByText("Invite SMS skickat till 1 Gäst.")).toBeVisible();
+      await openedSingleForm.getByLabel("Bekräfta ett riktigt SMS med ny inbjudningslänk").check();
+      await openedSingleForm.getByRole("button", { name: "Skicka inbjudnings-SMS" }).click();
+      await expect(page.getByText("Inbjudnings-SMS skickat till 1 Gäst.")).toBeVisible();
 
       await expect.poll(async () => {
         const { data: openedDeliveries, error: openedDeliveriesError } = await supabase

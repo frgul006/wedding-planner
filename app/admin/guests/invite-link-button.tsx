@@ -25,7 +25,7 @@ export function InviteLinkButton({
   const linkRef = useRef<HTMLInputElement>(null);
   const inviteUrl = state.guestId === guestId ? state.inviteUrl : undefined;
   const error = state.guestId === guestId ? state.error : undefined;
-  const inviteLabel = accessScope === "scoped" ? "begränsad Invite-länk" : "Invite-länk";
+  const inviteLabel = accessScope === "scoped" ? "begränsad inbjudningslänk" : "inbjudningslänk";
 
   useEffect(() => {
     if (inviteUrl) {

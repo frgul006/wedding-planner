@@ -264,8 +264,8 @@ test.describe("Scoped Invite access for Plus-one Guests", () => {
     await page.goto("/admin/guests");
 
     let plusOneRow = await guestRowByName(page, fixture.plusOneName);
-    await plusOneRow.getByRole("button", { name: "Skapa begränsad Invite-länk" }).click();
-    const firstInviteInput = page.getByLabel(`Ny begränsad Invite-länk för ${fixture.plusOneName}`);
+    await plusOneRow.getByRole("button", { name: "Skapa begränsad inbjudningslänk" }).click();
+    const firstInviteInput = page.getByLabel(`Ny begränsad inbjudningslänk för ${fixture.plusOneName}`);
     await expect(firstInviteInput).toBeVisible();
     const firstInviteUrl = await firstInviteInput.inputValue();
     const expectedInviteOrigin = expectedPublicOriginForPage(page);
@@ -283,10 +283,10 @@ test.describe("Scoped Invite access for Plus-one Guests", () => {
     await scopedInvitePage.close();
 
     await page.reload();
-    await expect(page.getByLabel(`Ny begränsad Invite-länk för ${fixture.plusOneName}`)).toHaveCount(0);
+    await expect(page.getByLabel(`Ny begränsad inbjudningslänk för ${fixture.plusOneName}`)).toHaveCount(0);
     plusOneRow = await guestRowByName(page, fixture.plusOneName);
-    await plusOneRow.getByRole("button", { name: "Skapa om begränsad Invite-länk" }).click();
-    const secondInviteInput = page.getByLabel(`Ny begränsad Invite-länk för ${fixture.plusOneName}`);
+    await plusOneRow.getByRole("button", { name: "Skapa om begränsad inbjudningslänk" }).click();
+    const secondInviteInput = page.getByLabel(`Ny begränsad inbjudningslänk för ${fixture.plusOneName}`);
     await expect(secondInviteInput).toBeVisible();
     const secondInviteUrl = await secondInviteInput.inputValue();
     const secondInvitePath = pathFromAbsoluteUrl(secondInviteUrl);
