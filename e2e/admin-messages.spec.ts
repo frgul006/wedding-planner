@@ -413,7 +413,7 @@ test.describe("admin SMS messages", () => {
  await expect(page.getByText("Mottagarvalet är dolt")).toBeVisible();
 
       await page.getByLabel("Body text").fill(body);
-      await page.getByLabel(/I understand sends real SMS messages/).check();
+      await page.getByLabel(/I understand this sends real SMS messages/).check();
       await page.getByRole("button", { name: "Send SMS now" }).click();
       await expect(page.getByText("Message sent to 1 guest.")).toBeVisible();
 
