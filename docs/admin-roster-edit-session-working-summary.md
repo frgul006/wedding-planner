@@ -91,8 +91,8 @@ These remain non-blocking unless promoted:
 
 Snapshot artifacts from final local run:
 
-- `/Users/fredrik/dev/wedding-planner/.playwright-cli/page-2026-06-24T21-47-21-624Z.yml`
-- `/Users/fredrik/dev/wedding-planner/.playwright-cli/page-2026-06-24T21-47-21-921Z.yml`
+- `/Users/fredrik/dev/wedding-planner/.playwright-cli/page-2026-06-24T22-04-24-340Z.yml`
+- `/Users/fredrik/dev/wedding-planner/.playwright-cli/page-2026-06-24T22-04-24-754Z.yml`
 
 ## References
 
