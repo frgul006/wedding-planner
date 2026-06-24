@@ -20,7 +20,7 @@ Guests need one clear info block with all wedding details before they answer OSA
 
 ## User stories
 - As an admin, I can manage the wedding info block in one place.
-- As a guest, I can see place, map link, times, dress code, child policy, gift info, and playlist link on my personal invite.
+- As a guest, I can see place, map link, times, food and drink details, dress code, child policy, gift info, and playlist link on my personal invite.
 - As a guest, I can open the map link if I need directions.
 - As a guest, I can move from event details directly to OSA.
 
@@ -30,10 +30,11 @@ Guests need one clear info block with all wedding details before they answer OSA
 - The details panel must present content in this order:
   1. `Tidsplan` — time plan rows with time and label.
   2. `Plats` — venue name, area/city, address, and `Visa karta` link.
-  3. Cards for `Klädkod`, `Barn` when child policy text exists, and `Gåvor`.
-  4. `Musik` — Spotify playlist CTA when configured.
-  5. `Uppdateringar` — latest published updates when updates exist; omit when none are published.
-  6. `Vidare till OSA` CTA.
+  3. `Mat & dryck` — host-provided food and drink details.
+  4. Cards for `Klädkod`, `Barn` when child policy text exists, and `Gåvor`.
+  5. `Musik` — Spotify playlist CTA when configured.
+  6. `Uppdateringar` — latest published updates when updates exist; omit when none are published.
+  7. `Vidare till OSA` CTA.
 - If a required text field is missing, show a simple Swedish placeholder such as `Kommer snart`.
 - If map or Spotify URL is missing, show non-clickable coming-soon copy instead of a broken link.
 - Links must open safely and clearly in a new tab/app where appropriate.
@@ -45,7 +46,7 @@ Guests need one clear info block with all wedding details before they answer OSA
 - Links and CTAs need accessible names that describe their destination.
 
 ## Implementation notes
-- The Brevkort details panel depends on data-model/settings support for structured time-plan rows, venue area/city display text, dress code, separate child policy, gift info, and Spotify URL.
+- The Brevkort details panel depends on data-model/settings support for structured time-plan rows, venue area/city display text, food and drink details, dress code, separate child policy, gift info, and Spotify URL.
 - Add those fields or document explicit mappings before implementing this panel.
 
 ## Acceptance criteria

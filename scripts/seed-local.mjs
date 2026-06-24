@@ -323,6 +323,8 @@ async function main() {
     policy: "Tunnelbanan stannar nära lokalen.",
     dress_code: "Klädkod: festlig sommarformal",
     child_policy: "Vi älskar era barn, men firar vuxet den här kvällen.",
+    food_and_drink_info:
+      "Snittar, middagsbuffé & snacks för alla smaker. Fri bar.",
     gift_info: "Din närvaro är den bästa presenten.",
     spotify_playlist_url: "https://open.spotify.com/",
     invite_support_email: "osa@example.com",

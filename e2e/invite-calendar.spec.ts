@@ -57,6 +57,7 @@ function makeAccess({
     wedding: {
       child_policy: null,
       dress_code: null,
+      food_and_drink_info: null,
       gift_info: null,
       google_maps_url: "https://maps.test/p",
       invite_support_email: null,
