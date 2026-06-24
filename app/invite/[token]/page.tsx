@@ -254,7 +254,7 @@ function CoverPanel({
           </p>
           <BrevkortKicker className="mt-3">till {guestName}</BrevkortKicker>
           <BrevkortHeading
-            className="mt-4 text-[3.35rem] !font-normal leading-[0.95] sm:text-[3.6rem]"
+            className="mt-4 text-[2.3rem] !font-normal leading-[0.95] sm:text-[2.5rem]"
             id="inbjudan-heading"
             level={1}
           >
@@ -397,7 +397,7 @@ function DetailsPanel({
           Detaljer
         </BrevkortHeading>
         <BrevkortBodyText className="mt-3 max-w-2xl">
-          Här finns tider, plats och praktisk information.
+          Tidigare samma dag säger vi ja i Stadshuset i närvaro av familj. Framåt kvällen vill vi fira ordentligt med våra vänner!
         </BrevkortBodyText>
 
         <div className="mt-8 grid gap-5">
@@ -455,22 +455,18 @@ function DetailsPanel({
 
           <div className="grid gap-5 md:grid-cols-2">
             <DetailCard title="Klädkod">
-              <div className="grid gap-3 leading-7">
-                <p className="whitespace-pre-line">
-                  {getWeddingSettingsDisplayText(wedding.dress_code ?? wedding.policy)}
-                </p>
-                {wedding.child_policy ? (
-                  <p className="whitespace-pre-line text-invite-walnut">
-                    {wedding.child_policy}
-                  </p>
-                ) : null}
-                {wedding.dress_code && wedding.policy ? (
-                  <p className="whitespace-pre-line text-sm text-invite-walnut">
-                    {wedding.policy}
-                  </p>
-                ) : null}
-              </div>
+              <p className="whitespace-pre-line leading-7">
+                {getWeddingSettingsDisplayText(wedding.dress_code)}
+              </p>
             </DetailCard>
+
+            {wedding.child_policy ? (
+              <DetailCard title="Barn">
+                <p className="whitespace-pre-line leading-7">
+                  {wedding.child_policy}
+                </p>
+              </DetailCard>
+            ) : null}
 
             <DetailCard title="Gåvor">
               <p className="whitespace-pre-line leading-7">
