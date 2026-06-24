@@ -23,11 +23,13 @@ function formatCount(result: CountResult) {
 }
 
 function OverviewCard({
+  ariaLabel,
   count,
   description,
   href,
   label,
 }: {
+  ariaLabel?: string;
   count: string;
   description: string;
   href: string;
@@ -35,6 +37,7 @@ function OverviewCard({
 }) {
   return (
     <Link
+      aria-label={ariaLabel}
       className="rounded-[2rem] border border-[#d8c7a3] bg-[#fffaf1] p-6 shadow-[0_18px_60px_rgba(77,53,31,0.08)] transition hover:-translate-y-0.5 hover:bg-white"
       href={href}
     >
@@ -99,9 +102,11 @@ export default async function AdminPage() {
             <h1 className="mt-4 font-serif text-4xl leading-tight lg:text-6xl">
               {wedding?.name ?? "Wedding Planner"}
             </h1>
+            <h2 className="sr-only">Admin dashboard</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[#e7d9c2]">
               Inloggad som {adminProfile.display_name || user.email || "admin"}. Översikten visar bara verklig data från bröllopet.
             </p>
+            <p className="sr-only">Signed in as {adminProfile.display_name || user.email || "admin"}.</p>
           </div>
           <form action={logoutAction}>
             <AdminSubmitButton
@@ -116,24 +121,28 @@ export default async function AdminPage() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <OverviewCard
+          ariaLabel="Manage guests"
           count={formatCount(guestCount)}
           description="Aktiva Invited Guests och Plus-one Guests i roster."
           href="/admin/guests"
           label="Gäster"
         />
         <OverviewCard
+          ariaLabel="Manage photos"
           count={formatCount(pendingPhotoCount)}
           description="Verifierade bilder som väntar på moderering."
           href="/admin/photos"
           label="Bilder"
         />
         <OverviewCard
+          ariaLabel="Send messages"
           count={formatCount(messageCount)}
           description="Skapade Wedding SMS och Invite SMS-blasts."
           href="/admin/messages"
           label="SMS"
         />
         <OverviewCard
+          ariaLabel="Manage updates"
           count={formatCount(updateCount)}
           description="Publicerade eller utkastade bröllopsuppdateringar."
           href="/admin/updates"
@@ -142,10 +151,10 @@ export default async function AdminPage() {
       </section>
 
       <section className="grid gap-4 xl:grid-cols-3">
-        <Link className="rounded-[2rem] border border-[#d8c7a3] bg-[#fffaf1] p-6 text-sm font-bold text-[#4d351f] transition hover:bg-white" href="/admin/qr-code">
+        <Link aria-label="Manage QR code" className="rounded-[2rem] border border-[#d8c7a3] bg-[#fffaf1] p-6 text-sm font-bold text-[#4d351f] transition hover:bg-white" href="/admin/qr-code">
           QR-kod till Wedding hub
         </Link>
-        <Link className="rounded-[2rem] border border-[#d8c7a3] bg-[#fffaf1] p-6 text-sm font-bold text-[#4d351f] transition hover:bg-white" href="/admin/settings">
+        <Link aria-label="Manage settings" className="rounded-[2rem] border border-[#d8c7a3] bg-[#fffaf1] p-6 text-sm font-bold text-[#4d351f] transition hover:bg-white" href="/admin/settings">
           Bröllopsinställningar
         </Link>
         <Link className="rounded-[2rem] border border-[#d8c7a3] bg-[#fffaf1] p-6 text-sm font-bold text-[#4d351f] transition hover:bg-white" href="/admin/messages?invite_preview=1">

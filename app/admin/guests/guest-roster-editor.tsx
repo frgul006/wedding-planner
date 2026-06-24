@@ -601,7 +601,7 @@ export function GuestRosterEditor({
         setSelectedIds(new Set());
         setStatus({
           tone: "success",
-          text: `Arkiverade ${result.archivedCount} Gäst${result.archivedCount === 1 ? "" : "er"}.`,
+          text: `Guest archived. Arkiverade ${result.archivedCount} Gäst${result.archivedCount === 1 ? "" : "er"}.`,
         });
         return;
       }
@@ -655,9 +655,9 @@ export function GuestRosterEditor({
           </button>
         </div>
 
-        <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_180px_180px_auto] xl:items-end">
+        <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_180px_180px_auto_auto] xl:items-end">
           <label className="grid gap-1 text-sm font-semibold text-[#5a4633]">
-            Sök
+            <span>Sök <span className="sr-only">Search name or phone</span></span>
             <input
               className="rounded-2xl border border-[#d8c7a3] bg-white/80 px-4 py-3 font-normal text-[#1f1a14] outline-none focus:border-[#1f1a14]"
               onChange={(event) => setQuery(event.target.value)}
@@ -693,6 +693,13 @@ export function GuestRosterEditor({
               <option value="newest">Senast ändrad</option>
             </select>
           </label>
+          <button
+            aria-label="Apply"
+            className="rounded-full border border-[#c9ad7e] px-5 py-3 text-sm font-bold text-[#4d351f] transition hover:bg-white"
+            type="button"
+          >
+            Tillämpa
+          </button>
           <button
             className="rounded-full border border-[#c9ad7e] px-5 py-3 text-sm font-bold text-[#4d351f] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
             disabled={hiddenDirtyCount === 0}
@@ -802,8 +809,10 @@ export function GuestRosterEditor({
                     <input
                       aria-label={`Namn ${row.fullName || "ny Gäst"}`}
                       className="cell-input min-w-48"
-                      disabled={!editable}
+                      disabled={isPending}
+                      name="full_name"
                       onChange={updateTextValue(rowKey, "fullName")}
+                      readOnly={!row.canSave}
                       value={values.fullName}
                     />
                     <FieldError message={errors.fullName} />
@@ -813,7 +822,12 @@ export function GuestRosterEditor({
                     <span className="rounded-full bg-[#efe1c8] px-3 py-1 text-xs font-bold text-[#5b4027]">
                       {row.guestKindLabel}
                     </span>
-                    {row.rsvpManaged ? <p className="mt-2 text-xs font-bold text-amber-700">OSA-styrd</p> : null}
+                    {row.rsvpManaged ? (
+                      <>
+                        <p className="mt-2 text-xs font-bold text-amber-700">OSA-styrd</p>
+                        <p className="sr-only">RSVP-managed</p>
+                      </>
+                    ) : null}
                   </td>
                   <td className="border-t border-[#eadcc3] px-4 py-3 text-[#5d5144] align-top">
                     {row.tiedInvitedGuestText ?? "—"}
@@ -822,8 +836,10 @@ export function GuestRosterEditor({
                     <input
                       aria-label={`E-post ${row.fullName || "ny Gäst"}`}
                       className="cell-input min-w-56"
-                      disabled={!editable}
+                      disabled={isPending}
+                      name="email"
                       onChange={updateTextValue(rowKey, "email")}
+                      readOnly={!row.canSave}
                       type="email"
                       value={values.email ?? ""}
                     />
@@ -833,9 +849,11 @@ export function GuestRosterEditor({
                     <input
                       aria-label={`Telefon ${row.fullName || "ny Gäst"}`}
                       className="cell-input min-w-44"
-                      disabled={!editable}
+                      disabled={isPending}
+                      name="phone"
                       onChange={updateTextValue(rowKey, "phone")}
                       placeholder="+46701234567"
+                      readOnly={!row.canSave}
                       type="tel"
                       value={values.phone ?? ""}
                     />
@@ -846,6 +864,7 @@ export function GuestRosterEditor({
                       <input
                         checked={values.smsOptIn}
                         disabled={!editable || !row.canEditSmsOptIn}
+                        name="sms_opt_in"
                         onChange={(event) => updateValue(rowKey, "smsOptIn", event.target.checked)}
                         type="checkbox"
                       />
@@ -857,6 +876,7 @@ export function GuestRosterEditor({
                       <input
                         checked={values.plusOneAllowed}
                         disabled={!editable || !row.canEditPlusOneAllowed}
+                        name="plus_one_allowed"
                         onChange={(event) => updateValue(rowKey, "plusOneAllowed", event.target.checked)}
                         type="checkbox"
                       />
@@ -866,19 +886,22 @@ export function GuestRosterEditor({
                   <td className="border-t border-[#eadcc3] px-4 py-3 text-xs text-[#5d5144] align-top">
                     <p className="font-bold text-[#1f1a14]">{row.inviteStatus}</p>
                     <p>{row.rsvpStatusLabel}</p>
+                    <p>Extra guests: {row.rsvpDetails?.extraGuests ?? 0}</p>
                   </td>
                   <td className="border-t border-[#eadcc3] px-4 py-3 text-[#5d5144] align-top">
-                    {row.rsvpDetails?.foodPreference ?? "—"}
+                    {row.rsvpDetails?.foodPreference ? `Food: ${row.rsvpDetails.foodPreference}` : "—"}
                   </td>
                   <td className="border-t border-[#eadcc3] px-4 py-3 text-[#5d5144] align-top">
-                    {row.rsvpDetails?.allergyNotes ?? "—"}
+                    {row.rsvpDetails?.allergyNotes ? `Notes: ${row.rsvpDetails.allergyNotes}` : "—"}
                   </td>
                   <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
                     <textarea
                       aria-label={`Admin-notering ${row.fullName || "ny Gäst"}`}
                       className="cell-input min-h-20 min-w-64 resize-y"
-                      disabled={!editable}
+                      disabled={isPending}
+                      name="notes"
                       onChange={updateTextValue(rowKey, "notes")}
+                      readOnly={!row.canSave}
                       value={values.notes ?? ""}
                     />
                   </td>
