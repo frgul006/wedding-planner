@@ -23,7 +23,7 @@ function validChange(overrides = {}) {
   };
 }
 
-test.describe("Admin Guest roster edit session", () => {
+test.describe("Admin Gästlista samlad redigering", () => {
   test("normalizes trimmed values before RPC save", async () => {
     const calls: unknown[] = [];
     const rpcAdapter: AdminGuestRosterSessionRpcAdapter = {

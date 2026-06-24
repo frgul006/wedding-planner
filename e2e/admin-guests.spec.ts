@@ -23,10 +23,11 @@ test.describe("admin guest CRUD", () => {
 
     await signInAsSeededAdmin(page);
     await page.getByRole("link", { exact: true, name: "Gäster" }).click();
-    await expect(page.getByRole("heading", { name: /Gästlista utan/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Hantera Gäster" })).toBeVisible();
 
     await page.getByRole("button", { name: "Lägg till Gäst-utkast" }).click();
     await page.locator("tbody tr").first().getByLabel(/Namn/).fill(uniqueGuestName("Missing Contact"));
+    await expect(page.getByText("1 osparad rad")).toBeVisible();
     await page.getByRole("button", { name: "Spara ändringar" }).click();
     await expect(page.getByText("Ange e-post eller telefonnummer.")).toBeVisible();
     await page.getByRole("button", { name: "Kasta" }).click();
@@ -94,8 +95,8 @@ test.describe("admin invite token links", () => {
     });
 
     let guestRow = await guestRowByName(page, guestName);
-    await guestRow.getByRole("button", { name: "Generate invite link" }).click();
-    const firstInviteInput = page.getByLabel(`New invite link for ${guestName}`);
+    await guestRow.getByRole("button", { name: "Skapa Invite-länk" }).click();
+    const firstInviteInput = page.getByLabel(`Ny Invite-länk för ${guestName}`);
     await expect(firstInviteInput).toBeVisible();
 
     const firstInviteUrl = await firstInviteInput.inputValue();
@@ -110,11 +111,11 @@ test.describe("admin invite token links", () => {
     await invitePage.close();
 
     await page.reload();
-    await expect(page.getByLabel(`New invite link for ${guestName}`)).toHaveCount(0);
+    await expect(page.getByLabel(`Ny Invite-länk för ${guestName}`)).toHaveCount(0);
 
     guestRow = await guestRowByName(page, guestName);
-    await guestRow.getByRole("button", { name: "Regenerate invite link" }).click();
-    const secondInviteInput = page.getByLabel(`New invite link for ${guestName}`);
+    await guestRow.getByRole("button", { name: "Skapa om Invite-länk" }).click();
+    const secondInviteInput = page.getByLabel(`Ny Invite-länk för ${guestName}`);
     await expect(secondInviteInput).toBeVisible();
 
     const secondInviteUrl = await secondInviteInput.inputValue();

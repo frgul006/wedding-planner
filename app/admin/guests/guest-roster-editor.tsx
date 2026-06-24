@@ -8,6 +8,7 @@ import {
   useState,
   useTransition,
   type ChangeEvent,
+  type ReactNode,
 } from "react";
 
 import type {
@@ -239,6 +240,53 @@ function DirtyDot({ show }: { show: boolean }) {
   }
 
   return <span className="ml-2 inline-block h-1.5 w-1.5 rounded-full bg-[#b66a2d]" />;
+}
+
+function unsavedRowsLabel(count: number) {
+  return count === 1 ? "1 osparad rad" : `${count} osparade rader`;
+}
+
+function guestKindCopy(row: EditorRow) {
+  return row.guestKind === "plus_one" ? "Plus-one Gäst" : "Inbjuden Gäst";
+}
+
+function tiedGuestCopy(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  return value.replace(/^Tied to /, "Kopplad till ").replace("unknown Invited Guest", "okänd Gäst");
+}
+
+function rosterStatusCopy(value: string) {
+  switch (value) {
+    case "not replied":
+    case "not submitted":
+      return "Inte svarat";
+    case "opened":
+      return "Öppnad";
+    case "rsvp yes":
+      return "OSA ja";
+    case "rsvp no":
+      return "OSA nej";
+    case "rsvp maybe":
+      return "OSA kanske";
+    default:
+      return value;
+  }
+}
+
+function MetaChip({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "warning" }) {
+  const className =
+    tone === "warning"
+      ? "bg-amber-100 text-amber-800 ring-amber-200"
+      : "bg-[#efe1c8] text-[#5b4027] ring-[#d8c7a3]";
+
+  return (
+    <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${className}`}>
+      {children}
+    </span>
+  );
 }
 
 export function GuestRosterEditor({
@@ -618,6 +666,12 @@ export function GuestRosterEditor({
 
   const allVisibleSelected =
     selectableVisibleRows.length > 0 && selectableVisibleRows.every((row) => selectedIds.has(row.id));
+  const showSaveFooter = hasDirtyChanges || isPending || status !== null;
+  const saveFooterText = hasDirtyChanges
+    ? unsavedRowsLabel(dirtyRows.length)
+    : isPending
+      ? "Sparar ändringar…"
+      : status?.text ?? "Gästlistan är sparad";
 
   return (
     <section className="grid gap-5">
@@ -625,9 +679,9 @@ export function GuestRosterEditor({
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#8f5d2f]">Gästlista</p>
-            <h2 className="mt-2 font-serif text-3xl text-[#1f1a14]">Redigera Gäster i en session</h2>
+            <h2 className="mt-2 font-serif text-3xl text-[#1f1a14]">Redigera Gäster</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[#6f604d]">
-              Ändra flera rader, lägg till utkast och spara allt samtidigt. OSA-styrda Plus-one Gäster visas men är skrivskyddade.
+              Ändra flera rader, lägg till utkast och spara allt samlat när du är klar. OSA-styrda Plus-one Gäster visas men är skrivskyddade.
             </p>
           </div>
           <button
@@ -721,7 +775,7 @@ export function GuestRosterEditor({
               className="bulk-button"
               href={`/admin/messages?selected_guests=${encodeURIComponent(Array.from(selectedIds).join(","))}`}
             >
-              SMS markerade
+              Öppna Wedding SMS-uppdatering för markerade
             </Link>
             <button className="bulk-button-danger" disabled={isPending} onClick={archiveSelected} type="button">
               Arkivera
@@ -737,7 +791,7 @@ export function GuestRosterEditor({
       ) : null}
 
       <div className="overflow-x-auto rounded-[2rem] border border-[#d8c7a3] bg-[#fffaf1] shadow-[0_24px_80px_rgba(77,53,31,0.08)]">
-        <table className="w-full min-w-[1720px] border-separate border-spacing-0 text-left text-sm">
+        <table className="w-full min-w-[1180px] border-separate border-spacing-0 text-left text-sm">
           <thead className="bg-[#eadcc3] text-[11px] uppercase tracking-[0.18em] text-[#6f4f2d]">
             <tr>
               <th className="w-12 px-4 py-3">
@@ -748,18 +802,12 @@ export function GuestRosterEditor({
                   type="checkbox"
                 />
               </th>
-              <th className="px-4 py-3">Namn</th>
-              <th className="px-4 py-3">Typ</th>
-              <th className="px-4 py-3">Koppling</th>
+              <th className="px-4 py-3">Gäst</th>
               <th className="px-4 py-3">E-post</th>
               <th className="px-4 py-3">Telefon</th>
               <th className="px-4 py-3">SMS</th>
               <th className="px-4 py-3">+1</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Mat</th>
-              <th className="px-4 py-3">Allergier</th>
               <th className="px-4 py-3">Admin-notering</th>
-              <th className="px-4 py-3">Uppdaterad</th>
               <th className="px-4 py-3 text-right">Invite</th>
             </tr>
           </thead>
@@ -771,6 +819,7 @@ export function GuestRosterEditor({
               const rowDirty = isDraftRow(row) || !valuesEqual(values, baseValues);
               const errors = fieldErrors[rowKey] ?? {};
               const editable = row.canSave && !isPending;
+              const tiedGuest = tiedGuestCopy(row.tiedInvitedGuestText);
 
               return (
                 <tr className={rowDirty ? "bg-[#fff4df]" : "bg-white/80"} key={rowKey}>
@@ -788,31 +837,36 @@ export function GuestRosterEditor({
                     )}
                   </td>
                   <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
-                    <input
-                      aria-label={`Namn ${row.fullName || "ny Gäst"}`}
-                      className="cell-input min-w-48"
-                      disabled={isPending}
-                      name="full_name"
-                      onChange={updateTextValue(rowKey, "fullName")}
-                      readOnly={!row.canSave}
-                      value={values.fullName}
-                    />
-                    <FieldError message={errors.fullName} />
-                    <FieldError message={errors.row} />
-                  </td>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
-                    <span className="rounded-full bg-[#efe1c8] px-3 py-1 text-xs font-bold text-[#5b4027]">
-                      {row.guestKindLabel}
-                    </span>
-                    {row.rsvpManaged ? (
-                      <>
-                        <p className="mt-2 text-xs font-bold text-amber-700">OSA-styrd</p>
-                        <p className="sr-only">RSVP-managed</p>
-                      </>
-                    ) : null}
-                  </td>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 text-[#5d5144] align-top">
-                    {row.tiedInvitedGuestText ?? "—"}
+                    <div className="min-w-64">
+                      <input
+                        aria-label={`Namn ${row.fullName || "ny Gäst"}`}
+                        className="cell-input w-full min-w-52"
+                        disabled={isPending}
+                        name="full_name"
+                        onChange={updateTextValue(rowKey, "fullName")}
+                        readOnly={!row.canSave}
+                        value={values.fullName}
+                      />
+                      <FieldError message={errors.fullName} />
+                      <FieldError message={errors.row} />
+                      <div className="mt-2 flex max-w-[26rem] flex-wrap gap-1.5 text-xs text-[#5d5144]">
+                        <MetaChip>{guestKindCopy(row)}</MetaChip>
+                        {row.rsvpManaged ? <MetaChip tone="warning">OSA-styrd</MetaChip> : null}
+                        {tiedGuest ? <MetaChip>{tiedGuest}</MetaChip> : null}
+                        <MetaChip>Invite: {rosterStatusCopy(row.inviteStatus)}</MetaChip>
+                        <MetaChip>OSA: {rosterStatusCopy(row.rsvpStatusLabel)}</MetaChip>
+                        {row.rsvpDetails?.extraGuests ? (
+                          <MetaChip>Extra gäster: {String(row.rsvpDetails.extraGuests)}</MetaChip>
+                        ) : null}
+                        {row.rsvpDetails?.foodPreference ? (
+                          <MetaChip>Mat: {row.rsvpDetails.foodPreference}</MetaChip>
+                        ) : null}
+                        {row.rsvpDetails?.allergyNotes ? (
+                          <MetaChip>Allergier: {row.rsvpDetails.allergyNotes}</MetaChip>
+                        ) : null}
+                        <MetaChip>Uppdaterad: {row.updatedAtLabel}</MetaChip>
+                      </div>
+                    </div>
                   </td>
                   <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
                     <input
@@ -865,17 +919,6 @@ export function GuestRosterEditor({
                       <DirtyDot show={values.plusOneAllowed !== baseValues.plusOneAllowed} />
                     </label>
                   </td>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 text-xs text-[#5d5144] align-top">
-                    <p className="font-bold text-[#1f1a14]">{row.inviteStatus}</p>
-                    <p>{row.rsvpStatusLabel}</p>
-                    <p>Extra guests: {row.rsvpDetails?.extraGuests ?? 0}</p>
-                  </td>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 text-[#5d5144] align-top">
-                    {row.rsvpDetails?.foodPreference ? `Food: ${row.rsvpDetails.foodPreference}` : "—"}
-                  </td>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 text-[#5d5144] align-top">
-                    {row.rsvpDetails?.allergyNotes ? `Notes: ${row.rsvpDetails.allergyNotes}` : "—"}
-                  </td>
                   <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
                     <textarea
                       aria-label={`Admin-notering ${row.fullName || "ny Gäst"}`}
@@ -886,9 +929,6 @@ export function GuestRosterEditor({
                       readOnly={!row.canSave}
                       value={values.notes ?? ""}
                     />
-                  </td>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 text-xs font-semibold text-[#6f604d] align-top">
-                    {row.updatedAtLabel}
                   </td>
                   <td className="border-t border-[#eadcc3] px-4 py-3 text-right align-top">
                     {isDraftRow(row) ? (
@@ -914,36 +954,34 @@ export function GuestRosterEditor({
         ) : null}
       </div>
 
-      <div className="sticky bottom-4 z-20 rounded-[1.75rem] border border-[#b9955f] bg-[#1f1a14] px-5 py-4 text-[#f8f1e3] shadow-[0_24px_80px_rgba(31,26,20,0.28)]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-bold">
-              {hasDirtyChanges
-                ? `${dirtyRows.length} osparade rad${dirtyRows.length === 1 ? "" : "er"}`
-                : "Gästlistan är sparad"}
-            </p>
-            <p className="text-xs text-[#d8c7a3]">Cmd/Ctrl+S sparar. Spara-knappen ligger utanför tabellens horisontella scroll.</p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              className="rounded-full border border-[#b9955f] px-5 py-3 text-sm font-bold text-[#f8f1e3] transition hover:bg-[#33291f] disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={!hasDirtyChanges || isPending}
-              onClick={discardChanges}
-              type="button"
-            >
-              Kasta
-            </button>
-            <button
-              className="rounded-full bg-[#f8f1e3] px-5 py-3 text-sm font-bold text-[#1f1a14] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={!hasDirtyChanges || isPending}
-              onClick={saveChanges}
-              type="button"
-            >
-              {isPending ? "Sparar…" : "Spara ändringar"}
-            </button>
+      {showSaveFooter ? (
+        <div className="sticky bottom-4 z-20 rounded-[1.75rem] border border-[#b9955f] bg-[#1f1a14] px-5 py-4 text-[#f8f1e3] shadow-[0_24px_80px_rgba(31,26,20,0.28)]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-bold">{saveFooterText}</p>
+              <p className="text-xs text-[#d8c7a3]">Cmd/Ctrl+S sparar. Spara-knappen ligger utanför tabellens horisontella scroll.</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button
+                className="rounded-full border border-[#b9955f] px-5 py-3 text-sm font-bold text-[#f8f1e3] transition hover:bg-[#33291f] disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!hasDirtyChanges || isPending}
+                onClick={discardChanges}
+                type="button"
+              >
+                Kasta
+              </button>
+              <button
+                className="rounded-full bg-[#f8f1e3] px-5 py-3 text-sm font-bold text-[#1f1a14] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!hasDirtyChanges || isPending}
+                onClick={saveChanges}
+                type="button"
+              >
+                {isPending ? "Sparar…" : "Spara ändringar"}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }

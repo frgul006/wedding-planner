@@ -40,9 +40,9 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
         <p className="text-xs font-bold uppercase tracking-[0.32em] text-[#d8b476]">Admin · Gäster</p>
         <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_auto] xl:items-end">
           <div>
-            <h1 className="font-serif text-4xl leading-tight lg:text-5xl">Gästlista utan dolda spara-knappar</h1>
+            <h1 className="font-serif text-4xl leading-tight lg:text-5xl">Hantera Gäster</h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-[#e7d9c2]">
-              Redigera namn, kontakt, SMS-samtycke, +1 och admin-noteringar över många Gäster. Spara allt som en granskad Admin Guest roster edit session.
+              Redigera kontaktuppgifter, SMS-samtycke, +1 och admin-noteringar över flera Gäster. Spara ändringar samlat när du är klar.
             </p>
           </div>
           <div className="rounded-3xl border border-[#b9955f] bg-[#3a2d20] px-5 py-4 text-sm">

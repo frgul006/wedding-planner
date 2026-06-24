@@ -20,16 +20,12 @@ export function InviteLinkButton({
   hasActiveToken: boolean;
 }) {
   const generateInviteLinkWithId = generateInviteLinkAction.bind(null, guestId);
-  const [state, formAction, isPending] = useActionState(
-    generateInviteLinkWithId,
-    initialState,
-  );
-  const [copied, setCopied] = useState(false);
+  const [state, formAction, isPending] = useActionState(generateInviteLinkWithId, initialState);
+  const [hasNewLinkOnClipboard, setHasNewLinkOnClipboard] = useState(false);
   const linkRef = useRef<HTMLInputElement>(null);
-
   const inviteUrl = state.guestId === guestId ? state.inviteUrl : undefined;
   const error = state.guestId === guestId ? state.error : undefined;
-  const inviteLabel = accessScope === "scoped" ? "scoped invite link" : "invite link";
+  const inviteLabel = accessScope === "scoped" ? "begränsad Invite-länk" : "Invite-länk";
 
   useEffect(() => {
     if (inviteUrl) {
@@ -37,18 +33,18 @@ export function InviteLinkButton({
     }
   }, [inviteUrl]);
 
-  async function copyInviteUrl() {
+  async function copyNewInviteUrl() {
     if (!inviteUrl) {
       return;
     }
 
     await navigator.clipboard.writeText(inviteUrl);
-    setCopied(true);
+    setHasNewLinkOnClipboard(true);
   }
 
   return (
     <div className="flex flex-col items-end gap-2">
-      <form action={formAction}>
+      <form action={formAction} onSubmit={() => setHasNewLinkOnClipboard(false)}>
         <button
           className="rounded-full border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={disabled || isPending}
@@ -57,21 +53,21 @@ export function InviteLinkButton({
           {disabled
             ? "Spara listan först"
             : isPending
-              ? "Generating..."
+              ? "Skapar…"
               : hasActiveToken
-                ? `Regenerate ${inviteLabel}`
-                : `Generate ${inviteLabel}`}
+                ? `Skapa om ${inviteLabel}`
+                : `Skapa ${inviteLabel}`}
         </button>
       </form>
 
       {inviteUrl ? (
         <div className="w-72 rounded-2xl bg-emerald-50 p-3 text-left ring-1 ring-emerald-100">
           <p className="text-xs font-medium text-emerald-800">
-            New private link for {guestName}. Copy it now; it will not be shown after reload.
+            Ny {inviteLabel} för {guestName}. Kopiera den nu om du behöver URL:en; den visas inte efter omladdning.
           </p>
           <div className="mt-2 flex gap-2">
             <input
-              aria-label={`New invite link for ${guestName}`}
+              aria-label={`Ny ${inviteLabel} för ${guestName}`}
               className="min-w-0 flex-1 rounded-xl border border-emerald-200 bg-white px-2 py-1 text-xs text-zinc-950"
               readOnly
               ref={linkRef}
@@ -79,10 +75,10 @@ export function InviteLinkButton({
             />
             <button
               className="rounded-xl bg-emerald-700 px-3 py-1 text-xs font-medium text-white transition hover:bg-emerald-800"
-              onClick={copyInviteUrl}
+              onClick={copyNewInviteUrl}
               type="button"
             >
-              {copied ? "Copied" : "Copy"}
+              {hasNewLinkOnClipboard ? "Ny länk kopierad" : "Kopiera ny länk"}
             </button>
           </div>
         </div>
