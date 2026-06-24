@@ -808,7 +808,7 @@ export function GuestRosterEditor({
               <th className="px-4 py-3">SMS</th>
               <th className="px-4 py-3">+1</th>
               <th className="px-4 py-3">Admin-notering</th>
-              <th className="px-4 py-3 text-right">Invite</th>
+              <th className="px-4 py-3 text-right">Inbjudan</th>
             </tr>
           </thead>
           <tbody>
@@ -853,7 +853,7 @@ export function GuestRosterEditor({
                         <MetaChip>{guestKindCopy(row)}</MetaChip>
                         {row.rsvpManaged ? <MetaChip tone="warning">OSA-styrd</MetaChip> : null}
                         {tiedGuest ? <MetaChip>{tiedGuest}</MetaChip> : null}
-                        <MetaChip>Invite: {rosterStatusCopy(row.inviteStatus)}</MetaChip>
+                        <MetaChip>Inbjudan: {rosterStatusCopy(row.inviteStatus)}</MetaChip>
                         <MetaChip>OSA: {rosterStatusCopy(row.rsvpStatusLabel)}</MetaChip>
                         {row.rsvpDetails?.extraGuests ? (
                           <MetaChip>Extra gäster: {String(row.rsvpDetails.extraGuests)}</MetaChip>

@@ -95,7 +95,7 @@ export async function addGuest(
   }
 
   await page.getByRole("button", { name: "Spara ändringar" }).click();
-  await expect(page.getByText(/Sparade \d+ ändring/)).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /Sparade \d+ ändring/ })).toBeVisible();
   await expectGuestRowVisible(page, guest.fullName);
 }
 

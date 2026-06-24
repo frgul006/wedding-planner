@@ -289,7 +289,7 @@ test.describe("RSVP-managed Plus-one Guests", () => {
     await signInAsSeededAdmin(page);
     await page.goto("/admin/guests");
     await deleteGuestRow(await guestRowByName(page, guestName), true);
-    await expect(page.getByText("Arkiverade 2 Gäster.")).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Arkiverade 2 Gäster." })).toBeVisible();
 
     const [archivedPlusOne] = await getRsvpManagedPlusOneGuests(guestId);
     expect(archivedPlusOne).toMatchObject({

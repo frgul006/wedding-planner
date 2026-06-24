@@ -236,14 +236,14 @@ export async function generateInviteLinkAction(
   }
 
   if (result.status === "not-found") {
-    return { guestId, error: "Guest was not found or already archived." };
+    return { guestId, error: "Gästen finns inte längre eller är redan arkiverad." };
   }
 
   if (result.status === "unavailable") {
-    return { guestId, error: "Invite links are only available for Guests." };
+    return { guestId, error: "Inbjudningslänkar kan bara skapas för Gäster." };
   }
 
-  return { guestId, error: "Could not generate invite link." };
+  return { guestId, error: "Kunde inte skapa inbjudningslänk." };
 }
 
 export async function softDeleteGuestAction(guestId: string) {

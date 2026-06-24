@@ -270,10 +270,9 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await page.getByLabel("Search name or phone").fill(guestName);
     await page.getByRole("button", { name: "Apply" }).click();
     const row = await guestRowByName(page, guestName);
-    await expect(row.getByText(INVITE_STATUS.rsvpYes, { exact: true })).toBeVisible();
-    await expect(row.getByText("Extra guests: 0")).toBeVisible();
-    await expect(row.getByText("Food: Vegan")).toBeVisible();
-    await expect(row.getByText("Notes: Peanuts and sesame.")).toBeVisible();
+    await expect(row.getByText("OSA: OSA ja", { exact: true })).toBeVisible();
+    await expect(row.getByText("Mat: Vegan")).toBeVisible();
+    await expect(row.getByText("Allergier: Peanuts and sesame.")).toBeVisible();
   });
 
   test("persists named +1 details when submitted for an allowed guest", async ({
