@@ -109,7 +109,6 @@ Ship these selected-row actions first:
 - Bulk allow/disallow +1.
 - Bulk enable/disable SMS consent, with eligibility validation.
 - Archive selected Guests with confirmation and clear lifecycle/Invite access consequences.
-- Copy invite links for selected Guests: generate missing links, reuse existing active links, and require an explicit separate regenerate action for replacing links.
 - Send SMS opens the generic Wedding SMS update composer for selected eligible Message targets and shows excluded Guests with reasons.
 
 Failure model:
@@ -142,7 +141,6 @@ Failure model:
 - Navigating away with unsaved changes prompts before data loss.
 - Admin can bulk allow/disallow +1 and bulk enable/disable SMS consent for selected eligible Guests.
 - Admin can archive selected Guests only after confirmation.
-- Admin can copy selected Guests' invite links without regenerating active links by default.
 - Roster Send SMS opens generic SMS composer and shows ineligible selected Guests with reasons.
 - Guests with +1 disabled do not see +1 controls on Invite.
 - Guests with +1 enabled keep the persisted permission required by Brevkort OSA +1 option.
@@ -153,6 +151,7 @@ Failure model:
 - CSV import implementation; reserve visual space only.
 - Spreadsheet paste/range fill.
 - Manual Invite/RSVP status overrides.
+- Bulk copy invite links for selected Guests; use each row's explicit Generate/Regenerate Invite link action instead.
 - Admin corrections to RSVP answers, food, allergies, or plus-one details.
 - Full mobile roster editing; roster is desktop-first.
 - Seating plan builder.

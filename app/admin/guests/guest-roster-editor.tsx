@@ -616,21 +616,6 @@ export function GuestRosterEditor({
     });
   }
 
-  function copySelectedLinksNotice() {
-    if (hasDirtyChanges) {
-      setStatus({
-        tone: "error",
-        text: "Spara eller kasta ändringar innan du arbetar med länkar.",
-      });
-      return;
-    }
-
-    setStatus({
-      tone: "warning",
-      text: "Befintliga Invite-länkar lagras hashade och kan inte visas igen. Använd radens länkknapp för att skapa ny länk vid behov.",
-    });
-  }
-
   const allVisibleSelected =
     selectableVisibleRows.length > 0 && selectableVisibleRows.every((row) => selectedIds.has(row.id));
 
@@ -731,9 +716,6 @@ export function GuestRosterEditor({
             </button>
             <button className="bulk-button" disabled={isPending} onClick={() => runBulkEdit({ field: "smsOptIn", value: false })} type="button">
               SMS av
-            </button>
-            <button className="bulk-button" disabled={isPending} onClick={copySelectedLinksNotice} type="button">
-              Kopiera länkar
             </button>
             <Link
               className="bulk-button"

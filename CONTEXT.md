@@ -173,7 +173,6 @@ _Avoid_: Efterfest
 - An **Invite SMS** goes only to an **Invited Guest** who is a **Message target** and carries that Guest's individual **Invite** link.
 - A roster "Send SMS" action starts a **Wedding SMS update** for selected **Message target** Guests; it does not send **Invite SMS** links.
 - Sending an **Invite SMS** replaces any previous full **Invite access** link for that **Invited Guest** with the link in that SMS.
-- Admin bulk link copy creates missing **Invite access** links but reuses existing active links unless an admin explicitly regenerates.
 - Bulk **Invite SMS** sends skip **Invited Guest** records that already have an **Invite SMS** accepted for sending, opened their **Invite**, or submitted an **RSVP**, unless an admin explicitly resends.
 - An admin may explicitly send or resend an **Invite SMS** to one eligible **Invited Guest** regardless of **RSVP** status.
 - Failed **Invite SMS** attempts do not count as previously sent.
