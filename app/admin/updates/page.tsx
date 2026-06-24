@@ -226,7 +226,7 @@ export default async function UpdatesPage({ searchParams }: UpdatesPageProps) {
 
           {error ? (
             <p className="mt-8 rounded-2xl bg-red-50 px-5 py-4 text-sm font-medium text-red-700 ring-1 ring-red-100">
-              Could not load wedding updates. Please try again.
+              Kunde inte ladda bröllopsuppdateringar. Försök igen.
             </p>
           ) : null}
 

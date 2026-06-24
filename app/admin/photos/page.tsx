@@ -461,7 +461,7 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
 
           {error ? (
             <p className="mt-8 rounded-2xl bg-red-50 px-5 py-4 text-sm font-medium text-red-700 ring-1 ring-red-100">
-              Could not load photo uploads. Please try again.
+              Kunde inte ladda bilduppladdningar. Försök igen.
             </p>
           ) : null}
 
