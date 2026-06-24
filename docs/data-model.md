@@ -28,7 +28,7 @@ Start with one wedding in one app install, but include `wedding_id` on child tab
 - `google_maps_url` (string)
 - `time_plan` (json list of structured entries with required local clock time and label, e.g. `[{"time":"16:30","label":"Välkomstdrinkar"}]`)
 - `policy` (string)
-  - Legacy/general policy text; Brevkort should either map this deliberately or use the explicit fields below.
+  - Legacy/general policy text kept for older data; Brevkort invite details use the explicit fields below.
 - `dress_code` (string, optional)
 - `child_policy` (string, optional)
 - `gift_info` (string)

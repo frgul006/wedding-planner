@@ -29,7 +29,7 @@ Editable fields:
 - `time_plan`
 - `dress_code`
 - `child_policy`
-- `policy` (legacy/general notes)
+- `policy` (legacy/general notes; not shown on Brevkort invites)
 - `gift_info`
 - `spotify_playlist_url`
 - `invite_support_email`
@@ -55,7 +55,7 @@ Guest-facing links stored in `google_maps_url` and `spotify_playlist_url` must b
 - Edit date and time
 - Edit venue details, venue area/city, and map link
 - Edit structured Time Plan rows
-- Edit dress code, child policy, invite support email, and legacy policy notes
+- Edit dress code, child policy, invite support email, and legacy policy notes kept for older data
 - Edit gift information
 - Edit Spotify playlist link
 - Toggle anonymous wedding hub uploads

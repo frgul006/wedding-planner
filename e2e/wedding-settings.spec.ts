@@ -145,8 +145,9 @@ test.describe("wedding settings propagation", () => {
     await expect(detailsPanel.getByText("16:30 - Ceremony")).toBeVisible();
     await expect(detailsPanel.getByText("19:00 - Dinner")).toBeVisible();
     await expect(detailsPanel.getByText("E2E dress code: festive regression.")).toBeVisible();
+    await expect(detailsPanel.getByRole("heading", { name: "Barn" })).toBeVisible();
     await expect(detailsPanel.getByText("E2E child policy from settings.")).toBeVisible();
-    await expect(detailsPanel.getByText("E2E legacy policy from settings.")).toBeVisible();
+    await expect(detailsPanel.getByText("E2E legacy policy from settings.")).toHaveCount(0);
     await expect(detailsPanel.getByText("E2E gift info from settings.")).toBeVisible();
     await expect(detailsPanel.getByRole("link", { name: "Visa karta" })).toHaveAttribute(
       "href",

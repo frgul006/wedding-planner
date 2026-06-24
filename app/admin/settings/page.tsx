@@ -262,6 +262,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             </div>
             <AdminTextArea
               defaultValue={formValues.policy}
+              helpText="Legacy field kept for older data; Brevkort invites now use Dress code and Child policy instead."
               label="Legacy policy notes"
               name="policy"
               placeholder="Optional transport notes or other existing policy text."

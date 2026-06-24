@@ -38,7 +38,7 @@ The wedding page, invite page, and QR hub must show one consistent set of detail
 - Settings are reused by:
   - `/invite/:token` page
   - QR wedding hub page
-- The `/invite/:token` Brevkort details panel uses these settings for `Tidsplan`, `Plats`, `Klädkod`, `Gåvor`, and `Musik`.
+- The `/invite/:token` Brevkort details panel uses these settings for `Tidsplan`, `Plats`, `Klädkod`, `Barn`, `Gåvor`, and `Musik`.
 - Updating settings updates both pages on next load.
 - Keep a simple draft/save behavior with clear success or error text.
 
@@ -57,7 +57,7 @@ The wedding page, invite page, and QR hub must show one consistent set of detail
 - Admin can update one settings field without affecting invite links.
 - Guest sees updated settings after refresh.
 - The same venue/map/playlist details are identical on invite page and QR hub.
-- Brevkort invite details can render dress code and gift cards from settings.
+- Brevkort invite details can render dress code, child policy, and gift cards from settings.
 - Anonymous QR hub upload is allowed by default, and disabling it makes photo upload require a valid guest navigation cookie.
 - Photo review is off by default, so verified uploaded photos can appear without manual approval until an admin enables review.
 

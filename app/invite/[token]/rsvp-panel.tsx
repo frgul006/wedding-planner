@@ -248,7 +248,7 @@ function Confirmation({
         Tack {getGuestFirstName(guestName)}
       </BrevkortHeading>
       <BrevkortBodyText className="mx-auto mt-3 max-w-md">
-        Vi har sparat ditt svar. Vi hörs igen med ett par detaljer närmare dagen.
+        Vi har sparat ditt svar. Vi kanske hörs igen med ett par detaljer närmare dagen.
       </BrevkortBodyText>
 
       <dl className="mx-auto mt-6 grid max-w-md gap-3 bg-invite-paper-muted/80 p-5 text-left">
@@ -365,7 +365,7 @@ export function RsvpPanel({
       <BrevkortBodyText className="mt-3 max-w-2xl">
         {hasExistingRsvp
           ? "Något har ändrats? Du kan uppdatera ditt svar när som helst innan 1 augusti."
-          : "Skicka ditt svar och eventuella mat- eller allergiönskemål. Du kan uppdatera senare."}
+          : "Skicka ditt svar med eventuella matpreferenser och/eller allergier. Du kan uppdatera senare."}
       </BrevkortBodyText>
 
       {state.message ? (
@@ -526,7 +526,7 @@ export function RsvpPanel({
       </form>
 
       <div className="mt-8 text-invite-body">
-        <p>Vi ser fram emot att fira med dig.</p>
+        <p>Vi ser fram emot att fira med dig!</p>
         <p className="brevkort-display mt-1 text-lg text-invite-ink">{weddingName}</p>
       </div>
     </BrevkortCard>

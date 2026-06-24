@@ -30,7 +30,7 @@ Guests need one clear info block with all wedding details before they answer OSA
 - The details panel must present content in this order:
   1. `Tidsplan` — time plan rows with time and label.
   2. `Plats` — venue name, area/city, address, and `Visa karta` link.
-  3. Two-up cards for `Klädkod` and `Gåvor`.
+  3. Cards for `Klädkod`, `Barn` when child policy text exists, and `Gåvor`.
   4. `Musik` — Spotify playlist CTA when configured.
   5. `Uppdateringar` — latest published updates when updates exist; omit when none are published.
   6. `Vidare till OSA` CTA.
@@ -45,7 +45,7 @@ Guests need one clear info block with all wedding details before they answer OSA
 - Links and CTAs need accessible names that describe their destination.
 
 ## Implementation notes
-- The Brevkort details panel depends on data-model/settings support for structured time-plan rows, venue area/city display text, dress code, child policy, gift info, and Spotify URL.
+- The Brevkort details panel depends on data-model/settings support for structured time-plan rows, venue area/city display text, dress code, separate child policy, gift info, and Spotify URL.
 - Add those fields or document explicit mappings before implementing this panel.
 
 ## Acceptance criteria

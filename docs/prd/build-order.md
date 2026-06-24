@@ -45,7 +45,7 @@
 19. ⚠️ Functional complete; visual parity pending — Brevkort public invite shell and details panel
     - Build the three-panel mobile invite: `Inbjudan`, `Detaljer`, `OSA`.
     - Include the safe invalid-link state, top progress navigation, cover CTA, opened/no-answer state, and saved-answer cover treatment.
-    - Build the Brevkort `Detaljer` panel: `Tidsplan`, `Plats`, `Klädkod` / `Gåvor`, `Musik`, hidden no-updates state, and published updates.
+    - Build the Brevkort `Detaljer` panel: `Tidsplan`, `Plats`, `Klädkod`, `Barn`, `Gåvor`, `Musik`, hidden no-updates state, and published updates.
     - Visual acceptance now depends on `../design/wedding-design-export.md` and extracted invite screenshots.
 20. ⚠️ Functional complete; visual parity pending — Brevkort OSA and RSVP state redesign
     - Build default OSA form, +1 hidden state for disallowed guests, +1 expanded fields for allowed guests, phone/SMS controls, submitting state, save-error state, and `Tack` confirmation.
@@ -77,7 +77,7 @@ These are the next build items that turn the completed functionality above into 
     - Matched `Ogiltig länk`, `Opened — no answer yet`, and saved-answer/edit cover references at close parity, with intentional differences documented in `issues/done/009-shell-cover-visual-review-notes.md`.
     - Kept the implementation scope to shell/cover/invalid/saved-answer treatment; items 25 and 26 still own Details and OSA internals.
 25. Next — Details panel visual parity
-    - Match timeline, venue/map, dress/gifts, music, hidden no-updates state, published updates, and `Vidare till OSA` treatment.
+    - Match timeline, venue/map, dress/children/gifts, music, hidden no-updates state, published updates, and `Vidare till OSA` treatment.
 26. Next — OSA visual state pack
     - Match default form, +1 hidden/expanded, phone validation error, submitting, save error, submitted `Tack`, and existing-answer edit states.
 27. ✅ Complete — Visual fixtures and QA harness

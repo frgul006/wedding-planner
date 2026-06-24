@@ -84,6 +84,18 @@ _Avoid_: calendar invite, calendar RSVP, appointment
 The admin-maintained **Wedding** details that become guest-facing **Invite** and Wedding hub information.
 _Avoid_: event details, app config, settings form
 
+**Child policy**:
+Guest-facing **Wedding settings** guidance about whether children are included in the **Wedding** celebration.
+_Avoid_: dress code, plus-one permission
+
+**Food and drink details**:
+Guest-facing **Wedding settings** guidance about host-provided food and bar offering.
+_Avoid_: RSVP dietary details, catering request
+
+**RSVP dietary details**:
+**Guest**-submitted food preferences and allergies captured inside an **RSVP**.
+_Avoid_: Food and drink details, general catering copy
+
 **Public Wedding identity**:
 The guest-facing partner names and couple mark derived from explicit **Wedding settings** partner fields, reused by the **Invite**, invalid-Invite contact, and Wedding hub.
 _Avoid_: parsed wedding name, legacy title initials, inferred couple names
@@ -112,6 +124,10 @@ _Avoid_: Efterfest
 - **Wedding settings** may include one **Wedding end time** later than **Wedding start time**.
 - **Wedding settings** include zero or more **Time Plan** entries.
 - **Wedding settings** include one **Invite SMS template**.
+- **Wedding settings** may include one **Child policy** shown separately from dress code.
+- **Wedding settings** may include one **Food and drink details**.
+- An **RSVP** may include **RSVP dietary details**.
+- **Food and drink details** and **RSVP dietary details** are distinct.
 - An **Invite** shows the **Public Wedding identity**, **Wedding start time**, and **Time Plan** to a **Guest**.
 - A **Calendar action** title uses **Wedding name**.
 - A **Calendar action** requires **Wedding start time** and **Wedding end time**, and includes **Wedding settings** place details when configured.
@@ -160,6 +176,8 @@ _Avoid_: Efterfest
 - "starting time" could mean server/browser timezone behavior — resolved: **Wedding start time** means Stockholm wall-clock time.
 - "end time" could mean inferred duration, same-day clock time, or explicit closing date/time — resolved: **Wedding end time** means optional explicit Stockholm date and clock time later than **Wedding start time**.
 - "event details" could mean admin form fields, guest-facing copy, or deployment config — resolved: use **Wedding settings** for Wedding-specific editable details.
+- "Barnpolicy" could be mistaken for dress code or plus-one permission — resolved: **Child policy** is separate guest-facing children guidance.
+- "Mat & dryck" could mean host-provided event info or guest-specific dietary needs — resolved: **Food and drink details** is host-provided **Wedding settings** info; **RSVP dietary details** stay in **RSVP**.
 - "timeline", "itinerary", and `time_plan` strings all describe schedule entries — resolved: use **Time Plan** for the domain concept and keep storage/UI formats as implementation details.
 - Label-only schedule notes look like **Time Plan** entries but lack a clock time — resolved: **Time Plan** entries require a local clock time.
 - "Add to calendar" means **Calendar action**; "calendar invite" is avoided because **Invite** already means the private guest-facing invitation experience.

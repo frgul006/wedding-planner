@@ -80,9 +80,10 @@ test.describe("invite updates feed", () => {
       const detailsPanel = page.locator("#detaljer");
 
       await expect(
-        detailsPanel.getByText("Här finns tider, plats och praktisk information.", {
-          exact: true,
-        }),
+        detailsPanel.getByText(
+          "Tidigare samma dag säger vi ja i Stadshuset i närvaro av familj. Framåt kvällen vill vi fira ordentligt med våra vänner!",
+          { exact: true },
+        ),
       ).toBeVisible();
       await expect(detailsPanel.getByText("Uppdateringar läggs till här")).toHaveCount(0);
       await expect(
