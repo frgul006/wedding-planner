@@ -26,7 +26,7 @@ test.describe("admin guest CRUD", () => {
     await expect(page.getByRole("heading", { name: "Hantera Gäster" })).toBeVisible();
 
     await page.getByRole("button", { name: "Lägg till Gäst-utkast" }).click();
-    await page.locator("tbody tr").first().getByLabel(/Namn/).fill(uniqueGuestName("Missing Contact"));
+    await page.locator('tbody tr[data-roster-row="guest"]').first().getByLabel(/Namn/).fill(uniqueGuestName("Missing Contact"));
     await expect(page.getByText("1 osparad rad")).toBeVisible();
     await page.getByRole("button", { name: "Spara ändringar" }).click();
     await expect(page.getByText("Ange e-post eller telefonnummer.")).toBeVisible();
@@ -49,11 +49,11 @@ test.describe("admin guest CRUD", () => {
 
     await page.getByLabel("Sök").fill(searchPhone.slice(-4));
     await expectGuestRowVisible(page, firstGuestName);
-    await expect(page.locator("tbody tr")).toHaveCount(1);
+    await expect(page.locator('tbody tr[data-roster-row="guest"]')).toHaveCount(1);
 
     await page.getByLabel("Sök").fill("E2E Guest Admin CRUD");
     await page.getByLabel("Sortering").selectOption("name-desc");
-    await expect(page.locator("tbody tr").first().getByLabel(/Namn/)).toHaveValue(secondGuestName);
+    await expect(page.locator('tbody tr[data-roster-row="guest"]').first().getByLabel(/Namn/)).toHaveValue(secondGuestName);
 
     await page.getByLabel("Sortering").selectOption("name");
     const firstRow = await guestRowByName(page, firstGuestName);

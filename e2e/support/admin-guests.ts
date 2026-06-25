@@ -117,7 +117,7 @@ async function rowName(row: Locator) {
 }
 
 export async function guestRowByName(page: Page, fullName: string) {
-  const rows = page.locator("tbody tr");
+  const rows = page.locator('tbody tr[data-roster-row="guest"]');
   const rowCount = await rows.count();
 
   for (let index = 0; index < rowCount; index += 1) {
@@ -150,7 +150,7 @@ export async function expectGuestRowVisible(page: Page, fullName: string) {
 export async function expectGuestRowHidden(page: Page, fullName: string) {
   await expect
     .poll(async () => {
-      const rows = page.locator("tbody tr");
+      const rows = page.locator('tbody tr[data-roster-row="guest"]');
       const rowCount = await rows.count();
 
       for (let index = 0; index < rowCount; index += 1) {

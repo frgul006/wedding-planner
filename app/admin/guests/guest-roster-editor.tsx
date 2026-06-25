@@ -821,8 +821,8 @@ export function GuestRosterEditor({
               const editable = row.canSave && !isPending;
               const tiedGuest = tiedGuestCopy(row.tiedInvitedGuestText);
 
-              return (
-                <tr className={rowDirty ? "bg-[#fff4df]" : "bg-white/80"} key={rowKey}>
+              return [
+                <tr className={rowDirty ? "bg-[#fff4df]" : "bg-white/80"} data-roster-row="guest" key={`${rowKey}-main`}>
                   <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
                     {isDraftRow(row) ? (
                       <span className="text-xs font-bold text-[#8f5d2f]">ny</span>
@@ -837,10 +837,10 @@ export function GuestRosterEditor({
                     )}
                   </td>
                   <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
-                    <div className="min-w-64">
+                    <div className="w-64">
                       <input
                         aria-label={`Namn ${row.fullName || "ny Gäst"}`}
-                        className="cell-input w-full min-w-52"
+                        className="cell-input w-full"
                         disabled={isPending}
                         name="full_name"
                         onChange={updateTextValue(rowKey, "fullName")}
@@ -849,23 +849,6 @@ export function GuestRosterEditor({
                       />
                       <FieldError message={errors.fullName} />
                       <FieldError message={errors.row} />
-                      <div className="mt-2 flex max-w-[26rem] flex-nowrap gap-1.5 overflow-x-auto pb-1 text-xs text-[#5d5144]">
-                        <MetaChip>{guestKindCopy(row)}</MetaChip>
-                        {row.rsvpManaged ? <MetaChip tone="warning">OSA-styrd</MetaChip> : null}
-                        {tiedGuest ? <MetaChip>{tiedGuest}</MetaChip> : null}
-                        <MetaChip>Inbjudan: {rosterStatusCopy(row.inviteStatus)}</MetaChip>
-                        <MetaChip>OSA: {rosterStatusCopy(row.rsvpStatusLabel)}</MetaChip>
-                        {row.rsvpDetails?.extraGuests ? (
-                          <MetaChip>Extra gäster: {String(row.rsvpDetails.extraGuests)}</MetaChip>
-                        ) : null}
-                        {row.rsvpDetails?.foodPreference ? (
-                          <MetaChip>Mat: {row.rsvpDetails.foodPreference}</MetaChip>
-                        ) : null}
-                        {row.rsvpDetails?.allergyNotes ? (
-                          <MetaChip>Allergier: {row.rsvpDetails.allergyNotes}</MetaChip>
-                        ) : null}
-                        <MetaChip>Uppdaterad: {row.updatedAtLabel}</MetaChip>
-                      </div>
                     </div>
                   </td>
                   <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
@@ -950,8 +933,30 @@ export function GuestRosterEditor({
                       />
                     </details>
                   </td>
-                </tr>
-              );
+                </tr>,
+                <tr className={rowDirty ? "bg-[#fff4df]" : "bg-white/80"} data-roster-row="metadata" key={`${rowKey}-metadata`}>
+                  <td className="px-4 pb-3" />
+                  <td className="px-4 pb-3" colSpan={7}>
+                    <div className="flex min-w-0 max-w-full flex-nowrap gap-1.5 overflow-x-auto pb-1 text-xs text-[#5d5144]">
+                      <MetaChip>{guestKindCopy(row)}</MetaChip>
+                      {row.rsvpManaged ? <MetaChip tone="warning">OSA-styrd</MetaChip> : null}
+                      {tiedGuest ? <MetaChip>{tiedGuest}</MetaChip> : null}
+                      <MetaChip>Inbjudan: {rosterStatusCopy(row.inviteStatus)}</MetaChip>
+                      <MetaChip>OSA: {rosterStatusCopy(row.rsvpStatusLabel)}</MetaChip>
+                      {row.rsvpDetails?.extraGuests ? (
+                        <MetaChip>Extra gäster: {String(row.rsvpDetails.extraGuests)}</MetaChip>
+                      ) : null}
+                      {row.rsvpDetails?.foodPreference ? (
+                        <MetaChip>Mat: {row.rsvpDetails.foodPreference}</MetaChip>
+                      ) : null}
+                      {row.rsvpDetails?.allergyNotes ? (
+                        <MetaChip>Allergier: {row.rsvpDetails.allergyNotes}</MetaChip>
+                      ) : null}
+                      <MetaChip>Uppdaterad: {row.updatedAtLabel}</MetaChip>
+                    </div>
+                  </td>
+                </tr>,
+              ];
             })}
           </tbody>
         </table>

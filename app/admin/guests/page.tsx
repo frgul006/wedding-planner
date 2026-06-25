@@ -29,7 +29,7 @@ export default async function GuestsPage({ searchParams }: GuestsPageProps) {
   const adminProfile = await requireActiveAdminProfile();
   const supabase = await createSupabaseServerClient();
   const roster = await loadAdminGuestRoster({
-    filters: { query: "", sort: "name", status: "" },
+    filters: initialFilters,
     supabase,
     weddingId: adminProfile.wedding_id,
   });
