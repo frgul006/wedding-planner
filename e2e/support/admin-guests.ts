@@ -132,6 +132,11 @@ export async function guestRowByName(page: Page, fullName: string) {
   throw new Error(`Could not find guest row for ${fullName}`);
 }
 
+export async function guestMetadataRowByName(page: Page, fullName: string) {
+  const row = await guestRowByName(page, fullName);
+  return row.locator('xpath=following-sibling::tr[@data-roster-row="metadata"][1]');
+}
+
 export async function expectGuestRowVisible(page: Page, fullName: string) {
   await expect
     .poll(async () => {

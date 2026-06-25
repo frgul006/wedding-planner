@@ -4,7 +4,7 @@ import { hashInviteToken } from "../lib/invite-token-crypto";
 import { INVITE_STATUS, RSVP_STATUS } from "../lib/invite-status";
 import { RSVP_ATTENDANCE, type RsvpAttendance } from "../lib/rsvp-attendance";
 
-import { deleteGuestRow, guestRowByName } from "./support/admin-guests";
+import { deleteGuestRow, guestMetadataRowByName, guestRowByName } from "./support/admin-guests";
 import { signInAsSeededAdmin } from "./support/auth";
 import {
   createInviteTestGuest,
@@ -362,15 +362,17 @@ test.describe("RSVP-managed Plus-one Guests", () => {
     await signInAsSeededAdmin(page);
     await page.goto("/admin/guests");
 
-    const invitedRow = await guestRowByName(page, guestName);
-    await expect(invitedRow.getByText("Inbjuden Gäst", { exact: true })).toBeVisible();
+    await guestRowByName(page, guestName);
+    const invitedMetadataRow = await guestMetadataRowByName(page, guestName);
+    await expect(invitedMetadataRow.getByText("Inbjuden Gäst", { exact: true })).toBeVisible();
 
     const plusOneRow = await guestRowByName(page, plusOneName);
-    await expect(plusOneRow.getByText("Plus-one Gäst", { exact: true })).toBeVisible();
-    await expect(plusOneRow.getByText(`Kopplad till ${guestName}`)).toBeVisible();
-    await expect(plusOneRow.getByText("Mat: Vegetarian")).toBeVisible();
-    await expect(plusOneRow.getByText("Allergier: No almonds.")).toBeVisible();
-    await expect(plusOneRow.getByText("OSA-styrd", { exact: true })).toBeVisible();
+    const plusOneMetadataRow = await guestMetadataRowByName(page, plusOneName);
+    await expect(plusOneMetadataRow.getByText("Plus-one Gäst", { exact: true })).toBeVisible();
+    await expect(plusOneMetadataRow.getByText(`Kopplad till ${guestName}`)).toBeVisible();
+    await expect(plusOneMetadataRow.getByText("Mat: Vegetarian")).toBeVisible();
+    await expect(plusOneMetadataRow.getByText("Allergier: No almonds.")).toBeVisible();
+    await expect(plusOneMetadataRow.getByText("OSA-styrd", { exact: true })).toBeVisible();
     await expect(plusOneRow.locator('input[name="full_name"]')).toHaveAttribute(
       "readonly",
       "",

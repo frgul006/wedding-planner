@@ -787,7 +787,7 @@ export function GuestRosterEditor({
               className="bulk-button"
               href={`/admin/messages?selected_guests=${encodeURIComponent(Array.from(selectedIds).join(","))}`}
             >
-              Öppna Wedding SMS-uppdatering för markerade
+              Skicka SMS till markerade
             </Link>
             <button className="bulk-button-danger" disabled={isPending} onClick={archiveSelected} type="button">
               Arkivera
@@ -835,7 +835,7 @@ export function GuestRosterEditor({
 
               return [
                 <tr className={rowDirty ? "bg-[#fff4df]" : "bg-white/80"} data-roster-row="guest" key={`${rowKey}-main`}>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
+                  <td className="border-t border-[#eadcc3] px-4 pb-1 pt-3 align-top">
                     {isDraftRow(row) ? (
                       <span className="text-xs font-bold text-[#8f5d2f]">ny</span>
                     ) : (
@@ -848,7 +848,7 @@ export function GuestRosterEditor({
                       />
                     )}
                   </td>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
+                  <td className="border-t border-[#eadcc3] px-4 pb-1 pt-3 align-top">
                     <div className="w-64">
                       <input
                         aria-label={`Namn ${row.fullName || "ny Gäst"}`}
@@ -863,7 +863,7 @@ export function GuestRosterEditor({
                       <FieldError message={errors.row} />
                     </div>
                   </td>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
+                  <td className="border-t border-[#eadcc3] px-4 pb-1 pt-3 align-top">
                     <input
                       aria-label={`E-post ${row.fullName || "ny Gäst"}`}
                       className="cell-input min-w-56"
@@ -876,7 +876,7 @@ export function GuestRosterEditor({
                     />
                     <FieldError message={errors.contact} />
                   </td>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
+                  <td className="border-t border-[#eadcc3] px-4 pb-1 pt-3 align-top">
                     <input
                       aria-label={`Telefon ${row.fullName || "ny Gäst"}`}
                       className="cell-input min-w-44"
@@ -890,7 +890,7 @@ export function GuestRosterEditor({
                     />
                     <FieldError message={errors.phone} />
                   </td>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 text-center align-middle">
+                  <td className="border-t border-[#eadcc3] px-4 pb-1 pt-3 text-center align-middle">
                     <label className="inline-flex min-h-10 items-center justify-center gap-2 text-xs font-bold text-[#5b4027]">
                       <input
                         aria-label={`SMS-samtycke ${row.fullName || "ny Gäst"}`}
@@ -903,7 +903,7 @@ export function GuestRosterEditor({
                       <DirtyDot show={values.smsOptIn !== baseValues.smsOptIn} />
                     </label>
                   </td>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 text-center align-middle">
+                  <td className="border-t border-[#eadcc3] px-4 pb-1 pt-3 text-center align-middle">
                     <label className="inline-flex min-h-10 items-center justify-center gap-2 text-xs font-bold text-[#5b4027]">
                       <input
                         aria-label={`+1 ${row.fullName || "ny Gäst"}`}
@@ -916,7 +916,7 @@ export function GuestRosterEditor({
                       <DirtyDot show={values.plusOneAllowed !== baseValues.plusOneAllowed} />
                     </label>
                   </td>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 text-right align-top">
+                  <td className="border-t border-[#eadcc3] px-4 pb-1 pt-3 text-right align-top">
                     {isDraftRow(row) ? (
                       <span className="text-xs text-[#8f5d2f]">Spara först</span>
                     ) : (
@@ -928,7 +928,7 @@ export function GuestRosterEditor({
                       />
                     )}
                   </td>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
+                  <td className="border-t border-[#eadcc3] px-4 pb-1 pt-3 align-top">
                     <details className="min-w-44">
                       <summary className="cursor-pointer select-none text-xs font-bold text-[#5b4027]">
                         Notering
@@ -946,9 +946,9 @@ export function GuestRosterEditor({
                   </td>
                 </tr>,
                 <tr className={rowDirty ? "bg-[#fff4df]" : "bg-white/80"} data-roster-row="metadata" key={`${rowKey}-metadata`}>
-                  <td className="px-4 pb-3 pt-1" />
-                  <td className="px-4 pb-3 pt-1" colSpan={7}>
-                    <div className="flex min-w-0 max-w-full flex-nowrap gap-1.5 overflow-x-auto py-1 text-xs text-[#5d5144]">
+                  <td className="px-4 pb-3 pt-0" />
+                  <td className="px-4 pb-3 pt-0" colSpan={7}>
+                    <div className="flex min-w-0 max-w-full flex-nowrap gap-1.5 overflow-x-auto py-1.5 text-xs text-[#5d5144]">
                       <MetaChip>{guestKindCopy(row)}</MetaChip>
                       {row.rsvpManaged ? <MetaChip tone="warning">OSA-styrd</MetaChip> : null}
                       {tiedGuest ? <MetaChip>{tiedGuest}</MetaChip> : null}
