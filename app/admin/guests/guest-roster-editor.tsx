@@ -258,6 +258,18 @@ function tiedGuestCopy(value: string | null) {
   return value.replace(/^Tied to /, "Kopplad till ").replace("unknown Invited Guest", "okänd Gäst");
 }
 
+function inviteStatusCopy(value: string) {
+  switch (value) {
+    case "not replied":
+    case "not submitted":
+      return "Inte sedd";
+    case "opened":
+      return "Sedd";
+    default:
+      return value;
+  }
+}
+
 function rosterStatusCopy(value: string) {
   switch (value) {
     case "not replied":
@@ -808,7 +820,7 @@ export function GuestRosterEditor({
               <th className="px-4 py-3">SMS</th>
               <th className="px-4 py-3">+1</th>
               <th className="px-4 py-3 text-right">Inbjudan</th>
-              <th className="px-4 py-3">Admin-notering</th>
+              <th className="px-4 py-3">Notering</th>
             </tr>
           </thead>
           <tbody>
@@ -878,8 +890,8 @@ export function GuestRosterEditor({
                     />
                     <FieldError message={errors.phone} />
                   </td>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
-                    <label className="inline-flex items-center gap-2 text-xs font-bold text-[#5b4027]">
+                  <td className="border-t border-[#eadcc3] px-4 py-3 text-center align-middle">
+                    <label className="inline-flex min-h-10 items-center justify-center gap-2 text-xs font-bold text-[#5b4027]">
                       <input
                         aria-label={`SMS-samtycke ${row.fullName || "ny Gäst"}`}
                         checked={values.smsOptIn}
@@ -891,8 +903,8 @@ export function GuestRosterEditor({
                       <DirtyDot show={values.smsOptIn !== baseValues.smsOptIn} />
                     </label>
                   </td>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
-                    <label className="inline-flex items-center gap-2 text-xs font-bold text-[#5b4027]">
+                  <td className="border-t border-[#eadcc3] px-4 py-3 text-center align-middle">
+                    <label className="inline-flex min-h-10 items-center justify-center gap-2 text-xs font-bold text-[#5b4027]">
                       <input
                         aria-label={`+1 ${row.fullName || "ny Gäst"}`}
                         checked={values.plusOneAllowed}
@@ -913,17 +925,16 @@ export function GuestRosterEditor({
                         disabled={hasDirtyChanges || isPending}
                         guestId={row.id}
                         guestName={row.fullName}
-                        hasActiveToken={row.hasActiveToken}
                       />
                     )}
                   </td>
                   <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
                     <details className="min-w-44">
                       <summary className="cursor-pointer select-none text-xs font-bold text-[#5b4027]">
-                        Admin-notering
+                        Notering
                       </summary>
                       <textarea
-                        aria-label={`Admin-notering ${row.fullName || "ny Gäst"}`}
+                        aria-label={`Notering ${row.fullName || "ny Gäst"}`}
                         className="cell-input mt-2 min-h-20 min-w-64 resize-y"
                         disabled={isPending}
                         name="notes"
@@ -935,13 +946,13 @@ export function GuestRosterEditor({
                   </td>
                 </tr>,
                 <tr className={rowDirty ? "bg-[#fff4df]" : "bg-white/80"} data-roster-row="metadata" key={`${rowKey}-metadata`}>
-                  <td className="px-4 pb-3" />
-                  <td className="px-4 pb-3" colSpan={7}>
-                    <div className="flex min-w-0 max-w-full flex-nowrap gap-1.5 overflow-x-auto pb-1 text-xs text-[#5d5144]">
+                  <td className="px-4 pb-3 pt-1" />
+                  <td className="px-4 pb-3 pt-1" colSpan={7}>
+                    <div className="flex min-w-0 max-w-full flex-nowrap gap-1.5 overflow-x-auto py-1 text-xs text-[#5d5144]">
                       <MetaChip>{guestKindCopy(row)}</MetaChip>
                       {row.rsvpManaged ? <MetaChip tone="warning">OSA-styrd</MetaChip> : null}
                       {tiedGuest ? <MetaChip>{tiedGuest}</MetaChip> : null}
-                      <MetaChip>Inbjudan: {rosterStatusCopy(row.inviteStatus)}</MetaChip>
+                      <MetaChip>Inbjudan: {inviteStatusCopy(row.inviteStatus)}</MetaChip>
                       <MetaChip>OSA: {rosterStatusCopy(row.rsvpStatusLabel)}</MetaChip>
                       {row.rsvpDetails?.extraGuests ? (
                         <MetaChip>Extra gäster: {String(row.rsvpDetails.extraGuests)}</MetaChip>

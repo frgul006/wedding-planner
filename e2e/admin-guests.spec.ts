@@ -95,7 +95,7 @@ test.describe("admin invite token links", () => {
     });
 
     let guestRow = await guestRowByName(page, guestName);
-    await guestRow.getByRole("button", { name: "Skapa inbjudningslänk" }).click();
+    await guestRow.getByRole("button", { name: "Ny länk" }).click();
     const firstInviteInput = page.getByLabel(`Ny inbjudningslänk för ${guestName}`);
     await expect(firstInviteInput).toBeVisible();
 
@@ -117,7 +117,7 @@ test.describe("admin invite token links", () => {
     const regenerateButton = guestRow.getByRole("button", { exact: true, name: "Ny länk" });
     await expect(regenerateButton).toHaveAttribute(
       "title",
-      "Skapar en ny inbjudningslänk och ogiltigförklarar/ersätter den gamla aktiva länken.",
+      "Skapar en ny inbjudningslänk. Finns en aktiv länk sedan tidigare ogiltigförklaras/ersätts den.",
     );
     await regenerateButton.click();
     const secondInviteInput = page.getByLabel(`Ny inbjudningslänk för ${guestName}`);

@@ -81,8 +81,8 @@ export async function addGuest(
   }
 
   if (guest.notes) {
-    await row.getByText("Admin-notering", { exact: true }).click();
-    await row.getByLabel(/Admin-notering/).fill(guest.notes);
+    await row.getByText("Notering", { exact: true }).click();
+    await row.getByLabel(/Notering/).fill(guest.notes);
   }
 
   const checkboxes = row.locator('input[type="checkbox"]');

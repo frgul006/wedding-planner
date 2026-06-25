@@ -11,13 +11,11 @@ export function InviteLinkButton({
   disabled = false,
   guestId,
   guestName,
-  hasActiveToken,
 }: {
   accessScope?: "full" | "scoped";
   disabled?: boolean;
   guestId: string;
   guestName: string;
-  hasActiveToken: boolean;
 }) {
   const generateInviteLinkWithId = generateInviteLinkAction.bind(null, guestId);
   const [state, formAction, isPending] = useActionState(generateInviteLinkWithId, initialState);
@@ -26,10 +24,9 @@ export function InviteLinkButton({
   const inviteUrl = state.guestId === guestId ? state.inviteUrl : undefined;
   const error = state.guestId === guestId ? state.error : undefined;
   const inviteLabel = accessScope === "scoped" ? "begränsad inbjudningslänk" : "inbjudningslänk";
-  const isRegenerateActionVisible = hasActiveToken && !disabled && !isPending;
-  const regenerateTitle = isRegenerateActionVisible
-    ? "Skapar en ny inbjudningslänk och ogiltigförklarar/ersätter den gamla aktiva länken."
-    : undefined;
+  const buttonTitle = disabled || isPending
+    ? undefined
+    : "Skapar en ny inbjudningslänk. Finns en aktiv länk sedan tidigare ogiltigförklaras/ersätts den.";
 
   useEffect(() => {
     if (inviteUrl) {
@@ -52,16 +49,10 @@ export function InviteLinkButton({
         <button
           className="rounded-full border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={disabled || isPending}
-          title={regenerateTitle}
+          title={buttonTitle}
           type="submit"
         >
-          {disabled
-            ? "Spara listan först"
-            : isPending
-              ? "Skapar…"
-              : hasActiveToken
-                ? "Ny länk"
-                : `Skapa ${inviteLabel}`}
+          {disabled ? "Spara listan först" : isPending ? "Skapar…" : "Ny länk"}
         </button>
       </form>
 
