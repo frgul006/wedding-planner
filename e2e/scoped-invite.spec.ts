@@ -264,8 +264,8 @@ test.describe("Scoped Invite access for Plus-one Guests", () => {
     await page.goto("/admin/guests");
 
     let plusOneRow = await guestRowByName(page, fixture.plusOneName);
-    await plusOneRow.getByRole("button", { name: "Generate scoped invite link" }).click();
-    const firstInviteInput = page.getByLabel(`New invite link for ${fixture.plusOneName}`);
+    await plusOneRow.getByRole("button", { name: "Ny länk" }).click();
+    const firstInviteInput = page.getByLabel(`Ny begränsad inbjudningslänk för ${fixture.plusOneName}`);
     await expect(firstInviteInput).toBeVisible();
     const firstInviteUrl = await firstInviteInput.inputValue();
     const expectedInviteOrigin = expectedPublicOriginForPage(page);
@@ -274,8 +274,8 @@ test.describe("Scoped Invite access for Plus-one Guests", () => {
     expect(firstInvitePath).toContain("/invite/");
 
     await page.context().grantPermissions(["clipboard-write"]);
-    await plusOneRow.getByRole("button", { name: "Copy" }).click();
-    await expect(plusOneRow.getByRole("button", { name: "Copied" })).toBeVisible();
+    await plusOneRow.getByRole("button", { name: "Kopiera ny länk" }).click();
+    await expect(plusOneRow.getByRole("button", { name: "Ny länk kopierad" })).toBeVisible();
 
     const scopedInvitePage = await page.context().newPage();
     await scopedInvitePage.goto(firstInvitePath);
@@ -283,10 +283,15 @@ test.describe("Scoped Invite access for Plus-one Guests", () => {
     await scopedInvitePage.close();
 
     await page.reload();
-    await expect(page.getByLabel(`New invite link for ${fixture.plusOneName}`)).toHaveCount(0);
+    await expect(page.getByLabel(`Ny begränsad inbjudningslänk för ${fixture.plusOneName}`)).toHaveCount(0);
     plusOneRow = await guestRowByName(page, fixture.plusOneName);
-    await plusOneRow.getByRole("button", { name: "Regenerate scoped invite link" }).click();
-    const secondInviteInput = page.getByLabel(`New invite link for ${fixture.plusOneName}`);
+    const regenerateButton = plusOneRow.getByRole("button", { exact: true, name: "Ny länk" });
+    await expect(regenerateButton).toHaveAttribute(
+      "title",
+      "Skapar en ny inbjudningslänk. Finns en aktiv länk sedan tidigare ogiltigförklaras/ersätts den.",
+    );
+    await regenerateButton.click();
+    const secondInviteInput = page.getByLabel(`Ny begränsad inbjudningslänk för ${fixture.plusOneName}`);
     await expect(secondInviteInput).toBeVisible();
     const secondInviteUrl = await secondInviteInput.inputValue();
     const secondInvitePath = pathFromAbsoluteUrl(secondInviteUrl);

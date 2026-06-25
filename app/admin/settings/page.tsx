@@ -137,7 +137,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
 
         {error ? (
           <p className="rounded-2xl bg-red-50 px-5 py-4 text-sm font-medium text-red-700 ring-1 ring-red-100">
-            Could not load wedding settings. Please try again.
+            Kunde inte ladda bröllopsinställningar. Försök igen.
           </p>
         ) : null}
 

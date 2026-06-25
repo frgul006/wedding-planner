@@ -23,7 +23,9 @@ export async function getGuestByName(fullName: string) {
   const supabase = createE2eSupabaseAdminClient();
   const { data, error } = await supabase
     .from("guests")
-    .select("id, deleted_at, email, full_name, guest_kind, invited_guest_id, invite_status, phone, plus_one_allowed, rsvp_managed, rsvp_status, sms_opt_in, sms_opted_in_at, sms_opted_out_at")
+    .select(
+      "id, deleted_at, email, full_name, guest_kind, invited_guest_id, invite_status, phone, plus_one_allowed, rsvp_managed, rsvp_status, sms_opt_in, sms_opted_in_at, sms_opted_out_at",
+    )
     .eq("wedding_id", SEEDED_WEDDING_ID)
     .eq("full_name", fullName)
     .maybeSingle();
@@ -54,41 +56,73 @@ export function uniqueGuestName(label: string) {
   return uniqueE2eValue(E2E_GUEST_PREFIX, label);
 }
 
-export async function addGuest(page: Page, guest: {
-  email?: string;
-  fullName: string;
-  notes?: string;
-  phone?: string;
-  plusOneAllowed?: boolean;
-  smsOptIn?: boolean;
-}) {
-  await page.getByLabel("Full name", { exact: true }).fill(guest.fullName);
-  await page.getByLabel("Email", { exact: true }).fill(guest.email ?? "");
-  await page.getByLabel("Phone", { exact: true }).fill(guest.phone ?? "");
+export async function addGuest(
+  page: Page,
+  guest: {
+    email?: string;
+    fullName: string;
+    notes?: string;
+    phone?: string;
+    plusOneAllowed?: boolean;
+    smsOptIn?: boolean;
+  },
+) {
+  await page.getByRole("button", { name: "Lägg till Gäst-utkast" }).click();
+  const draftNameInput = page.getByLabel("Namn ny Gäst").first();
+  await draftNameInput.fill(guest.fullName);
+  const row = await guestRowByName(page, guest.fullName);
+
+  if (guest.email) {
+    await row.getByLabel(/E-post/).fill(guest.email);
+  }
+
+  if (guest.phone) {
+    await row.getByLabel(/Telefon/).fill(guest.phone);
+  }
+
+  if (guest.notes) {
+    await row.getByText("Notering", { exact: true }).click();
+    await row.getByLabel(/Notering/).fill(guest.notes);
+  }
+
+  const checkboxes = row.locator('input[type="checkbox"]');
 
   if (guest.smsOptIn) {
-    await page.getByLabel("SMS updates approved for this guest").check();
+    await checkboxes.nth(0).check();
   }
 
   if (guest.plusOneAllowed) {
-    await page.getByLabel("+1 allowed on invite").check();
+    await checkboxes.nth(1).check();
   }
 
-  await page.getByLabel("Notes", { exact: true }).fill(guest.notes ?? "");
-  await page.getByRole("button", { name: "Add guest" }).click();
+  await page.getByRole("button", { name: "Spara ändringar" }).click();
   await expect
-    .poll(async () => (await getGuestByName(guest.fullName))?.full_name ?? null)
-    .toBe(guest.fullName);
-  await expect(page.getByText("Guest added.")).toBeVisible();
+    .poll(
+      async () => {
+        try {
+          const savedRow = await guestRowByName(page, guest.fullName);
+          return (await savedRow.getByLabel(`Markera ${guest.fullName}`).count()) > 0;
+        } catch {
+          return false;
+        }
+      },
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+  await expectGuestRowVisible(page, guest.fullName);
 }
 
-export async function guestRowByName(page: Page, fullName: string): Promise<Locator> {
-  const rows = page.locator("tbody tr");
+async function rowName(row: Locator) {
+  return row.getByLabel(/Namn/).inputValue();
+}
+
+export async function guestRowByName(page: Page, fullName: string) {
+  const rows = page.locator('tbody tr[data-roster-row="guest"]');
   const rowCount = await rows.count();
 
   for (let index = 0; index < rowCount; index += 1) {
     const row = rows.nth(index);
-    const nameInput = row.locator('input[name="full_name"]');
+    const nameInput = row.getByLabel(/Namn/);
 
     if ((await nameInput.count()) && (await nameInput.inputValue()) === fullName) {
       return row;
@@ -96,6 +130,11 @@ export async function guestRowByName(page: Page, fullName: string): Promise<Loca
   }
 
   throw new Error(`Could not find guest row for ${fullName}`);
+}
+
+export async function guestMetadataRowByName(page: Page, fullName: string) {
+  const row = await guestRowByName(page, fullName);
+  return row.locator('xpath=following-sibling::tr[@data-roster-row="metadata"][1]');
 }
 
 export async function expectGuestRowVisible(page: Page, fullName: string) {
@@ -109,18 +148,18 @@ export async function expectGuestRowVisible(page: Page, fullName: string) {
       }
     })
     .toBe(true);
-  await expect((await guestRowByName(page, fullName)).locator('input[name="full_name"]'))
-    .toHaveValue(fullName);
+
+  await expect((await guestRowByName(page, fullName)).getByLabel(/Namn/)).toHaveValue(fullName);
 }
 
 export async function expectGuestRowHidden(page: Page, fullName: string) {
   await expect
     .poll(async () => {
-      const rows = page.locator("tbody tr");
+      const rows = page.locator('tbody tr[data-roster-row="guest"]');
       const rowCount = await rows.count();
 
       for (let index = 0; index < rowCount; index += 1) {
-        if ((await rows.nth(index).locator('input[name="full_name"]').inputValue()) === fullName) {
+        if ((await rowName(rows.nth(index))) === fullName) {
           return false;
         }
       }
@@ -131,11 +170,13 @@ export async function expectGuestRowHidden(page: Page, fullName: string) {
 }
 
 export async function saveGuestRow(row: Locator) {
-  await row.getByRole("button", { name: "Save" }).click();
+  await row.page().getByRole("button", { name: "Spara ändringar" }).click();
 }
 
 export async function deleteGuestRow(row: Locator, confirm: boolean) {
   const page = row.page();
+  const fullName = await rowName(row);
+
   page.once("dialog", async (dialog) => {
     if (confirm) {
       await dialog.accept();
@@ -144,5 +185,6 @@ export async function deleteGuestRow(row: Locator, confirm: boolean) {
     }
   });
 
-  await row.getByRole("button", { name: "Delete" }).click();
+  await row.getByLabel(`Markera ${fullName}`).check();
+  await page.getByRole("button", { name: "Arkivera" }).click();
 }

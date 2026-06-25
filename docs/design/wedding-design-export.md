@@ -50,14 +50,14 @@ This document maps the standalone design export to repo PRDs so each feature has
 
 ## Admin visuals
 
-The export includes two competing admin directions. Choose one before starting admin restyle work.
+Direction B — Brevet Console is the chosen admin visual target. Direction B visual language should guide shell, typography, tone, and density; roster edit-session UX requirements may intentionally deviate from the static guest-list export.
 
 | Design direction / screen | PRD owner(s) | Current local route | Target asset | Status |
 | --- | --- | --- | --- | --- |
-| Direction A — Studio overview | Admin dashboard / navigation docs, [`qr-code-generation.md`](../prd/qr-code-generation.md), [`photo-review-and-export.md`](../prd/photo-review-and-export.md) | `/admin` | [`references/admin/direction-a-overview.png`](references/admin/direction-a-overview.png) | Decision needed |
-| Direction A — Studio guests | [`admin-guest-crud.md`](../prd/admin-guest-crud.md), [`invite-status-workflow.md`](../prd/invite-status-workflow.md) | `/admin/guests` | [`references/admin/direction-a-guests.png`](references/admin/direction-a-guests.png) | Decision needed |
-| Direction B — Brevet Console overview | Admin dashboard / navigation docs, [`qr-code-generation.md`](../prd/qr-code-generation.md), [`photo-review-and-export.md`](../prd/photo-review-and-export.md) | `/admin` | [`references/admin/direction-b-overview.png`](references/admin/direction-b-overview.png) | Decision needed |
-| Direction B — Brevet Console guests | [`admin-guest-crud.md`](../prd/admin-guest-crud.md), [`invite-status-workflow.md`](../prd/invite-status-workflow.md) | `/admin/guests` | [`references/admin/direction-b-guests.png`](references/admin/direction-b-guests.png) | Decision needed |
+| Direction A — Studio overview | Admin dashboard / navigation docs, [`qr-code-generation.md`](../prd/qr-code-generation.md), [`photo-review-and-export.md`](../prd/photo-review-and-export.md) | `/admin` | [`references/admin/direction-a-overview.png`](references/admin/direction-a-overview.png) | Rejected admin direction |
+| Direction A — Studio guests | [`admin-guest-crud.md`](../prd/admin-guest-crud.md), [`invite-status-workflow.md`](../prd/invite-status-workflow.md) | `/admin/guests` | [`references/admin/direction-a-guests.png`](references/admin/direction-a-guests.png) | Rejected admin direction |
+| Direction B — Brevet Console overview | Admin dashboard / navigation docs, [`qr-code-generation.md`](../prd/qr-code-generation.md), [`photo-review-and-export.md`](../prd/photo-review-and-export.md) | `/admin` | [`references/admin/direction-b-overview.png`](references/admin/direction-b-overview.png) | Chosen target; real data only |
+| Direction B — Brevet Console guests | [`admin-guest-crud.md`](../prd/admin-guest-crud.md), [`invite-status-workflow.md`](../prd/invite-status-workflow.md) | `/admin/guests` | [`references/admin/direction-b-guests.png`](references/admin/direction-b-guests.png) | Chosen target; edit-session UX deviations expected |
 
 ## Parallelization notes
 

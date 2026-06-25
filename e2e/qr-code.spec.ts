@@ -236,17 +236,17 @@ test.describe("wedding hub QR", () => {
     await signInAsSeededAdmin(page);
     await page.getByRole("link", { name: "Manage QR code" }).click();
 
-    await expect(page.getByRole("heading", { name: "Wedding hub QR" })).toBeVisible();
-    await expect(page.getByAltText("QR code for the wedding hub")).toBeVisible();
-    const hubUrlInput = page.getByLabel("Hub URL");
+    await expect(page.getByRole("heading", { name: "Bröllopshubben QR" })).toBeVisible();
+    await expect(page.getByAltText("QR-kod till bröllopshubben")).toBeVisible();
+    const hubUrlInput = page.getByLabel("Hubb-URL");
     await expect(hubUrlInput).toHaveValue(/\/wedding-hub$/);
     const hubUrl = await hubUrlInput.inputValue();
     expect(new URL(hubUrl).origin).toBe(expectedPublicOriginForPage(page));
-    await expect(page.getByRole("link", { name: "Download PNG" })).toHaveAttribute(
+    await expect(page.getByRole("link", { name: "Ladda ner PNG" })).toHaveAttribute(
       "href",
       "/admin/qr-code/png?download=1",
     );
-    await expect(page.getByRole("link", { name: "Open wedding hub" })).toHaveAttribute(
+    await expect(page.getByRole("link", { name: "Öppna bröllopshubben" })).toHaveAttribute(
       "href",
       /\/wedding-hub$/,
     );

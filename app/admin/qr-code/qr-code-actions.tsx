@@ -23,17 +23,17 @@ export function QrCodeActions({ hubUrl }: { hubUrl: string }) {
         type="button"
       >
         {copyStatus === "copied"
-          ? "Copied"
+          ? "Kopierad"
           : copyStatus === "failed"
-            ? "Copy failed"
-            : "Copy hub URL"}
+            ? "Kopiering misslyckades"
+            : "Kopiera hubb-URL"}
       </button>
       <button
         className="rounded-full border border-zinc-300 px-5 py-3 text-center font-medium text-zinc-900 transition hover:bg-zinc-100"
         onClick={() => window.print()}
         type="button"
       >
-        Print QR sheet
+        Skriv ut QR-blad
       </button>
     </div>
   );

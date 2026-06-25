@@ -40,15 +40,15 @@ test.describe("admin SMS messages", () => {
     await page.goto("/admin");
     await page.getByRole("link", { name: "Send messages" }).click();
 
-    await expect(page.getByRole("heading", { name: "Messages" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "SMS composer" })).toBeVisible();
-    await expect(page.getByText("Provider: 46elks.")).toBeVisible();
-    await expect(page.getByText("All guests").first()).toBeVisible();
-    await expect(page.getByLabel("Title")).toBeVisible();
-    await expect(page.getByLabel("Body text")).toBeVisible();
-    await expect(page.getByLabel("Audience")).toBeVisible();
-    await expect(page.getByLabel(/I understand this sends real SMS messages/)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Send SMS now" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Meddelanden" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Skriv SMS-uppdatering" })).toBeVisible();
+    await expect(page.getByText(/Leverantör: 46elks/)).toBeVisible();
+    await expect(page.getByText("Alla Gäster").first()).toBeVisible();
+    await expect(page.getByLabel("Rubrik")).toBeVisible();
+    await expect(page.getByLabel("Meddelandetext")).toBeVisible();
+    await expect(page.getByLabel("Mottagare")).toBeVisible();
+    await expect(page.getByLabel(/Jag förstår att riktiga SMS skickas/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Skicka SMS nu" })).toBeVisible();
   });
 
   test("previews and sends Invite SMS links without storing raw links", async ({ page }) => {
@@ -154,22 +154,22 @@ test.describe("admin SMS messages", () => {
     try {
       await signInAsSeededAdmin(page);
       await page.goto("/admin/messages");
-      await expect(page.getByRole("heading", { name: "Send invite links" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Skicka inbjudnings-SMS-länkar" })).toBeVisible();
 
-      await page.getByLabel("Invite SMS template").fill(template);
-      await page.getByRole("button", { name: "Save and preview" }).click();
+      await page.getByLabel("Mall för inbjudnings-SMS").fill(template);
+      await page.getByRole("button", { name: "Spara och förhandsvisa" }).click();
 
-      await expect(page.getByText("Invite SMS template saved and preview refreshed.")).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Rendered example" })).toBeVisible();
+      await expect(page.getByText("Mall för inbjudnings-SMS sparad och förhandsvisning uppdaterad.")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Renderat exempel" })).toBeVisible();
       await expect(page.getByText(eligibleName).first()).toBeVisible();
       await expect(page.getByText(openedName).first()).toBeVisible();
       await expect(page.getByText(skippedName).first()).toBeVisible();
       await expect(page.getByText(priorSentName).first()).toBeVisible();
-      await expect(page.getByText("Estimated")).toBeVisible();
+      await expect(page.getByText("Beräknat")).toBeVisible();
 
-      await page.getByLabel(/I understand this sends real Invite SMS messages/).check();
-      await page.getByRole("button", { name: "Send Invite SMS to 1 Guest" }).click();
-      await expect(page.getByText("Invite SMS sent to 1 guest.")).toBeVisible();
+      await page.getByLabel(/Jag förstår att riktiga inbjudnings-SMS skickas/).check();
+      await page.getByRole("button", { name: "Skicka inbjudnings-SMS till 1 Gäst" }).click();
+      await expect(page.getByText("Inbjudnings-SMS skickat till 1 Gäst.")).toBeVisible();
 
       const { data: bulkBlast, error: bulkBlastError } = await supabase
         .from("message_blasts")
@@ -205,9 +205,9 @@ test.describe("admin SMS messages", () => {
       expect(typeof bulkDeliveries?.[0]?.invite_token_id).toBe("string");
 
       const openedSingleForm = page.locator("form").filter({ hasText: openedName }).last();
-      await openedSingleForm.getByLabel("Confirm one real SMS and fresh Invite link").check();
-      await openedSingleForm.getByRole("button", { name: "Send Invite SMS" }).click();
-      await expect(page.getByText("Invite SMS sent to 1 guest.")).toBeVisible();
+      await openedSingleForm.getByLabel("Bekräfta ett riktigt SMS med ny inbjudningslänk").check();
+      await openedSingleForm.getByRole("button", { name: "Skicka inbjudnings-SMS" }).click();
+      await expect(page.getByText("Inbjudnings-SMS skickat till 1 Gäst.")).toBeVisible();
 
       await expect.poll(async () => {
         const { data: openedDeliveries, error: openedDeliveriesError } = await supabase
@@ -298,15 +298,15 @@ test.describe("admin SMS messages", () => {
     try {
       await signInAsSeededAdmin(page);
       await page.goto("/admin/messages");
-      await expect(page.getByText("46elks mock send mode")).toBeVisible();
+      await expect(page.getByText("46elks mockläge för utskick")).toBeVisible();
 
-      await page.getByLabel("Title").fill("E2E SMS mock");
-      await page.getByLabel("Body text").fill(body);
-      await page.getByLabel("Audience").selectOption("rsvp maybe");
-      await page.getByLabel(/I understand this sends real SMS messages/).check();
-      await page.getByRole("button", { name: "Send SMS now" }).click();
+      await page.getByLabel("Rubrik").fill("E2E SMS mock");
+      await page.getByLabel("Meddelandetext").fill(body);
+      await page.getByLabel("Mottagare").selectOption("rsvp maybe");
+      await page.getByLabel(/Jag förstår att riktiga SMS skickas/).check();
+      await page.getByRole("button", { name: "Skicka SMS nu" }).click();
 
-      await expect(page.getByText("Message sent to 2 guests.")).toBeVisible();
+      await expect(page.getByText("SMS skickat till 2 Gäster.")).toBeVisible();
 
       const { data: blast, error: blastError } = await supabase
         .from("message_blasts")
@@ -343,4 +343,107 @@ test.describe("admin SMS messages", () => {
       await supabase.from("message_blasts").delete().eq("body", body);
     }
   });
+
+  test("selected Wedding SMS update sends only selected eligible Message targets", async ({ page }) => {
+    const supabase = createE2eSupabaseAdminClient();
+    const eligibleName = uniqueGuestName("Selected SMS Eligible");
+    const skippedName = uniqueGuestName("Selected SMS Skipped");
+    const unselectedName = uniqueGuestName("Selected SMS Unselected");
+    const body = `E2E selected SMS body ${Date.now()}`;
+    const now = new Date().toISOString();
+
+    const { data: guests, error: guestsError } = await supabase
+      .from("guests")
+      .insert([
+        {
+          email: `e2e-selected-eligible-${Date.now()}@example.com`,
+          full_name: eligibleName,
+          guest_kind: "invited",
+          invite_status: "opened",
+          phone: "+46709994441",
+          rsvp_status: "rsvp yes",
+          sms_opt_in: true,
+          sms_opted_in_at: now,
+          wedding_id: SEEDED_WEDDING_ID,
+        },
+        {
+          email: `e2e-selected-skipped-${Date.now()}@example.com`,
+          full_name: skippedName,
+          guest_kind: "invited",
+          invite_status: "opened",
+          phone: "+46709994442",
+          rsvp_status: "rsvp yes",
+          sms_opt_in: false,
+          wedding_id: SEEDED_WEDDING_ID,
+        },
+        {
+          email: `e2e-selected-unselected-${Date.now()}@example.com`,
+          full_name: unselectedName,
+          guest_kind: "invited",
+          invite_status: "opened",
+          phone: "+46709994443",
+          rsvp_status: "rsvp yes",
+          sms_opt_in: true,
+          sms_opted_in_at: now,
+          wedding_id: SEEDED_WEDDING_ID,
+        },
+      ])
+      .select("id, full_name");
+    expect(guestsError).toBeNull();
+
+    const eligibleGuest = guests?.find((guest) => guest.full_name === eligibleName);
+    const skippedGuest = guests?.find((guest) => guest.full_name === skippedName);
+    const unselectedGuest = guests?.find((guest) => guest.full_name === unselectedName);
+
+    if (!eligibleGuest?.id || !skippedGuest?.id || !unselectedGuest?.id) {
+      throw new Error("Expected selected SMS test Guests.");
+    }
+
+    try {
+      await signInAsSeededAdmin(page);
+      const selectedGuests = [eligibleGuest.id, skippedGuest.id, "not-a-uuid", eligibleGuest.id].join(",");
+      await page.goto(`/admin/messages?selected_guests=${encodeURIComponent(selectedGuests)}`);
+
+      await expect(page.getByTestId("selected-message-preview")).toBeVisible();
+      await expect(page.getByTestId("eligible-selected-guests").getByText(eligibleName)).toBeVisible();
+      await expect(page.getByTestId("excluded-selected-guests").getByText(skippedName)).toBeVisible();
+      await expect(page.getByTestId("excluded-selected-guests").getByText("SMS-samtycke saknas")).toBeVisible();
+      await expect(page.getByTestId("excluded-selected-guests").getByText("Okänd Gäst")).toBeVisible();
+      await expect(page.getByLabel("Mottagare")).toHaveCount(0);
+ await expect(page.getByText("Mottagarvalet är dolt")).toBeVisible();
+
+      await page.getByLabel("Meddelandetext").fill(body);
+      await page.getByLabel(/Jag förstår att riktiga SMS skickas/).check();
+      await page.getByRole("button", { name: "Skicka SMS nu" }).click();
+      await expect(page.getByText("SMS skickat till 1 Gäst.")).toBeVisible();
+
+      const { data: blast, error: blastError } = await supabase
+        .from("message_blasts")
+        .select("id, message_kind")
+        .eq("body", body)
+        .single();
+      expect(blastError).toBeNull();
+      expect(blast?.message_kind).toBe("custom");
+
+      if (!blast || typeof blast.id !== "string") {
+        throw new Error("Expected selected SMS blast.");
+      }
+
+      const { data: deliveries, error: deliveriesError } = await supabase
+        .from("message_deliveries")
+        .select("guest_id, invite_token_id, phone")
+        .eq("message_blast_id", blast.id);
+      expect(deliveriesError).toBeNull();
+      expect(deliveries).toEqual([
+        {
+          guest_id: eligibleGuest.id,
+          invite_token_id: null,
+          phone: "+46709994441",
+        },
+      ]);
+    } finally {
+      await supabase.from("message_blasts").delete().eq("body", body);
+    }
+  });
+
 });

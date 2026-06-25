@@ -99,6 +99,7 @@ function guestRow(overrides: Partial<AdminGuestRosterGuestRow> = {}): AdminGuest
     rsvp_managed: false,
     rsvp_status: "not replied",
     sms_opt_in: false,
+    updated_at: "2026-05-18T08:30:00.000Z",
     ...overrides,
   };
 }

@@ -103,6 +103,7 @@ export async function sendMessageBlastCommand({
   body,
   formatSendError = getDefaultSendErrorText,
   now = () => new Date(),
+  selectedTargets,
   smsProvider,
   store,
   title,
@@ -113,15 +114,15 @@ export async function sendMessageBlastCommand({
   body: string;
   formatSendError?: (error: unknown) => string;
   now?: () => Date;
+  selectedTargets?: MessageTarget[];
   smsProvider: SmsProviderAdapter;
   store: MessageBlastStore;
   title: string | null;
   weddingId: string;
 }): Promise<SendMessageBlastCommandResult> {
-  const messageTargets = filterMessageTargetsByAudience(
-    await store.listMessageTargets({ weddingId }),
-    audience,
-  );
+  const messageTargets = selectedTargets
+    ? selectedTargets
+    : filterMessageTargetsByAudience(await store.listMessageTargets({ weddingId }), audience);
 
   if (messageTargets.length === 0) {
     throw new NoMessageTargetsError();

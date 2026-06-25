@@ -4,7 +4,7 @@ import { hashInviteToken } from "../lib/invite-token-crypto";
 import { INVITE_STATUS, RSVP_STATUS } from "../lib/invite-status";
 import { RSVP_ATTENDANCE, type RsvpAttendance } from "../lib/rsvp-attendance";
 
-import { getGuestByName, guestRowByName } from "./support/admin-guests";
+import { getGuestByName, guestMetadataRowByName, guestRowByName } from "./support/admin-guests";
 import { signInAsSeededAdmin } from "./support/auth";
 import {
   createInviteTestGuest,
@@ -269,11 +269,11 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await page.goto("/admin/guests");
     await page.getByLabel("Search name or phone").fill(guestName);
     await page.getByRole("button", { name: "Apply" }).click();
-    const row = await guestRowByName(page, guestName);
-    await expect(row.getByText(INVITE_STATUS.rsvpYes, { exact: true })).toBeVisible();
-    await expect(row.getByText("Extra guests: 0")).toBeVisible();
-    await expect(row.getByText("Food: Vegan")).toBeVisible();
-    await expect(row.getByText("Notes: Peanuts and sesame.")).toBeVisible();
+    await guestRowByName(page, guestName);
+    const metadataRow = await guestMetadataRowByName(page, guestName);
+    await expect(metadataRow.getByText("OSA: OSA ja", { exact: true })).toBeVisible();
+    await expect(metadataRow.getByText("Mat: Vegan")).toBeVisible();
+    await expect(metadataRow.getByText("Allergier: Peanuts and sesame.")).toBeVisible();
   });
 
   test("persists named +1 details when submitted for an allowed guest", async ({

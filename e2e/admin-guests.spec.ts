@@ -1,7 +1,5 @@
 import { expect } from "@playwright/test";
 
-import { INVITE_STATUS } from "../lib/invite-status";
-
 import { signInAsSeededAdmin } from "./support/auth";
 import {
   addGuest,
@@ -11,28 +9,28 @@ import {
   getGuestByName,
   getInviteTokenRowsForGuest,
   guestRowByName,
-  saveGuestRow,
   uniqueGuestName,
 } from "./support/admin-guests";
 import { testWithGuests as test } from "./support/fixtures";
 import { expectedPublicOriginForPage, pathFromAbsoluteUrl } from "./support/urls";
 
 test.describe("admin guest CRUD", () => {
-  test("adds, validates, searches, sorts, edits, and archives guests", async ({ page }) => {
+  test("adds, validates, searches, sorts, edits, and archives guests in one edit session", async ({ page }) => {
     const firstGuestName = uniqueGuestName("Admin CRUD A");
     const secondGuestName = uniqueGuestName("Admin CRUD Z");
     const updatedGuestName = `${firstGuestName} Updated`;
-    const searchPhone = "+46709990001";
+    const searchPhone = "+46709991876";
 
     await signInAsSeededAdmin(page);
-    await page.getByRole("link", { name: "Manage guests" }).click();
-    await expect(page.getByRole("heading", { name: "Guests" })).toBeVisible();
+    await page.getByRole("link", { exact: true, name: "Gäster" }).click();
+    await expect(page.getByRole("heading", { name: "Hantera Gäster" })).toBeVisible();
 
-    await page.getByLabel("Full name", { exact: true }).fill(
-      uniqueGuestName("Missing Contact"),
-    );
-    await page.getByRole("button", { name: "Add guest" }).click();
-    await expect(page.getByText("Add at least an email or phone number.")).toBeVisible();
+    await page.getByRole("button", { name: "Lägg till Gäst-utkast" }).click();
+    await page.locator('tbody tr[data-roster-row="guest"]').first().getByLabel(/Namn/).fill(uniqueGuestName("Missing Contact"));
+    await expect(page.getByText("1 osparad rad")).toBeVisible();
+    await page.getByRole("button", { name: "Spara ändringar" }).click();
+    await expect(page.getByText("Ange e-post eller telefonnummer.")).toBeVisible();
+    await page.getByRole("button", { name: "Kasta" }).click();
 
     await addGuest(page, {
       email: "e2e-admin-crud-a@example.com",
@@ -45,76 +43,62 @@ test.describe("admin guest CRUD", () => {
       email: "e2e-admin-crud-z@example.com",
       fullName: secondGuestName,
     });
+
     expect((await getGuestByName(firstGuestName))?.plus_one_allowed).toBe(true);
     expect((await getGuestByName(secondGuestName))?.plus_one_allowed).toBe(false);
 
-    await page.getByLabel("Search name or phone").fill(searchPhone.slice(-4));
-    await page.getByRole("button", { name: "Apply" }).click();
+    await page.getByLabel("Sök").fill(searchPhone.slice(-4));
     await expectGuestRowVisible(page, firstGuestName);
-    await expectGuestRowHidden(page, secondGuestName);
+    await expect(page.locator('tbody tr[data-roster-row="guest"]')).toHaveCount(1);
 
-    await page.getByLabel("Search name or phone").fill("E2E Guest Admin CRUD");
-    await page.locator('select[name="status"]').selectOption(INVITE_STATUS.notReplied);
-    await page.locator('select[name="sort"]').selectOption("name-desc");
-    await page.getByRole("button", { name: "Apply" }).click();
-    await expect(page.getByText("Showing 2 active guests.")).toBeVisible();
-    await expectGuestRowVisible(page, secondGuestName);
-    await expectGuestRowVisible(page, firstGuestName);
+    await page.getByLabel("Sök").fill("E2E Guest Admin CRUD");
+    await page.getByLabel("Sortering").selectOption("name-desc");
+    await expect(page.locator('tbody tr[data-roster-row="guest"]').first().getByLabel(/Namn/)).toHaveValue(secondGuestName);
 
-    const rows = page.locator("tbody tr");
-    await expect(rows.nth(0).locator('input[name="full_name"]')).toHaveValue(
-      secondGuestName,
-    );
-    await expect(rows.nth(1).locator('input[name="full_name"]')).toHaveValue(
-      firstGuestName,
-    );
-
+    await page.getByLabel("Sortering").selectOption("name");
     const firstRow = await guestRowByName(page, firstGuestName);
-    await firstRow.locator('input[name="full_name"]').fill(updatedGuestName);
-    await firstRow.locator('input[name="email"]').fill("e2e-admin-crud-updated@example.com");
-    await firstRow.locator('input[name="phone"]').fill("+46709990002");
-    await firstRow.locator('input[name="plus_one_allowed"]').uncheck();
-    await firstRow.locator('textarea[name="notes"]').fill("Updated e2e notes");
-    await saveGuestRow(firstRow);
-    await expect(page.getByText("Guest updated.")).toBeVisible();
+    await firstRow.getByLabel(/Namn/).fill(updatedGuestName);
+    await firstRow.getByLabel(/E-post/).fill("e2e-admin-crud-updated@example.com");
+    await firstRow.getByLabel(/Telefon/).fill("+46709990002");
+    await firstRow.locator('input[type="checkbox"]').nth(2).uncheck();
+    await saveByStickyBar(page);
 
-    await page.getByLabel("Search name or phone").fill(updatedGuestName);
-    await page.locator('select[name="status"]').selectOption("");
-    await page.locator('select[name="sort"]').selectOption("name");
-    await page.getByRole("button", { name: "Apply" }).click();
+    await expect
+      .poll(async () => (await getGuestByName(updatedGuestName))?.email)
+      .toBe("e2e-admin-crud-updated@example.com");
+    const updatedGuest = await getGuestByName(updatedGuestName);
+    expect(updatedGuest).toMatchObject({
+      email: "e2e-admin-crud-updated@example.com",
+      phone: "+46709990002",
+      plus_one_allowed: false,
+    });
+
+    await page.getByLabel("Sök").fill(updatedGuestName);
     await expectGuestRowVisible(page, updatedGuestName);
-    expect((await getGuestByName(updatedGuestName))?.plus_one_allowed).toBe(false);
 
-    const editedRow = await guestRowByName(page, updatedGuestName);
-    await deleteGuestRow(editedRow, false);
-    await expectGuestRowVisible(page, updatedGuestName);
-
-    await deleteGuestRow(editedRow, true);
-    await expect(page.getByText("Guest archived.")).toBeVisible();
+    await deleteGuestRow(await guestRowByName(page, updatedGuestName), true);
     await expectGuestRowHidden(page, updatedGuestName);
-
-    const archivedGuest = await getGuestByName(updatedGuestName);
-    expect(archivedGuest?.deleted_at).toEqual(expect.any(String));
+    expect((await getGuestByName(updatedGuestName))?.deleted_at).toEqual(expect.any(String));
   });
 });
 
 test.describe("admin invite token links", () => {
-  test("generates private invite links and invalidates old links on regeneration", async ({
-    page,
-  }) => {
-    const guestName = uniqueGuestName("Invite Token");
+  test("generates private invite links and invalidates old links on regeneration", async ({ page }) => {
+    const guestName = uniqueGuestName("Invite Link");
 
     await signInAsSeededAdmin(page);
     await page.goto("/admin/guests");
     await addGuest(page, {
-      email: "e2e-invite-token@example.com",
+      email: "e2e-invite-link@example.com",
       fullName: guestName,
+      phone: "+46709990003",
     });
 
     let guestRow = await guestRowByName(page, guestName);
-    await guestRow.getByRole("button", { name: "Generate invite link" }).click();
-    const firstInviteInput = page.getByLabel(`New invite link for ${guestName}`);
+    await guestRow.getByRole("button", { name: "Ny länk" }).click();
+    const firstInviteInput = page.getByLabel(`Ny inbjudningslänk för ${guestName}`);
     await expect(firstInviteInput).toBeVisible();
+
     const firstInviteUrl = await firstInviteInput.inputValue();
     const expectedInviteOrigin = expectedPublicOriginForPage(page);
     const firstInvitePath = pathFromAbsoluteUrl(firstInviteUrl);
@@ -127,11 +111,18 @@ test.describe("admin invite token links", () => {
     await invitePage.close();
 
     await page.reload();
-    await expect(page.getByLabel(`New invite link for ${guestName}`)).toHaveCount(0);
+    await expect(page.getByLabel(`Ny inbjudningslänk för ${guestName}`)).toHaveCount(0);
+
     guestRow = await guestRowByName(page, guestName);
-    await guestRow.getByRole("button", { name: "Regenerate invite link" }).click();
-    const secondInviteInput = page.getByLabel(`New invite link for ${guestName}`);
+    const regenerateButton = guestRow.getByRole("button", { exact: true, name: "Ny länk" });
+    await expect(regenerateButton).toHaveAttribute(
+      "title",
+      "Skapar en ny inbjudningslänk. Finns en aktiv länk sedan tidigare ogiltigförklaras/ersätts den.",
+    );
+    await regenerateButton.click();
+    const secondInviteInput = page.getByLabel(`Ny inbjudningslänk för ${guestName}`);
     await expect(secondInviteInput).toBeVisible();
+
     const secondInviteUrl = await secondInviteInput.inputValue();
     const secondInvitePath = pathFromAbsoluteUrl(secondInviteUrl);
     expect(new URL(secondInviteUrl).origin).toBe(expectedInviteOrigin);
@@ -140,7 +131,6 @@ test.describe("admin invite token links", () => {
 
     await page.goto(firstInvitePath);
     await expect(page.getByRole("heading", { name: "Inbjudan saknas" })).toBeVisible();
-
     await page.goto(secondInvitePath);
     await expect(page.getByText(`Inbjudan till ${guestName}`)).toBeVisible();
 
@@ -149,7 +139,13 @@ test.describe("admin invite token links", () => {
     const tokens = await getInviteTokenRowsForGuest(guest!.id);
     expect(tokens).toHaveLength(2);
     expect(tokens.filter((token) => token.is_active)).toHaveLength(1);
-    expect(tokens.filter((token) => token.is_active)[0]?.access_scope).toBe("full");
-    expect(tokens.filter((token) => !token.is_active && token.invalidated_at)).toHaveLength(1);
+    expect(tokens.filter((token) => token.invalidated_at)).toHaveLength(1);
+    expect(tokens.every((token) => token.token_hash.length === 64)).toBe(true);
+    expect(tokens.every((token) => !("raw_token" in token))).toBe(true);
   });
 });
+
+async function saveByStickyBar(page: import("@playwright/test").Page) {
+  await page.getByRole("button", { name: "Spara ändringar" }).click();
+  await expect(page.getByText(/Sparade \d+ ändring/)).toBeVisible();
+}

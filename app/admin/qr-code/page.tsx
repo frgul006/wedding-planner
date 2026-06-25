@@ -13,7 +13,7 @@ import { getWeddingHubUrl } from "@/lib/wedding-hub-url";
 import { QrCodeActions } from "./qr-code-actions";
 
 export const metadata: Metadata = {
-  title: "Wedding hub QR | Wedding Planner",
+  title: "Bröllopshubben QR | Wedding Planner",
 };
 
 type WeddingQrDetails = {
@@ -67,37 +67,37 @@ export default async function QrCodePage() {
               Wedding Planner
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
-              Wedding hub QR
+              Bröllopshubben QR
             </h1>
             <p className="mt-2 text-zinc-600">
-              Download or print the shared code guests scan at the venue.
+              Ladda ner eller skriv ut QR-koden som Gäster skannar på plats.
             </p>
           </div>
           <Link
             className="rounded-full border border-zinc-300 px-5 py-3 text-center font-medium text-zinc-900 transition hover:bg-zinc-100"
             href="/admin"
           >
-            Back to dashboard
+            Tillbaka till översikten
           </Link>
         </div>
 
         {error ? (
           <p className="rounded-2xl bg-red-50 px-5 py-4 text-sm font-medium text-red-700 ring-1 ring-red-100 print:hidden">
-            Could not load wedding details. The QR code still points to the wedding hub.
+            Kunde inte ladda bröllopsdetaljer. QR-koden pekar fortfarande till bröllopshubben.
           </p>
         ) : null}
 
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] print:block">
           <section className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-200 print:rounded-none print:p-12 print:text-center print:shadow-none print:ring-0">
             <p className="text-sm font-medium uppercase tracking-[0.3em] text-zinc-500">
-              Venue QR
+              QR på plats
             </p>
             <h2 className="mt-3 text-2xl font-semibold text-zinc-950 print:text-4xl">
-              Scan for the wedding hub
+              Skanna till bröllopshubben
             </h2>
             <div className="mt-6 rounded-3xl bg-[#f1eadc] p-5 ring-1 ring-zinc-200 print:mx-auto print:max-w-sm print:ring-0">
               <Image
-                alt="QR code for the wedding hub"
+                alt="QR-kod till bröllopshubben"
                 className="aspect-square w-full rounded-2xl bg-[#f1eadc]"
                 height={1200}
                 priority
@@ -110,11 +110,11 @@ export default async function QrCodePage() {
               {hubUrl}
             </p>
             <p className="mt-3 text-sm text-zinc-500 print:text-zinc-700">
-              {wedding?.name ?? "Wedding hub"}
+              {wedding?.name ?? "Bröllopshubben"}
               {wedding?.venue_name ? ` · ${wedding.venue_name}` : ""}
               {wedding?.wedding_date
                 ? ` · ${formatWeddingSettingsDate(wedding.wedding_date, {
-                    fallback: "Wedding date not set",
+                    fallback: "Bröllopsdatum saknas",
                   })}`
                 : ""}
             </p>
@@ -122,15 +122,15 @@ export default async function QrCodePage() {
 
           <section className="flex flex-col gap-6 rounded-3xl bg-white p-8 shadow-sm ring-1 ring-zinc-200 print:hidden">
             <div>
-              <h2 className="text-xl font-semibold text-zinc-950">Share and print</h2>
+              <h2 className="text-xl font-semibold text-zinc-950">Dela och skriv ut</h2>
               <p className="mt-2 text-zinc-600">
-                The QR code opens the public wedding hub. It is shared by all guests and
-                does not expose invite tokens or guest details.
+                The QR-koden öppnar den delade bröllopshubben. Den delas av alla Gäster och
+                visar inga privata inbjudningslänkar eller Gästdetaljer.
               </p>
             </div>
 
             <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
-              Hub URL
+              Hubb-URL
               <input
                 className="rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-3 font-mono text-sm text-zinc-950"
                 readOnly
@@ -146,7 +146,7 @@ export default async function QrCodePage() {
                 download="wedding-hub-qr.png"
                 href="/admin/qr-code/png?download=1"
               >
-                Download PNG
+                Ladda ner PNG
               </a>
               <a
                 className="rounded-full border border-zinc-300 px-5 py-3 text-center font-medium text-zinc-900 transition hover:bg-zinc-100"
@@ -154,12 +154,12 @@ export default async function QrCodePage() {
                 rel="noopener noreferrer"
                 target="_blank"
               >
-                Open wedding hub
+                Öppna bröllopshubben
               </a>
             </div>
 
             <div className="rounded-2xl bg-zinc-50 p-5 text-sm text-zinc-600">
-              <h3 className="font-semibold text-zinc-950">Print tip</h3>
+              <h3 className="font-semibold text-zinc-950">Utskriftstips</h3>
               <p className="mt-2">
                 Use the print button and choose A4 or Letter. The printed sheet keeps the
                 QR code large with the readable fallback URL underneath.

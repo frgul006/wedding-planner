@@ -36,9 +36,17 @@ _Avoid_: ad hoc delete cascade, scattered guest cleanup
 The admin-facing read view of active **Guest** records with their **Invite access** affordances and **RSVP** summary.
 _Avoid_: raw guests table, invitee list
 
+**Admin Guest roster edit session**:
+An admin-facing review moment where pending **Admin Guest mutation** changes across one or more **Guest** records are committed together or not at all.
+_Avoid_: per-row save, hidden row action, partial roster commit, ad hoc bulk edit
+
 **Admin Guest mutation**:
-The admin-facing write path for adding or editing active **Guest** identity, contact, +1 permission, SMS consent, and notes.
+The admin-facing write path for adding or editing active **Guest** identity, contact, +1 permission, SMS consent, and **Admin Guest note**.
 _Avoid_: ad hoc guest form parsing, raw guest update action
+
+**Admin Guest note**:
+An admin-maintained private note about a **Guest**, distinct from **RSVP** food or allergy details.
+_Avoid_: guest note, allergy note, RSVP note
 
 **Invite access**:
 Whether a private **Invite** link currently grants a **Guest** access to their **Invite**.
@@ -67,6 +75,10 @@ _Avoid_: SMS recipient, contact, raw phone row
 **Invite SMS**:
 A Wedding SMS sent to an **Invited Guest** who is a **Message target** for the purpose of delivering that Guest's individual **Invite** link.
 _Avoid_: invite blast, invitation text, bulk invite link message
+
+**Wedding SMS update**:
+An admin-composed Wedding SMS sent to selected **Message target** Guests for general guest communication, not delivering **Invite** links.
+_Avoid_: Invite SMS, raw SMS blast, status update
 
 **Invite SMS template**:
 The **Wedding settings** text pattern used to render each **Invite SMS** with that **Invited Guest**'s first name and individual **Invite** link.
@@ -136,6 +148,9 @@ _Avoid_: Efterfest
 - An **Invited Guest** may have zero or one **Plus-one Guest**.
 - A **Plus-one Guest** is tied to exactly one **Invited Guest**.
 - The **Admin Guest roster** shows both **Invited Guest** and **Plus-one Guest**, labels which kind each **Guest** is, and shows the tied **Invited Guest** for each **Plus-one Guest**.
+- **Plus-one Guest** records can be selected in **Admin Guest roster** only for actions they qualify for.
+- An **Admin Guest roster edit session** may include pending **Admin Guest mutation** additions and edits for multiple **Guest** records; invalid changes block the whole session from committing.
+- An **Admin Guest roster edit session** commits admin-owned field changes, not **RSVP** answers, **Invite SMS** sends, **Invite access** regeneration, or **Guest lifecycle mutation** archive actions.
 - An **Admin Guest mutation** adds or edits active **Invited Guest** records; RSVP-managed **Plus-one Guest** identity and contact fields stay read-only to admins.
 - A **Plus-one Guest** created from RSVP plus-one details remains RSVP-managed: admin can view, archive, and manage **Scoped Invite access**, while identity and contact fields sync from the tied **Invited Guest**'s **RSVP**.
 - A **Guest lifecycle mutation** archives a **Guest** and any tied RSVP-managed **Plus-one Guest** records in one atomic write path.
@@ -147,7 +162,7 @@ _Avoid_: Efterfest
 - A **Wedding hub photo upload** can be anonymous or attributed to the active, non-archived **Guest** behind **Wedding hub access**.
 - The **Wedding settings** photo review policy determines whether a verified **Wedding hub photo upload** appears to Guests immediately or waits for admin review.
 - A **Guest lifecycle mutation** revokes active scoped Invite tokens for archived **Plus-one Guest** records.
-- **Invite access**, **Invite SMS** sent activity, opened-Invite activity, and **RSVP** status are distinct.
+- **Invite access**, **Invite SMS** sent activity, opened-Invite activity, and **RSVP** status are distinct and not manually changed through **Admin Guest roster edit session**.
 - **Scoped Invite access** lets a **Plus-one Guest** view non-RSVP **Invite** details and access the Wedding hub, but not submit an **RSVP**.
 - **Wedding hub access** for guest-only uploads requires a valid Guest navigation session whose **Guest** is still active and non-archived.
 - An **Invite** lets an **Invited Guest** submit or update an **RSVP**.
@@ -156,6 +171,7 @@ _Avoid_: Efterfest
 - A **Message target** is an active, non-archived **Guest** with valid phone, SMS consent, and no SMS opt-out timestamp, not a raw phone number.
 - An **Invite SMS template** must render the **Invited Guest**'s first name and individual **Invite** link.
 - An **Invite SMS** goes only to an **Invited Guest** who is a **Message target** and carries that Guest's individual **Invite** link.
+- A roster "Send SMS" action starts a **Wedding SMS update** for selected **Message target** Guests; it does not send **Invite SMS** links.
 - Sending an **Invite SMS** replaces any previous full **Invite access** link for that **Invited Guest** with the link in that SMS.
 - Bulk **Invite SMS** sends skip **Invited Guest** records that already have an **Invite SMS** accepted for sending, opened their **Invite**, or submitted an **RSVP**, unless an admin explicitly resends.
 - An admin may explicitly send or resend an **Invite SMS** to one eligible **Invited Guest** regardless of **RSVP** status.
@@ -194,3 +210,6 @@ _Avoid_: Efterfest
 - Plural **Invite SMS** copy could imply one **Guest** row represents a couple or household — resolved: **Guest** remains one person; plural copy is tone, not the data model.
 - Older data-model text says every **Guest** owns an RSVP response — resolved target model: only **Invited Guest** owns **RSVP**; **Plus-one Guest** inherits RSVP status through the tied **Invited Guest**.
 - `rsvp_status=submitted#osa` is an implementation detail of **Invite RSVP navigation**, not a durable **RSVP** status.
+- "Set status" in admin design mock could mean manual Invite/RSVP override — resolved: no manual status override; statuses remain activity-derived.
+- "Bulk edit" could mean setting one shared value on many Guests — resolved for unique Guest fields: admins edit individual cells across many rows inside one **Admin Guest roster edit session**.
+- "Notes" in **Admin Guest roster** could mean private admin note or guest-entered allergy note — resolved: use **Admin Guest note** for editable roster note.
