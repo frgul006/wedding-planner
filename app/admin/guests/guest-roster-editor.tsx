@@ -283,7 +283,7 @@ function MetaChip({ children, tone = "neutral" }: { children: ReactNode; tone?: 
       : "bg-[#efe1c8] text-[#5b4027] ring-[#d8c7a3]";
 
   return (
-    <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${className}`}>
+    <span className={`inline-flex shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${className}`}>
       {children}
     </span>
   );
@@ -807,8 +807,8 @@ export function GuestRosterEditor({
               <th className="px-4 py-3">Telefon</th>
               <th className="px-4 py-3">SMS</th>
               <th className="px-4 py-3">+1</th>
-              <th className="px-4 py-3">Admin-notering</th>
               <th className="px-4 py-3 text-right">Inbjudan</th>
+              <th className="px-4 py-3">Admin-notering</th>
             </tr>
           </thead>
           <tbody>
@@ -849,7 +849,7 @@ export function GuestRosterEditor({
                       />
                       <FieldError message={errors.fullName} />
                       <FieldError message={errors.row} />
-                      <div className="mt-2 flex max-w-[26rem] flex-wrap gap-1.5 text-xs text-[#5d5144]">
+                      <div className="mt-2 flex max-w-[26rem] flex-nowrap gap-1.5 overflow-x-auto pb-1 text-xs text-[#5d5144]">
                         <MetaChip>{guestKindCopy(row)}</MetaChip>
                         {row.rsvpManaged ? <MetaChip tone="warning">OSA-styrd</MetaChip> : null}
                         {tiedGuest ? <MetaChip>{tiedGuest}</MetaChip> : null}
@@ -921,17 +921,6 @@ export function GuestRosterEditor({
                       <DirtyDot show={values.plusOneAllowed !== baseValues.plusOneAllowed} />
                     </label>
                   </td>
-                  <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
-                    <textarea
-                      aria-label={`Admin-notering ${row.fullName || "ny Gäst"}`}
-                      className="cell-input min-h-20 min-w-64 resize-y"
-                      disabled={isPending}
-                      name="notes"
-                      onChange={updateTextValue(rowKey, "notes")}
-                      readOnly={!row.canSave}
-                      value={values.notes ?? ""}
-                    />
-                  </td>
                   <td className="border-t border-[#eadcc3] px-4 py-3 text-right align-top">
                     {isDraftRow(row) ? (
                       <span className="text-xs text-[#8f5d2f]">Spara först</span>
@@ -944,6 +933,22 @@ export function GuestRosterEditor({
                         hasActiveToken={row.hasActiveToken}
                       />
                     )}
+                  </td>
+                  <td className="border-t border-[#eadcc3] px-4 py-3 align-top">
+                    <details className="min-w-44">
+                      <summary className="cursor-pointer select-none text-xs font-bold text-[#5b4027]">
+                        Admin-notering
+                      </summary>
+                      <textarea
+                        aria-label={`Admin-notering ${row.fullName || "ny Gäst"}`}
+                        className="cell-input mt-2 min-h-20 min-w-64 resize-y"
+                        disabled={isPending}
+                        name="notes"
+                        onChange={updateTextValue(rowKey, "notes")}
+                        readOnly={!row.canSave}
+                        value={values.notes ?? ""}
+                      />
+                    </details>
                   </td>
                 </tr>
               );

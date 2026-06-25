@@ -285,7 +285,12 @@ test.describe("Scoped Invite access for Plus-one Guests", () => {
     await page.reload();
     await expect(page.getByLabel(`Ny begränsad inbjudningslänk för ${fixture.plusOneName}`)).toHaveCount(0);
     plusOneRow = await guestRowByName(page, fixture.plusOneName);
-    await plusOneRow.getByRole("button", { name: "Skapa om begränsad inbjudningslänk" }).click();
+    const regenerateButton = plusOneRow.getByRole("button", { exact: true, name: "Ny länk" });
+    await expect(regenerateButton).toHaveAttribute(
+      "title",
+      "Skapar en ny inbjudningslänk och ogiltigförklarar/ersätter den gamla aktiva länken.",
+    );
+    await regenerateButton.click();
     const secondInviteInput = page.getByLabel(`Ny begränsad inbjudningslänk för ${fixture.plusOneName}`);
     await expect(secondInviteInput).toBeVisible();
     const secondInviteUrl = await secondInviteInput.inputValue();

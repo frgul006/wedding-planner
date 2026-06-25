@@ -19,7 +19,7 @@ test.describe("admin guest CRUD", () => {
     const firstGuestName = uniqueGuestName("Admin CRUD A");
     const secondGuestName = uniqueGuestName("Admin CRUD Z");
     const updatedGuestName = `${firstGuestName} Updated`;
-    const searchPhone = "+46709990001";
+    const searchPhone = "+46709991876";
 
     await signInAsSeededAdmin(page);
     await page.getByRole("link", { exact: true, name: "Gäster" }).click();
@@ -114,7 +114,12 @@ test.describe("admin invite token links", () => {
     await expect(page.getByLabel(`Ny inbjudningslänk för ${guestName}`)).toHaveCount(0);
 
     guestRow = await guestRowByName(page, guestName);
-    await guestRow.getByRole("button", { name: "Skapa om inbjudningslänk" }).click();
+    const regenerateButton = guestRow.getByRole("button", { exact: true, name: "Ny länk" });
+    await expect(regenerateButton).toHaveAttribute(
+      "title",
+      "Skapar en ny inbjudningslänk och ogiltigförklarar/ersätter den gamla aktiva länken.",
+    );
+    await regenerateButton.click();
     const secondInviteInput = page.getByLabel(`Ny inbjudningslänk för ${guestName}`);
     await expect(secondInviteInput).toBeVisible();
 

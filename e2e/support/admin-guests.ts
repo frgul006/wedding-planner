@@ -81,6 +81,7 @@ export async function addGuest(
   }
 
   if (guest.notes) {
+    await row.getByText("Admin-notering", { exact: true }).click();
     await row.getByLabel(/Admin-notering/).fill(guest.notes);
   }
 
@@ -95,7 +96,19 @@ export async function addGuest(
   }
 
   await page.getByRole("button", { name: "Spara ändringar" }).click();
-  await expect(page.getByRole("status").filter({ hasText: /Sparade \d+ ändring/ })).toBeVisible();
+  await expect
+    .poll(
+      async () => {
+        try {
+          const savedRow = await guestRowByName(page, guest.fullName);
+          return (await savedRow.getByLabel(`Markera ${guest.fullName}`).count()) > 0;
+        } catch {
+          return false;
+        }
+      },
+      { timeout: 15_000 },
+    )
+    .toBe(true);
   await expectGuestRowVisible(page, guest.fullName);
 }
 
