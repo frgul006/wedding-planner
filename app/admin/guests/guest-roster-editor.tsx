@@ -349,52 +349,57 @@ export function GuestRosterEditor({
   const visibleRows = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return allRows
-      .filter((row) => {
-        const values = valuesByKey[row.id] ?? rowToValues(row);
-        const searchable = [
-          values.fullName,
-          values.email ?? "",
-          values.phone ?? "",
-          values.notes ?? "",
-          row.guestKindLabel,
-          row.tiedInvitedGuestText ?? "",
-        ]
-          .join(" ")
-          .toLowerCase();
+    const matchesFilters = (row: EditorRow) => {
+      const values = valuesByKey[row.id] ?? rowToValues(row);
+      const searchable = [
+        values.fullName,
+        values.email ?? "",
+        values.phone ?? "",
+        values.notes ?? "",
+        row.guestKindLabel,
+        row.tiedInvitedGuestText ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
 
-        if (normalizedQuery && !searchable.includes(normalizedQuery)) {
-          return false;
-        }
+      if (normalizedQuery && !searchable.includes(normalizedQuery)) {
+        return false;
+      }
 
-        if (!statusFilter) {
-          return true;
-        }
+      if (!statusFilter) {
+        return true;
+      }
 
-        return row.inviteStatus === statusFilter || row.rsvpStatus === statusFilter;
-      })
-      .sort((left, right) => {
-        const leftValues = valuesByKey[left.id] ?? rowToValues(left);
-        const rightValues = valuesByKey[right.id] ?? rowToValues(right);
+      return row.inviteStatus === statusFilter || row.rsvpStatus === statusFilter;
+    };
 
-        if (sort === "name-desc") {
-          return rightValues.fullName.localeCompare(leftValues.fullName, "sv");
-        }
+    const sortPersistedRows = (left: AdminGuestRosterRow, right: AdminGuestRosterRow) => {
+      const leftValues = valuesByKey[left.id] ?? rowToValues(left);
+      const rightValues = valuesByKey[right.id] ?? rowToValues(right);
 
-        if (sort === "status") {
-          return `${left.rsvpStatus}-${left.inviteStatus}-${leftValues.fullName}`.localeCompare(
-            `${right.rsvpStatus}-${right.inviteStatus}-${rightValues.fullName}`,
-            "sv",
-          );
-        }
+      if (sort === "name-desc") {
+        return rightValues.fullName.localeCompare(leftValues.fullName, "sv");
+      }
 
-        if (sort === "newest") {
-          return right.updatedAt.localeCompare(left.updatedAt);
-        }
+      if (sort === "status") {
+        return `${left.rsvpStatus}-${left.inviteStatus}-${leftValues.fullName}`.localeCompare(
+          `${right.rsvpStatus}-${right.inviteStatus}-${rightValues.fullName}`,
+          "sv",
+        );
+      }
 
-        return leftValues.fullName.localeCompare(rightValues.fullName, "sv");
-      });
-  }, [allRows, query, sort, statusFilter, valuesByKey]);
+      if (sort === "newest") {
+        return right.updatedAt.localeCompare(left.updatedAt);
+      }
+
+      return leftValues.fullName.localeCompare(rightValues.fullName, "sv");
+    };
+
+    const visibleDraftRows = draftRows.filter(matchesFilters);
+    const visibleSavedRows = rows.filter(matchesFilters).sort(sortPersistedRows);
+
+    return [...visibleDraftRows, ...visibleSavedRows];
+  }, [draftRows, query, rows, sort, statusFilter, valuesByKey]);
 
   const hiddenDirtyCount = dirtyRows.filter(
     (dirtyRow) => !visibleRows.some((visibleRow) => visibleRow.id === dirtyRow.id),

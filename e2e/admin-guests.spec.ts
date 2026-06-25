@@ -80,6 +80,33 @@ test.describe("admin guest CRUD", () => {
     await expectGuestRowHidden(page, updatedGuestName);
     expect((await getGuestByName(updatedGuestName))?.deleted_at).toEqual(expect.any(String));
   });
+
+  test("keeps unsaved draft rows pinned while typing in sorted roster", async ({ page }) => {
+    const anchorGuestName = uniqueGuestName("Draft Anchor");
+    const draftGuestName = uniqueGuestName("ZZZ Sticky Draft");
+
+    await signInAsSeededAdmin(page);
+    await page.goto("/admin/guests");
+    await addGuest(page, {
+      email: "e2e-sticky-anchor@example.com",
+      fullName: anchorGuestName,
+      phone: "+46709990004",
+    });
+
+    await page.getByLabel("Sortering").selectOption("name");
+    await page.getByRole("button", { name: "Lägg till Gäst-utkast" }).click();
+
+    const visibleGuestRows = page.locator('tbody tr[data-roster-row="guest"]');
+    const draftNameInput = visibleGuestRows.first().getByLabel("Namn ny Gäst");
+
+    await draftNameInput.click();
+    await expect(draftNameInput).toBeFocused();
+    await draftNameInput.pressSequentially(draftGuestName);
+
+    const firstRowNameInput = visibleGuestRows.first().getByLabel(`Namn ${draftGuestName}`);
+    await expect(firstRowNameInput).toHaveValue(draftGuestName);
+    await expect(firstRowNameInput).toBeFocused();
+  });
 });
 
 test.describe("admin invite token links", () => {
