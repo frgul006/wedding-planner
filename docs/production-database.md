@@ -143,14 +143,14 @@ Dry run:
 
 ```bash
 CONFIRM_PRODUCTION_PROJECT_REF=wakdmxadoruqsstbokan \
-pnpm guest:reset-invite -- --name "Matilda Ekevik"
+pnpm guest:reset-invite -- --name "Person Name"
 ```
 
 Execute:
 
 ```bash
 CONFIRM_PRODUCTION_PROJECT_REF=wakdmxadoruqsstbokan \
-pnpm guest:reset-invite -- --name "Matilda Ekevik" --execute
+pnpm guest:reset-invite -- --name "Person Name" --execute
 ```
 
 Optional env vars and flags:

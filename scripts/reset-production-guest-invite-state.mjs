@@ -123,10 +123,10 @@ function printHelp() {
 
 Usage:
   CONFIRM_PRODUCTION_PROJECT_REF=${DEFAULT_PROJECT_REF} \\
-    pnpm guest:reset-invite -- --name "Matilda Ekevik"
+    pnpm guest:reset-invite -- --name "Person Name"
 
   CONFIRM_PRODUCTION_PROJECT_REF=${DEFAULT_PROJECT_REF} \\
-    pnpm guest:reset-invite -- --name "Matilda Ekevik" --execute
+    pnpm guest:reset-invite -- --name "Person Name" --execute
 
 Options:
   --name, --full-name          Exact active Invited Guest full_name to reset.
