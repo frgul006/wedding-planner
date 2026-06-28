@@ -19,6 +19,7 @@
     "supabase:status": "supabase status",
     "seed:local": "node scripts/seed-local.mjs",
     "bootstrap:production": "node scripts/bootstrap-production.mjs",
+    "guest:reset-invite": "node scripts/reset-production-guest-invite-state.mjs",
     "sms:test": "node scripts/send-elk46-test.mjs"
   },
   "dependencies": {
