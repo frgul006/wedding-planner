@@ -133,6 +133,53 @@ pnpm bootstrap:production
 
 The script intentionally does not create sample guests, invite tokens, or RSVP rows in production.
 
+## Reset a production guest invite state
+
+Use `scripts/reset-production-guest-invite-state.mjs` when a production Invited Guest was used for testing and should look uninvited again while keeping their roster row.
+
+The script requires the local Supabase CLI project to be linked to `wakdmxadoruqsstbokan`, aborts unless the name matches exactly one active Invited Guest in the configured wedding, and runs as a dry run unless `--execute` is present.
+
+Dry run:
+
+```bash
+CONFIRM_PRODUCTION_PROJECT_REF=wakdmxadoruqsstbokan \
+pnpm guest:reset-invite -- --name "Matilda Ekevik"
+```
+
+Execute:
+
+```bash
+CONFIRM_PRODUCTION_PROJECT_REF=wakdmxadoruqsstbokan \
+pnpm guest:reset-invite -- --name "Matilda Ekevik" --execute
+```
+
+Optional env vars and flags:
+
+```bash
+# Guest full_name; can also pass --name or --full-name
+RESET_GUEST_FULL_NAME="Person Name"
+# Defaults to wakdmxadoruqsstbokan; must match linked Supabase CLI project
+PRODUCTION_SUPABASE_PROJECT_REF=wakdmxadoruqsstbokan
+# Required only when executing mutations
+CONFIRM_PRODUCTION_PROJECT_REF=wakdmxadoruqsstbokan
+# Defaults to 00000000-0000-0000-0000-000000000001; can also pass --wedding-id
+PRODUCTION_WEDDING_ID=00000000-0000-0000-0000-000000000001
+# Alternative to --execute
+RESET_GUEST_EXECUTE=1
+```
+
+Reset behavior:
+
+- invalidates active Invite tokens for the Invited Guest, leaving inactive token audit rows
+- deletes their RSVP response
+- deletes their Guest navigation sessions
+- deletes Invite SMS delivery history for that Guest and removes any now-empty Invite SMS blasts
+- resets `invite_status` and `rsvp_status` to `not replied`
+- archives active RSVP-managed Plus-one Guests created by their RSVP, deletes their Guest navigation sessions, and revokes their scoped tokens
+- preserves contact info, notes, +1 permission, and SMS consent
+
+Run the dry run first and review counts before executing.
+
 ## Production data vs local seed data
 
 Use these buckets for data changes:
