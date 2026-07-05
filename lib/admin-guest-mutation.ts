@@ -9,7 +9,7 @@ import {
   archiveGuestLifecycle,
   type GuestLifecycleRpcAdapter,
 } from "@/lib/guest-lifecycle";
-import { isE164PhoneNumber } from "@/lib/phone";
+import { normalizePhoneNumberInput } from "@/lib/phone";
 import { isNullableString, isRecord } from "@/lib/type-guards";
 
 export type AdminGuestMutationErrorStatus =
@@ -151,7 +151,9 @@ export function parseAdminGuestMutationPayload(
 ): AdminGuestPayloadParseResult {
   const fullName = cleanRequiredText(formData.get("full_name"));
   const email = cleanOptionalText(formData.get("email"));
-  const phone = cleanOptionalText(formData.get("phone"));
+  const rawPhone = cleanOptionalText(formData.get("phone"));
+  const normalizedPhone = rawPhone ? normalizePhoneNumberInput(rawPhone) : null;
+  const phone = normalizedPhone ?? rawPhone;
   const notes = cleanOptionalText(formData.get("notes"));
   const smsOptIn = formData.get("sms_opt_in") === "on";
   const plusOneAllowed = formData.get("plus_one_allowed") === "on";
@@ -164,7 +166,7 @@ export function parseAdminGuestMutationPayload(
     return { status: "missing-contact" };
   }
 
-  if (smsOptIn && (!phone || !isE164PhoneNumber(phone))) {
+  if (smsOptIn && !normalizedPhone) {
     return { status: "invalid-sms-phone" };
   }
 

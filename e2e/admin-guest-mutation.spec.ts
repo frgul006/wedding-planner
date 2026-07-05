@@ -137,7 +137,7 @@ test.describe("Admin Guest mutation Module", () => {
         email: "  ada@example.com  ",
         fullName: "  Ada Lovelace  ",
         notes: "  Seating note  ",
-        phone: " +46700000001 ",
+        phone: " 0700000001 ",
         plusOneAllowed: true,
         smsOptIn: true,
       }),
@@ -183,7 +183,7 @@ test.describe("Admin Guest mutation Module", () => {
 
     await expect(
       createAdminGuestMutation({
-        formData: createGuestForm({ email: "", phone: "0700000000", smsOptIn: true }),
+        formData: createGuestForm({ email: "", phone: "7000000000", smsOptIn: true }),
         store,
         weddingId: "wedding-1",
       }),

@@ -423,14 +423,14 @@ test.describe("RSVP, invite status, and phone capture", () => {
 
     await page.goto(inviteOsaPathForToken(token));
     await expectInvitePanel(page, "osa");
-    await page.getByRole("textbox", { name: "Telefon" }).first().fill("0701234567");
+    await page.getByRole("textbox", { name: "Telefon" }).first().fill("46701234567");
     await page.getByRole("textbox", { name: "Matpreferens" }).first().fill(
       "Draft saffron risotto",
     );
     await page.getByRole("button", { name: /^Skicka mitt svar/ }).click();
     await expect(
       page.getByText(
-        "Använd internationellt format utan mellanslag, t.ex. +46701234567.",
+        "Använd +46-format eller svenskt mobilnummer utan mellanslag, t.ex. +46701234567 eller 0701234567.",
       ),
     ).toBeVisible();
 
@@ -443,7 +443,7 @@ test.describe("RSVP, invite status, and phone capture", () => {
     );
     await expect(
       page.getByText(
-        "Använd internationellt format utan mellanslag, t.ex. +46701234567.",
+        "Använd +46-format eller svenskt mobilnummer utan mellanslag, t.ex. +46701234567 eller 0701234567.",
       ),
     ).toBeVisible();
 
@@ -460,11 +460,11 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await page.getByRole("link", { name: /^Vidare till OSA/ }).click();
     await expectInvitePanel(page, "osa");
     await expect(page.getByRole("textbox", { name: "Telefon" }).first()).toHaveValue(
-      "0701234567",
+      "46701234567",
     );
     await expect(
       page.getByText(
-        "Använd internationellt format utan mellanslag, t.ex. +46701234567.",
+        "Använd +46-format eller svenskt mobilnummer utan mellanslag, t.ex. +46701234567 eller 0701234567.",
       ),
     ).toBeVisible();
     expect(await getRsvpResponseCountForGuest(guestId)).toBe(0);
@@ -682,6 +682,69 @@ test.describe("RSVP, invite status, and phone capture", () => {
     expect(await getRsvpResponseCountForGuest(guestId)).toBe(0);
   });
 
+  test("keeps +1 selected when +1 phone validation fails", async ({ page }) => {
+    const guestName = uniqueRsvpGuestName("Plus One Phone Validation");
+    const token = uniqueInviteToken("plus-one-phone-validation-rsvp");
+    await createInviteTestGuest({
+      email: "e2e-rsvp-plus-one-phone-validation@example.com",
+      fullName: guestName,
+      plusOneAllowed: true,
+      token,
+    });
+
+    await page.goto(inviteOsaPathForToken(token));
+    await submitRsvp(page, {
+      attendance: RSVP_ATTENDANCE.yes,
+      phone: "",
+      plusOne: { name: "Anna Andersson", phone: "12345" },
+    });
+
+    await expect(page.getByText(/Använd .*\+46701234567/)).toBeVisible();
+    await expect(page.getByRole("radio", { name: /^Ja\s+\+1 gäst$/ })).toBeChecked();
+    await expect(page.getByRole("radio", { name: /^Nej\s+bara jag$/ })).not.toBeChecked();
+    await expect(page.getByRole("heading", { name: "Din gäst" })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Namn" })).toHaveValue(
+      "Anna Andersson",
+    );
+  });
+
+  test("accepts Swedish 07 phone numbers and saves them as +46", async ({ page }) => {
+    const guestName = uniqueRsvpGuestName("Local Phone");
+    const token = uniqueInviteToken("local-phone-rsvp");
+    const { guestId } = await createInviteTestGuest({
+      email: "e2e-rsvp-local-phone@example.com",
+      fullName: guestName,
+      phone: null,
+      plusOneAllowed: true,
+      token,
+    });
+
+    await page.goto(inviteOsaPathForToken(token));
+    await submitRsvp(page, {
+      attendance: RSVP_ATTENDANCE.yes,
+      phone: "0701234567",
+      plusOne: {
+        name: "Anna Andersson",
+        phone: "0731234567",
+        smsOptIn: true,
+      },
+      smsOptIn: true,
+    });
+
+    await expect(
+      page.getByRole("heading", { name: `Tack ${guestName.split(" ").at(0)}` }),
+    ).toBeVisible();
+    await expect.poll(async () => (await getGuestByName(guestName))?.phone).toBe(
+      "+46701234567",
+    );
+    await expect(getRsvpResponseForGuest(guestId)).resolves.toMatchObject({
+      extra_guests: 1,
+      plus_one_name: "Anna Andersson",
+      plus_one_phone: "+46731234567",
+      plus_one_sms_opt_in: true,
+    });
+  });
+
   test("blocks invalid RSVP submissions with clear errors", async ({ page }) => {
     const guestName = uniqueRsvpGuestName("Validation");
     const token = uniqueInviteToken("validation-rsvp");
@@ -694,11 +757,11 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await page.goto(inviteOsaPathForToken(token));
     await submitRsvp(page, {
       attendance: RSVP_ATTENDANCE.yes,
-      phone: "0701234567",
+      phone: "46701234567",
     });
     await expect(
       page.getByText(
-        "Använd internationellt format utan mellanslag, t.ex. +46701234567.",
+        "Använd +46-format eller svenskt mobilnummer utan mellanslag, t.ex. +46701234567 eller 0701234567.",
       ),
     ).toBeVisible();
   });
