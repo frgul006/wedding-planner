@@ -74,6 +74,7 @@ Admin authentication is handled by Supabase Auth. The app stores only wedding-sp
 - `full_name` (string)
 - `email` (string, optional)
 - `phone` (string, optional, compact E.164 with no spaces)
+  - User input may accept Swedish `07` mobile format, but save paths normalize it to `+467...` before storage.
   - Validation rule: Invited Guests need at least one of `email` or `phone`; Plus-one Guests can be name-only.
 - `sms_opt_in` (bool)
   - Guests are included in SMS blasts only when this is true and a valid E.164 phone is present.

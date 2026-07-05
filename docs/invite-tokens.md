@@ -70,14 +70,14 @@ Calendar action links download a token-protected `.ics` file at `/invite/[token]
 Valid `/invite/[token]` pages let the linked guest submit or update:
 
 - attendance: `yes`, `no`, or `maybe`
-- optional phone number, using compact E.164 format like `+46701234567`
+- optional phone number, using compact E.164 format like `+46701234567` after save; Swedish `07...` mobile input is accepted and normalized
 - optional SMS updates opt-in, which requires a valid phone number
 - optional named +1 details only when `guests.plus_one_allowed = true`
 - optional +1 phone and separate +1 SMS consent when the +1 block is expanded
 - optional food preference
 - optional allergy / special notes
 
-The phone input is pre-filled from the linked `guests.phone` value. Blank phone is allowed unless SMS updates opt-in is selected; any provided phone must match strict compact country-code format with a leading `+` and digits only, for example `+46701234567`. Invalid phone values stay on the OSA panel with clear inline validation errors.
+The phone input is pre-filled from the linked `guests.phone` value. Blank phone is allowed unless SMS updates opt-in is selected; any provided phone must match compact `+46`/E.164 format or Swedish `07` mobile format without spaces, for example `+46701234567` or `0701234567`. Swedish `07` values normalize to `+467...` before save. Invalid phone values stay on the OSA panel with clear inline validation errors.
 
 The Brevkort OSA UI uses a per-guest +1 toggle instead of the old generic extra guest count. The data model stores named +1 details and separate +1 SMS consent. Guests may submit named +1 details only when `guests.plus_one_allowed = true`; server-side validation rejects +1 payloads for guests where that flag is false. Choosing `Nej, bara jag` on a later edit saves `extra_guests = 0`, clears stored `plus_one_*` RSVP details, archives the tied RSVP-managed Plus-one Guest, and revokes active scoped Invite tokens for that Guest.
 

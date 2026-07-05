@@ -86,7 +86,7 @@ test.describe("RSVP command", () => {
   test("rejects invalid guest phone before calling the RPC", async () => {
     const rpc = createRpcAdapter();
     const state = await runCommand(
-      createFormData({ attendance: RSVP_ATTENDANCE.yes, phone: "0701234567" }),
+      createFormData({ attendance: RSVP_ATTENDANCE.yes, phone: "46701234567" }),
       rpc.adapter,
     );
 
@@ -210,12 +210,12 @@ test.describe("RSVP command", () => {
         attendance: RSVP_ATTENDANCE.maybe,
         food_preference: " Vegan ",
         include_plus_one: true,
-        phone: "+46701234567",
+        phone: "0701234567",
         plus_one_allergy_notes: " No shellfish ",
         plus_one_email: " guest@example.com ",
         plus_one_food_preference: " Fish ",
         plus_one_name: " Guest Friend ",
-        plus_one_phone: "+46701112233",
+        plus_one_phone: "0731112233",
         plus_one_sms_opt_in: true,
         sms_opt_in: true,
       }),
@@ -239,7 +239,7 @@ test.describe("RSVP command", () => {
       p_plus_one_email: "guest@example.com",
       p_plus_one_food_preference: "Fish",
       p_plus_one_name: "Guest Friend",
-      p_plus_one_phone: "+46701112233",
+      p_plus_one_phone: "+46731112233",
       p_plus_one_sms_opt_in: true,
       p_sms_opt_in: true,
       p_token_hash: "hashed-token",

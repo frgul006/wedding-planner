@@ -20,6 +20,7 @@ import type {
   AdminGuestRosterSessionErrors,
   AdminGuestRosterSessionValues,
 } from "@/lib/admin-guest-roster-session";
+import { normalizePhoneNumberInput, PHONE_FORMAT_HINT } from "@/lib/phone";
 
 import {
   archiveSelectedGuestsAction,
@@ -175,10 +176,10 @@ function validateRows(rows: EditorRow[], valuesByKey: Record<string, AdminGuestR
       };
     }
 
-    if (values.smsOptIn && (!phone || !/^\+[1-9][0-9]{7,14}$/.test(phone))) {
+    if (values.smsOptIn && (!phone || !normalizePhoneNumberInput(phone))) {
       errors[rowKey] = {
         ...errors[rowKey],
-        phone: "SMS kräver telefonnummer i format +46701234567.",
+        phone: `SMS kräver telefonnummer i format ${PHONE_FORMAT_HINT}.`,
       };
     }
   }
@@ -888,7 +889,7 @@ export function GuestRosterEditor({
                       disabled={isPending}
                       name="phone"
                       onChange={updateTextValue(rowKey, "phone")}
-                      placeholder="+46701234567"
+                      placeholder={PHONE_FORMAT_HINT}
                       readOnly={!row.canSave}
                       type="tel"
                       value={values.phone ?? ""}

@@ -60,7 +60,7 @@ Guests need an easy way to answer attendance, share contact details, and send fo
 - Set RSVP status to `rsvp yes`, `rsvp no`, or `rsvp maybe`.
 - Basic validation:
   - attendance required
-  - phone fields must be blank or compact E.164 with no spaces, for example `+46701234567`
+  - phone fields must be blank, compact E.164/`+46`, or Swedish `07` mobile format with no spaces, for example `+46701234567` or `0701234567`; Swedish `07` input normalizes to `+467...` on save
   - SMS opt-in requires a valid phone for the relevant person
   - default form state must never be invalid before the guest changes anything
   - +1 name required when +1 is selected and the linked guest is allowed a +1

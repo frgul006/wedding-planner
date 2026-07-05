@@ -15,7 +15,7 @@ function validChange(overrides = {}) {
       email: " ada@example.com ",
       fullName: " Ada Lovelace ",
       notes: " Seating note ",
-      phone: " +46701234567 ",
+      phone: " 0701234567 ",
       plusOneAllowed: true,
       smsOptIn: true,
     },
@@ -80,7 +80,7 @@ test.describe("Admin Gästlista samlad redigering", () => {
             email: "",
             fullName: " ",
             notes: "",
-            phone: "0701234567",
+            phone: "7001234567",
             plusOneAllowed: false,
             smsOptIn: true,
           },
@@ -94,7 +94,7 @@ test.describe("Admin Gästlista samlad redigering", () => {
       errors: {
         "guest-1": {
           fullName: "Namn krävs.",
-          phone: "SMS kräver telefonnummer i format +46701234567.",
+          phone: "SMS kräver telefonnummer i format +46701234567 eller 0701234567.",
           row: "Raden saknar versionsstämpel. Ladda om sidan.",
         },
       },

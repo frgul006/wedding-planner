@@ -1,4 +1,4 @@
-import { isE164PhoneNumber } from "@/lib/phone";
+import { normalizePhoneNumberInput, PHONE_FORMAT_HINT } from "@/lib/phone";
 import { isRecord } from "@/lib/type-guards";
 
 export type AdminGuestRosterSessionValues = {
@@ -96,7 +96,9 @@ export function normalizeAdminGuestRosterSessionChanges(
     const rowKey = change.rowKey || change.id || change.draftId || `row-${index + 1}`;
     const fullName = cleanRequiredText(change.values.fullName);
     const email = cleanOptionalText(change.values.email);
-    const phone = cleanOptionalText(change.values.phone);
+    const rawPhone = cleanOptionalText(change.values.phone);
+    const normalizedPhone = rawPhone ? normalizePhoneNumberInput(rawPhone) : null;
+    const phone = normalizedPhone ?? rawPhone;
     const notes = cleanOptionalText(change.values.notes);
 
     if (!fullName) {
@@ -112,12 +114,12 @@ export function normalizeAdminGuestRosterSessionChanges(
       );
     }
 
-    if (change.values.smsOptIn && (!phone || !isE164PhoneNumber(phone))) {
+    if (change.values.smsOptIn && !normalizedPhone) {
       addFieldError(
         errors,
         rowKey,
         "phone",
-        "SMS kräver telefonnummer i format +46701234567.",
+        `SMS kräver telefonnummer i format ${PHONE_FORMAT_HINT}.`,
       );
     }
 

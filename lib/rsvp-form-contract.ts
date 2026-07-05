@@ -1,7 +1,7 @@
 import {
   isE164PhoneNumber,
   parseOptionalPhone,
-  PHONE_FORMAT_EXAMPLE,
+  PHONE_FORMAT_HINT,
 } from "./phone";
 import {
   isRsvpAttendance,
@@ -99,7 +99,7 @@ export const RSVP_ACTION_COPY = {
   },
   validation: {
     attendanceRequired: "Välj Ja, Nej eller Kanske innan du sparar.",
-    phoneFormat: `Använd internationellt format utan mellanslag, t.ex. ${PHONE_FORMAT_EXAMPLE}.`,
+    phoneFormat: `Använd +46-format eller svenskt mobilnummer utan mellanslag, t.ex. ${PHONE_FORMAT_HINT}.`,
     plusOneNameRequired: "Skriv namnet på din gäst innan du sparar.",
     plusOneSmsPhoneRequired:
       "Lägg till din gästs telefonnummer om hen ska få SMS-uppdateringar.",

@@ -31,15 +31,15 @@ Guests can receive SMS updates only if they leave a valid phone number and conse
 ## Functional requirements
 
 - Add optional phone field to the OSA form for the invited guest.
-- Use compact E.164 international-format guidance with no spaces, for example `+46701234567`.
-- Validate country code and reject spaces or local-only formats when a phone value is provided.
+- Use compact `+46`/E.164 or Swedish `07` mobile-format guidance with no spaces, for example `+46701234567` or `0701234567`.
+- Validate phone format and reject spaces/unsupported local formats when a phone value is provided; normalize Swedish `07` mobile input to `+467...` on save.
 - Save phone on the guest record tied to token.
 - Capture SMS update consent before including the guest in SMS blasts; the artboard's checked/on default applies only when a valid compact E.164 phone is already prefilled, and the submitted checked/unchecked state is the source of truth.
 - Allow edit of phone number and SMS consent on invite page after submit.
 - Show error message for invalid phone format.
 - Error state must match the Brevkort artboard:
   - Rust/error underline on the field.
-  - Helper copy equivalent to `Använd internationellt format utan mellanslag, t.ex. +46701234567.`
+  - Helper copy equivalent to `Använd +46-format eller svenskt mobilnummer utan mellanslag, t.ex. +46701234567 eller 0701234567.`
 - Add optional +1 phone and +1 SMS consent fields only when the linked guest is allowed to bring a +1 and the +1 block is expanded.
 - SMS consent for any person requires that person's valid phone number.
 - If a phone field is blank on first render, its SMS opt-in checkbox defaults off so RSVP remains submit-ready without phone input.

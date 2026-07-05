@@ -8,7 +8,7 @@ import {
   getInviteRsvpEditHrefFromLocation,
   getInviteRsvpSubmittedHref,
 } from "@/lib/invite-rsvp-navigation";
-import { PHONE_FORMAT_EXAMPLE, PHONE_INPUT_PATTERN } from "@/lib/phone";
+import { PHONE_FORMAT_HINT, PHONE_INPUT_PATTERN } from "@/lib/phone";
 import type { RsvpAttendance } from "@/lib/rsvp-attendance";
 import {
   getInitialRsvpFormModel,
@@ -161,13 +161,13 @@ function AttendanceChoice({
 }
 
 function PlusOneChoice({
-  checked,
+  defaultChecked,
   description,
   label,
   onChange,
   value,
 }: {
-  checked: boolean;
+  defaultChecked: boolean;
   description: string;
   label: string;
   onChange: () => void;
@@ -175,7 +175,7 @@ function PlusOneChoice({
 }) {
   return (
     <BrevkortChoiceCard
-      checked={checked}
+      defaultChecked={defaultChecked}
       description={description}
       label={label}
       name={RSVP_FORM_FIELDS.includePlusOne}
@@ -330,6 +330,12 @@ export function RsvpPanel({
     idleRsvpActionState,
   );
   const fieldErrors = state.fieldErrors;
+  const submittedIncludePlusOne = state.values?.includePlusOne;
+  const plusOneChoiceSelected = submittedIncludePlusOne ?? plusOneSelected;
+  const plusOneChoiceKey =
+    submittedIncludePlusOne === undefined
+      ? "initial"
+      : `submitted-${submittedIncludePlusOne}`;
 
   useEffect(() => {
     // Complete successful client actions even after hash-only panel navigation.
@@ -404,7 +410,7 @@ export function RsvpPanel({
           label="Telefon"
           name={RSVP_FORM_FIELDS.phone}
           pattern={PHONE_INPUT_PATTERN}
-          placeholder={PHONE_FORMAT_EXAMPLE}
+          placeholder={PHONE_FORMAT_HINT}
           type="tel"
         />
 
@@ -431,18 +437,18 @@ export function RsvpPanel({
         />
 
         {guest.plus_one_allowed ? (
-          <fieldset className="grid gap-3">
+          <fieldset className="grid gap-3" key={plusOneChoiceKey}>
             <BrevkortLegend>Tar du med en gäst?</BrevkortLegend>
             <div className="grid grid-cols-2 gap-2">
               <PlusOneChoice
-                checked={!plusOneSelected}
+                defaultChecked={!plusOneChoiceSelected}
                 description="bara jag"
                 label="Nej"
                 onChange={() => setPlusOneSelected(false)}
                 value="false"
               />
               <PlusOneChoice
-                checked={plusOneSelected}
+                defaultChecked={plusOneChoiceSelected}
                 description="+1 gäst"
                 label="Ja"
                 onChange={() => setPlusOneSelected(true)}
@@ -483,7 +489,7 @@ export function RsvpPanel({
               label="Telefon"
               name={RSVP_FORM_FIELDS.plusOnePhone}
               pattern={PHONE_INPUT_PATTERN}
-              placeholder={PHONE_FORMAT_EXAMPLE}
+              placeholder={PHONE_FORMAT_HINT}
               type="tel"
             />
             <TextField
