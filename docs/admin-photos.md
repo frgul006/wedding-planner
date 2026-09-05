@@ -78,3 +78,18 @@ Useful checks:
 4. Confirm the upload appears as pending in `/admin/photos` and is absent from `/wedding-hub` and the ZIP export.
 5. Approve it and confirm it appears publicly and in the ZIP export.
 6. Hide or delete it and confirm it disappears from the public gallery and export.
+
+### Photo readiness checklist
+
+Use local Supabase only; preserve wedding settings before test fixtures reset them and restore afterwards. Clean only test-owned rows and original/thumbnail paths, including uploads that never reached finalize.
+
+- Picker → upload → feed/gallery: try JPEG, PNG, WEBP, per-file notes, and multiple files. Confirm verified DB MIME/size, matching stored original bytes, attribution when an active invite cookie exists, and anonymous access rules.
+- Limits: at most 8 selected files, 50 MiB each, 512-character notes. Unsupported/empty/oversized files should fail before signing.
+- Slow/partial batch: hold or fail a later Storage PUT. Earlier files must already be finalized; retry must not sign/upload earlier successes again. Picker, note, and remove controls stay disabled during transfer.
+- Lost finalize response: let the server commit, then drop its response. Retry should use the same claim, without another Storage PUT or duplicate row. Gallery refresh failure must not turn success into a failed upload.
+- Review on: show a receipt message but keep the verified pending photo out of public gallery/export until approved. Rejected bytes stay excluded and the stored original is removed.
+- HEIC/HEIF: verify server acceptance with compatible image signatures; browsers unable to decode show **Öppna original**, linking to the original. This does not convert the image; opening it may need a compatible app. Header fixtures test signature verification, not full image validity.
+- Server verification: an ignored Range or fallback 200 must consume only enough stream chunks for the 8 KiB prefix, then cancel. Invalid magic, MIME mismatch, and interrupted reads must fail closed. A stream can deliver an oversized chunk; only its prefix is retained and no further chunk is requested.
+- Validate mobile-sized picker/progress/gallery with `playwright-cli snapshot`, plus desktop browser regressions. Real iPhone Safari/camera-roll and slow venue Wi-Fi still require physical-device testing; browser emulation is not that validation.
+
+Focused automated checks: `e2e/wedding-hub-upload-browser.spec.ts`, `e2e/wedding-hub-photo-verification.spec.ts`, `e2e/wedding-hub-photo-upload-command.spec.ts`, `e2e/qr-code.spec.ts`, and `e2e/admin-photos.spec.ts`.

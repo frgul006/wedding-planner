@@ -12,6 +12,7 @@ import {
 } from "@/lib/photo-upload";
 import { isRecord } from "@/lib/type-guards";
 import type {
+  FinalizeRequestItem,
   HubFeedItem,
   HubGalleryPhoto,
   HubPhotoData,
@@ -51,7 +52,8 @@ type SelectedPhoto = {
     | "rejected";
   progress: number;
   message: string;
-  signedUploadClaim?: string;
+  // Preserve completed Storage transfers across uncertain finalize responses.
+  finalizeUpload?: FinalizeRequestItem;
   thumbnailBlobUrl?: string;
   thumbnailFile?: File;
 };
@@ -117,6 +119,17 @@ function uploadErrorMessage(errorCode: unknown, status: number) {
     default:
       return "Kunde inte förbereda uppladdningen. Kontrollera filerna och försök igen.";
   }
+}
+
+function PhotoPreview({ src, alt, sizes }: { src: string; alt: string; sizes: string }) {
+  const [failedSource, setFailedSource] = useState<string | null>(null);
+  return failedSource === src ? (
+    <span className="flex h-full items-center justify-center bg-[#e6dcc7] p-1 text-center text-[10px] leading-tight text-[#6f4f33]" title="Förhandsvisning saknas i den här webbläsaren. Öppna originalet.">
+      Öppna original
+    </span>
+  ) : (
+    <Image alt={alt} className="object-cover" fill sizes={sizes} src={src} unoptimized onError={() => setFailedSource(src)} />
+  );
 }
 
 function revokeSelectedPhotoUrls(photo: Pick<SelectedPhoto, "previewUrl" | "thumbnailBlobUrl">) {
@@ -219,13 +232,20 @@ export function WeddingHubClient({
 }: WeddingHubClientProps) {
   const hubDisplay = getWeddingHubDisplay(wedding);
   const [activeTab, setActiveTab] = useState<"flow" | "gallery">("flow");
-  const [photos, setPhotos] = useState<HubGalleryPhoto[]>(initialPhotoData.photos.photos);
-  const [feed, setFeed] = useState<HubFeedItem[]>(initialPhotoData.feed);
-  const [photoCount, setPhotoCount] = useState<number>(initialPhotoData.photos.totalPhotoCount);
+  const [photoData, setPhotoData] = useState({ initial: initialPhotoData, live: initialPhotoData });
+  // Reset on fresh server props without a cascading setState-in-effect render.
+  if (photoData.initial !== initialPhotoData) {
+    setPhotoData({ initial: initialPhotoData, live: initialPhotoData });
+  }
+  const photos = photoData.live.photos.photos;
+  const feed = photoData.live.feed;
+  const photoCount = photoData.live.photos.totalPhotoCount;
   const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
   const [fileSelectionMessage, setFileSelectionMessage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isUploadingAll, setIsUploadingAll] = useState(false);
+  const uploadInFlightRef = useRef(false);
+  const galleryRequestRef = useRef(0);
+  const [uploadSummary, setUploadSummary] = useState<string | null>(null);
 
   const parsePhotoData = (value: unknown): HubPhotoData | null => {
     if (!isRecord(value)) {
@@ -407,6 +427,7 @@ export function WeddingHubClient({
   }, [context?.uploadAllowed, wedding.allow_anonymous_hub_upload]);
 
   const refreshGallery = useCallback(async () => {
+    const requestId = ++galleryRequestRef.current;
     const response = await fetch("/api/wedding-hub/photos");
     if (!response.ok) {
       return;
@@ -415,20 +436,13 @@ export function WeddingHubClient({
     const rawPayload = await response.json();
     const nextPhotoData = parsePhotoData(rawPayload);
 
-    if (!nextPhotoData) {
+    // A slower response from an earlier batch must not replace newer photos.
+    if (!nextPhotoData || requestId !== galleryRequestRef.current) {
       return;
     }
 
-    setPhotos(nextPhotoData.photos.photos);
-    setPhotoCount(nextPhotoData.photos.totalPhotoCount ?? nextPhotoData.photos.photos.length);
-    setFeed(nextPhotoData.feed);
+    setPhotoData(current => ({ ...current, live: nextPhotoData }));
   }, []);
-
-  useEffect(() => {
-    setPhotos(initialPhotoData.photos.photos);
-    setFeed(initialPhotoData.feed);
-    setPhotoCount(initialPhotoData.photos.totalPhotoCount);
-  }, [initialPhotoData.photos.photos, initialPhotoData.feed, initialPhotoData.photos.totalPhotoCount]);
 
   useEffect(() => {
     selectedPhotosRef.current = selectedPhotos;
@@ -464,7 +478,7 @@ export function WeddingHubClient({
   }, []);
 
   const onSelectFiles = useCallback((nextFiles: FileList | null) => {
-    if (!nextFiles) {
+    if (!nextFiles || uploadInFlightRef.current) {
       return;
     }
 
@@ -560,10 +574,12 @@ export function WeddingHubClient({
   }, [selectedPhotos.length]);
 
   const onSelectFileClick = useCallback(() => {
+    if (uploadInFlightRef.current) return;
     fileInputRef.current?.click();
   }, []);
 
   const clearFile = useCallback((id: string) => {
+    if (uploadInFlightRef.current) return;
     setSelectedPhotos((current) => {
       const entry = current.find((row) => row.id === id);
       if (entry) {
@@ -582,163 +598,108 @@ export function WeddingHubClient({
   );
 
   const onUpload = useCallback(async () => {
-    if (!canUpload || isUploadingAll || !selectedPhotos.length) {
-      return;
-    }
+    if (!canUpload || uploadInFlightRef.current || !selectedPhotos.length || selectedPhotos.length > MAX_HUB_FILES_PER_REQUEST) return;
 
-    if (selectedPhotos.length > MAX_HUB_FILES_PER_REQUEST) {
-      return;
-    }
-
+    uploadInFlightRef.current = true;
     setFileSelectionMessage(null);
-    setIsUploadingAll(true);
+    setUploadSummary(null);
     setIsUploading(true);
-
+    let completed = 0;
     try {
-      setSelectedPhotos((current) =>
-        current.map((row) => ({ ...row, status: "preparing", progress: 0, message: "Skapar uppladdning", signedUploadClaim: undefined })),
-      );
-
-      const signResponse = await fetch("/api/wedding-hub/photos/sign", {
-        body: JSON.stringify({
-          uploads: selectedPhotos.map((row) => ({
-            clientId: row.id,
-            fileName: row.fileName,
-            mimeType: row.file.type,
-            sizeBytes: row.file.size,
-            note: row.note,
-          })),
-        }),
-        headers: {
-          "content-type": "application/json",
-        },
-        method: "POST",
-      });
-
-      const signedResult = await signResponse.json().catch(() => null);
-      const intents = parseUploadIntents(signedResult?.uploadIntents);
-
-      if (!signResponse.ok || !intents) {
-        const signErrorCode = isRecord(signedResult) ? signedResult.error : null;
-        throw new Error(uploadErrorMessage(signErrorCode, signResponse.status));
-      }
-
-      const intentById = new Map(intents.map((intent) => [intent.clientId, intent]));
-      const finalizeRows: Array<{
-        clientId: string;
-        originalClaim: string;
-        originalFileName: string;
-        note: string;
-        thumbnailClaim?: string;
-      }> = [];
-
       for (const item of selectedPhotos) {
-        const intent = intentById.get(item.id);
-        if (!intent) {
-          updateSelected(item.id, (row) => ({ ...row, status: "error", message: "Ingen signatur" }));
-          continue;
-        }
-
-        updateSelected(item.id, (row) => ({ ...row, status: "uploading", message: "Laddar upp", progress: 1 }));
-
+        if (item.status === "done") continue;
         try {
-          await uploadToSignedUrl(intent.uploadUrl, item.file, (progress) => {
-            updateSelected(item.id, (row) => ({ ...row, progress, message: `Laddar upp ${progress}%` }));
-          });
-
-          let thumbnailClaim = undefined;
-
-          if (intent.canGenerateThumbnail && item.thumbnailFile && intent.thumbnailUploadUrl) {
-            const thumbnailIntent = {
-              uploadUrl: intent.thumbnailUploadUrl,
-              file: item.thumbnailFile,
-            } as const;
-
-            try {
-              await uploadToSignedUrl(thumbnailIntent.uploadUrl, thumbnailIntent.file, () => undefined);
-              thumbnailClaim = intent.thumbnailClaim;
-            } catch {
-              thumbnailClaim = undefined;
+          let finalizeUpload = item.finalizeUpload;
+          if (!finalizeUpload) {
+            updateSelected(item.id, row => ({ ...row, status: "preparing", progress: 0, message: "Skapar uppladdning" }));
+            // Sign just before this transfer, not before waiting on earlier files.
+            const signResponse = await fetch("/api/wedding-hub/photos/sign", {
+              body: JSON.stringify({ uploads: [{
+                clientId: item.id,
+                fileName: item.fileName,
+                mimeType: item.file.type,
+                sizeBytes: item.file.size,
+                note: item.note,
+              }] }),
+              headers: { "content-type": "application/json" },
+              method: "POST",
+            });
+            const signedResult = await signResponse.json().catch(() => null);
+            const intents = parseUploadIntents(signedResult?.uploadIntents);
+            const intent = intents?.find(row => row.clientId === item.id);
+            if (!signResponse.ok || !intent) {
+              throw new Error(uploadErrorMessage(isRecord(signedResult) ? signedResult.error : null, signResponse.status));
             }
+
+            updateSelected(item.id, row => ({ ...row, status: "uploading", message: "Laddar upp", progress: 1 }));
+            await uploadToSignedUrl(intent.uploadUrl, item.file, progress => {
+              updateSelected(item.id, row => ({ ...row, progress, message: `Laddar upp ${progress}%` }));
+            });
+
+            let thumbnailClaim: string | undefined;
+            if (intent.canGenerateThumbnail && item.thumbnailFile && intent.thumbnailUploadUrl) {
+              try {
+                await uploadToSignedUrl(intent.thumbnailUploadUrl, item.thumbnailFile, () => undefined);
+                thumbnailClaim = intent.thumbnailClaim;
+              } catch {
+                // Original remains usable when an optional thumbnail fails.
+              }
+            }
+            finalizeUpload = {
+              clientId: item.id,
+              originalClaim: intent.signedUploadClaim,
+              originalFileName: item.fileName,
+              note: item.note,
+              thumbnailClaim,
+            };
+            updateSelected(item.id, row => ({ ...row, finalizeUpload }));
           }
 
-          finalizeRows.push({
-            clientId: item.id,
-            originalClaim: intent.signedUploadClaim,
-            originalFileName: item.fileName,
-            note: item.note,
-            ...(thumbnailClaim ? { thumbnailClaim } : {}),
+          // Finish this file before advancing. Retain its claim on uncertain
+          // responses: retry uses server idempotency, never a second upload.
+          updateSelected(item.id, row => ({ ...row, status: "finalizing", progress: 100, message: "Verifierar" }));
+          const response = await fetch("/api/wedding-hub/photos/finalize", {
+            body: JSON.stringify({ uploads: [finalizeUpload] }),
+            headers: { "content-type": "application/json" },
+            method: "POST",
           });
-
-          updateSelected(item.id, (row) => ({ ...row, status: "finalizing", message: "Verifierar", progress: 100 }));
-        } catch (error) {
-          updateSelected(item.id, (row) => ({
-            ...row,
-            status: "error",
-            message: error instanceof Error ? error.message : "Uppladdning misslyckades",
-          }));
-        }
-      }
-
-      if (finalizeRows.length > 0) {
-        const finalize = await fetch("/api/wedding-hub/photos/finalize", {
-          body: JSON.stringify({ uploads: finalizeRows }),
-          headers: {
-            "content-type": "application/json",
-          },
-          method: "POST",
-        });
-
-        const finalizePayload = await finalize.json().catch(() => null);
-        const finalizeRowsResult = parseFinalizeRows(finalizePayload);
-
-        if (finalize.ok && finalizeRowsResult) {
-          for (const row of finalizeRowsResult) {
-            const status = row.success ? "done" : row.status === "rejected" ? "rejected" : "error";
-
-            updateSelected(row.clientId, (current) => ({
-              ...current,
-              status: status as SelectedPhoto["status"],
-              message: row.success
-                ? wedding.photo_upload_requires_review
-                  ? "Skickad för granskning"
-                  : "Verifierad"
-                : row.reason
-                  ? row.reason
-                  : row.status,
+          const results = parseFinalizeRows(await response.json().catch(() => null));
+          const result = results?.find(row => row.clientId === item.id);
+          if (!response.ok || !result) throw new Error("Verifiering misslyckades. Försök igen.");
+          if (!result.success) {
+            updateSelected(item.id, row => ({
+              ...row,
+              status: result.status === "rejected" ? "rejected" : "error",
+              // Confirmed rejection purges the object; only this response permits a fresh upload.
+              finalizeUpload: result.status === "rejected" ? undefined : row.finalizeUpload,
+              message: result.reason === "invalid_claim"
+                ? "Verifieringslänken har gått ut. Bilden kan redan vara mottagen; kontrollera med brudparet innan du laddar upp den igen."
+                : result.reason ?? "Verifiering misslyckades. Försök igen.",
             }));
+            continue;
           }
-
-          await refreshGallery();
-          setSelectedPhotos((current) => current.filter((item) => {
-            if (item.status === "done") {
-              revokeSelectedPhotoUrls(item);
-              return false;
-            }
-
-            return true;
-          }));
-        } else {
-          const failedClientIds = new Set(finalizeRows.map((row) => row.clientId));
-          setSelectedPhotos((current) =>
-            current.map((row) =>
-              failedClientIds.has(row.id)
-                ? { ...row, status: "error", message: "Verifiering misslyckades" }
-                : row,
-            ),
-          );
+          completed += 1;
+          updateSelected(item.id, row => ({ ...row, status: "done", message: wedding.photo_upload_requires_review ? "Skickad för granskning" : "Verifierad" }));
+          const receipt = wedding.photo_upload_requires_review
+            ? completed === 1 ? "bild skickad för granskning" : "bilder skickade för granskning"
+            : completed === 1 ? "bild uppladdad" : "bilder uppladdade";
+          setUploadSummary(`${completed} ${receipt}.`);
+        } catch (error) {
+          updateSelected(item.id, row => ({ ...row, status: "error", message: error instanceof Error ? error.message : "Uppladdning misslyckades" }));
         }
       }
-
-    } catch (error) {
-      setSelectedPhotos((current) =>
-        current.map((row) => ({ ...row, status: "error", message: error instanceof Error ? error.message : "Uppladdning misslyckades" })),
-      );
     } finally {
+      setSelectedPhotos(current => current.filter(item => {
+        if (item.status !== "done") return true;
+        revokeSelectedPhotoUrls(item);
+        return false;
+      }));
+      uploadInFlightRef.current = false;
       setIsUploading(false);
-      setIsUploadingAll(false);
     }
-  }, [canUpload, isUploadingAll, refreshGallery, selectedPhotos, updateSelected, wedding.photo_upload_requires_review]);
+    // Refresh once, without blocking the next file/batch or undoing verified receipts.
+    if (completed > 0) void refreshGallery().catch(() => undefined);
+  }, [canUpload, refreshGallery, selectedPhotos, updateSelected, wedding.photo_upload_requires_review]);
 
   return (
     <main className="min-h-dvh bg-[#f1eadc] pb-28 text-[#15130f]" style={{
@@ -773,7 +734,7 @@ export function WeddingHubClient({
               canUpload ? "bg-[#15130f] text-[#f1eadc]" : "cursor-not-allowed bg-[#15130f]/70 text-[#f1eadc]/80"
             }`}
             onClick={onSelectFileClick}
-            disabled={!canUpload}
+            disabled={!canUpload || isUploading}
             type="button"
           >
             <span className="flex h-11 w-11 items-center justify-center rounded-full border border-current text-2xl">↑</span>
@@ -807,42 +768,42 @@ export function WeddingHubClient({
           </p>
         ) : null}
 
-        <section className="mt-3 grid grid-cols-2 border-y border-[#15130f]/15 px-5">
+        {uploadSummary ? <p className="mx-5 my-2 text-sm text-[#6f4f33]" role="status">{uploadSummary}</p> : null}
+
+        <section className="mt-3 border-y border-[#15130f]/15 px-5">
           <div className="py-3 text-center">
             <p className="font-serif text-3xl leading-none">{photoCount}</p>
             <p className="mt-1 font-mono text-[0.6rem] uppercase tracking-[0.32em] text-[#6b6358]">Bilder</p>
-          </div>
-          <div className="border-l border-[#15130f]/15 py-3 text-center">
-            <div className="h-9" aria-hidden="true" />
-            <p className="mt-1 font-mono text-[0.6rem] uppercase tracking-[0.32em] text-[#6b6358]">TODO</p>
           </div>
         </section>
 
         {selectedPhotos.length ? (
           <section className="px-5 py-3">
             <p className="mb-2 font-mono text-sm uppercase tracking-[0.22em] text-[#6f4f33]">Valda filer</p>
+            {selectedPhotos.some(photo => photo.file.type === "image/heic" || photo.file.type === "image/heif") ? (
+              <p className="mb-2 text-xs text-[#6b6358]">HEIC/HEIF kan sakna förhandsvisning i den här webbläsaren. Öppna originalet, eller välj JPEG för visning i fler webbläsare.</p>
+            ) : null}
             <div className="grid gap-2">
               {selectedPhotos.map((photo) => (
                 <div
                   key={photo.id}
                   className="grid grid-cols-[56px_1fr_auto] items-center gap-3 border border-[#15130f]/20 bg-[#f5efe3] px-2 py-2"
                 >
-                  <span className="relative block h-14 w-14 overflow-hidden">
-                    <Image
+                  <a className="relative block h-14 w-14 overflow-hidden" href={photo.previewUrl} target="_blank" rel="noopener noreferrer" aria-label={`Öppna original: ${photo.fileName}`}>
+                    <PhotoPreview
                       alt="Miniatur"
-                      className="object-cover"
-                      fill
                       sizes="56px"
                       src={photo.thumbnailBlobUrl ?? photo.previewUrl}
-                      unoptimized
                     />
-                  </span>
+                  </a>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{photo.fileName}</p>
                     <input
                       className="mt-1 w-full rounded border border-[#15130f]/30 px-2 py-1 text-xs"
                       maxLength={MAX_PHOTO_NOTE_LENGTH}
+                      disabled={isUploading || Boolean(photo.finalizeUpload)}
                       onChange={(event) => {
+                        if (uploadInFlightRef.current || photo.finalizeUpload) return;
                         const note = event.target.value;
                         updateSelected(photo.id, (row) => ({ ...row, note }));
                       }}
@@ -858,6 +819,7 @@ export function WeddingHubClient({
                     onClick={() => {
                       clearFile(photo.id);
                     }}
+                    disabled={isUploading}
                     type="button"
                   >
                     Ta bort
@@ -867,11 +829,11 @@ export function WeddingHubClient({
             </div>
             <button
               className="mt-3 w-full border border-[#15130f] bg-[#15130f] px-3 py-3 text-sm font-semibold text-[#f1eadc] disabled:opacity-60"
-              disabled={!canUpload || isUploadingAll}
+              disabled={!canUpload || isUploading}
               onClick={onUpload}
               type="button"
             >
-              {isUploadingAll ? "Laddar upp..." : `Ladda upp ${readableFileError(selectedPhotos.length, MAX_HUB_FILES_PER_REQUEST)}`}
+              {isUploading ? "Laddar upp..." : `Ladda upp ${readableFileError(selectedPhotos.length, MAX_HUB_FILES_PER_REQUEST)}`}
             </button>
           </section>
         ) : null}
@@ -910,14 +872,7 @@ export function WeddingHubClient({
                       rel="noopener noreferrer"
                       target="_blank"
                     >
-                      <Image
-                        src={entry.thumbnailUrl}
-                        alt=""
-                        className="object-cover"
-                        fill
-                        sizes="44px"
-                        unoptimized
-                      />
+                      <PhotoPreview src={entry.thumbnailUrl} alt="" sizes="44px" />
                     </a>
                     <div>
                       <p className="text-sm font-medium">
@@ -944,18 +899,16 @@ export function WeddingHubClient({
               {photos.map((photo) => (
                 <a
                   key={photo.id}
+                  aria-label={`Öppna foto från ${photo.who}`}
                   className="relative block h-28 w-full overflow-hidden"
                   href={photo.photoUrl}
                   rel="noopener noreferrer"
                   target="_blank"
                 >
-                  <Image
+                  <PhotoPreview
                     alt={`Foto från ${photo.who}`}
-                    className="object-cover"
-                    fill
                     sizes="(max-width: 448px) 33vw, 149px"
                     src={photo.thumbnailUrl}
-                    unoptimized
                   />
                 </a>
               ))}
@@ -1001,6 +954,7 @@ export function WeddingHubClient({
       <input
         accept={PHOTO_UPLOAD_ACCEPT}
         className="hidden"
+        disabled={isUploading}
         multiple
         onChange={(event) => {
           onSelectFiles(event.target.files);

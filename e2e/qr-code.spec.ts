@@ -267,7 +267,7 @@ test.describe("wedding hub QR", () => {
     await expect(page.getByText("Bröllopshub · 26 SEP", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: /Lägg till en låt/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Ladda upp/ })).toBeVisible();
-    await expect(page.getByText("TODO")).toBeVisible();
+    await expect(page.getByText("TODO")).toHaveCount(0);
     await expect(page.getByText(/teknisk verifiering/)).toHaveCount(0);
     await expect(page.getByText("Inga nya bidrag än")).toBeVisible();
     await expect(page.getByText("Dela din bild så visar vi den här direkt.")).toBeVisible();
