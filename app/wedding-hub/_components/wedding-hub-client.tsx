@@ -244,6 +244,7 @@ export function WeddingHubClient({
   const [fileSelectionMessage, setFileSelectionMessage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const uploadInFlightRef = useRef(false);
+  const galleryRequestRef = useRef(0);
   const [uploadSummary, setUploadSummary] = useState<string | null>(null);
 
   const parsePhotoData = (value: unknown): HubPhotoData | null => {
@@ -426,6 +427,7 @@ export function WeddingHubClient({
   }, [context?.uploadAllowed, wedding.allow_anonymous_hub_upload]);
 
   const refreshGallery = useCallback(async () => {
+    const requestId = ++galleryRequestRef.current;
     const response = await fetch("/api/wedding-hub/photos");
     if (!response.ok) {
       return;
@@ -434,7 +436,8 @@ export function WeddingHubClient({
     const rawPayload = await response.json();
     const nextPhotoData = parsePhotoData(rawPayload);
 
-    if (!nextPhotoData) {
+    // A slower response from an earlier batch must not replace newer photos.
+    if (!nextPhotoData || requestId !== galleryRequestRef.current) {
       return;
     }
 

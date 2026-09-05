@@ -164,14 +164,18 @@ test.describe("Wedding hub browser upload", () => {
     expect(Buffer.from(await original.data!.arrayBuffer())).toEqual(PNG);
   });
 
-  test("held gallery refresh cannot block the next photo or keep upload controls locked", async ({ page }) => {
+  test("held gallery refresh cannot block uploads or replace a newer batch", async ({ page }) => {
     let galleryRequests = 0;
     let releaseGallery!: () => void;
     const heldGallery = new Promise<void>(resolve => { releaseGallery = resolve; });
     await page.route("**/api/wedding-hub/photos", async route => {
-      galleryRequests += 1;
-      await heldGallery;
-      await route.fulfill({ response: await route.fetch() });
+      const requestNumber = ++galleryRequests;
+      const response = await route.fetch();
+      if (requestNumber === 1) await heldGallery;
+      await route.fulfill({
+        response,
+        headers: { ...response.headers(), "x-test-gallery-request": String(requestNumber) },
+      });
     });
     await pick(page, [`${PREFIX}held-gallery-first.png`, `${PREFIX}held-gallery-second.png`]);
     try {
@@ -189,6 +193,26 @@ test.describe("Wedding hub browser upload", () => {
       await expect(page.getByPlaceholder("Lägg till kommentar")).toBeEnabled();
       await expect(page.getByRole("button", { name: "Ta bort", exact: true })).toBeEnabled();
       expect(galleryRequests).toBe(1);
+      await page.getByPlaceholder("Lägg till kommentar").fill("Newest batch stays visible");
+      await page.getByRole("button", { name: /^Ladda upp \d/ }).click();
+      await expect(page.getByText("Valda filer", { exact: true })).toHaveCount(0);
+      await expect.poll(() => galleryRequests).toBe(2);
+      await page.getByRole("button", { name: "Galleriet" }).click();
+      const galleryPhotos = page.locator(`a[href*="${PREFIX}"]`);
+      await expect(galleryPhotos).toHaveCount(3);
+
+      const staleResponse = page.waitForResponse(response =>
+        response.headers()["x-test-gallery-request"] === "1",
+      );
+      releaseGallery();
+      await (await staleResponse).finished();
+      // Let the released response's state update reach the next browser paint.
+      await page.evaluate(() => new Promise<void>(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }));
+      await expect(galleryPhotos).toHaveCount(3);
+      await page.getByRole("button", { name: "Flöde" }).click();
+      await expect(page.getByText("Newest batch stays visible", { exact: false })).toBeVisible();
     } finally {
       releaseGallery();
     }
