@@ -3,13 +3,14 @@ import { expect, test } from "@playwright/test";
 import {
   MAX_HUB_FILES_PER_REQUEST,
   MAX_PHOTO_NOTE_LENGTH,
+  PHOTO_UPLOAD_MAX_FILE_SIZE_BYTES,
 } from "../lib/photo-upload";
 import type { HubContext } from "../lib/wedding-hub-access";
 import {
   finalizeHubPhotoUploadsCommand,
   signHubPhotoUploadsCommand,
 } from "../lib/wedding-hub-photo-upload-command";
-import type { HubPhotoUploadSigningAdapter } from "../lib/wedding-hub-photo-upload";
+import { UPLOAD_CLAIM_TTL_SECONDS, type HubPhotoUploadSigningAdapter } from "../lib/wedding-hub-photo-upload";
 import type { FinalizeResult } from "../lib/wedding-hub-photo-verification";
 
 class FakeSigningAdapter implements HubPhotoUploadSigningAdapter {
@@ -113,6 +114,31 @@ test.describe("Wedding hub photo upload command Module", () => {
     expect(result).toEqual({ body: { error: "invalid_payload" }, httpStatus: 400 });
     expect(contextLoads).toBe(0);
     expect(signingAdapter.calls).toEqual([]);
+  });
+
+  for (const sizeBytes of [0, PHOTO_UPLOAD_MAX_FILE_SIZE_BYTES + 1]) {
+    test(`rejects declared size ${sizeBytes} before signing`, async () => {
+      const signingAdapter = new FakeSigningAdapter();
+      const result = await signHubPhotoUploadsCommand({
+        body: { uploads: [{ clientId: "size-limit", fileName: "photo.png", mimeType: "image/png", sizeBytes }] },
+        loadHubContext: async () => hubContext(),
+        signingAdapter,
+      });
+      expect(result).toEqual({ body: { error: "invalid_file_size" }, httpStatus: 400 });
+      expect(signingAdapter.calls).toEqual([]);
+    });
+  }
+
+  test("accepts declared 50 MiB boundary without extending claim lifetime", async () => {
+    expect(UPLOAD_CLAIM_TTL_SECONDS).toBe(600);
+    const signingAdapter = new FakeSigningAdapter();
+    const result = await signHubPhotoUploadsCommand({
+      body: { uploads: [{ clientId: "size-boundary", fileName: "photo.png", mimeType: "image/png", sizeBytes: PHOTO_UPLOAD_MAX_FILE_SIZE_BYTES }] },
+      loadHubContext: async () => hubContext(),
+      signingAdapter,
+    });
+    expect(result.httpStatus).toBe(200);
+    expect(signingAdapter.calls).toHaveLength(2);
   });
 
   test("returns denied sign body from Wedding hub access", async () => {

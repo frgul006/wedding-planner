@@ -155,10 +155,7 @@ function detectMime(bytes: Uint8Array): string | null {
   ) {
     const brands = String.fromCharCode(...bytes.slice(8, Math.min(bytes.length, 64))).toLowerCase();
 
-    if (brands.includes("mif1") || brands.includes("msf1") || brands.includes("heif")) {
-      return "image/heif";
-    }
-
+    // HEIC files often also advertise generic HEIF compatibility (mif1).
     if (
       brands.includes("heic") ||
       brands.includes("heix") ||
@@ -166,6 +163,10 @@ function detectMime(bytes: Uint8Array): string | null {
       brands.includes("hevx")
     ) {
       return "image/heic";
+    }
+
+    if (brands.includes("mif1") || brands.includes("msf1") || brands.includes("heif")) {
+      return "image/heif";
     }
   }
 
@@ -182,6 +183,9 @@ async function readSignedObjectHeader(supabase: SupabaseClient, path: string, ob
   }
 
   const fetchHeaderBytes = async (useRange: boolean) => {
+    // Own the request lifetime. A signal also opts out of Next fetch memoization,
+    // whose retained response clone can otherwise keep reader.cancel() pending.
+    const controller = new AbortController();
     const response = await fetch(data.signedUrl, {
       ...(useRange
         ? {
@@ -191,13 +195,37 @@ async function readSignedObjectHeader(supabase: SupabaseClient, path: string, ob
           }
         : {}),
       method: "GET",
+      cache: "no-store",
+      signal: controller.signal,
     });
 
     if (!response.ok) {
+      controller.abort();
+      await response.body?.cancel().catch(() => undefined);
       return null;
     }
+    if (!response.body) return null;
 
-    return new Uint8Array(await response.arrayBuffer());
+    // Range is only an optimization: Storage/proxies may ignore it or return 200
+    // on fallback. Never buffer the full object just to inspect its signature.
+    const reader = response.body.getReader();
+    const prefix = new Uint8Array(VERIFY_HEADER_BYTES);
+    let length = 0;
+    try {
+      while (length < prefix.length) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const bytes = value.subarray(0, prefix.length - length);
+        prefix.set(bytes, length);
+        length += bytes.length;
+      }
+      return prefix.subarray(0, length);
+    } finally {
+      // Includes read failures and oversized chunks; do not drain the remainder.
+      controller.abort();
+      await reader.cancel().catch(() => undefined);
+      reader.releaseLock();
+    }
   };
 
   const shouldUseRange = objectSizeBytes > VERIFY_HEADER_BYTES;
@@ -212,7 +240,7 @@ async function readSignedObjectHeader(supabase: SupabaseClient, path: string, ob
   return { bytes: bytes.slice(0, VERIFY_HEADER_BYTES) };
 }
 
-async function verifyStoredObject({
+export async function verifyStoredObject({
   supabase,
   path,
   declaredSize,

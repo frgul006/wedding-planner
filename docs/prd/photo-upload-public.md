@@ -40,7 +40,7 @@ Guests can share photos quickly and also add songs during the wedding. The uploa
 - If an admin disables anonymous hub upload later, uploads require a valid guest navigation cookie and otherwise show a clear message.
 - Page sections:
   - Photo upload area
-  - "Add songs" button/link to Spotify playlist from wedding settings
+  - A normal external link to the Spotify playlist from `weddings.spotify_playlist_url`, opening Spotify in a new tab/app. No Spotify API, OAuth, playlist editing, collaborator-link infrastructure, or app/global fallback URL. When the setting is blank, the action stays disabled. Adding songs, if permitted, happens entirely in Spotify.
 - Storage:
   - Store uploaded originals in a private Supabase Storage bucket, for example `wedding-photos`.
   - Use direct browser upload with short-lived signed upload URLs created by the app after server-side request validation.
@@ -52,7 +52,10 @@ Guests can share photos quickly and also add songs during the wedding. The uploa
   - Post-upload verification should confirm the stored object exists, matches expected size limits using storage-observed metadata, and is an allowed image type using a bounded server-side content check; deeper validation can run in a background job or Supabase Edge Function if needed.
   - Store file metadata in `PhotoUpload`, including storage path, server-verified MIME type and size, optional original filename, optional note, verification status, session id, inferred guest id when available, and thumbnail metadata fields (`thumbnail_status`, path, MIME, size).
 - Upload flow (uses shared route and shared settings):
-  - Allow one or many image files.
+  - Allow up to 8 image files, each at most 50 MiB; retain the optional per-file note (512 characters).
+  - Sign each file just before its direct Storage upload, then finalize it immediately before proceeding to the next file. Do not sign the entire queue up front or delay all verification until the batch ends. The claim TTL remains 10 minutes.
+  - Keep each success independent of later failures, including gallery refresh failures. Retry failed files only; when Storage succeeded but finalize acknowledgement was lost, retry the same claim without uploading another copy. Disable picker, note edits, and removal during the batch; keep notes frozen for pending finalize retries.
+  - A page reload does not resume uploads. If a finalize claim expires, warn that the photo may already have been received; ask the guest to check with the couple before selecting it again.
   - Validate declared file size and image type before creating signed upload URLs.
   - Show upload progress and completion/error states.
   - Save one `PhotoUpload` row per uploaded file after storage upload succeeds, initially with `verification_status = pending`.
@@ -87,7 +90,8 @@ Guests can share photos quickly and also add songs during the wedding. The uploa
 - Upload progress is visible during transfer.
 - Uploaded files are stored in Supabase Storage and have matching `PhotoUpload` metadata rows.
 - Uploaded files must pass server-side post-upload verification before they can be displayed, approved, or exported.
-- Gallery/feed rendering should use generated thumbnails where available; if `thumbnail_status` is not `ready` or thumbnail URL signing fails, the hub falls back to the signed original photo URL.
+- Gallery/feed rendering should use generated thumbnails where available; if `thumbnail_status` is not `ready` or thumbnail URL signing fails, the hub falls back to the signed original photo URL. If the browser cannot decode the preview (notably HEIC/HEIF), show an honest original/open fallback, not a broken image or a promise of conversion. No heavy conversion dependency.
+- Verification retains at most an 8 KiB header prefix and cancels the remaining response body even when Storage ignores Range or the fallback returns 200. This is signature/metadata verification, not a full image decode.
 - With review disabled by default, verified valid uploads are marked `approved` without manual review.
 - With review enabled, verified valid uploads are marked `pending` and do not show until approved.
 - Spotify action is visible on the same page as upload.

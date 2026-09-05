@@ -61,6 +61,16 @@ Guest-facing links stored in `google_maps_url` and `spotify_playlist_url` must b
 - Toggle anonymous wedding hub uploads
 - Toggle whether verified photo uploads require admin review before showing
 
+## Spotify setup
+
+Set **Spotify playlist URL** to the desired normal playlist link, for example:
+
+```txt
+https://open.spotify.com/playlist/2gk0PlIQ0O9Lzz9GwE0br4
+```
+
+This is an operator setup example, not an application default. The Wedding hub reads only the wedding's saved setting and opens it as an external link; a blank setting leaves the action disabled. No Spotify API/OAuth, collaborator-link management, or in-app song submission is involved. Any playlist editing permissions are managed in Spotify itself.
+
 ## Local validation
 
 After seeding local data, visit:
