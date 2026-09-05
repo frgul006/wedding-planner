@@ -5,971 +5,890 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
-  type ChangeEvent,
-  type ReactNode,
 } from "react";
-
 import type {
   AdminGuestRosterFilters,
   AdminGuestRosterRow,
 } from "@/lib/admin-guest-roster";
+import {
+  matchesAdminGuestRosterFilters,
+  type DietaryFilter,
+  type GuestKindFilter,
+} from "@/lib/admin-guest-roster-filters";
 import type {
   AdminGuestRosterSessionChange,
   AdminGuestRosterSessionErrors,
   AdminGuestRosterSessionValues,
 } from "@/lib/admin-guest-roster-session";
+import { isRsvpStatus } from "@/lib/invite-status";
 import { normalizePhoneNumberInput, PHONE_FORMAT_HINT } from "@/lib/phone";
-
 import {
   archiveSelectedGuestsAction,
   saveGuestRosterSessionAction,
 } from "./actions";
 import { InviteLinkButton } from "./invite-link-button";
 
+type Row = AdminGuestRosterRow & { draft?: boolean };
+type Status = { tone: "error" | "success" | "warning"; text: string } | null;
 const unsavedPrompt =
-  "Du har osparade ändringar i Gästlistan. Spara eller kasta dem innan du lämnar sidan.";
-
-type EditorRow = AdminGuestRosterRow | DraftGuestRow;
-
-type DraftGuestRow = Omit<
-  AdminGuestRosterRow,
-  | "hasActiveToken"
-  | "id"
-  | "inviteAccessScope"
-  | "inviteStatus"
-  | "rsvpDetails"
-  | "rsvpStatus"
-  | "rsvpStatusLabel"
-  | "tiedInvitedGuestText"
-  | "updatedAt"
-  | "updatedAtLabel"
-> & {
-  draftId: string;
-  hasActiveToken: false;
-  id: string;
-  inviteAccessScope: "full";
-  inviteStatus: "not replied";
-  isDraft: true;
-  rsvpDetails: null;
-  rsvpStatus: "not replied";
-  rsvpStatusLabel: string;
-  tiedInvitedGuestText: null;
-  updatedAt: string;
-  updatedAtLabel: string;
-};
-
-type SessionStatus =
-  | { tone: "error" | "success" | "warning"; text: string }
-  | null;
-
-type BulkIntent =
-  | { field: "plusOneAllowed"; value: boolean }
-  | { field: "smsOptIn"; value: boolean };
-
-function rowToValues(row: EditorRow): AdminGuestRosterSessionValues {
+  "Du har osparade ändringar i gästlistan. Lämna sidan och förlora ändringarna?";
+const clean = (value: string | null) => value?.trim() || null;
+function rowValues(row: Row): AdminGuestRosterSessionValues {
   return {
-    email: row.email,
     fullName: row.fullName,
-    notes: row.notes,
+    email: row.email,
     phone: row.phone,
+    notes: row.notes,
     plusOneAllowed: row.plusOneAllowed,
     smsOptIn: row.smsOptIn,
+    rsvpStatus: row.rsvpStatus,
   };
 }
-
-function normalizeValue(value: string | null) {
-  const trimmed = value?.trim() ?? "";
-  return trimmed ? trimmed : null;
-}
-
-function valuesEqual(
+function equal(
   left: AdminGuestRosterSessionValues,
   right: AdminGuestRosterSessionValues,
 ) {
   return (
-    normalizeValue(left.email) === normalizeValue(right.email) &&
-    left.fullName.trim() === right.fullName.trim() &&
-    normalizeValue(left.notes) === normalizeValue(right.notes) &&
-    normalizeValue(left.phone) === normalizeValue(right.phone) &&
+    clean(left.fullName) === clean(right.fullName) &&
+    clean(left.email) === clean(right.email) &&
+    clean(left.phone) === clean(right.phone) &&
+    clean(left.notes) === clean(right.notes) &&
     left.plusOneAllowed === right.plusOneAllowed &&
-    left.smsOptIn === right.smsOptIn
+    left.smsOptIn === right.smsOptIn &&
+    left.rsvpStatus === right.rsvpStatus
   );
 }
-
-function makeValuesByKey(rows: EditorRow[]) {
-  return Object.fromEntries(rows.map((row) => [row.id, rowToValues(row)]));
+function valuesFor(rows: Row[]) {
+  return Object.fromEntries(rows.map((row) => [row.id, rowValues(row)]));
 }
-
-function blankValues(): AdminGuestRosterSessionValues {
+function newRow(): Row {
   return {
-    email: null,
+    id: `draft-${crypto.randomUUID()}`,
+    draft: true,
     fullName: "",
-    notes: null,
+    email: null,
     phone: null,
+    notes: null,
     plusOneAllowed: false,
     smsOptIn: false,
-  };
-}
-
-function makeDraftRow(draftId: string, values: AdminGuestRosterSessionValues): DraftGuestRow {
-  return {
+    rsvpStatus: "not replied",
+    rsvpStatusLabel: "not submitted",
+    canSave: true,
     canEditIdentity: true,
     canEditPlusOneAllowed: true,
     canEditSmsOptIn: true,
-    canSave: true,
-    draftId,
-    email: values.email,
-    fullName: values.fullName,
     guestKind: "invited",
     guestKindLabel: "Invited Guest",
     hasActiveToken: false,
-    id: draftId,
     inviteAccessScope: "full",
     inviteStatus: "not replied",
-    isDraft: true,
-    notes: values.notes,
-    phone: values.phone,
-    plusOneAllowed: values.plusOneAllowed,
-    rsvpDetails: null,
     rsvpManaged: false,
-    rsvpStatus: "not replied",
-    rsvpStatusLabel: "not submitted",
-    smsOptIn: values.smsOptIn,
+    rsvpDetails: null,
     tiedInvitedGuestText: null,
     updatedAt: "",
     updatedAtLabel: "Utkast",
   };
 }
-
-function isDraftRow(row: EditorRow): row is DraftGuestRow {
-  return "isDraft" in row && row.isDraft;
+function ErrorText({ message }: { message?: string }) {
+  return message ? (
+    <p className="mt-1 text-xs font-semibold text-red-800" role="alert">
+      {message}
+    </p>
+  ) : null;
 }
-
-function getRowKey(row: EditorRow) {
-  return row.id;
-}
-
-function validateRows(rows: EditorRow[], valuesByKey: Record<string, AdminGuestRosterSessionValues>) {
-  const errors: AdminGuestRosterSessionErrors = {};
-
-  for (const row of rows) {
-    if (!row.canSave) {
-      continue;
-    }
-
-    const rowKey = getRowKey(row);
-    const values = valuesByKey[rowKey] ?? rowToValues(row);
-    const fullName = values.fullName.trim();
-    const email = normalizeValue(values.email);
-    const phone = normalizeValue(values.phone);
-
-    if (!fullName) {
-      errors[rowKey] = { ...errors[rowKey], fullName: "Namn krävs." };
-    }
-
-    if (!email && !phone) {
-      errors[rowKey] = {
-        ...errors[rowKey],
-        contact: "Ange e-post eller telefonnummer.",
-      };
-    }
-
-    if (values.smsOptIn && (!phone || !normalizePhoneNumberInput(phone))) {
-      errors[rowKey] = {
-        ...errors[rowKey],
-        phone: `SMS kräver telefonnummer i format ${PHONE_FORMAT_HINT}.`,
-      };
-    }
-  }
-
-  return errors;
-}
-
-function hasErrors(errors: AdminGuestRosterSessionErrors) {
-  return Object.keys(errors).length > 0;
-}
-
-function toStatusFilter(value: string): AdminGuestRosterFilters["status"] {
-  switch (value) {
-    case "not replied":
-    case "opened":
-    case "rsvp yes":
-    case "rsvp no":
-    case "rsvp maybe":
-      return value;
-    default:
-      return "";
-  }
-}
-
-function toSort(value: string): AdminGuestRosterFilters["sort"] {
-  switch (value) {
-    case "name-desc":
-    case "status":
-    case "newest":
-      return value;
-    default:
-      return "name";
-  }
-}
-
-function getToneClass(tone: "error" | "success" | "warning") {
-  if (tone === "error") {
-    return "border-red-200 bg-red-50 text-red-800";
-  }
-
-  if (tone === "warning") {
-    return "border-amber-200 bg-amber-50 text-amber-900";
-  }
-
-  return "border-emerald-200 bg-emerald-50 text-emerald-800";
-}
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) {
-    return null;
-  }
-
-  return <p className="mt-1 text-[11px] font-semibold text-red-700">{message}</p>;
-}
-
-function DirtyDot({ show }: { show: boolean }) {
-  if (!show) {
-    return null;
-  }
-
-  return <span className="ml-2 inline-block h-1.5 w-1.5 rounded-full bg-[#b66a2d]" />;
-}
-
-function unsavedRowsLabel(count: number) {
-  return count === 1 ? "1 osparad rad" : `${count} osparade rader`;
-}
-
-function guestKindCopy(row: EditorRow) {
-  return row.guestKind === "plus_one" ? "Plus-one Gäst" : "Inbjuden Gäst";
-}
-
-function tiedGuestCopy(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  return value.replace(/^Tied to /, "Kopplad till ").replace("unknown Invited Guest", "okänd Gäst");
-}
-
-function inviteStatusCopy(value: string) {
-  switch (value) {
-    case "not replied":
-    case "not submitted":
-      return "Inte sedd";
-    case "opened":
-      return "Sedd";
-    default:
-      return value;
-  }
-}
-
-function rosterStatusCopy(value: string) {
-  switch (value) {
-    case "not replied":
-    case "not submitted":
-      return "Inte svarat";
-    case "opened":
-      return "Öppnad";
-    case "rsvp yes":
-      return "OSA ja";
-    case "rsvp no":
-      return "OSA nej";
-    case "rsvp maybe":
-      return "OSA kanske";
-    default:
-      return value;
-  }
-}
-
-function MetaChip({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "warning" }) {
-  const className =
-    tone === "warning"
-      ? "bg-amber-100 text-amber-800 ring-amber-200"
-      : "bg-[#efe1c8] text-[#5b4027] ring-[#d8c7a3]";
-
-  return (
-    <span className={`inline-flex shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${className}`}>
-      {children}
-    </span>
-  );
+function rsvpLabel(value: string) {
+  return value === "rsvp yes"
+    ? "Ja · kommer"
+    : value === "rsvp no"
+      ? "Nej · kommer inte"
+      : value === "rsvp maybe"
+        ? "Kanske"
+        : "Ej svarat";
 }
 
 export function GuestRosterEditor({
-  initialFilters,
   initialRows,
+  initialFilters,
 }: {
-  initialFilters: AdminGuestRosterFilters;
   initialRows: AdminGuestRosterRow[];
+  initialFilters: AdminGuestRosterFilters;
 }) {
-  const [rows, setRows] = useState<AdminGuestRosterRow[]>(initialRows);
-  const [draftIds, setDraftIds] = useState<string[]>([]);
-  const [valuesByKey, setValuesByKey] = useState<Record<string, AdminGuestRosterSessionValues>>(
-    () => makeValuesByKey(initialRows),
-  );
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [fieldErrors, setFieldErrors] = useState<AdminGuestRosterSessionErrors>({});
-  const [status, setStatus] = useState<SessionStatus>(null);
+  const [rows, setRows] = useState<Row[]>(initialRows);
+  const [values, setValues] = useState(() => valuesFor(initialRows));
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [errors, setErrors] = useState<AdminGuestRosterSessionErrors>({});
+  const [status, setStatus] = useState<Status>(null);
   const [query, setQuery] = useState(initialFilters.query);
   const [statusFilter, setStatusFilter] = useState(initialFilters.status);
   const [sort, setSort] = useState(initialFilters.sort);
-  const [isPending, startTransition] = useTransition();
-
-  const draftRows = useMemo(
-    () => draftIds.map((draftId) => makeDraftRow(draftId, valuesByKey[draftId] ?? blankValues())),
-    [draftIds, valuesByKey],
-  );
-
-  const allRows = useMemo<EditorRow[]>(() => [...draftRows, ...rows], [draftRows, rows]);
-
+  const [dietary, setDietary] = useState<DietaryFilter>("");
+  const [kind, setKind] = useState<GuestKindFilter>("");
+  const [isSaving, startTransition] = useTransition();
+  const [reloadRequired, setReloadRequired] = useState(false);
+  const isPending = isSaving || reloadRequired;
+  const saving = useRef(false);
   const dirtyRows = useMemo(
     () =>
-      allRows.filter((row) => {
-        if (!row.canSave) {
-          return false;
-        }
-
-        if (isDraftRow(row)) {
-          return true;
-        }
-
-        return !valuesEqual(valuesByKey[row.id] ?? rowToValues(row), rowToValues(row));
-      }),
-    [allRows, valuesByKey],
+      rows.filter((row) => row.draft || !equal(values[row.id], rowValues(row))),
+    [rows, values],
   );
-
-  const hasDirtyChanges = dirtyRows.length > 0;
-
-  const visibleRows = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    const matchesFilters = (row: EditorRow) => {
-      const values = valuesByKey[row.id] ?? rowToValues(row);
-      const searchable = [
-        values.fullName,
-        values.email ?? "",
-        values.phone ?? "",
-        values.notes ?? "",
-        row.guestKindLabel,
-        row.tiedInvitedGuestText ?? "",
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      if (normalizedQuery && !searchable.includes(normalizedQuery)) {
-        return false;
-      }
-
-      if (!statusFilter) {
-        return true;
-      }
-
-      return row.inviteStatus === statusFilter || row.rsvpStatus === statusFilter;
-    };
-
-    const sortPersistedRows = (left: AdminGuestRosterRow, right: AdminGuestRosterRow) => {
-      const leftValues = valuesByKey[left.id] ?? rowToValues(left);
-      const rightValues = valuesByKey[right.id] ?? rowToValues(right);
-
-      if (sort === "name-desc") {
-        return rightValues.fullName.localeCompare(leftValues.fullName, "sv");
-      }
-
-      if (sort === "status") {
-        return `${left.rsvpStatus}-${left.inviteStatus}-${leftValues.fullName}`.localeCompare(
-          `${right.rsvpStatus}-${right.inviteStatus}-${rightValues.fullName}`,
-          "sv",
-        );
-      }
-
-      if (sort === "newest") {
-        return right.updatedAt.localeCompare(left.updatedAt);
-      }
-
-      return leftValues.fullName.localeCompare(rightValues.fullName, "sv");
-    };
-
-    const visibleDraftRows = draftRows.filter(matchesFilters);
-    const visibleSavedRows = rows.filter(matchesFilters).sort(sortPersistedRows);
-
-    return [...visibleDraftRows, ...visibleSavedRows];
-  }, [draftRows, query, rows, sort, statusFilter, valuesByKey]);
-
+  const dirty = dirtyRows.length > 0;
+  const savedRows = rows.filter((row) => !row.draft);
+  const visibleRows = useMemo(
+    () =>
+      rows
+        .filter((row) =>
+          matchesAdminGuestRosterFilters(
+            {
+              ...row,
+              ...values[row.id],
+              rsvpStatus: values[row.id].rsvpStatus ?? row.rsvpStatus,
+            },
+            { query, status: statusFilter, dietary, kind },
+          ),
+        )
+        .sort((a, b) => {
+          if (a.draft !== b.draft) return a.draft ? -1 : 1;
+          if (sort === "newest") return b.updatedAt.localeCompare(a.updatedAt);
+          if (sort === "status")
+            return `${values[a.id].rsvpStatus}-${a.inviteStatus}-${values[a.id].fullName}`.localeCompare(
+              `${values[b.id].rsvpStatus}-${b.inviteStatus}-${values[b.id].fullName}`,
+              "sv",
+            );
+          return (
+            (sort === "name-desc" ? -1 : 1) *
+            values[a.id].fullName.localeCompare(values[b.id].fullName, "sv")
+          );
+        }),
+    [rows, values, query, statusFilter, dietary, kind, sort],
+  );
+  const selectable = visibleRows.filter((row) => !row.draft);
+  const selectedVisibleCount = selectable.filter((row) =>
+    selected.has(row.id),
+  ).length;
   const hiddenDirtyCount = dirtyRows.filter(
-    (dirtyRow) => !visibleRows.some((visibleRow) => visibleRow.id === dirtyRow.id),
+    (row) => !visibleRows.some((visible) => visible.id === row.id),
   ).length;
 
-  const selectableVisibleRows = visibleRows.filter((row) => !isDraftRow(row));
-  const selectedRows = rows.filter((row) => selectedIds.has(row.id));
-
-  const saveChanges = useCallback(() => {
-    const validationErrors = validateRows(dirtyRows, valuesByKey);
-
-    if (hasErrors(validationErrors)) {
-      setFieldErrors(validationErrors);
-      setStatus({ tone: "error", text: "Rätta markerade fält innan du sparar." });
-      return;
-    }
-
-    const changes = dirtyRows.map((row): AdminGuestRosterSessionChange => {
-      const values = valuesByKey[row.id] ?? rowToValues(row);
-      return {
-        draftId: isDraftRow(row) ? row.draftId : undefined,
-        expectedUpdatedAt: isDraftRow(row) ? undefined : row.updatedAt,
-        id: isDraftRow(row) ? undefined : row.id,
-        rowKey: row.id,
-        values,
-      };
-    });
-
-    if (changes.length === 0) {
-      setStatus({ tone: "success", text: "Inga ändringar att spara." });
-      return;
-    }
-
-    startTransition(async () => {
-      setStatus({ tone: "warning", text: "Sparar ändringar…" });
-      const result = await saveGuestRosterSessionAction(changes);
-
-      if (result.status === "success") {
-        const nextRows = result.rows ?? rows;
-        setRows(nextRows);
-        setDraftIds([]);
-        setValuesByKey(makeValuesByKey(nextRows));
-        setFieldErrors({});
-        setSelectedIds(new Set());
-        setStatus({
-          tone: "success",
-          text: `Sparade ${result.savedCount} ändring${result.savedCount === 1 ? "" : "ar"}.`,
-        });
-        return;
-      }
-
-      if (result.status === "validation-error") {
-        setFieldErrors(result.errors);
-        setStatus({ tone: "error", text: result.message });
-        return;
-      }
-
-      setStatus({ tone: "error", text: result.message });
-    });
-  }, [dirtyRows, rows, valuesByKey]);
-
-  useEffect(() => {
-    function warnBeforeUnload(event: BeforeUnloadEvent) {
-      if (!hasDirtyChanges) {
-        return;
-      }
-
-      event.preventDefault();
-      event.returnValue = unsavedPrompt;
-    }
-
-    function guardDocumentLinks(event: MouseEvent) {
-      if (!hasDirtyChanges) {
-        return;
-      }
-
-      const target = event.target instanceof Element ? event.target : null;
-      const link = target?.closest("a[href]");
-
-      if (!link || window.confirm(unsavedPrompt)) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-    }
-
-    window.addEventListener("beforeunload", warnBeforeUnload);
-    document.addEventListener("click", guardDocumentLinks, true);
-
-    return () => {
-      window.removeEventListener("beforeunload", warnBeforeUnload);
-      document.removeEventListener("click", guardDocumentLinks, true);
-    };
-  }, [hasDirtyChanges]);
-
-  useEffect(() => {
-    function handleSaveShortcut(event: KeyboardEvent) {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "s") {
-        return;
-      }
-
-      event.preventDefault();
-      saveChanges();
-    }
-
-    document.addEventListener("keydown", handleSaveShortcut);
-    return () => document.removeEventListener("keydown", handleSaveShortcut);
-  }, [saveChanges]);
-
-  function updateValue<K extends keyof AdminGuestRosterSessionValues>(
-    rowKey: string,
+  function clearFilters() {
+    setQuery("");
+    setStatusFilter("");
+    setDietary("");
+    setKind("");
+  }
+  function update<K extends keyof AdminGuestRosterSessionValues>(
+    id: string,
     field: K,
     value: AdminGuestRosterSessionValues[K],
   ) {
-    setValuesByKey((current) => ({
-      ...current,
-      [rowKey]: {
-        ...(current[rowKey] ?? blankValues()),
-        [field]: value,
-      },
+    setValues((previous) => ({
+      ...previous,
+      [id]: { ...previous[id], [field]: value },
     }));
-    setFieldErrors((current) => {
-      if (!current[rowKey]) {
-        return current;
-      }
-
-      const next = { ...current };
-      delete next[rowKey];
+    setErrors((previous) => {
+      const next = { ...previous };
+      delete next[id];
+      return next;
+    });
+    setStatus(null);
+  }
+  function toggle(id: string, setter: typeof setSelected) {
+    setter((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
-
-  function updateTextValue(
-    rowKey: string,
-    field: "email" | "fullName" | "notes" | "phone",
-  ) {
-    return (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      updateValue(rowKey, field, event.target.value);
-    };
-  }
-
-  function addDraftGuest() {
-    const draftId = `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-    setDraftIds((current) => [draftId, ...current]);
-    setValuesByKey((current) => ({ ...current, [draftId]: blankValues() }));
-    setStatus({ tone: "warning", text: "Ny Gäst är ett utkast tills du sparar." });
-  }
-
-  function discardChanges() {
-    setDraftIds([]);
-    setValuesByKey(makeValuesByKey(rows));
-    setFieldErrors({});
-    setStatus({ tone: "warning", text: "Osparade ändringar kastades." });
-  }
-
-  function revealDirtyRows() {
-    setQuery("");
-    setStatusFilter("");
-    setSort("name");
-  }
-
-  function toggleSelected(rowId: string, checked: boolean) {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (checked) {
-        next.add(rowId);
-      } else {
-        next.delete(rowId);
-      }
-      return next;
-    });
-  }
-
-  function toggleAllVisible(checked: boolean) {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      for (const row of selectableVisibleRows) {
-        if (checked) {
-          next.add(row.id);
-        } else {
-          next.delete(row.id);
-        }
-      }
-      return next;
-    });
-  }
-
-  function runBulkEdit(intent: BulkIntent) {
-    if (hasDirtyChanges) {
-      setStatus({
-        tone: "error",
-        text: "Spara eller kasta ändringar innan du kör markerade åtgärder.",
+  const save = useCallback(
+    (
+      targets: Row[] = dirtyRows,
+      override?: Partial<AdminGuestRosterSessionValues>,
+    ) => {
+      if (saving.current || reloadRequired || targets.length === 0) return;
+      const validation: AdminGuestRosterSessionErrors = {};
+      const changes = targets.map((row): AdminGuestRosterSessionChange => {
+        const input = { ...values[row.id], ...override };
+        const fields: AdminGuestRosterSessionErrors[string] = {};
+        if (!input.fullName.trim()) fields.fullName = "Namn krävs.";
+        if (
+          row.guestKind === "invited" &&
+          !clean(input.email) &&
+          !clean(input.phone)
+        )
+          fields.contact = "Ange e-post eller telefonnummer.";
+        if (input.smsOptIn && !normalizePhoneNumberInput(input.phone ?? ""))
+          fields.phone = `SMS kräver telefonnummer i format ${PHONE_FORMAT_HINT}.`;
+        if (Object.keys(fields).length) validation[row.id] = fields;
+        return {
+          rowKey: row.id,
+          id: row.draft ? undefined : row.id,
+          draftId: row.draft ? row.id : undefined,
+          expectedUpdatedAt: row.draft ? undefined : row.updatedAt,
+          values: input,
+        };
       });
-      return;
-    }
-
-    const editableSelectedRows = selectedRows.filter((row) =>
-      intent.field === "plusOneAllowed" ? row.canEditPlusOneAllowed : row.canEditSmsOptIn,
-    );
-
-    if (!editableSelectedRows.length) {
-      setStatus({ tone: "warning", text: "Inga markerade Gäster kan ändras med den åtgärden." });
-      return;
-    }
-
-    const changes = editableSelectedRows.map((row): AdminGuestRosterSessionChange => ({
-      expectedUpdatedAt: row.updatedAt,
-      id: row.id,
-      rowKey: row.id,
-      values: { ...rowToValues(row), [intent.field]: intent.value },
-    }));
-
-    startTransition(async () => {
-      const result = await saveGuestRosterSessionAction(changes);
-
-      if (result.status === "success") {
-        const nextRows = result.rows ?? rows;
-        setRows(nextRows);
-        setValuesByKey(makeValuesByKey(nextRows));
-        setSelectedIds(new Set());
-        setFieldErrors({});
-        setStatus({ tone: "success", text: `Uppdaterade ${result.savedCount} markerade Gäster.` });
-        return;
-      }
-
-      if (result.status === "validation-error") {
-        setFieldErrors(result.errors);
-        setStatus({ tone: "error", text: result.message });
-        return;
-      }
-
-      setStatus({ tone: "error", text: result.message });
-    });
-  }
-
-  function archiveSelected() {
-    if (hasDirtyChanges) {
-      setStatus({
-        tone: "error",
-        text: "Spara eller kasta ändringar innan du arkiverar markerade Gäster.",
-      });
-      return;
-    }
-
-    if (!selectedIds.size) {
-      setStatus({ tone: "warning", text: "Markera minst en Gäst först." });
-      return;
-    }
-
-    if (!window.confirm(`Arkivera ${selectedIds.size} markerade Gäster? Invite-access påverkas direkt.`)) {
-      return;
-    }
-
-    const ids = Array.from(selectedIds);
-    startTransition(async () => {
-      const result = await archiveSelectedGuestsAction(ids);
-
-      if (result.status === "success") {
-        const archivedIds = new Set(result.archivedGuestIds);
-        const nextRows = rows.filter((row) => !archivedIds.has(row.id));
-        setRows(nextRows);
-        setValuesByKey(makeValuesByKey(nextRows));
-        setSelectedIds(new Set());
+      if (Object.keys(validation).length) {
+        setErrors(validation);
         setStatus({
-          tone: "success",
-          text: `Arkiverade ${result.archivedCount} Gäst${result.archivedCount === 1 ? "" : "er"}.`,
+          tone: "error",
+          text: "Rätta markerade fält innan du sparar.",
         });
         return;
       }
+      saving.current = true;
+      startTransition(async () => {
+        try {
+          const result = await saveGuestRosterSessionAction(changes);
+          if (result.status === "success" && result.rows) {
+            setRows(result.rows);
+            setValues(valuesFor(result.rows));
+            setSelected(new Set());
+            setErrors({});
+            setStatus({
+              tone: "success",
+              text: `Sparade ${result.savedCount} gäster.`,
+            });
+          } else if (result.status === "success") {
+            setReloadRequired(true);
+            setStatus({
+              tone: "warning",
+              text: "Ändringarna sparades, men listan kunde inte hämtas. Ladda om sidan innan du fortsätter.",
+            });
+          } else {
+            if (result.status === "validation-error") setErrors(result.errors);
+            setStatus({ tone: "error", text: result.message });
+          }
+        } catch {
+          setStatus({
+            tone: "error",
+            text: "Kunde inte bekräfta sparandet. Ändringarna finns kvar här. Ladda om vid versionskonflikt.",
+          });
+        } finally {
+          saving.current = false;
+        }
+      });
+    },
+    [dirtyRows, values, reloadRequired],
+  );
 
-      if (result.status === "validation-error") {
-        setFieldErrors(result.errors);
-        setStatus({ tone: "error", text: result.message });
-        return;
+  useEffect(() => {
+    function unload(event: BeforeUnloadEvent) {
+      if (dirty) {
+        event.preventDefault();
+        event.returnValue = "";
       }
+    }
+    function links(event: MouseEvent) {
+      const link =
+        event.target instanceof Element
+          ? event.target.closest("a[href]")
+          : null;
+      if (dirty && link && !window.confirm(unsavedPrompt)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    }
+    function shortcut(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        save();
+      }
+    }
+    window.addEventListener("beforeunload", unload);
+    document.addEventListener("click", links, true);
+    document.addEventListener("keydown", shortcut);
+    return () => {
+      window.removeEventListener("beforeunload", unload);
+      document.removeEventListener("click", links, true);
+      document.removeEventListener("keydown", shortcut);
+    };
+  }, [dirty, save]);
 
-      setStatus({ tone: "error", text: result.message });
+  function bulk(field: "plusOneAllowed" | "smsOptIn", value: boolean) {
+    const targets = rows.filter(
+      (row) =>
+        selected.has(row.id) &&
+        (field === "plusOneAllowed"
+          ? row.canEditPlusOneAllowed
+          : row.canEditSmsOptIn),
+    );
+    if (dirty || isPending) return;
+    if (!targets.length) {
+      setStatus({
+        tone: "warning",
+        text: "Ingen markerad gäst kan ändras med den åtgärden.",
+      });
+      return;
+    }
+    save(targets, { [field]: value });
+  }
+  function archive() {
+    if (dirty || saving.current || reloadRequired || !selected.size) return;
+    if (
+      !window.confirm(
+        `Arkivera ${selected.size} markerade gäster? Kopplade +1-gäster arkiveras också och deras inbjudningslänkar stängs.`,
+      )
+    )
+      return;
+    saving.current = true;
+    startTransition(async () => {
+      try {
+        const result = await archiveSelectedGuestsAction([...selected]);
+        if (result.status === "success") {
+          const next = rows.filter(
+            (row) => !result.archivedGuestIds.includes(row.id),
+          );
+          setRows(next);
+          setValues(valuesFor(next));
+          setSelected(new Set());
+          setErrors({});
+          setStatus({
+            tone: "success",
+            text: `Arkiverade ${result.archivedCount} gäster.`,
+          });
+        } else {
+          if (result.status === "validation-error") setErrors(result.errors);
+          setStatus({ tone: "error", text: result.message });
+        }
+      } catch {
+        setStatus({
+          tone: "error",
+          text: "Kunde inte bekräfta arkiveringen. Ladda om för att kontrollera.",
+        });
+      } finally {
+        saving.current = false;
+      }
     });
   }
 
-  const allVisibleSelected =
-    selectableVisibleRows.length > 0 && selectableVisibleRows.every((row) => selectedIds.has(row.id));
-  const showSaveFooter = hasDirtyChanges || isPending || status !== null;
-  const saveFooterText = hasDirtyChanges
-    ? unsavedRowsLabel(dirtyRows.length)
-    : isPending
-      ? "Sparar ändringar…"
-      : status?.text ?? "Gästlistan är sparad";
-
   return (
-    <section className="grid gap-5">
-      <div className="rounded-[2rem] border border-[#d8c7a3] bg-[#f8f1e3] p-5 shadow-[0_18px_60px_rgba(77,53,31,0.08)]">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+    <section className="grid gap-4">
+      <div
+        className="grid grid-cols-2 gap-3 lg:grid-cols-4"
+        aria-label="Sparade OSA-svar"
+      >
+        {(
+          [
+            ["rsvp yes", "Kommer"],
+            ["rsvp maybe", "Kanske"],
+            ["rsvp no", "Kommer inte"],
+            ["not replied", "Ej svarat"],
+          ] as const
+        ).map(([value, label]) => (
+          <div
+            key={value}
+            className="rounded-2xl border border-[#d8c7a3] bg-[#fffaf1] p-4"
+          >
+            <p className="text-xs font-bold text-[#6f604d]">{label}</p>
+            <p className="mt-1 font-serif text-3xl">
+              {savedRows.filter((row) => row.rsvpStatus === value).length}
+            </p>
+          </div>
+        ))}
+      </div>
+      <div className="rounded-2xl border border-[#d8c7a3] bg-[#fffaf1] p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#8f5d2f]">Gästlista</p>
-            <h2 className="mt-2 font-serif text-3xl text-[#1f1a14]">Redigera Gäster</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#6f604d]">
-              Ändra flera rader, lägg till utkast och spara allt samlat när du är klar. OSA-styrda Plus-one Gäster visas men är skrivskyddade.
+            <h2 className="font-serif text-2xl">Gästlista</h2>
+            <p className="mt-1 text-sm text-[#6f604d]">
+              Redigera direkt. Öppna detaljer för mat, allergier och privata
+              noteringar.
             </p>
           </div>
           <button
-            className="rounded-full bg-[#1f1a14] px-5 py-3 text-sm font-bold text-[#f8f1e3] shadow-sm transition hover:bg-[#33291f] disabled:cursor-not-allowed disabled:opacity-60"
+            className="bulk-button bg-[#eadcc3]"
             disabled={isPending}
-            onClick={addDraftGuest}
+            onClick={() => {
+              const row = newRow();
+              setRows((previous) => [row, ...previous]);
+              setValues((previous) => ({
+                ...previous,
+                [row.id]: rowValues(row),
+              }));
+              setExpanded((previous) => new Set([...previous, row.id]));
+              clearFilters();
+              setStatus(null);
+            }}
             type="button"
           >
             Lägg till Gäst-utkast
           </button>
         </div>
-
-        <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_180px_180px_auto_auto] xl:items-end">
-          <label className="grid gap-1 text-sm font-semibold text-[#5a4633]">
-            <span>Sök <span className="sr-only">Search name or phone</span></span>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <label className="grid gap-1 text-sm font-semibold">
+            Sök <span className="sr-only">Search name or phone</span>
             <input
-              className="rounded-2xl border border-[#d8c7a3] bg-white/80 px-4 py-3 font-normal text-[#1f1a14] outline-none focus:border-[#1f1a14]"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Namn, e-post, telefon, anteckning"
+              className="cell-input"
               value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Namn, kontakt, notering, mat eller allergi"
             />
           </label>
-          <label className="grid gap-1 text-sm font-semibold text-[#5a4633]">
+          <label className="grid gap-1 text-sm font-semibold">
             Status
             <select
-              className="rounded-2xl border border-[#d8c7a3] bg-white/80 px-4 py-3 font-normal text-[#1f1a14] outline-none focus:border-[#1f1a14]"
-              onChange={(event) => setStatusFilter(toStatusFilter(event.target.value))}
+              aria-label="Status"
+              className="cell-input"
               value={statusFilter}
+              onChange={(event) => {
+                const value = event.target.value;
+                setStatusFilter(
+                  value === "opened" || isRsvpStatus(value) ? value : "",
+                );
+              }}
             >
               <option value="">Alla</option>
-              <option value="not replied">Inte öppnad</option>
-              <option value="opened">Öppnad</option>
+              <option value="not replied">Ej öppnad · ej svarat</option>
+              <option value="opened">Öppnad · ej svarat</option>
               <option value="rsvp yes">OSA ja</option>
-              <option value="rsvp no">OSA nej</option>
               <option value="rsvp maybe">OSA kanske</option>
+              <option value="rsvp no">OSA nej</option>
             </select>
           </label>
-          <label className="grid gap-1 text-sm font-semibold text-[#5a4633]">
+          <label className="grid gap-1 text-sm font-semibold">
+            Mat och allergier
+            <select
+              aria-label="Mat och allergier"
+              className="cell-input"
+              value={dietary}
+              onChange={(event) => {
+                const value = event.target.value;
+                setDietary(
+                  value === "any" ||
+                    value === "allergy" ||
+                    value === "food" ||
+                    value === "none"
+                    ? value
+                    : "",
+                );
+              }}
+            >
+              <option value="">Alla</option>
+              <option value="any">Matpreferens eller allergi</option>
+              <option value="allergy">Har allergi</option>
+              <option value="food">Har matpreferens</option>
+              <option value="none">Inga uppgifter</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-semibold">
+            Gästtyp
+            <select
+              aria-label="Gästtyp"
+              className="cell-input"
+              value={kind}
+              onChange={(event) => {
+                const value = event.target.value;
+                setKind(
+                  value === "invited" || value === "plus_one" ? value : "",
+                );
+              }}
+            >
+              <option value="">Alla gäster</option>
+              <option value="invited">Inbjudna gäster</option>
+              <option value="plus_one">+1-gäster</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-semibold">
             Sortering
             <select
-              className="rounded-2xl border border-[#d8c7a3] bg-white/80 px-4 py-3 font-normal text-[#1f1a14] outline-none focus:border-[#1f1a14]"
-              onChange={(event) => setSort(toSort(event.target.value))}
+              aria-label="Sortering"
+              className="cell-input"
               value={sort}
+              onChange={(event) => {
+                const value = event.target.value;
+                setSort(
+                  value === "name-desc" ||
+                    value === "status" ||
+                    value === "newest"
+                    ? value
+                    : "name",
+                );
+              }}
             >
               <option value="name">Namn A–Ö</option>
               <option value="name-desc">Namn Ö–A</option>
-              <option value="status">Status</option>
-              <option value="newest">Senast ändrad</option>
+              <option value="status">OSA-status</option>
+              <option value="newest">Senast uppdaterad</option>
             </select>
           </label>
-          <button
-            aria-label="Apply"
-            className="rounded-full border border-[#c9ad7e] px-5 py-3 text-sm font-bold text-[#4d351f] transition hover:bg-white"
-            type="button"
-          >
-            Tillämpa
-          </button>
-          <button
-            className="rounded-full border border-[#c9ad7e] px-5 py-3 text-sm font-bold text-[#4d351f] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={hiddenDirtyCount === 0}
-            onClick={revealDirtyRows}
-            type="button"
-          >
-            Visa ändrade rader {hiddenDirtyCount ? `(${hiddenDirtyCount})` : ""}
-          </button>
-        </div>
-      </div>
-
-      <div className="rounded-[2rem] border border-[#d8c7a3] bg-[#fffaf1] p-4">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <p className="text-sm font-bold text-[#1f1a14]">Markerade åtgärder</p>
-            <p className="text-xs text-[#6f604d]">
-              Körs bara när redigeringssessionen är ren. Markerat: {selectedIds.size}.
-            </p>
+          <div className="flex items-end gap-3">
+            <button
+              className="bulk-button"
+              onClick={clearFilters}
+              type="button"
+            >
+              Rensa filter
+            </button>
+            <span className="text-sm" aria-live="polite">
+              Visar {visibleRows.length} av {rows.length}
+            </span>
           </div>
+        </div>
+        {hiddenDirtyCount > 0 ? (
+          <p className="mt-3 text-sm font-semibold text-amber-900">
+            {hiddenDirtyCount} ändrade rader döljs av filter.{" "}
+            <button type="button" className="underline" onClick={clearFilters}>
+              Visa ändrade rader
+            </button>
+          </p>
+        ) : null}
+      </div>
+      {selected.size > 0 ? (
+        <div className="rounded-2xl border border-[#d8c7a3] bg-[#f8f1e3] p-4">
+          <p className="mb-3 text-sm font-semibold">
+            {selected.size} markerade · {selected.size - selectedVisibleCount}{" "}
+            dolda av filter
+            {dirty ? " · Spara eller kasta ändringar före gruppåtgärder." : ""}
+          </p>
           <div className="flex flex-wrap gap-2">
-            <button className="bulk-button" disabled={isPending} onClick={() => runBulkEdit({ field: "plusOneAllowed", value: true })} type="button">
+            <button
+              type="button"
+              className="bulk-button"
+              disabled={isPending}
+              onClick={() => setSelected(new Set())}
+            >
+              Avmarkera alla
+            </button>
+            <button
+              type="button"
+              className="bulk-button"
+              disabled={dirty || isPending}
+              onClick={() => bulk("plusOneAllowed", true)}
+            >
               Tillåt +1
             </button>
-            <button className="bulk-button" disabled={isPending} onClick={() => runBulkEdit({ field: "plusOneAllowed", value: false })} type="button">
+            <button
+              type="button"
+              className="bulk-button"
+              disabled={dirty || isPending}
+              onClick={() => bulk("plusOneAllowed", false)}
+            >
               Stoppa +1
             </button>
-            <button className="bulk-button" disabled={isPending} onClick={() => runBulkEdit({ field: "smsOptIn", value: true })} type="button">
+            <button
+              type="button"
+              className="bulk-button"
+              disabled={dirty || isPending}
+              onClick={() => bulk("smsOptIn", true)}
+            >
               SMS på
             </button>
-            <button className="bulk-button" disabled={isPending} onClick={() => runBulkEdit({ field: "smsOptIn", value: false })} type="button">
+            <button
+              type="button"
+              className="bulk-button"
+              disabled={dirty || isPending}
+              onClick={() => bulk("smsOptIn", false)}
+            >
               SMS av
             </button>
-            <Link
-              className="bulk-button"
-              href={`/admin/messages?selected_guests=${encodeURIComponent(Array.from(selectedIds).join(","))}`}
+            {!dirty && !isPending ? (
+              <Link
+                className="bulk-button"
+                href={`/admin/messages?selected_guests=${encodeURIComponent([...selected].join(","))}`}
+              >
+                Skicka SMS till markerade
+              </Link>
+            ) : null}
+            <button
+              type="button"
+              className="bulk-button-danger"
+              disabled={dirty || isPending}
+              onClick={archive}
             >
-              Skicka SMS till markerade
-            </Link>
-            <button className="bulk-button-danger" disabled={isPending} onClick={archiveSelected} type="button">
               Arkivera
             </button>
           </div>
         </div>
-      </div>
-
-      {status ? (
-        <div className={`rounded-2xl border px-5 py-4 text-sm font-semibold ${getToneClass(status.tone)}`} role={status.tone === "error" ? "alert" : "status"}>
-          {status.text}
-        </div>
       ) : null}
-
-      <div className="overflow-x-auto rounded-[2rem] border border-[#d8c7a3] bg-[#fffaf1] shadow-[0_24px_80px_rgba(77,53,31,0.08)]">
-        <table className="w-full min-w-[1180px] border-separate border-spacing-0 text-left text-sm">
-          <thead className="bg-[#eadcc3] text-[11px] uppercase tracking-[0.18em] text-[#6f4f2d]">
+      {status ? (
+        <p
+          className={`rounded-xl border p-4 text-sm font-semibold ${status.tone === "error" ? "border-red-200 bg-red-50 text-red-800" : status.tone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}
+          role={status.tone === "error" ? "alert" : "status"}
+        >
+          {status.text}
+        </p>
+      ) : null}
+      <div className="overflow-hidden rounded-2xl border border-[#d8c7a3] bg-[#fffaf1]">
+        <div className="flex items-center gap-2 border-b border-[#d8c7a3] px-4 py-3 text-sm">
+          <input
+            type="checkbox"
+            id="select-visible-guests"
+            aria-label="Markera synliga Gäster"
+            disabled={isPending || !selectable.length}
+            checked={
+              selectable.length > 0 &&
+              selectedVisibleCount === selectable.length
+            }
+            ref={(node) => {
+              if (node)
+                node.indeterminate =
+                  selectedVisibleCount > 0 &&
+                  selectedVisibleCount < selectable.length;
+            }}
+            onChange={(event) => {
+              const checked = event.target.checked;
+              setSelected((previous) => {
+                const next = new Set(previous);
+                for (const row of selectable) {
+                  if (checked) next.add(row.id);
+                  else next.delete(row.id);
+                }
+                return next;
+              });
+            }}
+          />
+          <label htmlFor="select-visible-guests">Markera synliga gäster</label>
+        </div>
+        <table className="admin-roster-table w-full table-fixed border-collapse text-left text-sm">
+          <thead className="bg-[#eadcc3] text-xs text-[#5b4027]">
             <tr>
-              <th className="w-12 px-4 py-3">
-                <input
-                  aria-label="Markera synliga Gäster"
-                  checked={allVisibleSelected}
-                  onChange={(event) => toggleAllVisible(event.target.checked)}
-                  type="checkbox"
-                />
+              <th className="w-10 p-3">
+                <span className="sr-only">Markering</span>
               </th>
-              <th className="px-4 py-3">Gäst</th>
-              <th className="px-4 py-3">E-post</th>
-              <th className="px-4 py-3">Telefon</th>
-              <th className="px-4 py-3">SMS</th>
-              <th className="px-4 py-3">+1</th>
-              <th className="px-4 py-3 text-right">Inbjudan</th>
-              <th className="px-4 py-3">Notering</th>
+              <th className="p-3">Gäst / OSA</th>
+              <th className="p-3">Kontakt</th>
+              <th className="w-24 p-3">Val</th>
+              <th className="w-40 p-3">Åtgärder</th>
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map((row) => {
-              const rowKey = getRowKey(row);
-              const values = valuesByKey[rowKey] ?? rowToValues(row);
-              const baseValues = rowToValues(row);
-              const rowDirty = isDraftRow(row) || !valuesEqual(values, baseValues);
-              const errors = fieldErrors[rowKey] ?? {};
-              const editable = row.canSave && !isPending;
-              const tiedGuest = tiedGuestCopy(row.tiedInvitedGuestText);
-
+            {visibleRows.flatMap((row) => {
+              const input = values[row.id];
+              const name =
+                (row.draft ? input.fullName : row.fullName) || "ny Gäst";
+              const fieldErrors = errors[row.id] ?? {};
+              const changed = row.draft || !equal(input, rowValues(row));
+              const open = expanded.has(row.id);
+              const tied = row.tiedInvitedGuestText
+                ?.replace(/^Tied to /, "+1 till ")
+                .replace("unknown Invited Guest", "okänd gäst");
               return [
-                <tr className={rowDirty ? "bg-[#fff4df]" : "bg-white/80"} data-roster-row="guest" key={`${rowKey}-main`}>
-                  <td className="border-t border-[#eadcc3] px-4 pb-1 pt-3 align-top">
-                    {isDraftRow(row) ? (
-                      <span className="text-xs font-bold text-[#8f5d2f]">ny</span>
+                <tr
+                  key={row.id}
+                  data-roster-row="guest"
+                  className={changed ? "bg-[#fff0d1]" : "bg-white/80"}
+                >
+                  <td className="p-3 align-top">
+                    {row.draft ? (
+                      <span className="text-xs font-bold">Ny</span>
                     ) : (
                       <input
-                        aria-label={`Markera ${row.fullName}`}
-                        checked={selectedIds.has(row.id)}
-                        disabled={isPending}
-                        onChange={(event) => toggleSelected(row.id, event.target.checked)}
                         type="checkbox"
+                        aria-label={`Markera ${name}`}
+                        checked={selected.has(row.id)}
+                        disabled={isPending}
+                        onChange={() => toggle(row.id, setSelected)}
                       />
                     )}
                   </td>
-                  <td className="border-t border-[#eadcc3] px-4 pb-1 pt-3 align-top">
-                    <div className="w-64">
-                      <input
-                        aria-label={`Namn ${row.fullName || "ny Gäst"}`}
-                        className="cell-input w-full"
-                        disabled={isPending}
-                        name="full_name"
-                        onChange={updateTextValue(rowKey, "fullName")}
-                        readOnly={!row.canSave}
-                        value={values.fullName}
-                      />
-                      <FieldError message={errors.fullName} />
-                      <FieldError message={errors.row} />
+                  <td className="min-w-0 p-3 align-top">
+                    <input
+                      className="cell-input w-full"
+                      aria-label={`Namn ${name}`}
+                      name="full_name"
+                      disabled={isPending}
+                      readOnly={!row.canEditIdentity}
+                      value={input.fullName}
+                      onChange={(event) =>
+                        update(row.id, "fullName", event.target.value)
+                      }
+                    />
+                    <ErrorText message={fieldErrors.fullName} />
+                    <ErrorText message={fieldErrors.row} />
+                    <select
+                      className={`cell-input mt-2 w-full font-semibold ${input.rsvpStatus === "rsvp yes" ? "text-emerald-800" : ""}`}
+                      aria-label={`OSA ${name}`}
+                      value={input.rsvpStatus}
+                      disabled={isPending || row.guestKind === "plus_one"}
+                      onChange={(event) => {
+                        if (isRsvpStatus(event.target.value))
+                          update(row.id, "rsvpStatus", event.target.value);
+                      }}
+                    >
+                      <option
+                        value="not replied"
+                        disabled={row.rsvpStatus !== "not replied"}
+                      >
+                        Ej svarat
+                      </option>
+                      <option value="rsvp yes">Ja · kommer</option>
+                      <option value="rsvp maybe">Kanske</option>
+                      <option value="rsvp no">Nej · kommer inte</option>
+                    </select>
+                    {tied ? (
+                      <p className="mt-1 break-words text-xs text-[#6f604d]">
+                        {tied}
+                      </p>
+                    ) : null}
+                  </td>
+                  <td className="min-w-0 p-3 align-top">
+                    <input
+                      className="cell-input w-full"
+                      aria-label={`E-post ${name}`}
+                      name="email"
+                      type="email"
+                      placeholder="E-post"
+                      disabled={isPending}
+                      readOnly={!row.canEditIdentity}
+                      value={input.email ?? ""}
+                      onChange={(event) =>
+                        update(row.id, "email", event.target.value)
+                      }
+                    />
+                    <input
+                      className="cell-input mt-2 w-full"
+                      aria-label={`Telefon ${name}`}
+                      name="phone"
+                      type="tel"
+                      placeholder="Telefon"
+                      disabled={isPending}
+                      readOnly={!row.canEditIdentity}
+                      value={input.phone ?? ""}
+                      onChange={(event) =>
+                        update(row.id, "phone", event.target.value)
+                      }
+                    />
+                    <ErrorText message={fieldErrors.contact} />
+                    <ErrorText message={fieldErrors.phone} />
+                  </td>
+                  <td className="p-3 align-top">
+                    <div className="grid gap-3 py-2">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          aria-label={`SMS-samtycke ${name}`}
+                          checked={input.smsOptIn}
+                          disabled={isPending || !row.canEditSmsOptIn}
+                          onChange={(event) =>
+                            update(row.id, "smsOptIn", event.target.checked)
+                          }
+                        />
+                        SMS
+                      </label>
+                      {row.guestKind === "invited" ? (
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            aria-label={`+1 ${name}`}
+                            checked={input.plusOneAllowed}
+                            disabled={isPending || !row.canEditPlusOneAllowed}
+                            onChange={(event) =>
+                              update(
+                                row.id,
+                                "plusOneAllowed",
+                                event.target.checked,
+                              )
+                            }
+                          />
+                          +1
+                        </label>
+                      ) : (
+                        <span className="text-xs text-[#6f604d]">+1-gäst</span>
+                      )}
                     </div>
                   </td>
-                  <td className="border-t border-[#eadcc3] px-4 pb-1 pt-3 align-top">
-                    <input
-                      aria-label={`E-post ${row.fullName || "ny Gäst"}`}
-                      className="cell-input min-w-56"
-                      disabled={isPending}
-                      name="email"
-                      onChange={updateTextValue(rowKey, "email")}
-                      readOnly={!row.canSave}
-                      type="email"
-                      value={values.email ?? ""}
-                    />
-                    <FieldError message={errors.contact} />
-                  </td>
-                  <td className="border-t border-[#eadcc3] px-4 pb-1 pt-3 align-top">
-                    <input
-                      aria-label={`Telefon ${row.fullName || "ny Gäst"}`}
-                      className="cell-input min-w-44"
-                      disabled={isPending}
-                      name="phone"
-                      onChange={updateTextValue(rowKey, "phone")}
-                      placeholder={PHONE_FORMAT_HINT}
-                      readOnly={!row.canSave}
-                      type="tel"
-                      value={values.phone ?? ""}
-                    />
-                    <FieldError message={errors.phone} />
-                  </td>
-                  <td className="border-t border-[#eadcc3] px-4 pb-1 pt-3 text-center align-middle">
-                    <label className="inline-flex min-h-10 items-center justify-center gap-2 text-xs font-bold text-[#5b4027]">
-                      <input
-                        aria-label={`SMS-samtycke ${row.fullName || "ny Gäst"}`}
-                        checked={values.smsOptIn}
-                        disabled={!editable || !row.canEditSmsOptIn}
-                        name="sms_opt_in"
-                        onChange={(event) => updateValue(rowKey, "smsOptIn", event.target.checked)}
-                        type="checkbox"
-                      />
-                      <DirtyDot show={values.smsOptIn !== baseValues.smsOptIn} />
-                    </label>
-                  </td>
-                  <td className="border-t border-[#eadcc3] px-4 pb-1 pt-3 text-center align-middle">
-                    <label className="inline-flex min-h-10 items-center justify-center gap-2 text-xs font-bold text-[#5b4027]">
-                      <input
-                        aria-label={`+1 ${row.fullName || "ny Gäst"}`}
-                        checked={values.plusOneAllowed}
-                        disabled={!editable || !row.canEditPlusOneAllowed}
-                        name="plus_one_allowed"
-                        onChange={(event) => updateValue(rowKey, "plusOneAllowed", event.target.checked)}
-                        type="checkbox"
-                      />
-                      <DirtyDot show={values.plusOneAllowed !== baseValues.plusOneAllowed} />
-                    </label>
-                  </td>
-                  <td className="border-t border-[#eadcc3] px-4 pb-1 pt-3 text-right align-top">
-                    {isDraftRow(row) ? (
-                      <span className="text-xs text-[#8f5d2f]">Spara först</span>
-                    ) : (
-                      <InviteLinkButton
-                        accessScope={row.inviteAccessScope}
-                        disabled={hasDirtyChanges || isPending}
-                        guestId={row.id}
-                        guestName={row.fullName}
-                      />
-                    )}
-                  </td>
-                  <td className="border-t border-[#eadcc3] px-4 pb-1 pt-3 align-top">
-                    <details className="min-w-44">
-                      <summary className="cursor-pointer select-none text-xs font-bold text-[#5b4027]">
-                        Notering
-                      </summary>
-                      <textarea
-                        aria-label={`Notering ${row.fullName || "ny Gäst"}`}
-                        className="cell-input mt-2 min-h-20 min-w-64 resize-y"
-                        disabled={isPending}
-                        name="notes"
-                        onChange={updateTextValue(rowKey, "notes")}
-                        readOnly={!row.canSave}
-                        value={values.notes ?? ""}
-                      />
-                    </details>
+                  <td className="p-3 align-top">
+                    <div className="grid justify-items-start gap-2">
+                      {row.draft ? (
+                        <span className="text-xs">
+                          Spara för inbjudningslänk
+                        </span>
+                      ) : (
+                        <InviteLinkButton
+                          accessScope={row.inviteAccessScope}
+                          disabled={dirty || isPending}
+                          guestId={row.id}
+                          guestName={name}
+                        />
+                      )}
+                      <button
+                        className="bulk-button"
+                        type="button"
+                        aria-expanded={open}
+                        aria-controls={`details-${row.id}`}
+                        onClick={() => toggle(row.id, setExpanded)}
+                      >
+                        {open ? "Stäng detaljer" : "Detaljer"}
+                        {input.notes?.trim() ? " · notering" : ""}
+                      </button>
+                      {changed ? (
+                        <span className="text-xs font-semibold text-amber-900">
+                          Osparad
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>,
-                <tr className={rowDirty ? "bg-[#fff4df]" : "bg-white/80"} data-roster-row="metadata" key={`${rowKey}-metadata`}>
-                  <td className="px-4 pb-3 pt-0" />
-                  <td className="px-4 pb-3 pt-0" colSpan={7}>
-                    <div className="flex min-w-0 max-w-full flex-nowrap gap-1.5 overflow-x-auto py-1.5 text-xs text-[#5d5144]">
-                      <MetaChip>{guestKindCopy(row)}</MetaChip>
-                      {row.rsvpManaged ? <MetaChip tone="warning">OSA-styrd</MetaChip> : null}
-                      {tiedGuest ? <MetaChip>{tiedGuest}</MetaChip> : null}
-                      <MetaChip>Inbjudan: {inviteStatusCopy(row.inviteStatus)}</MetaChip>
-                      <MetaChip>OSA: {rosterStatusCopy(row.rsvpStatusLabel)}</MetaChip>
+                <tr
+                  key={`${row.id}-metadata`}
+                  data-roster-row="metadata"
+                  className={`${changed ? "bg-[#fff0d1]" : "bg-white/80"} border-b border-[#d8c7a3]`}
+                >
+                  <td colSpan={5} className="px-4 pb-4">
+                    <div className="flex flex-wrap gap-2 text-xs text-[#6f604d]">
+                      <span>
+                        Inbjudan:{" "}
+                        {row.inviteStatus === "opened" ? "Sedd" : "Inte sedd"}
+                      </span>
+                      <span className="sr-only">
+                        OSA: {rsvpLabel(input.rsvpStatus ?? row.rsvpStatus)}
+                      </span>
                       {row.rsvpDetails?.extraGuests ? (
-                        <MetaChip>Extra gäster: {String(row.rsvpDetails.extraGuests)}</MetaChip>
+                        <span>Tar med +1: {row.rsvpDetails.extraGuests}</span>
                       ) : null}
                       {row.rsvpDetails?.foodPreference ? (
-                        <MetaChip>Mat: {row.rsvpDetails.foodPreference}</MetaChip>
+                        <span className="roster-dietary">
+                          Mat: {row.rsvpDetails.foodPreference}
+                        </span>
                       ) : null}
                       {row.rsvpDetails?.allergyNotes ? (
-                        <MetaChip>Allergier: {row.rsvpDetails.allergyNotes}</MetaChip>
+                        <span className="roster-dietary font-semibold">
+                          Allergier: {row.rsvpDetails.allergyNotes}
+                        </span>
                       ) : null}
-                      <MetaChip>Uppdaterad: {row.updatedAtLabel}</MetaChip>
+                    </div>
+                    <div id={`details-${row.id}`} hidden={!open}>
+                      <div className="mt-3 grid gap-4 rounded-xl border border-[#d8c7a3] bg-[#f8f1e3] p-4 md:grid-cols-2">
+                        <label className="grid gap-2 font-semibold">
+                          Privat admin-notering
+                          <textarea
+                            className="cell-input min-h-28 w-full resize-y"
+                            aria-label={`Notering ${name}`}
+                            name="notes"
+                            value={input.notes ?? ""}
+                            disabled={isPending}
+                            onChange={(event) =>
+                              update(row.id, "notes", event.target.value)
+                            }
+                          />
+                          <span className="text-xs font-normal text-[#6f604d]">
+                            Visas inte för gästen eller i cateringunderlaget.
+                          </span>
+                        </label>
+                        <div className="space-y-2 break-words text-[#5d5144]">
+                          <p>
+                            <strong>Matpreferens:</strong>{" "}
+                            {row.rsvpDetails?.foodPreference || "Ej angivet"}
+                          </p>
+                          <p>
+                            <strong>Allergier:</strong>{" "}
+                            {row.rsvpDetails?.allergyNotes || "Ej angivet"}
+                          </p>
+                          <p className="text-xs">
+                            Uppdaterad: {row.updatedAtLabel}
+                          </p>
+                          <p className="text-xs">
+                            {row.guestKind === "plus_one"
+                              ? "OSA följer den inbjudna gästens svar. Ändra svaret på den gästen. Kontakt och matuppgifter hanteras via deras OSA; admin-noteringar kan redigeras här."
+                              : "Ett ändrat OSA-svar gäller även gästens +1. Matuppgifter bevaras. Gästen kan senare uppdatera sitt svar igen."}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </td>
                 </tr>,
@@ -977,37 +896,72 @@ export function GuestRosterEditor({
             })}
           </tbody>
         </table>
-
         {!visibleRows.length ? (
-          <p className="p-8 text-sm font-semibold text-[#6f604d]">Inga Gäster matchar filtren.</p>
+          <div className="p-8 text-center">
+            <p>Inga gäster matchar filtren.</p>
+            <button
+              className="bulk-button mt-3"
+              type="button"
+              onClick={clearFilters}
+            >
+              Visa alla gäster
+            </button>
+          </div>
         ) : null}
       </div>
-
-      {showSaveFooter ? (
-        <div className="sticky bottom-4 z-20 rounded-[1.75rem] border border-[#b9955f] bg-[#1f1a14] px-5 py-4 text-[#f8f1e3] shadow-[0_24px_80px_rgba(31,26,20,0.28)]">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-sm font-bold">{saveFooterText}</p>
-              <p className="text-xs text-[#d8c7a3]">Cmd/Ctrl+S sparar. Spara-knappen ligger utanför tabellens horisontella scroll.</p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <button
-                className="rounded-full border border-[#b9955f] px-5 py-3 text-sm font-bold text-[#f8f1e3] transition hover:bg-[#33291f] disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={!hasDirtyChanges || isPending}
-                onClick={discardChanges}
-                type="button"
-              >
-                Kasta
-              </button>
-              <button
-                className="rounded-full bg-[#f8f1e3] px-5 py-3 text-sm font-bold text-[#1f1a14] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={!hasDirtyChanges || isPending}
-                onClick={saveChanges}
-                type="button"
-              >
-                {isPending ? "Sparar…" : "Spara ändringar"}
-              </button>
-            </div>
+      {reloadRequired ? (
+        <button
+          className="bulk-button"
+          type="button"
+          onClick={() => window.location.reload()}
+        >
+          Ladda om sparad gästlista
+        </button>
+      ) : null}
+      {dirty || isPending ? (
+        <div className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#b9955f] bg-[#211910] p-4 text-[#f8f1e3] shadow-xl">
+          <div>
+            <p className="font-semibold">
+              {reloadRequired
+                ? "Sparat · ladda om för att fortsätta"
+                : isPending
+                  ? "Sparar ändringar…"
+                  : `${dirtyRows.length} ${dirtyRows.length === 1 ? "osparad rad" : "osparade rader"}`}
+            </p>
+            <p className="text-xs text-[#d8c7a3]">
+              Cmd/Ctrl+S · Alla ändringar sparas, även dolda rader.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              className="rounded-full border border-[#b9955f] px-4 py-2 font-semibold disabled:opacity-50"
+              type="button"
+              disabled={isPending}
+              onClick={() => {
+                if (
+                  dirtyRows.length > 1 &&
+                  !window.confirm(
+                    `Kasta ändringar på ${dirtyRows.length} rader?`,
+                  )
+                )
+                  return;
+                const next = rows.filter((row) => !row.draft);
+                setRows(next);
+                setValues(valuesFor(next));
+                setErrors({});
+                setStatus(null);
+              }}
+            >
+              Kasta
+            </button>
+            <button
+              className="rounded-full bg-[#f3dfb9] px-4 py-2 font-bold text-[#211910] disabled:opacity-50"
+              type="button"
+              disabled={isPending}
+              onClick={() => save()}
+            >
+              Spara ändringar
+            </button>
           </div>
         </div>
       ) : null}

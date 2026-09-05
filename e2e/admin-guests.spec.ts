@@ -174,5 +174,5 @@ test.describe("admin invite token links", () => {
 
 async function saveByStickyBar(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: "Spara ändringar" }).click();
-  await expect(page.getByText(/Sparade \d+ ändring/)).toBeVisible();
+  await expect(page.getByText(/Sparade \d+ gäster/)).toBeVisible();
 }
