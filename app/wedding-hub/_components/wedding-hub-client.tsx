@@ -667,6 +667,8 @@ export function WeddingHubClient({
             updateSelected(item.id, row => ({
               ...row,
               status: result.status === "rejected" ? "rejected" : "error",
+              // Confirmed rejection purges the object; only this response permits a fresh upload.
+              finalizeUpload: result.status === "rejected" ? undefined : row.finalizeUpload,
               message: result.reason === "invalid_claim"
                 ? "Verifieringslänken har gått ut. Bilden kan redan vara mottagen; kontrollera med brudparet innan du laddar upp den igen."
                 : result.reason ?? "Verifiering misslyckades. Försök igen.",
@@ -679,8 +681,6 @@ export function WeddingHubClient({
             ? completed === 1 ? "bild skickad för granskning" : "bilder skickade för granskning"
             : completed === 1 ? "bild uppladdad" : "bilder uppladdade";
           setUploadSummary(`${completed} ${receipt}.`);
-          // Gallery/network errors must never turn a verified file into a retry.
-          await refreshGallery().catch(() => undefined);
         } catch (error) {
           updateSelected(item.id, row => ({ ...row, status: "error", message: error instanceof Error ? error.message : "Uppladdning misslyckades" }));
         }
@@ -694,6 +694,8 @@ export function WeddingHubClient({
       uploadInFlightRef.current = false;
       setIsUploading(false);
     }
+    // Refresh once, without blocking the next file/batch or undoing verified receipts.
+    if (completed > 0) void refreshGallery().catch(() => undefined);
   }, [canUpload, refreshGallery, selectedPhotos, updateSelected, wedding.photo_upload_requires_review]);
 
   return (

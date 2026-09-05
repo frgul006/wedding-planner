@@ -1,5 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import { PHOTO_UPLOAD_BUCKET } from "../lib/photo-upload";
+import { getHubWedding } from "../lib/wedding-hub";
+import { finalizePhotoUploads } from "../lib/wedding-hub-photo-verification";
 import { testWithWeddingSettings as test } from "./support/fixtures";
 import { createE2eSupabaseAdminClient } from "./support/supabase";
 import { SEEDED_WEDDING_ID } from "./support/test-data";
@@ -97,6 +99,99 @@ test.describe("Wedding hub browser upload", () => {
     expect(claims[2]).toBe(claims[1]);
     expect(await rows()).toHaveLength(2);
     expect((await rows()).find(row => row.original_filename === `${PREFIX}lost-response.png`)).toMatchObject({ note: "Keep original note", verification_status: "verified" });
+  });
+
+  test("confirmed transient header rejection retries with a fresh upload after the original is purged", async ({ page }) => {
+    const db = createE2eSupabaseAdminClient();
+    const wedding = await getHubWedding({ supabase: db });
+    expect(wedding).not.toBeNull();
+    let signs = 0;
+    let puts = 0;
+    let failHeader = true;
+    page.on("request", request => {
+      if (request.url().endsWith("/photos/sign")) signs += 1;
+      if (request.method() === "PUT") puts += 1;
+    });
+    await page.route("**/api/wedding-hub/photos/finalize", async route => {
+      if (!failHeader) return route.fallback();
+      failHeader = false;
+      // Run the real verifier/purge against local Storage, failing only its header GET.
+      const originalFetch = globalThis.fetch;
+      let headerFailures = 0;
+      globalThis.fetch = (input, init) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (url.includes(`/storage/v1/object/sign/${PHOTO_UPLOAD_BUCKET}/`) && init?.method === "GET") {
+          headerFailures += 1;
+          return Promise.resolve(new Response(null, { status: 503 }));
+        }
+        return originalFetch(input, init);
+      };
+      try {
+        const results = await finalizePhotoUploads({
+          supabase: db,
+          wedding: wedding!,
+          attribution: { guestNavigationSession: null, guestName: null },
+          items: route.request().postDataJSON().uploads,
+        });
+        expect(headerFailures).toBe(1);
+        expect(results[0]).toMatchObject({ success: false, status: "rejected", reason: "header_fetch_failed" });
+        await route.fulfill({ json: { results } });
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+    await pick(page, [`${PREFIX}transient-header.png`]);
+    await page.getByRole("button", { name: /^Ladda upp \d/ }).click();
+    await expect(page.getByText("header_fetch_failed", { exact: true })).toBeVisible();
+    const [rejected] = await rows();
+    expect(rejected.verification_status).toBe("rejected");
+    expect((await db.storage.from(PHOTO_UPLOAD_BUCKET).info(rejected.storage_path)).data).toBeNull();
+    const firstPutCount = puts;
+    expect(firstPutCount).toBeGreaterThanOrEqual(1);
+
+    await page.getByRole("button", { name: /^Ladda upp \d/ }).click();
+    await expect(page.getByText("Valda filer", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("status")).toHaveText("1 bild uppladdad.");
+    expect(signs).toBe(2);
+    expect(puts).toBeGreaterThan(firstPutCount);
+    const uploaded = await rows();
+    expect(uploaded).toHaveLength(2);
+    const verified = uploaded.find(row => row.verification_status === "verified");
+    expect(verified).toBeDefined();
+    expect(verified!.storage_path).not.toBe(rejected.storage_path);
+    const original = await db.storage.from(PHOTO_UPLOAD_BUCKET).download(verified!.storage_path);
+    expect(original.error).toBeNull();
+    expect(Buffer.from(await original.data!.arrayBuffer())).toEqual(PNG);
+  });
+
+  test("held gallery refresh cannot block the next photo or keep upload controls locked", async ({ page }) => {
+    let galleryRequests = 0;
+    let releaseGallery!: () => void;
+    const heldGallery = new Promise<void>(resolve => { releaseGallery = resolve; });
+    await page.route("**/api/wedding-hub/photos", async route => {
+      galleryRequests += 1;
+      await heldGallery;
+      await route.fulfill({ response: await route.fetch() });
+    });
+    await pick(page, [`${PREFIX}held-gallery-first.png`, `${PREFIX}held-gallery-second.png`]);
+    try {
+      await page.getByRole("button", { name: /^Ladda upp \d/ }).click();
+      await expect.poll(() => galleryRequests).toBe(1);
+      await expect.poll(async () => (await rows()).filter(row => row.verification_status === "verified").length).toBe(2);
+      await expect(page.getByText("Valda filer", { exact: true })).toHaveCount(0);
+      await expect(page.getByRole("status")).toHaveText("2 bilder uppladdade.");
+      await expect(page.getByRole("button", { name: "Ladda upp bilder", exact: true })).toBeEnabled();
+      // A new selection proves both the visible busy state and the ref lock were released.
+      const chooser = page.waitForEvent("filechooser");
+      await page.getByRole("button", { name: "Ladda upp bilder", exact: true }).click();
+      await (await chooser).setFiles({ name: `${PREFIX}next-batch.png`, mimeType: "image/png", buffer: PNG });
+      await expect(page.getByRole("button", { name: /^Ladda upp \d/ })).toBeEnabled();
+      await expect(page.getByPlaceholder("Lägg till kommentar")).toBeEnabled();
+      await expect(page.getByRole("button", { name: "Ta bort", exact: true })).toBeEnabled();
+      expect(galleryRequests).toBe(1);
+    } finally {
+      releaseGallery();
+    }
   });
 
   test("gallery refresh failure cannot undo verified success", async ({ page }) => {
