@@ -13,6 +13,13 @@ const modal = (page: Page) => page.getByRole("dialog", { name: "Våra bilder" })
 const photoButton = (page: Page, id: string) => page.locator(`button[data-photo-id="${id}"]`);
 const count = (page: Page, position: number, total = 3) => expect(modal(page).getByText(`Bild ${position} av ${total}`, { exact: true })).toBeVisible();
 
+async function expectModalFocusAfterPaint(page: Page) {
+  // Native disabled-control blur is deferred. Model separate physical key presses
+  // rather than letting an immediate opposite arrow mask lost focus.
+  await page.waitForTimeout(200);
+  expect(await modal(page).evaluate(el => el.contains(document.activeElement))).toBe(true);
+}
+
 async function uploadedRows() {
   const result = await createE2eSupabaseAdminClient().from("photo_uploads")
     .select("id, original_filename, storage_path, thumbnail_storage_path, note, verification_status, moderation_status, mime_type, size_bytes")
@@ -147,6 +154,58 @@ test.describe("Wedding hub photo viewer", () => {
     });
   }
 
+  test("caption focus survives repeated arrows and scroll resets without remounting", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await browseCollection(page);
+    const opener = photoButton(page, "viewer-0");
+    await opener.click();
+    await page.keyboard.press("Tab");
+    const caption = modal(page).getByLabel("Bildtext");
+    await expect(caption).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await expectModalFocusAfterPaint(page);
+    await count(page, 2);
+    await expect(caption).toBeFocused();
+    await caption.evaluate(el => { el.scrollTop = 60; });
+    expect(await caption.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+    for (const [key, position] of [["ArrowRight", 3], ["ArrowRight", 3], ["ArrowLeft", 2], ["ArrowLeft", 1]] as const) {
+      await page.keyboard.press(key);
+      await expectModalFocusAfterPaint(page);
+      await count(page, position);
+      await expect(caption).toBeFocused();
+      expect(await caption.evaluate(el => el.scrollTop)).toBe(0);
+    }
+    await page.getByRole("button", { name: "Stäng" }).click();
+    await expect(opener).toBeFocused();
+  });
+
+  for (const next of [true, false]) {
+    test(`focused ${next ? "Next" : "Previous"} survives boundary activation and opposite arrow`, async ({ page }) => {
+      await browseCollection(page);
+      const opener = photoButton(page, "viewer-1");
+      await opener.click();
+      const button = modal(page).getByRole("button", { name: next ? "Nästa bild" : "Föregående bild" });
+      await button.focus();
+      await page.keyboard.press("Enter");
+      await expectModalFocusAfterPaint(page);
+      await count(page, next ? 3 : 1);
+      await expect(button).toBeFocused();
+      await expect(button).toBeDisabled();
+      // aria-disabled remains keyboard-focusable; guarded activation must no-op.
+      await page.keyboard.press("Enter");
+      await page.keyboard.press("Space");
+      await expectModalFocusAfterPaint(page);
+      await count(page, next ? 3 : 1);
+      await page.keyboard.press(next ? "ArrowLeft" : "ArrowRight");
+      await expectModalFocusAfterPaint(page);
+      await count(page, 2);
+      await expect(button).toBeFocused();
+      await expect(button).toBeEnabled();
+      await page.keyboard.press("Escape");
+      await expect(opener).toBeFocused();
+    });
+  }
+
   test("one photo has honest loaded count and no navigation", async ({ page }) => {
     await browseCollection(page, 1);
     await photoButton(page, "viewer-0").click();
@@ -174,6 +233,8 @@ test.describe("Wedding hub photo viewer", () => {
       await photoButton(page, "viewer-1").click();
       try {
         await expect(modal(page).getByRole("button", { name: /Ladda upp egna bilder/ })).toBeDisabled();
+        await page.keyboard.press("Tab");
+        await expect(modal(page).getByLabel("Bildtext")).toBeFocused();
         const photos = collection.photos();
         collection.replacePhotos(empty ? [] : [{ ...photos[0], id: "new-first", who: "Ny gäst" }, ...photos]);
       } finally { release(); }
@@ -181,6 +242,8 @@ test.describe("Wedding hub photo viewer", () => {
         await expect(modal(page).getByRole("status")).toContainText("Bilden är inte längre tillgänglig");
         await expect(modal(page).getByRole("img")).toHaveCount(0);
         await expect(modal(page).getByRole("link")).toHaveCount(0);
+        await expectModalFocusAfterPaint(page);
+        await expect(modal(page).getByRole("button", { name: "Stäng" })).toBeFocused();
       } else {
         await count(page, 3, 4);
         await expect(modal(page).getByLabel("Bildtext")).toContainText("Erik");

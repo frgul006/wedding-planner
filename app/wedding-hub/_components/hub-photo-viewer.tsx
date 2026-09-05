@@ -44,12 +44,23 @@ export function HubPhotoViewer({ photos, initialPhotoId, opener, uploadDisabled,
   const [selectedId, setSelectedId] = useState(initialPhotoId);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const captionRef = useRef<HTMLDivElement>(null);
   const restoreRef = useRef<() => void>(() => undefined);
   const gestureRef = useRef<{ x: number; y: number } | null>(null);
   const index = photos.findIndex(photo => photo.id === selectedId);
   const photo = photos[index];
   const hasPrevious = index > 0;
   const hasNext = index >= 0 && index < photos.length - 1;
+  const photoId = photo?.id;
+
+  useEffect(() => {
+    if (captionRef.current) captionRef.current.scrollTop = 0;
+    const dialog = dialogRef.current;
+    // Refresh may remove the focused caption/original link. Keep keys in the modal.
+    if (!photoId && dialog?.open && !dialog.contains(document.activeElement)) {
+      closeButtonRef.current?.focus({ preventScroll: true });
+    }
+  }, [photoId]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -149,15 +160,15 @@ export function HubPhotoViewer({ photos, initialPhotoId, opener, uploadDisabled,
 
         <footer className="mx-auto w-full max-w-3xl shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           {photo ? (
-            <div key={photo.id} className="max-h-[20dvh] overflow-y-auto overscroll-contain break-words" tabIndex={0} aria-label="Bildtext">
+            <div ref={captionRef} className="max-h-[20dvh] overflow-y-auto overscroll-contain break-words" tabIndex={0} aria-label="Bildtext">
               <p className="font-serif text-xl">{photo.who}</p>
               {photo.note ? <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-[#e6dcc7]">{photo.note}</p> : null}
             </div>
           ) : null}
           <div className="my-2 flex items-center justify-between gap-2">
-            <button aria-label="Föregående bild" className="min-h-11 min-w-11 border border-[#f1eadc]/30 px-4 text-xl disabled:opacity-30" disabled={!hasPrevious} onClick={() => move(-1)} type="button">←</button>
+            <button aria-label="Föregående bild" className="min-h-11 min-w-11 border border-[#f1eadc]/30 px-4 text-xl aria-disabled:opacity-30" aria-disabled={!hasPrevious} onClick={() => move(-1)} type="button">←</button>
             <p className="text-center font-mono text-xs text-[#e6dcc7]" aria-live="polite" aria-atomic="true">{photo ? `Bild ${index + 1} av ${photos.length}` : "Ingen bild"}</p>
-            <button aria-label="Nästa bild" className="min-h-11 min-w-11 border border-[#f1eadc]/30 px-4 text-xl disabled:opacity-30" disabled={!hasNext} onClick={() => move(1)} type="button">→</button>
+            <button aria-label="Nästa bild" className="min-h-11 min-w-11 border border-[#f1eadc]/30 px-4 text-xl aria-disabled:opacity-30" aria-disabled={!hasNext} onClick={() => move(1)} type="button">→</button>
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <button
