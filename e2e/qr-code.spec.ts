@@ -486,7 +486,10 @@ test.describe("wedding hub QR", () => {
 
     await page.goto("/wedding-hub");
     await expect(page.getByText(note)).toBeVisible();
-    await expect(page.getByRole("link", { name: /Öppna foto från Gäst/ }).first()).toHaveAttribute(
+    await page.locator(`button[data-photo-id="${row?.id}"]`).click();
+    const viewer = page.getByRole("dialog", { name: "Våra bilder" });
+    await expect(viewer).toContainText(note);
+    await expect(viewer.getByRole("link", { name: /Öppna original/ })).toHaveAttribute(
       "href",
       /\/storage\/v1\/object\/sign\//,
     );
