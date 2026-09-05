@@ -127,6 +127,19 @@ test.describe("admin invite token links", () => {
     await expect(firstInviteInput).toBeVisible();
 
     const firstInviteUrl = await firstInviteInput.inputValue();
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+    const linkDialog = page.getByRole("dialog", { name: "Ny inbjudningslänk", exact: true });
+    await expect(linkDialog).toBeVisible();
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      await expect(linkDialog.getByRole("button", { name: "Kopiera ny länk", exact: true })).toBeInViewport({ ratio: 1 });
+    }
+    await linkDialog.getByRole("button", { name: "Kopiera ny länk", exact: true }).click();
+    await expect(linkDialog.getByRole("button", { name: "Ny länk kopierad", exact: true })).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(firstInviteUrl);
+    await linkDialog.getByRole("button", { name: "Stäng", exact: true }).click();
+    await expect(linkDialog).not.toBeVisible();
+    await page.setViewportSize({ width: 1280, height: 720 });
     const expectedInviteOrigin = expectedPublicOriginForPage(page);
     const firstInvitePath = pathFromAbsoluteUrl(firstInviteUrl);
     expect(new URL(firstInviteUrl).origin).toBe(expectedInviteOrigin);
@@ -174,5 +187,5 @@ test.describe("admin invite token links", () => {
 
 async function saveByStickyBar(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: "Spara ändringar" }).click();
-  await expect(page.getByText(/Sparade \d+ ändring/)).toBeVisible();
+  await expect(page.getByRole("status")).toHaveText(/Sparade \d+ gäst(?:er)?/);
 }

@@ -364,15 +364,17 @@ test.describe("RSVP-managed Plus-one Guests", () => {
 
     await guestRowByName(page, guestName);
     const invitedMetadataRow = await guestMetadataRowByName(page, guestName);
-    await expect(invitedMetadataRow.getByText("Inbjuden Gäst", { exact: true })).toBeVisible();
+    await expect(invitedMetadataRow.getByText("Tar med +1: 1", { exact: true })).toBeVisible();
 
     const plusOneRow = await guestRowByName(page, plusOneName);
     const plusOneMetadataRow = await guestMetadataRowByName(page, plusOneName);
-    await expect(plusOneMetadataRow.getByText("Plus-one Gäst", { exact: true })).toBeVisible();
-    await expect(plusOneMetadataRow.getByText(`Kopplad till ${guestName}`)).toBeVisible();
+    await expect(plusOneRow.getByText("+1-gäst", { exact: true })).toBeVisible();
+    await expect(plusOneRow.getByText(`+1 till ${guestName}`, { exact: true })).toBeVisible();
+    await expect(plusOneMetadataRow.getByText("Extra gäster:")).toHaveCount(0);
     await expect(plusOneMetadataRow.getByText("Mat: Vegetarian")).toBeVisible();
-    await expect(plusOneMetadataRow.getByText("Allergier: No almonds.")).toBeVisible();
-    await expect(plusOneMetadataRow.getByText("OSA-styrd", { exact: true })).toBeVisible();
+    await expect(plusOneMetadataRow.locator(".roster-dietary").filter({ hasText: "Allergier: No almonds." })).toBeVisible();
+    await plusOneRow.getByRole("button", { name: "Detaljer", exact: true }).click();
+    await expect(plusOneMetadataRow.getByLabel(`Notering ${plusOneName}`)).toBeEditable();
     await expect(plusOneRow.locator('input[name="full_name"]')).toHaveAttribute(
       "readonly",
       "",

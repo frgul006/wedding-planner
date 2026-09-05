@@ -1,10 +1,12 @@
 import { normalizePhoneNumberInput, PHONE_FORMAT_HINT } from "@/lib/phone";
 import { isRecord } from "@/lib/type-guards";
+import { isRsvpStatus, type RsvpStatus } from "./invite-status";
 
 export type AdminGuestRosterSessionValues = {
   email: string | null;
   fullName: string;
   notes: string | null;
+  rsvpStatus?: RsvpStatus;
   phone: string | null;
   plusOneAllowed: boolean;
   smsOptIn: boolean;
@@ -49,6 +51,7 @@ type NormalizedAdminGuestRosterSessionChange = {
   full_name: string;
   id: string | null;
   notes: string | null;
+  rsvp_status?: RsvpStatus;
   phone: string | null;
   plus_one_allowed: boolean;
   row_key: string;
@@ -105,7 +108,8 @@ export function normalizeAdminGuestRosterSessionChanges(
       addFieldError(errors, rowKey, "fullName", "Namn krävs.");
     }
 
-    if (!email && !phone) {
+    // Existing name-only +1 Guests are valid; DB checks kind and field ownership.
+    if (!change.id && !email && !phone) {
       addFieldError(
         errors,
         rowKey,
@@ -121,6 +125,10 @@ export function normalizeAdminGuestRosterSessionChanges(
         "phone",
         `SMS kräver telefonnummer i format ${PHONE_FORMAT_HINT}.`,
       );
+    }
+
+    if (change.values.rsvpStatus !== undefined && !isRsvpStatus(change.values.rsvpStatus)) {
+      addFieldError(errors, rowKey, "row", "Ogiltigt OSA-svar.");
     }
 
     if (change.id && !change.expectedUpdatedAt) {
@@ -148,6 +156,7 @@ export function normalizeAdminGuestRosterSessionChanges(
       full_name: fullName,
       id: change.id ?? null,
       notes,
+      ...(change.values.rsvpStatus !== undefined ? { rsvp_status: change.values.rsvpStatus } : {}),
       phone,
       plus_one_allowed: change.values.plusOneAllowed,
       row_key: rowKey,

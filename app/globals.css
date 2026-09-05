@@ -152,4 +152,40 @@ body {
   .bulk-button-danger:hover {
     background: #fef2f2;
   }
+
+  .roster-dietary {
+    border-radius: 0.5rem;
+    background: #efe1c8;
+    padding: 0.15rem 0.5rem;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  .admin-roster-table input.cell-input:read-only {
+    background: #f3eee5;
+    border-color: transparent;
+  }
+
+  .admin-roster-table :focus-visible,
+  .bulk-button:focus-visible {
+    outline: 2px solid #8f5d2f;
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 1100px) {
+    .admin-roster-table,
+    .admin-roster-table tbody { display: block; }
+    .admin-roster-table thead { display: none; }
+    .admin-roster-table tr[data-roster-row="guest"] {
+      display: grid;
+      grid-template-columns: 2.5rem minmax(0, 1fr);
+      padding-top: 0.5rem;
+    }
+    .admin-roster-table tr[data-roster-row="guest"] td:first-child { grid-column: 1; grid-row: 1 / 4; }
+    .admin-roster-table tr[data-roster-row="guest"] td:not(:first-child) { grid-column: 2; padding: 0.5rem 1rem 0.5rem 0; }
+    .admin-roster-table tr[data-roster-row="guest"] td:nth-child(4) > div,
+    .admin-roster-table tr[data-roster-row="guest"] td:nth-child(5) > div { display: flex; flex-wrap: wrap; align-items: center; }
+    .admin-roster-table tr[data-roster-row="metadata"],
+    .admin-roster-table tr[data-roster-row="metadata"] td { display: block; }
+  }
 }

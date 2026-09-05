@@ -1,64 +1,78 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { connection } from "next/server";
-
 import { requireActiveAdminProfile } from "@/lib/admin-auth";
 import {
   loadAdminGuestRoster,
   normalizeAdminGuestRosterFilters,
+  type AdminGuestRosterSearchParams,
 } from "@/lib/admin-guest-roster";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
 import { GuestRosterEditor } from "./guest-roster-editor";
 
-export const metadata: Metadata = {
-  title: "Gäster | Wedding Planner",
-};
+export const metadata: Metadata = { title: "Gäster | Wedding Planner" };
 
-type GuestsPageProps = {
-  searchParams: Promise<{
-    q?: string | string[];
-    sort?: string | string[];
-    status?: string | string[];
-  }>;
-};
-
-export default async function GuestsPage({ searchParams }: GuestsPageProps) {
+export default async function GuestsPage({
+  searchParams,
+}: {
+  searchParams: Promise<AdminGuestRosterSearchParams>;
+}) {
   await connection();
-  const params = await searchParams;
-  const initialFilters = normalizeAdminGuestRosterFilters(params);
-  const adminProfile = await requireActiveAdminProfile();
-  const supabase = await createSupabaseServerClient();
+  const initialFilters = normalizeAdminGuestRosterFilters(await searchParams);
+  const admin = await requireActiveAdminProfile();
   const roster = await loadAdminGuestRoster({
-    filters: initialFilters,
-    supabase,
-    weddingId: adminProfile.wedding_id,
+    // Keep all rows in the editor so clearing a URL filter restores the whole list.
+    filters: { query: "", status: "", sort: "name" },
+    supabase: await createSupabaseServerClient(),
+    weddingId: admin.wedding_id,
   });
-
   return (
-    <main className="grid gap-6">
-      <section className="rounded-[2.25rem] border border-[#d8c7a3] bg-[#2a2118] p-6 text-[#f8f1e3] shadow-[0_24px_80px_rgba(42,33,24,0.18)] lg:p-8">
-        <p className="text-xs font-bold uppercase tracking-[0.32em] text-[#d8b476]">Admin · Gäster</p>
-        <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_auto] xl:items-end">
-          <div>
-            <h1 className="font-serif text-4xl leading-tight lg:text-5xl">Hantera Gäster</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-[#e7d9c2]">
-              Redigera kontaktuppgifter, SMS-samtycke, +1 och admin-noteringar över flera Gäster. Spara ändringar samlat när du är klar.
-            </p>
-          </div>
-          <div className="rounded-3xl border border-[#b9955f] bg-[#3a2d20] px-5 py-4 text-sm">
-            <p className="font-bold">{roster.rows.length} aktiva Gäster</p>
-            <p className="text-[#d8c7a3]">Skrivskyddade Plus-one Gäster ingår i vyn.</p>
-          </div>
+    <main className="grid min-w-0 gap-5">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-[#8f5d2f]">
+            Admin · Gäster
+          </p>
+          <h1 className="mt-1 font-serif text-4xl">Hantera Gäster</h1>
+          <p className="mt-2 text-sm text-[#6f604d]">
+            OSA, kontaktuppgifter och matönskemål på ett ställe.
+          </p>
         </div>
-      </section>
-
+        <div className="grid gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Link
+              className="bulk-button bg-[#211910] !text-[#fffaf1]"
+              href="/admin/guests/catering"
+            >
+              Cateringunderlag
+            </Link>
+            <a className="bulk-button" href="/admin/guests/export?format=csv">
+              Exportera CSV
+            </a>
+            <a className="bulk-button" href="/admin/guests/export?format=json">
+              Exportera JSON
+            </a>
+          </div>
+          <p className="max-w-md text-xs text-[#6f604d]">
+            Råexport: alla sparade, aktiva gäster inklusive kontakter och
+            privata noteringar. Använd cateringunderlaget för leverantören.
+          </p>
+        </div>
+      </header>
       {roster.error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-800" role="alert">
-          Kunde inte läsa Gästlistan. Försök igen.
-        </div>
-      ) : null}
-
-      <GuestRosterEditor initialFilters={initialFilters} initialRows={roster.rows} />
+        <p
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800"
+        >
+          Kunde inte hämta hela gästlistan. Ladda om sidan. Ingen ofullständig
+          lista visas.
+        </p>
+      ) : (
+        <GuestRosterEditor
+          initialRows={roster.rows}
+          initialFilters={initialFilters}
+        />
+      )}
     </main>
   );
 }

@@ -8,7 +8,6 @@ import {
   type InviteAccessScope,
 } from "@/lib/guest-access-policy";
 import {
-  INVITE_OPENED_STATUS,
   RSVP_STATUS,
   isInviteOpenedStatus,
   isInviteStatus,
@@ -18,6 +17,7 @@ import {
   type RsvpStatus,
 } from "@/lib/invite-status";
 import { isNullableString, isRecord } from "@/lib/type-guards";
+import { matchesAdminGuestRosterFilters } from "./admin-guest-roster-filters";
 
 export type { GuestKind, InviteAccessScope } from "@/lib/guest-access-policy";
 
@@ -170,7 +170,9 @@ export function normalizeAdminGuestRosterFilters(
   };
 }
 
-function isAdminGuestRosterGuestRow(value: unknown): value is AdminGuestRosterGuestRow {
+function isAdminGuestRosterGuestRow(
+  value: unknown,
+): value is AdminGuestRosterGuestRow {
   return (
     isRecord(value) &&
     typeof value.id === "string" &&
@@ -237,7 +239,7 @@ function getRsvpDetailsForGuest(
   if (guest.guest_kind === "plus_one") {
     return {
       allergyNotes: response.plus_one_allergy_notes,
-      extraGuests: response.extra_guests,
+      extraGuests: 0,
       foodPreference: response.plus_one_food_preference,
       submittedAtLabel: formatRsvpSubmittedAt(response.last_submitted_at),
     };
@@ -286,7 +288,7 @@ export function buildAdminGuestRosterRows({
       canEditIdentity,
       canEditPlusOneAllowed: canEditIdentity && !isPlusOneGuest,
       canEditSmsOptIn: canEditIdentity,
-      canSave: !guest.rsvp_managed,
+      canSave: true,
       email: guest.email,
       fullName: guest.full_name,
       guestKind: guest.guest_kind,
@@ -313,6 +315,40 @@ export function buildAdminGuestRosterRows({
   });
 }
 
+async function loadRosterRelated(
+  supabase: SupabaseClient,
+  weddingId: string,
+  table: "guests" | "invite_tokens" | "rsvp_responses",
+  select: string,
+  column: string,
+  ids: string[],
+) {
+  const data: unknown[] = [];
+  for (let start = 0; start < ids.length; start += 100) {
+    let cursor: string | undefined;
+    for (;;) {
+      let query = supabase
+        .from(table)
+        .select(`id,${select}`)
+        .eq("wedding_id", weddingId)
+        .in(column, ids.slice(start, start + 100))
+        .order("id")
+        .limit(200);
+      if (cursor) query = query.gt("id", cursor);
+      if (table === "invite_tokens") query = query.eq("is_active", true);
+      const page = await query;
+      if (page.error) return { data: [], error: page.error };
+      data.push(...(page.data ?? []));
+      if (!page.data || page.data.length < 200) break;
+      const last: unknown = page.data.at(-1);
+      if (!isRecord(last) || typeof last.id !== "string")
+        return { data: [], error: new Error("Invalid related roster cursor") };
+      cursor = last.id;
+    }
+  }
+  return { data, error: null };
+}
+
 export async function loadAdminGuestRoster({
   filters,
   supabase,
@@ -322,49 +358,29 @@ export async function loadAdminGuestRoster({
   supabase: SupabaseClient;
   weddingId: string;
 }): Promise<LoadAdminGuestRosterResult> {
-  let guestsQuery = supabase
-    .from("guests")
-    .select(GUEST_SELECT)
-    .eq("wedding_id", weddingId)
-    .is("deleted_at", null)
-    .limit(500);
-
-  if (filters.query) {
-    const escapedQuery = filters.query.replaceAll("%", "\\%").replaceAll("_", "\\_");
-    guestsQuery = guestsQuery.or(
-      `full_name.ilike.%${escapedQuery}%,phone.ilike.%${escapedQuery}%`,
-    );
-  }
-
-  if (
-    filters.status === INVITE_OPENED_STATUS.notReplied ||
-    filters.status === INVITE_OPENED_STATUS.opened
-  ) {
-    guestsQuery = guestsQuery
-      .eq("invite_status", filters.status)
-      .eq("rsvp_status", RSVP_STATUS.notReplied);
-  } else if (isRsvpStatus(filters.status)) {
-    guestsQuery = guestsQuery.eq("rsvp_status", filters.status);
-  }
-
-  if (filters.sort === "name-desc") {
-    guestsQuery = guestsQuery.order("full_name", { ascending: false });
-  } else if (filters.sort === "status") {
-    guestsQuery = guestsQuery
-      .order("rsvp_status", { ascending: true })
-      .order("invite_status", { ascending: true })
-      .order("full_name");
-  } else if (filters.sort === "newest") {
-    guestsQuery = guestsQuery.order("created_at", { ascending: false });
-  } else {
-    guestsQuery = guestsQuery.order("full_name", { ascending: true });
-  }
-
-  const { data, error } = await guestsQuery;
-  const guestRows = (data ?? []).filter(isAdminGuestRosterGuestRow);
-
-  if (error) {
-    return { error, rows: [] };
+  // Load before filtering: dietary fields and +1 details live in RSVP responses.
+  // Stable, bounded pages avoid silently truncating the roster at 500 Guests.
+  const guestRows: AdminGuestRosterGuestRow[] = [];
+  const cutoff = new Date().toISOString();
+  let cursor: string | undefined;
+  for (;;) {
+    let query = supabase
+      .from("guests")
+      .select(GUEST_SELECT)
+      .eq("wedding_id", weddingId)
+      .is("deleted_at", null)
+      .lte("created_at", cutoff)
+      .order("id")
+      .limit(200);
+    if (cursor) query = query.gt("id", cursor);
+    const { data, error } = await query;
+    if (error) return { error, rows: [] };
+    if (!Array.isArray(data) || !data.every(isAdminGuestRosterGuestRow)) {
+      return { error: new Error("Invalid guest roster data"), rows: [] };
+    }
+    guestRows.push(...data);
+    if (data.length < 200) break;
+    cursor = data[data.length - 1].id;
   }
 
   const guestIds = guestRows.map((guest) => guest.id);
@@ -377,32 +393,39 @@ export async function loadAdminGuestRoster({
   );
   const rsvpGuestIds = Array.from(new Set([...guestIds, ...invitedGuestIds]));
 
-  const [activeTokensResult, rsvpResponsesResult, tiedInvitedGuestsResult] = guestIds.length
-    ? await Promise.all([
-        supabase
-          .from("invite_tokens")
-          .select("guest_id")
-          .eq("wedding_id", weddingId)
-          .eq("is_active", true)
-          .in("guest_id", guestIds),
-        supabase
-          .from("rsvp_responses")
-          .select(RSVP_RESPONSE_SELECT)
-          .eq("wedding_id", weddingId)
-          .in("guest_id", rsvpGuestIds),
-        invitedGuestIds.length
-          ? supabase
-              .from("guests")
-              .select("id, full_name")
-              .eq("wedding_id", weddingId)
-              .in("id", invitedGuestIds)
-          : Promise.resolve({ data: [], error: null }),
-      ])
-    : [
-        { data: [], error: null },
-        { data: [], error: null },
-        { data: [], error: null },
-      ];
+  const [activeTokensResult, rsvpResponsesResult, tiedInvitedGuestsResult] =
+    guestIds.length
+      ? await Promise.all([
+          loadRosterRelated(
+            supabase,
+            weddingId,
+            "invite_tokens",
+            "guest_id",
+            "guest_id",
+            guestIds,
+          ),
+          loadRosterRelated(
+            supabase,
+            weddingId,
+            "rsvp_responses",
+            RSVP_RESPONSE_SELECT,
+            "guest_id",
+            rsvpGuestIds,
+          ),
+          loadRosterRelated(
+            supabase,
+            weddingId,
+            "guests",
+            "id, full_name",
+            "id",
+            invitedGuestIds,
+          ),
+        ])
+      : [
+          { data: [], error: null },
+          { data: [], error: null },
+          { data: [], error: null },
+        ];
 
   return {
     error:
@@ -415,6 +438,20 @@ export async function loadAdminGuestRoster({
       guestRows,
       rsvpResponses: rsvpResponsesResult.data ?? [],
       tiedInvitedGuests: tiedInvitedGuestsResult.data ?? [],
-    }),
+    })
+      .filter((row) => matchesAdminGuestRosterFilters(row, filters))
+      .sort((left, right) => {
+        if (filters.sort === "newest")
+          return right.updatedAt.localeCompare(left.updatedAt);
+        if (filters.sort === "status")
+          return `${left.rsvpStatus}-${left.inviteStatus}-${left.fullName}`.localeCompare(
+            `${right.rsvpStatus}-${right.inviteStatus}-${right.fullName}`,
+            "sv",
+          );
+        return (
+          (filters.sort === "name-desc" ? -1 : 1) *
+          left.fullName.localeCompare(right.fullName, "sv")
+        );
+      }),
   };
 }

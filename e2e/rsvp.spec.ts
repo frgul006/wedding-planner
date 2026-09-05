@@ -268,12 +268,11 @@ test.describe("RSVP, invite status, and phone capture", () => {
     await signInAsSeededAdmin(page);
     await page.goto("/admin/guests");
     await page.getByLabel("Search name or phone").fill(guestName);
-    await page.getByRole("button", { name: "Apply" }).click();
+    // Roster filters now apply immediately, without an extra Apply action.
+    await expect(page.getByLabel(`OSA ${guestName}`, { exact: true })).toHaveValue("rsvp yes");
     await guestRowByName(page, guestName);
     const metadataRow = await guestMetadataRowByName(page, guestName);
-    await expect(metadataRow.getByText("OSA: OSA ja", { exact: true })).toBeVisible();
-    await expect(metadataRow.getByText("Mat: Vegan")).toBeVisible();
-    await expect(metadataRow.getByText("Allergier: Peanuts and sesame.")).toBeVisible();
+    await expect(metadataRow.locator(".roster-dietary")).toContainText(["Mat: Vegan", "Allergier: Peanuts and sesame."]);
   });
 
   test("persists named +1 details when submitted for an allowed guest", async ({

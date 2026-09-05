@@ -158,7 +158,9 @@ export async function saveGuestRosterSessionAction(
     weddingId: adminProfile.wedding_id,
   });
 
-  return { ...result, rows: roster.rows };
+  revalidatePath("/admin");
+  revalidatePath("/admin/guests/catering");
+  return { ...result, ...(roster.error ? {} : { rows: roster.rows }) };
 }
 
 export async function archiveSelectedGuestsAction(
