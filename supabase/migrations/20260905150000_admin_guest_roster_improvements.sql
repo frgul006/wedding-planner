@@ -22,6 +22,7 @@ declare
   v_sms boolean;
   v_plus_one boolean;
   v_expected timestamptz;
+  target_ids uuid[] := '{}';
   seen_ids uuid[] := '{}';
   seen_keys text[] := '{}';
   v_now timestamptz := now();
@@ -33,9 +34,17 @@ begin
   if p_changes is null or jsonb_typeof(p_changes) <> 'array' then
     return jsonb_build_object('status', 'validation-error', 'message', 'Ogiltigt ändringspaket.', 'errors', '{}'::jsonb);
   end if;
-  -- Consistent lock order, including companions changed by a parent RSVP update.
+  begin
+    select coalesce(array_agg(nullif(value->>'id', '')::uuid), '{}'::uuid[])
+      into target_ids from jsonb_array_elements(p_changes);
+  exception when invalid_text_representation then
+    return jsonb_build_object('status', 'validation-error', 'message', 'Ogiltigt gäst-id.', 'errors', '{}'::jsonb);
+  end;
+  -- Match submit_rsvp_response: lock affected Guests in ID order before responses.
+  -- Unrelated guests remain available for concurrent saves.
   perform id from public.guests
     where wedding_id = p_wedding_id and deleted_at is null
+      and (id = any(target_ids) or (rsvp_managed and invited_guest_id = any(target_ids)))
     order by id for update;
 
   for item in select value from jsonb_array_elements(p_changes) loop

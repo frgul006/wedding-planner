@@ -64,6 +64,7 @@ export type ExportRsvp = Record<
   plus_one_allergy_notes: string | null;
 };
 export type GuestExportData = {
+  exportedAt?: string;
   guests: ExportGuest[];
   responses: ExportRsvp[];
 };
@@ -108,41 +109,54 @@ export async function loadGuestExportData(
 ): Promise<GuestExportData> {
   const guests: ExportGuest[] = [];
   const responses: ExportRsvp[] = [];
-  for (let offset = 0; ; offset += 200) {
-    const { data, error } = await supabase
+  // Fixed creation cutoff + keyset pagination: inserts/archives cannot shift a
+  // later page, duplicate a person, or skip an unchanged guest at the boundary.
+  const exportedAt = new Date().toISOString();
+  let guestCursor: string | undefined;
+  for (;;) {
+    let query = supabase
       .from("guests")
       .select(GUEST_EXPORT_FIELDS.join(","))
       .eq("wedding_id", weddingId)
+      .lte("created_at", exportedAt)
       .order("id")
-      .range(offset, offset + 199);
+      .limit(200);
+    if (guestCursor) query = query.gt("id", guestCursor);
+    const { data, error } = await query;
     if (error) throw error;
     const page: unknown = data;
     if (!Array.isArray(page) || !page.every(isExportGuest))
       throw new Error("Invalid guest export data");
     guests.push(...page);
     if (page.length < 200) break;
+    guestCursor = page[page.length - 1].id;
   }
-  for (let offset = 0; ; offset += 200) {
-    const { data, error } = await supabase
+  let responseCursor: string | undefined;
+  for (;;) {
+    let query = supabase
       .from("rsvp_responses")
       .select(RSVP_EXPORT_FIELDS.join(","))
       .eq("wedding_id", weddingId)
+      .lte("created_at", exportedAt)
       .order("guest_id")
-      .range(offset, offset + 199);
+      .limit(200);
+    if (responseCursor) query = query.gt("guest_id", responseCursor);
+    const { data, error } = await query;
     if (error) throw error;
     const page: unknown = data;
     if (!Array.isArray(page) || !page.every(isExportRsvp))
       throw new Error("Invalid RSVP export data");
     responses.push(...page);
     if (page.length < 200) break;
+    responseCursor = page[page.length - 1].guest_id;
   }
-  return { guests, responses };
+  return { guests, responses, exportedAt };
 }
 export function rawGuestExport(data: GuestExportData) {
   const responses = new Map(
     data.responses.map((response) => [response.guest_id, response]),
   );
-  return data.guests
+  return [...new Map(data.guests.map((guest) => [guest.id, guest])).values()]
     .filter((guest) => guest.deleted_at === null)
     .sort((a, b) => a.full_name.localeCompare(b.full_name, "sv"))
     .map((guest) => ({ ...guest, rsvp: responses.get(guest.id) ?? null }));
@@ -234,7 +248,7 @@ export function buildCateringSummary(data: GuestExportData) {
   );
   const people: CateringPerson[] = [];
   const warnings: string[] = [];
-  for (const guest of data.guests) {
+  for (const guest of guests.values()) {
     if (guest.deleted_at !== null || guest.rsvp_status !== "rsvp yes") continue;
     const parent = guest.invited_guest_id
       ? guests.get(guest.invited_guest_id)

@@ -251,7 +251,7 @@ export function GuestRosterEditor({
             setErrors({});
             setStatus({
               tone: "success",
-              text: `Sparade ${result.savedCount} gäster.`,
+              text: `Sparade ${result.savedCount} ${result.savedCount === 1 ? "gäst" : "gäster"}.`,
             });
           } else if (result.status === "success") {
             setReloadRequired(true);
@@ -349,7 +349,7 @@ export function GuestRosterEditor({
           setErrors({});
           setStatus({
             tone: "success",
-            text: `Arkiverade ${result.archivedCount} gäster.`,
+            text: `Arkiverade ${result.archivedCount} ${result.archivedCount === 1 ? "gäst" : "gäster"}.`,
           });
         } else {
           if (result.status === "validation-error") setErrors(result.errors);
@@ -918,25 +918,39 @@ export function GuestRosterEditor({
           Ladda om sparad gästlista
         </button>
       ) : null}
-      {dirty || isPending ? (
-        <div className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#b9955f] bg-[#211910] p-4 text-[#f8f1e3] shadow-xl">
+      {dirty || isPending || status ? (
+        <div
+          data-testid="roster-save-feedback"
+          className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#b9955f] bg-[#211910] p-4 text-[#f8f1e3] shadow-xl"
+        >
           <div>
             <p className="font-semibold">
               {reloadRequired
                 ? "Sparat · ladda om för att fortsätta"
                 : isPending
                   ? "Sparar ändringar…"
-                  : `${dirtyRows.length} ${dirtyRows.length === 1 ? "osparad rad" : "osparade rader"}`}
+                  : !dirty && status
+                    ? status.text
+                    : `${dirtyRows.length} ${dirtyRows.length === 1 ? "osparad rad" : "osparade rader"}`}
             </p>
             <p className="text-xs text-[#d8c7a3]">
               Cmd/Ctrl+S · Alla ändringar sparas, även dolda rader.
             </p>
           </div>
           <div className="flex gap-2">
+            {!dirty && !isPending ? (
+              <button
+                className="rounded-full border border-[#b9955f] px-4 py-2"
+                type="button"
+                onClick={() => setStatus(null)}
+              >
+                Stäng meddelande
+              </button>
+            ) : null}
             <button
               className="rounded-full border border-[#b9955f] px-4 py-2 font-semibold disabled:opacity-50"
               type="button"
-              disabled={isPending}
+              disabled={!dirty || isPending}
               onClick={() => {
                 if (
                   dirtyRows.length > 1 &&
@@ -957,7 +971,7 @@ export function GuestRosterEditor({
             <button
               className="rounded-full bg-[#f3dfb9] px-4 py-2 font-bold text-[#211910] disabled:opacity-50"
               type="button"
-              disabled={isPending}
+              disabled={!dirty || isPending}
               onClick={() => save()}
             >
               Spara ändringar

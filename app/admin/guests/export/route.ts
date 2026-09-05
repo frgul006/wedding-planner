@@ -40,8 +40,8 @@ export async function GET(request: Request) {
                 ...summary.people.map((person) => [
                   person.name,
                   person.invitedBy,
-                  person.food,
-                  person.allergy,
+                  person.food?.trim() ? person.food : "Ej angivet",
+                  person.allergy?.trim() ? person.allergy : "Ej angivet",
                   "",
                 ]),
                 ...summary.warnings.map((warning) => ["", "", "", "", warning]),
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
         format === "json"
           ? JSON.stringify(
               {
-                exported_at: new Date().toISOString(),
+                exported_at: data.exportedAt,
                 guests: rawGuestExport(data),
               },
               null,

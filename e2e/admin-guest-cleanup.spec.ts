@@ -44,18 +44,16 @@ async function fixture() {
     .select()
     .single();
   if (companion.error) throw companion.error;
-  const response = await db
-    .from("rsvp_responses")
-    .insert({
-      wedding_id: SEEDED_WEDDING_ID,
-      guest_id: parent.data.id,
-      attendance: "yes",
-      extra_guests: 1,
-      food_preference: "Vegan cleanup",
-      allergy_notes: "Nötter cleanup",
-      plus_one_name: companionName,
-      plus_one_allergy_notes: "Ägg cleanup",
-    });
+  const response = await db.from("rsvp_responses").insert({
+    wedding_id: SEEDED_WEDDING_ID,
+    guest_id: parent.data.id,
+    attendance: "yes",
+    extra_guests: 1,
+    food_preference: "Vegan cleanup",
+    allergy_notes: "Nötter cleanup",
+    plus_one_name: companionName,
+    plus_one_allergy_notes: "Ägg cleanup",
+  });
   if (response.error) throw response.error;
   return {
     db,
@@ -102,13 +100,21 @@ test("desktop and mobile: filter dietary details, edit +1 notes, save shared RSV
   const meta = await guestMetadataRowByName(page, companionName);
   await expect(meta.getByText("Tar med +1:", { exact: false })).toHaveCount(0);
   await plusRow.getByRole("button", { name: "Detaljer", exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
   await meta
     .getByLabel(`Notering ${companionName}`)
     .fill("Edited companion note");
   await page
     .getByRole("button", { name: "Spara ändringar", exact: true })
     .click();
-  await expect(page.getByRole("status")).toHaveText("Sparade 1 gäster.");
+  await expect(page.getByRole("status")).toHaveText("Sparade 1 gäst.");
+  await expect(page.getByTestId("roster-save-feedback")).toBeInViewport({
+    ratio: 1,
+  });
+  await expect(page.getByTestId("roster-save-feedback")).toContainText(
+    "Sparade 1 gäst.",
+  );
+  await page.setViewportSize({ width: 1280, height: 720 });
   expect(
     (await db.from("guests").select("notes").eq("id", companion.id).single())
       .data?.notes,
@@ -172,6 +178,10 @@ test("desktop and mobile: filter dietary details, edit +1 notes, save shared RSV
   expect(text).not.toMatch(
     /Private catering exclusion|Edited companion note|cleanup@example/,
   );
+  const cateringCsv = await page.request.get(
+    "/admin/guests/export?kind=catering&format=csv",
+  );
+  expect(await cateringCsv.text()).toContain('"Ej angivet","Ägg cleanup"');
   const json = await page.request.get("/admin/guests/export?format=json");
   const jsonText = await json.text();
   expect(jsonText).toContain("Private catering exclusion");
@@ -270,15 +280,13 @@ test("raw exports paginate beyond 1000 guests and reject unauthenticated downloa
   const db = createE2eSupabaseAdminClient();
   const prefix = uniqueGuestName("Paged export");
   for (let offset = 0; offset < 1005; offset += 200) {
-    const { error } = await db
-      .from("guests")
-      .insert(
-        Array.from({ length: Math.min(200, 1005 - offset) }, (_, index) => ({
-          wedding_id: SEEDED_WEDDING_ID,
-          full_name: `${prefix} ${offset + index}`,
-          email: "paged@example.test",
-        })),
-      );
+    const { error } = await db.from("guests").insert(
+      Array.from({ length: Math.min(200, 1005 - offset) }, (_, index) => ({
+        wedding_id: SEEDED_WEDDING_ID,
+        full_name: `${prefix} ${offset + index}`,
+        email: "paged@example.test",
+      })),
+    );
     if (error) throw error;
   }
   const roster = await loadAdminGuestRoster({

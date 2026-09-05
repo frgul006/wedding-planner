@@ -170,7 +170,9 @@ export function normalizeAdminGuestRosterFilters(
   };
 }
 
-function isAdminGuestRosterGuestRow(value: unknown): value is AdminGuestRosterGuestRow {
+function isAdminGuestRosterGuestRow(
+  value: unknown,
+): value is AdminGuestRosterGuestRow {
   return (
     isRecord(value) &&
     typeof value.id === "string" &&
@@ -313,17 +315,35 @@ export function buildAdminGuestRosterRows({
   });
 }
 
-async function loadRosterRelated(supabase: SupabaseClient, weddingId: string, table: "guests" | "invite_tokens" | "rsvp_responses", select: string, column: string, ids: string[]) {
+async function loadRosterRelated(
+  supabase: SupabaseClient,
+  weddingId: string,
+  table: "guests" | "invite_tokens" | "rsvp_responses",
+  select: string,
+  column: string,
+  ids: string[],
+) {
   const data: unknown[] = [];
   for (let start = 0; start < ids.length; start += 100) {
-    for (let offset = 0; ; offset += 200) {
-      let query = supabase.from(table).select(select).eq("wedding_id", weddingId)
-        .in(column, ids.slice(start, start + 100)).order("id").range(offset, offset + 199);
+    let cursor: string | undefined;
+    for (;;) {
+      let query = supabase
+        .from(table)
+        .select(`id,${select}`)
+        .eq("wedding_id", weddingId)
+        .in(column, ids.slice(start, start + 100))
+        .order("id")
+        .limit(200);
+      if (cursor) query = query.gt("id", cursor);
       if (table === "invite_tokens") query = query.eq("is_active", true);
       const page = await query;
       if (page.error) return { data: [], error: page.error };
       data.push(...(page.data ?? []));
       if (!page.data || page.data.length < 200) break;
+      const last: unknown = page.data.at(-1);
+      if (!isRecord(last) || typeof last.id !== "string")
+        return { data: [], error: new Error("Invalid related roster cursor") };
+      cursor = last.id;
     }
   }
   return { data, error: null };
@@ -341,16 +361,26 @@ export async function loadAdminGuestRoster({
   // Load before filtering: dietary fields and +1 details live in RSVP responses.
   // Stable, bounded pages avoid silently truncating the roster at 500 Guests.
   const guestRows: AdminGuestRosterGuestRow[] = [];
-  for (let offset = 0; ; offset += 200) {
-    const { data, error } = await supabase.from("guests").select(GUEST_SELECT)
-      .eq("wedding_id", weddingId).is("deleted_at", null)
-      .order("id").range(offset, offset + 199);
+  const cutoff = new Date().toISOString();
+  let cursor: string | undefined;
+  for (;;) {
+    let query = supabase
+      .from("guests")
+      .select(GUEST_SELECT)
+      .eq("wedding_id", weddingId)
+      .is("deleted_at", null)
+      .lte("created_at", cutoff)
+      .order("id")
+      .limit(200);
+    if (cursor) query = query.gt("id", cursor);
+    const { data, error } = await query;
     if (error) return { error, rows: [] };
     if (!Array.isArray(data) || !data.every(isAdminGuestRosterGuestRow)) {
       return { error: new Error("Invalid guest roster data"), rows: [] };
     }
     guestRows.push(...data);
     if (data.length < 200) break;
+    cursor = data[data.length - 1].id;
   }
 
   const guestIds = guestRows.map((guest) => guest.id);
@@ -363,17 +393,39 @@ export async function loadAdminGuestRoster({
   );
   const rsvpGuestIds = Array.from(new Set([...guestIds, ...invitedGuestIds]));
 
-  const [activeTokensResult, rsvpResponsesResult, tiedInvitedGuestsResult] = guestIds.length
-    ? await Promise.all([
-        loadRosterRelated(supabase, weddingId, "invite_tokens", "guest_id", "guest_id", guestIds),
-        loadRosterRelated(supabase, weddingId, "rsvp_responses", RSVP_RESPONSE_SELECT, "guest_id", rsvpGuestIds),
-        loadRosterRelated(supabase, weddingId, "guests", "id, full_name", "id", invitedGuestIds),
-      ])
-    : [
-        { data: [], error: null },
-        { data: [], error: null },
-        { data: [], error: null },
-      ];
+  const [activeTokensResult, rsvpResponsesResult, tiedInvitedGuestsResult] =
+    guestIds.length
+      ? await Promise.all([
+          loadRosterRelated(
+            supabase,
+            weddingId,
+            "invite_tokens",
+            "guest_id",
+            "guest_id",
+            guestIds,
+          ),
+          loadRosterRelated(
+            supabase,
+            weddingId,
+            "rsvp_responses",
+            RSVP_RESPONSE_SELECT,
+            "guest_id",
+            rsvpGuestIds,
+          ),
+          loadRosterRelated(
+            supabase,
+            weddingId,
+            "guests",
+            "id, full_name",
+            "id",
+            invitedGuestIds,
+          ),
+        ])
+      : [
+          { data: [], error: null },
+          { data: [], error: null },
+          { data: [], error: null },
+        ];
 
   return {
     error:
@@ -386,10 +438,20 @@ export async function loadAdminGuestRoster({
       guestRows,
       rsvpResponses: rsvpResponsesResult.data ?? [],
       tiedInvitedGuests: tiedInvitedGuestsResult.data ?? [],
-    }).filter((row) => matchesAdminGuestRosterFilters(row, filters)).sort((left, right) => {
-      if (filters.sort === "newest") return right.updatedAt.localeCompare(left.updatedAt);
-      if (filters.sort === "status") return `${left.rsvpStatus}-${left.inviteStatus}-${left.fullName}`.localeCompare(`${right.rsvpStatus}-${right.inviteStatus}-${right.fullName}`, "sv");
-      return (filters.sort === "name-desc" ? -1 : 1) * left.fullName.localeCompare(right.fullName, "sv");
-    }),
+    })
+      .filter((row) => matchesAdminGuestRosterFilters(row, filters))
+      .sort((left, right) => {
+        if (filters.sort === "newest")
+          return right.updatedAt.localeCompare(left.updatedAt);
+        if (filters.sort === "status")
+          return `${left.rsvpStatus}-${left.inviteStatus}-${left.fullName}`.localeCompare(
+            `${right.rsvpStatus}-${right.inviteStatus}-${right.fullName}`,
+            "sv",
+          );
+        return (
+          (filters.sort === "name-desc" ? -1 : 1) *
+          left.fullName.localeCompare(right.fullName, "sv")
+        );
+      }),
   };
 }

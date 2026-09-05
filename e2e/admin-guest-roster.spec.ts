@@ -25,6 +25,8 @@ type FakeQuery = Promise<FakeQueryResult> & {
   is(column: string, value: unknown): FakeQuery;
   limit(count: number): FakeQuery;
   range(from: number, to: number): FakeQuery;
+  gt(column: string, value: string): FakeQuery;
+  lte(column: string, value: string): FakeQuery;
   operations: FakeOperation[];
   or(filter: string): FakeQuery;
   order(column: string, options?: { ascending?: boolean }): FakeQuery;
@@ -47,6 +49,8 @@ function createFakeQuery(table: string, result: FakeQueryResult): FakeQuery {
       operations.push({ args: [column, value], name: "is" });
       return query;
     },
+    gt(column: string, value: string) { operations.push({ args: [column, value], name: "gt" }); return query; },
+    lte(column: string, value: string) { operations.push({ args: [column, value], name: "lte" }); return query; },
     range(from: number, to: number) { operations.push({ args: [from, to], name: "range" }); return query; },
     limit(count: number) {
       operations.push({ args: [count], name: "limit" });
@@ -194,7 +198,7 @@ test.describe("Admin Guest roster", () => {
         { args: ["wedding_id", "wedding-1"], name: "eq" },
         { args: ["deleted_at", null], name: "is" },
         { args: ["id"], name: "order" },
-        { args: [0, 199], name: "range" },
+        { args: [200], name: "limit" },
       ]),
     );
     expect(supabase.queries[2]?.operations).toContainEqual({
