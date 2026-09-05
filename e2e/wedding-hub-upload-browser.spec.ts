@@ -198,7 +198,8 @@ test.describe("Wedding hub browser upload", () => {
       await expect(page.getByText("Valda filer", { exact: true })).toHaveCount(0);
       await expect.poll(() => galleryRequests).toBe(2);
       await page.getByRole("button", { name: "Galleriet" }).click();
-      const galleryPhotos = page.locator(`a[href*="${PREFIX}"]`);
+      const uploadedIds = (await rows()).map(row => row.id);
+      const galleryPhotos = page.locator(uploadedIds.map(id => `button[data-photo-id="${id}"]`).join(","));
       await expect(galleryPhotos).toHaveCount(3);
 
       const staleResponse = page.waitForResponse(response =>
@@ -243,7 +244,7 @@ test.describe("Wedding hub browser upload", () => {
       for (const row of uploaded) {
         expect(row).toMatchObject({ verification_status: "verified", moderation_status: "pending" });
         expect(gallery.photos.photos.some((photo: { id: string }) => photo.id === row.id)).toBe(false);
-        await expect(page.locator(`a[href*="${row.storage_path}"]`)).toHaveCount(0);
+        await expect(page.locator(`button[data-photo-id="${row.id}"]`)).toHaveCount(0);
       }
     });
   }
@@ -263,8 +264,10 @@ test.describe("Wedding hub browser upload", () => {
     const [row] = await rows();
     expect(row).toMatchObject({ verification_status: "verified", mime_type: "image/heic", size_bytes: heic.length, thumbnail_storage_path: null });
     await page.getByRole("button", { name: "Galleriet" }).click();
-    const galleryOriginal = page.locator(`a[href*="${row.storage_path}"]`);
-    await expect(galleryOriginal).toContainText("Öppna original");
+    await page.locator(`button[data-photo-id="${row.id}"]`).click();
+    const viewer = page.getByRole("dialog", { name: "Våra bilder" });
+    await expect(viewer.getByRole("status")).toContainText("Bilden kan inte visas här");
+    const galleryOriginal = viewer.getByRole("link", { name: /Öppna original/ });
     await expect(galleryOriginal).toHaveAttribute("target", "_blank");
     const response = await page.request.get(await galleryOriginal.getAttribute("href") ?? "");
     expect(response.ok()).toBe(true);
@@ -280,7 +283,7 @@ test.describe("Wedding hub browser upload", () => {
     expect(row.verification_status).toBe("rejected");
     expect((await createE2eSupabaseAdminClient().storage.from(PHOTO_UPLOAD_BUCKET).info(row.storage_path)).data).toBeNull();
     await page.getByRole("button", { name: "Galleriet" }).click();
-    await expect(page.locator(`a[href*="${row.storage_path}"]`)).toHaveCount(0);
+    await expect(page.locator(`button[data-photo-id="${row.id}"]`)).toHaveCount(0);
   });
 
   test("finalizes first photo while second upload is delayed; retries only failed photo", async ({ page }) => {
@@ -332,7 +335,10 @@ test.describe("Wedding hub browser upload", () => {
     }
     await page.getByRole("button", { name: "Galleriet" }).click();
     for (const row of uploaded) {
-      await expect(page.locator(`a[href*="${row.storage_path}"]`)).toBeVisible();
+      await page.locator(`button[data-photo-id="${row.id}"]`).click();
+      const original = page.getByRole("dialog").getByRole("link", { name: /Öppna original/ });
+      await expect(original).toHaveAttribute("href", new RegExp(row.storage_path));
+      await page.getByRole("button", { name: "Stäng" }).click();
     }
   });
 });

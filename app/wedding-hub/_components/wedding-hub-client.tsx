@@ -20,6 +20,7 @@ import type {
 import type { HubContext } from "@/lib/wedding-hub-access";
 import type { HubWedding } from "@/lib/wedding-hub";
 import { getWeddingHubDisplay } from "@/lib/wedding-settings-display";
+import { HubPhotoViewer } from "./hub-photo-viewer";
 
 type UploadIntent = {
   clientId: string;
@@ -121,11 +122,11 @@ function uploadErrorMessage(errorCode: unknown, status: number) {
   }
 }
 
-function PhotoPreview({ src, alt, sizes }: { src: string; alt: string; sizes: string }) {
+function PhotoPreview({ src, alt, sizes, fallbackLabel = "Förhandsvisning saknas" }: { src: string; alt: string; sizes: string; fallbackLabel?: string }) {
   const [failedSource, setFailedSource] = useState<string | null>(null);
   return failedSource === src ? (
-    <span className="flex h-full items-center justify-center bg-[#e6dcc7] p-1 text-center text-[10px] leading-tight text-[#6f4f33]" title="Förhandsvisning saknas i den här webbläsaren. Öppna originalet.">
-      Öppna original
+    <span className="flex h-full items-center justify-center bg-[#e6dcc7] p-1 text-center text-[10px] leading-tight text-[#6f4f33]" title="Förhandsvisning saknas i den här webbläsaren.">
+      {fallbackLabel}
     </span>
   ) : (
     <Image alt={alt} className="object-cover" fill sizes={sizes} src={src} unoptimized onError={() => setFailedSource(src)} />
@@ -240,6 +241,9 @@ export function WeddingHubClient({
   const photos = photoData.live.photos.photos;
   const feed = photoData.live.feed;
   const photoCount = photoData.live.photos.totalPhotoCount;
+  const [viewer, setViewer] = useState<{ photoId: string; opener: HTMLButtonElement } | null>(null);
+  const uploadQueueRef = useRef<HTMLElement>(null);
+  const browseViewsRef = useRef<HTMLElement>(null);
   const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
   const [fileSelectionMessage, setFileSelectionMessage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -445,6 +449,10 @@ export function WeddingHubClient({
   }, []);
 
   useEffect(() => {
+    if (selectedPhotos.length > selectedPhotosRef.current.length) {
+      uploadQueueRef.current?.scrollIntoView({ block: "start", behavior: "instant" });
+      uploadQueueRef.current?.focus({ preventScroll: true });
+    }
     selectedPhotosRef.current = selectedPhotos;
   }, [selectedPhotos]);
 
@@ -457,9 +465,9 @@ export function WeddingHubClient({
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setIsPrimaryActionsVisible(entry.isIntersecting);
+        setIsPrimaryActionsVisible(entry.isIntersecting && entry.intersectionRatio >= 0.5);
       },
-      { threshold: 0 },
+      { threshold: 0.5 },
     );
 
     observer.observe(node);
@@ -478,7 +486,7 @@ export function WeddingHubClient({
   }, []);
 
   const onSelectFiles = useCallback((nextFiles: FileList | null) => {
-    if (!nextFiles || uploadInFlightRef.current) {
+    if (!canUpload || !nextFiles || uploadInFlightRef.current) {
       return;
     }
 
@@ -571,12 +579,12 @@ export function WeddingHubClient({
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-  }, [selectedPhotos.length]);
+  }, [canUpload, selectedPhotos.length]);
 
   const onSelectFileClick = useCallback(() => {
-    if (uploadInFlightRef.current) return;
+    if (!canUpload || uploadInFlightRef.current) return;
     fileInputRef.current?.click();
-  }, []);
+  }, [canUpload]);
 
   const clearFile = useCallback((id: string) => {
     if (uploadInFlightRef.current) return;
@@ -702,7 +710,7 @@ export function WeddingHubClient({
   }, [canUpload, refreshGallery, selectedPhotos, updateSelected, wedding.photo_upload_requires_review]);
 
   return (
-    <main className="min-h-dvh bg-[#f1eadc] pb-28 text-[#15130f]" style={{
+    <main className="min-h-dvh bg-[#f1eadc] pb-[calc(8rem+env(safe-area-inset-bottom))] text-[#15130f]" style={{
       backgroundImage:
         "radial-gradient(rgba(21,19,15,0.045) 1px, transparent 1.4px), radial-gradient(rgba(179,74,44,0.045) 1px, transparent 1.6px)",
       backgroundSize: "5px 5px, 11px 11px",
@@ -778,7 +786,7 @@ export function WeddingHubClient({
         </section>
 
         {selectedPhotos.length ? (
-          <section className="px-5 py-3">
+          <section ref={uploadQueueRef} tabIndex={-1} aria-label="Valda filer" className="scroll-mt-4 px-5 py-3">
             <p className="mb-2 font-mono text-sm uppercase tracking-[0.22em] text-[#6f4f33]">Valda filer</p>
             {selectedPhotos.some(photo => photo.file.type === "image/heic" || photo.file.type === "image/heif") ? (
               <p className="mb-2 text-xs text-[#6b6358]">HEIC/HEIF kan sakna förhandsvisning i den här webbläsaren. Öppna originalet, eller välj JPEG för visning i fler webbläsare.</p>
@@ -792,6 +800,7 @@ export function WeddingHubClient({
                   <a className="relative block h-14 w-14 overflow-hidden" href={photo.previewUrl} target="_blank" rel="noopener noreferrer" aria-label={`Öppna original: ${photo.fileName}`}>
                     <PhotoPreview
                       alt="Miniatur"
+                      fallbackLabel="Öppna original"
                       sizes="56px"
                       src={photo.thumbnailBlobUrl ?? photo.previewUrl}
                     />
@@ -838,7 +847,7 @@ export function WeddingHubClient({
           </section>
         ) : null}
 
-        <section className="mt-3 grid grid-cols-2 border-b border-[#15130f]/15 px-5" aria-label="Hub views">
+        <section ref={browseViewsRef} tabIndex={-1} className="mt-3 grid grid-cols-2 border-b border-[#15130f]/15 px-5" aria-label="Bildvyer">
           <button
             className={`border-b-2 px-2 py-4 text-center font-mono text-[0.7rem] font-semibold uppercase tracking-[0.28em] ${
               activeTab === "flow" ? "border-[#b34a2c]" : "border-transparent text-[#6b6358]"
@@ -865,15 +874,15 @@ export function WeddingHubClient({
               <div className="grid gap-3">
                 {feed.map((entry) => (
                   <div key={entry.id} className="grid grid-cols-[2.75rem_1fr] gap-3 border-b border-[#15130f]/20 pb-4">
-                    <a
+                    <button
                       aria-label={`Öppna foto från ${entry.who}`}
                       className="relative block h-11 w-11 overflow-hidden border border-[#15130f]/20 bg-[#e6dcc7]"
-                      href={entry.photoUrl}
-                      rel="noopener noreferrer"
-                      target="_blank"
+                      data-photo-id={entry.id}
+                      onClick={event => setViewer({ photoId: entry.id, opener: event.currentTarget })}
+                      type="button"
                     >
                       <PhotoPreview src={entry.thumbnailUrl} alt="" sizes="44px" />
-                    </a>
+                    </button>
                     <div>
                       <p className="text-sm font-medium">
                         {entry.who} laddade upp en bild
@@ -897,20 +906,20 @@ export function WeddingHubClient({
           ) : photos.length ? (
             <div className="grid grid-cols-3 gap-2">
               {photos.map((photo) => (
-                <a
+                <button
                   key={photo.id}
                   aria-label={`Öppna foto från ${photo.who}`}
                   className="relative block h-28 w-full overflow-hidden"
-                  href={photo.photoUrl}
-                  rel="noopener noreferrer"
-                  target="_blank"
+                  data-photo-id={photo.id}
+                  onClick={event => setViewer({ photoId: photo.id, opener: event.currentTarget })}
+                  type="button"
                 >
                   <PhotoPreview
-                    alt={`Foto från ${photo.who}`}
+                    alt=""
                     sizes="(max-width: 448px) 33vw, 149px"
                     src={photo.thumbnailUrl}
                   />
-                </a>
+                </button>
               ))}
             </div>
           ) : (
@@ -922,8 +931,8 @@ export function WeddingHubClient({
         </section>
       </section>
 
-      {!isPrimaryActionsVisible ? (
-        <div className="fixed inset-x-0 bottom-0 border-t-2 border-[#b34a2c] bg-[#15130f]/95 px-5 py-4 backdrop-blur">
+      {!isPrimaryActionsVisible && !viewer ? (
+        <div className="fixed inset-x-0 bottom-0 border-t-2 border-[#b34a2c] bg-[#15130f]/95 px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
           <div className="mx-auto grid max-w-md grid-cols-2 gap-3">
             <button
               className="bg-[#b34a2c] px-3 py-4 text-center font-mono text-[0.75rem] font-semibold uppercase tracking-[0.28em] text-[#f1eadc] disabled:opacity-65"
@@ -951,10 +960,24 @@ export function WeddingHubClient({
         </div>
       ) : null}
 
+      {viewer ? (
+        <HubPhotoViewer
+          initialPhotoId={viewer.photoId}
+          opener={viewer.opener}
+          photos={photos}
+          uploadDisabled={!canUpload || isUploading}
+          onClose={() => {
+            setViewer(null);
+            if (!viewer.opener.isConnected) browseViewsRef.current?.focus({ preventScroll: true });
+          }}
+          onUpload={onSelectFileClick}
+        />
+      ) : null}
+
       <input
         accept={PHOTO_UPLOAD_ACCEPT}
         className="hidden"
-        disabled={isUploading}
+        disabled={!canUpload || isUploading}
         multiple
         onChange={(event) => {
           onSelectFiles(event.target.files);
