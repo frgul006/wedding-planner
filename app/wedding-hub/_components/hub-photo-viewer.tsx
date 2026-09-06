@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import type { HubGalleryPhoto } from "@/lib/wedding-hub-photo-verification";
+import styles from "./hub-photo-viewer.module.css";
 
 type HubPhotoViewerProps = {
   photos: HubGalleryPhoto[];
@@ -120,16 +121,16 @@ export function HubPhotoViewer({ photos, initialPhotoId, opener, uploadDisabled,
         }
       }}
     >
-      <div className="flex h-full flex-col px-4 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-8">
-        <header className="flex shrink-0 items-center justify-between gap-3 pb-3">
+      <div className={`${styles.layout} flex h-full flex-col pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:pl-[max(2rem,env(safe-area-inset-left))] sm:pr-[max(2rem,env(safe-area-inset-right))]`}>
+        <header className={`${styles.header} flex shrink-0 items-center justify-between gap-3 pb-3`}>
           <h2 id="hub-photo-viewer-title" className="font-serif text-2xl italic">Våra bilder</h2>
-          <button ref={closeButtonRef} className="min-h-11 min-w-11 border border-[#f1eadc]/30 px-4 text-sm" onClick={close} type="button">
+          <button ref={closeButtonRef} className="min-h-12 min-w-12 rounded-sm border border-[#f1eadc]/25 bg-white/5 px-4 text-sm active:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f1eadc]" onClick={close} type="button">
             Stäng <span aria-hidden="true">×</span>
           </button>
         </header>
 
         <div
-          className="relative min-h-0 flex-1 touch-pan-y touch-pinch-zoom"
+          className={`${styles.stage} relative min-h-0 flex-1 touch-pan-y touch-pinch-zoom overflow-hidden rounded-sm`}
           onTouchStart={event => {
             gestureRef.current = event.touches.length === 1 && (window.visualViewport?.scale ?? 1) <= 1
               ? { x: event.touches[0].clientX, y: event.touches[0].clientY } : null;
@@ -158,21 +159,21 @@ export function HubPhotoViewer({ photos, initialPhotoId, opener, uploadDisabled,
           )}
         </div>
 
-        <footer className="mx-auto w-full max-w-3xl shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+        <footer className={`${styles.details} mx-auto w-full max-w-3xl shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3`}>
           {photo ? (
-            <div ref={captionRef} className="max-h-[20dvh] overflow-y-auto overscroll-contain break-words" tabIndex={0} aria-label="Bildtext">
+            <div ref={captionRef} className="max-h-[20dvh] overflow-y-auto overscroll-contain rounded-sm [overflow-wrap:anywhere] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#f1eadc]" tabIndex={0} aria-label="Bildtext">
               <p className="font-serif text-xl">{photo.who}</p>
               {photo.note ? <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-[#e6dcc7]">{photo.note}</p> : null}
             </div>
           ) : null}
-          <div className="my-2 flex items-center justify-between gap-2">
-            <button aria-label="Föregående bild" className="min-h-11 min-w-11 border border-[#f1eadc]/30 px-4 text-xl aria-disabled:opacity-30" aria-disabled={!hasPrevious} onClick={() => move(-1)} type="button">←</button>
+          <div className="my-3 flex items-center justify-between gap-3">
+            <button aria-label="Föregående bild" className="min-h-12 min-w-12 rounded-sm border border-[#f1eadc]/25 bg-white/5 px-4 text-xl active:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f1eadc] aria-disabled:opacity-30" aria-disabled={!hasPrevious} onClick={() => move(-1)} type="button">←</button>
             <p className="text-center font-mono text-xs text-[#e6dcc7]" aria-live="polite" aria-atomic="true">{photo ? `Bild ${index + 1} av ${photos.length}` : "Ingen bild"}</p>
-            <button aria-label="Nästa bild" className="min-h-11 min-w-11 border border-[#f1eadc]/30 px-4 text-xl aria-disabled:opacity-30" aria-disabled={!hasNext} onClick={() => move(1)} type="button">→</button>
+            <button aria-label="Nästa bild" className="min-h-12 min-w-12 rounded-sm border border-[#f1eadc]/25 bg-white/5 px-4 text-xl active:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f1eadc] aria-disabled:opacity-30" aria-disabled={!hasNext} onClick={() => move(1)} type="button">→</button>
           </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className={`${styles.actions} grid grid-cols-1 items-center gap-x-4 gap-y-1 min-[480px]:grid-cols-[minmax(0,1fr)_auto]`}>
             <button
-              className="min-h-11 flex-1 bg-[#b34a2c] px-4 py-3 font-mono text-xs font-semibold uppercase tracking-widest disabled:opacity-50"
+              className="min-h-12 min-w-0 rounded-sm bg-[#b34a2c] px-4 py-3 font-mono text-xs font-semibold uppercase tracking-[0.06em] active:bg-[#9e3e26] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f1eadc] disabled:opacity-50"
               disabled={uploadDisabled}
               onClick={() => {
                 if (uploadDisabled) return;
@@ -183,7 +184,7 @@ export function HubPhotoViewer({ photos, initialPhotoId, opener, uploadDisabled,
               }}
               type="button"
             >↑ Ladda upp egna bilder</button>
-            {photo ? <a className="flex min-h-11 items-center text-sm underline underline-offset-4" href={photo.photoUrl} rel="noopener noreferrer" target="_blank">Öppna original <span className="sr-only">(ny flik)</span></a> : null}
+            {photo ? <a className="flex min-h-11 items-center justify-center rounded-sm px-2 text-sm text-[#e6dcc7] underline decoration-[#e6dcc7]/45 underline-offset-4 active:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f1eadc]" href={photo.photoUrl} rel="noopener noreferrer" target="_blank">Öppna original <span className="sr-only">(ny flik)</span></a> : null}
           </div>
         </footer>
       </div>
