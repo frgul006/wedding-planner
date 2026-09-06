@@ -765,6 +765,49 @@ test.describe("RSVP, invite status, and phone capture", () => {
     ).toBeVisible();
   });
 
+  for (const hasExistingRsvp of [false, true]) {
+    for (const attendance of [RSVP_ATTENDANCE.no, RSVP_ATTENDANCE.maybe]) {
+      const rsvpMode = hasExistingRsvp ? "existing" : "first-time";
+
+      test(`preserves ${attendance} attendance after phone validation for ${rsvpMode} RSVP`, async ({
+        page,
+      }) => {
+        const guestName = uniqueRsvpGuestName(`${rsvpMode} ${attendance} Validation`);
+        const token = uniqueInviteToken(`${rsvpMode}-${attendance}-validation-rsvp`);
+        const initialAttendance = hasExistingRsvp ? RSVP_ATTENDANCE.yes : undefined;
+        const { guestId } = await createInviteTestGuest({
+          attendance: initialAttendance,
+          fullName: guestName,
+          token,
+        });
+
+        await page.goto(inviteOsaPathForToken(token));
+        await submitRsvp(page, { attendance, phone: "46701234567" });
+
+        await expect(page.getByText(/Använd .*\+46701234567/)).toBeVisible();
+        const attendanceRadio = page.getByRole("radio", {
+          name: attendance === RSVP_ATTENDANCE.no
+            ? /^Nej\s+kan inte$/
+            : /^Kanske\s+återkommer$/,
+        });
+        await expect(attendanceRadio).toBeChecked();
+        expect((await getRsvpResponseForGuest(guestId))?.attendance).toBe(
+          initialAttendance,
+        );
+
+        await submitRsvp(page, { phone: "0701234567" });
+
+        await expect(
+          page.getByRole("heading", { name: `Tack ${guestName.split(" ").at(0)}` }),
+        ).toBeVisible();
+        await expect(getRsvpResponseForGuest(guestId)).resolves.toMatchObject({
+          attendance,
+        });
+        expect(await getRsvpResponseCountForGuest(guestId)).toBe(1);
+      });
+    }
+  }
+
   test("prefills and updates an existing RSVP without duplicate rows or status downgrade", async ({
     page,
   }) => {

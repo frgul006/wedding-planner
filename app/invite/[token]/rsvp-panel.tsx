@@ -387,7 +387,9 @@ export function RsvpPanel({
           <div className="grid grid-cols-3 gap-2">
             {RSVP_ATTENDANCE_OPTIONS.map((option) => (
               <AttendanceChoice
-                defaultChecked={initialModel.attendance === option.value}
+                defaultChecked={
+                  (state.values?.attendance ?? initialModel.attendance) === option.value
+                }
                 description={option.description}
                 key={option.value}
                 label={option.label}
