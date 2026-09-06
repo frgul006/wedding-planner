@@ -21,6 +21,8 @@ import type { HubContext } from "@/lib/wedding-hub-access";
 import type { HubWedding } from "@/lib/wedding-hub";
 import { getPublicPartnerNames, getWeddingHubDisplay } from "@/lib/wedding-settings-display";
 import { HubPhotoViewer } from "./hub-photo-viewer";
+import { LivingCamera, SingingNote } from "./hub-action-characters";
+import motion from "./wedding-hub-motion.module.css";
 
 type UploadIntent = {
   clientId: string;
@@ -129,14 +131,20 @@ function PhotoPreview({ src, alt, sizes, fallbackLabel = "Förhandsvisning sakna
   );
 }
 
-function HubIcon({ kind }: { kind: "upload" | "music" | "photo" }) {
+function HubPhotoIcon() {
   return (
     <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      {kind === "upload" ? <path d="M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5" /> : kind === "music" ? (
-        <><path d="M9 18V5l11-2v13M9 9l11-2" /><ellipse cx="6" cy="18" rx="3" ry="2.5" /><ellipse cx="17" cy="16" rx="3" ry="2.5" /></>
-      ) : (
-        <><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8" cy="8" r="1.5" /><path d="m3 17 5-5 4 4 4-6 5 7" /></>
-      )}
+      <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8" cy="8" r="1.5" /><path d="m3 17 5-5 4 4 4-6 5 7" />
+    </svg>
+  );
+}
+
+function WeddingRings() {
+  return (
+    <svg aria-hidden="true" className={motion.rings} width="36" height="28" viewBox="0 0 40 30" fill="none" stroke="currentColor" strokeWidth="1.3">
+      <circle cx="14" cy="18" r="8" />
+      <circle cx="25" cy="18" r="8" />
+      <path d="m28 4 3 3-4 3-2-4Z" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -144,7 +152,7 @@ function HubIcon({ kind }: { kind: "upload" | "music" | "photo" }) {
 function EmptyPhotos({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded border border-[#15130f]/10 bg-[#f7f2ea]/65 px-5 py-7 text-center">
-      <span className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-[#b79d7a]/45 text-[#76543c]"><HubIcon kind="photo" /></span>
+      <span className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-[#b79d7a]/45 text-[#76543c]"><HubPhotoIcon /></span>
       <h2 className="font-serif text-2xl tracking-tight">{title}</h2>
       <p className="mx-auto mt-2 max-w-64 text-sm leading-6 text-[#6b6358]">{children}</p>
     </div>
@@ -722,8 +730,9 @@ export function WeddingHubClient({
     }}>
       <section className="mx-auto flex min-h-dvh w-full max-w-md flex-col shadow-[0_0_0_1px_rgba(21,19,15,0.08)]">
         <header className="flex items-center justify-between gap-4 border-b border-[#15130f]/10 px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
-          <p className="shrink-0 font-serif text-2xl italic tracking-tight text-[#6f4f33]">
+          <p className="flex shrink-0 items-center gap-2 font-serif text-2xl italic tracking-tight text-[#6f4f33]">
             {hubDisplay.monogram}
+            <WeddingRings />
           </p>
           <p className="text-right font-mono text-[0.625rem] leading-5 uppercase tracking-[0.18em] text-[#6b6358]">
             Bröllopshub · {hubDisplay.dateBadge}
@@ -739,33 +748,31 @@ export function WeddingHubClient({
           </h1>
         </section>
 
-        <section ref={primaryActionsRef} className="grid grid-cols-2 gap-3 px-5 pb-6 pt-2">
+        <section ref={primaryActionsRef} data-motion-active={isPrimaryActionsVisible && !isUploading} className={`${motion.actions} grid grid-cols-2 gap-3 px-5 pb-6 pt-2`}>
           <button
             aria-label="Ladda upp bilder"
-            className={`flex min-h-40 min-w-0 flex-col items-center justify-center gap-3 rounded border border-[#15130f] px-3 py-5 text-center transition-colors active:bg-[#302b22] disabled:cursor-not-allowed disabled:opacity-60 ${
-              canUpload ? "bg-[#15130f] text-[#f1eadc]" : "cursor-not-allowed bg-[#15130f]/70 text-[#f1eadc]/80"
-            }`}
+            className={`${motion.uploadAction} ${motion.characterAction} flex min-h-52 min-w-0 flex-col items-center justify-center gap-2 rounded-xl px-1 pb-4 pt-2 text-center text-[#15130f] disabled:cursor-not-allowed disabled:opacity-50`}
             onClick={onSelectFileClick}
             disabled={!canUpload || isUploading}
             type="button"
           >
-            <span className="flex h-10 w-10 items-center justify-center rounded-full border border-current/35"><HubIcon kind="upload" /></span>
+            <LivingCamera />
             <span className="font-serif text-[clamp(1.5rem,7.7vw,1.875rem)] italic leading-none">Bilder</span>
-            <span className="font-mono text-[0.625rem] uppercase tracking-[0.2em]">{canUpload ? "Ladda upp" : "Stängd"}</span>
+            <span className={`${motion.actionLabel} font-mono text-[0.625rem] font-semibold uppercase tracking-[0.08em]`}>{canUpload ? "Ladda upp" : "Stängd"}</span>
           </button>
 
           <a
             aria-disabled={!hubDisplay.spotifyEnabled}
-            className={`flex min-h-40 min-w-0 flex-col items-center justify-center gap-3 rounded border px-3 py-5 text-center transition-colors ${
-              hubDisplay.spotifyEnabled ? "bg-[#f7f2ea]/60 text-[#15130f] active:bg-[#e6dcc7]" : "text-[#15130f]/50"
-            } border-[#b79d7a]/65`}
+            className={`${motion.musicAction} ${motion.characterAction} flex min-h-52 min-w-0 flex-col items-center justify-center gap-2 rounded-xl px-1 pb-4 pt-2 text-center text-[#15130f] ${
+              hubDisplay.spotifyEnabled ? "" : "opacity-50"
+            }`}
             href={hubDisplay.spotifyEnabled ? hubDisplay.spotifyUrl ?? "" : undefined}
             rel="noopener noreferrer"
             target="_blank"
           >
-            <span className="flex h-10 w-10 items-center justify-center rounded-full border border-current/35"><HubIcon kind="music" /></span>
+            <SingingNote />
             <span className="whitespace-nowrap font-serif text-[clamp(1.5rem,7.7vw,1.875rem)] italic leading-none tracking-tight">Spellista</span>
-            <span className="font-mono text-[0.625rem] uppercase tracking-[0.2em]">{hubDisplay.spotifyEnabled ? <>Öppna <span aria-hidden="true">↗</span><span className="sr-only"> i Spotify (ny flik)</span></> : "Saknas"}</span>
+            <span className={`${motion.actionLabel} font-mono text-[0.625rem] font-semibold uppercase tracking-[0.08em]`}>{hubDisplay.spotifyEnabled ? <>Lägg till låt <span aria-hidden="true">↗</span><span className="sr-only"> i Spotify (ny flik)</span></> : "Saknas"}</span>
           </a>
         </section>
 
@@ -781,7 +788,15 @@ export function WeddingHubClient({
           </p>
         ) : null}
 
-        {uploadSummary ? <p className="mx-5 my-2 rounded border border-[#3f7250]/20 bg-[#3f7250]/5 px-4 py-3 text-sm text-[#3f7250]" role="status">{uploadSummary}</p> : null}
+        {uploadSummary ? (
+          <p className="mx-5 my-2 flex items-center gap-2 rounded border border-[#3f7250]/20 bg-[#3f7250]/5 px-4 py-3 text-sm text-[#3f7250]" role="status">
+            <svg aria-hidden="true" className={motion.successHeart} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20S4 15 4 9.5a4.5 4.5 0 0 1 8-2.8 4.5 4.5 0 0 1 8 2.8C20 15 12 20 12 20Z" />
+              <path className={motion.heartSpark} d="m2 3 2 2m16 0 2-2M12 1v2" />
+            </svg>
+            {uploadSummary}
+          </p>
+        ) : null}
 
         {selectedPhotos.length ? (
           <section ref={uploadQueueRef} tabIndex={-1} aria-label="Valda filer" className="scroll-mt-4 px-5 py-5">
