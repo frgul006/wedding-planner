@@ -278,7 +278,7 @@ test.describe("wedding hub QR", () => {
       "href",
       BASELINE_WEDDING_SETTINGS.spotify_playlist_url,
     );
-    await expect(page.getByRole("link", { name: /Lägg till låt/ })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "♪ Lägg till låt", exact: true })).toHaveCount(0);
   });
 
   test("public wedding hub empty-state copy reflects review setting", async ({ page }) => {

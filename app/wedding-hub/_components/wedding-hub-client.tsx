@@ -772,7 +772,7 @@ export function WeddingHubClient({
           >
             <SingingNote />
             <span className="whitespace-nowrap font-serif text-[clamp(1.5rem,7.7vw,1.875rem)] italic leading-none tracking-tight">Spellista</span>
-            <span className="font-mono text-[0.625rem] uppercase tracking-[0.2em] text-[#6f4f33]">{hubDisplay.spotifyEnabled ? <>Öppna <span aria-hidden="true">↗</span><span className="sr-only"> i Spotify (ny flik)</span></> : "Saknas"}</span>
+            <span className="font-mono text-[0.625rem] uppercase tracking-[0.2em] text-[#6f4f33]">{hubDisplay.spotifyEnabled ? <>Lägg till låt <span aria-hidden="true">↗</span><span className="sr-only"> i Spotify (ny flik)</span></> : "Saknas"}</span>
           </a>
         </section>
 
