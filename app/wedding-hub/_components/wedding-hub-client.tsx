@@ -751,20 +751,20 @@ export function WeddingHubClient({
         <section ref={primaryActionsRef} data-motion-active={isPrimaryActionsVisible && !isUploading} className={`${motion.actions} grid grid-cols-2 gap-3 px-5 pb-6 pt-2`}>
           <button
             aria-label="Ladda upp bilder"
-            className={`${motion.uploadAction} ${motion.characterAction} flex min-h-52 min-w-0 flex-col items-center justify-center gap-2 rounded-xl px-1 pb-4 text-center text-[#15130f] transition-colors active:bg-[#e6dcc7]/60 disabled:cursor-not-allowed disabled:opacity-50`}
+            className={`${motion.uploadAction} ${motion.characterAction} flex min-h-52 min-w-0 flex-col items-center justify-center gap-2 rounded-xl px-1 pb-4 pt-2 text-center text-[#15130f] disabled:cursor-not-allowed disabled:opacity-50`}
             onClick={onSelectFileClick}
             disabled={!canUpload || isUploading}
             type="button"
           >
             <LivingCamera />
             <span className="font-serif text-[clamp(1.5rem,7.7vw,1.875rem)] italic leading-none">Bilder</span>
-            <span className="font-mono text-[0.625rem] uppercase tracking-[0.2em] text-[#6f4f33]">{canUpload ? "Ladda upp" : "Stängd"}</span>
+            <span className={`${motion.actionLabel} font-mono text-[0.625rem] font-semibold uppercase tracking-[0.08em]`}>{canUpload ? "Ladda upp" : "Stängd"}</span>
           </button>
 
           <a
             aria-disabled={!hubDisplay.spotifyEnabled}
-            className={`${motion.musicAction} ${motion.characterAction} flex min-h-52 min-w-0 flex-col items-center justify-center gap-2 rounded-xl px-1 pb-4 text-center text-[#15130f] transition-colors ${
-              hubDisplay.spotifyEnabled ? "active:bg-[#e6dcc7]/60" : "opacity-50"
+            className={`${motion.musicAction} ${motion.characterAction} flex min-h-52 min-w-0 flex-col items-center justify-center gap-2 rounded-xl px-1 pb-4 pt-2 text-center text-[#15130f] ${
+              hubDisplay.spotifyEnabled ? "" : "opacity-50"
             }`}
             href={hubDisplay.spotifyEnabled ? hubDisplay.spotifyUrl ?? "" : undefined}
             rel="noopener noreferrer"
@@ -772,7 +772,7 @@ export function WeddingHubClient({
           >
             <SingingNote />
             <span className="whitespace-nowrap font-serif text-[clamp(1.5rem,7.7vw,1.875rem)] italic leading-none tracking-tight">Spellista</span>
-            <span className="font-mono text-[0.625rem] uppercase tracking-[0.2em] text-[#6f4f33]">{hubDisplay.spotifyEnabled ? <>Lägg till låt <span aria-hidden="true">↗</span><span className="sr-only"> i Spotify (ny flik)</span></> : "Saknas"}</span>
+            <span className={`${motion.actionLabel} font-mono text-[0.625rem] font-semibold uppercase tracking-[0.08em]`}>{hubDisplay.spotifyEnabled ? <>Lägg till låt <span aria-hidden="true">↗</span><span className="sr-only"> i Spotify (ny flik)</span></> : "Saknas"}</span>
           </a>
         </section>
 

@@ -8,6 +8,28 @@
   color: #b34a2c;
 }
 
+.characterAction {
+  border: 1px solid #b8a186;
+  background: #fcf7ef;
+  box-shadow: 0 3px 0 #d7c8b2, 0 7px 16px rgb(118 84 60 / 8%);
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.actionLabel {
+  display: inline-flex;
+  min-height: 28px;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: #b34a2c;
+  color: #fff8ed;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .characterStage {
   position: relative;
   display: block;
@@ -90,8 +112,16 @@
 
 @media (hover: hover) and (pointer: fine) {
   .characterAction:where(:enabled, [href]):hover {
-    background: rgb(247 242 234 / 65%);
+    border-color: #b34a2c;
+    background: #fffbf5;
+    box-shadow: 0 3px 0 #c6ad8c, 0 8px 20px rgb(118 84 60 / 14%);
   }
+}
+
+.characterAction:where(:enabled, [href]):active {
+  border-color: #967453;
+  background: #f0e5d4;
+  box-shadow: 0 1px 0 #c6ad8c, inset 0 2px 4px rgb(118 84 60 / 12%);
 }
 
 /* Animate the artwork inside steady click targets. With reduced motion,
