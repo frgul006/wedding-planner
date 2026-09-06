@@ -26,15 +26,20 @@ export async function updateSupabaseSession(request: NextRequest) {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet, headers) {
         cookiesToSet.forEach(({ name, value }) => {
           request.cookies.set(name, value);
         });
 
-        response = NextResponse.next({ request });
+        // Supabase sends cache headers only with the first cookie write.
+        response = NextResponse.next({ request, headers: response.headers });
 
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);
+        });
+
+        Object.entries(headers).forEach(([name, value]) => {
+          response.headers.set(name, value);
         });
       },
     },

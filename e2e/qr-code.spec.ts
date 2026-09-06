@@ -561,7 +561,7 @@ test.describe("wedding hub QR", () => {
   }) => {
     const guestName = uniqueRsvpGuestName("Hub Upload Archived Anonymous");
     const token = uniqueInviteToken("hub-upload-archived-anonymous");
-    await createInviteTestGuest({
+    const { guestId } = await createInviteTestGuest({
       email: "e2e-hub-upload-archived-anonymous@example.com",
       fullName: guestName,
       token,
@@ -571,13 +571,7 @@ test.describe("wedding hub QR", () => {
     await expect(page.getByText(`Inbjudan till ${guestName}`)).toBeVisible();
     const cookieHeader = await getGuestCookieHeader(page);
     expect(cookieHeader).toBeTruthy();
-    const guestRows = await createE2eSupabaseAdminClient()
-      .from("guests")
-      .select("id")
-      .eq("full_name", guestName)
-      .single();
-    expect(guestRows.error).toBeNull();
-    await archiveGuestForHubAccess(guestRows.data.id);
+    await archiveGuestForHubAccess(guestId);
 
     const fileName = `${E2E_PHOTO_PREFIX}-archived-anonymous.png`;
     const note = "Archived cookie anonymous upload";

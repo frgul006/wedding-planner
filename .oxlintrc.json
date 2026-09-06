@@ -11,9 +11,15 @@
   },
   "ignorePatterns": [
     ".next/**",
+    ".playwright-cli/**",
+    ".vercel/**",
+    "artifacts/**",
     "build/**",
+    "coverage/**",
     "node_modules/**",
     "out/**",
-    "next-env.d.ts"
+    "next-env.d.ts",
+    "playwright-report/**",
+    "test-results/**"
   ]
 }

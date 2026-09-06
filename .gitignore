@@ -47,4 +47,3 @@ supabase/.temp/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-.env*.local

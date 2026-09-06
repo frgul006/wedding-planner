@@ -387,7 +387,7 @@ test.describe.serial("invite visual QA screenshots", () => {
     test(`captures ${state.title} visual artifact`, async ({ page }, testInfo) => {
       const fixture = getInviteVisualFixture(state.fixtureKey);
 
-      let cleanup: InviteVisualStateCleanup | void;
+      let cleanup: InviteVisualStateCleanup | void = undefined;
 
       try {
         await page.goto(`${fixture.path}#${state.primaryHash ?? fixture.primaryHash}`);
