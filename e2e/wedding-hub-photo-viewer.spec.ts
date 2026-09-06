@@ -285,6 +285,34 @@ test.describe("Wedding hub photo viewer", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   });
 
+  for (const viewport of [{ width: 667, height: 275 }, { width: 568, height: 256 }]) {
+    test(`short landscape ${viewport.width}×${viewport.height} keeps the photo visible with a long caption and reachable actions`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await browseCollection(page);
+      await photoButton(page, "viewer-1").click();
+      const stage = modal(page).getByRole("img").locator("..");
+      const stageBox = await stage.boundingBox();
+      expect(stageBox!.height).toBeGreaterThan(viewport.height / 2);
+      expect(stageBox!.width).toBeGreaterThan(200);
+      await expect(modal(page).getByLabel("Bildtext")).toContainText("Tack för dansen.");
+      await modal(page).getByRole("button", { name: "Nästa bild" }).click();
+      await count(page, 3);
+      await modal(page).getByRole("button", { name: "Föregående bild" }).click();
+      await count(page, 2);
+      const upload = modal(page).getByRole("button", { name: /Ladda upp egna bilder/ });
+      await upload.scrollIntoViewIfNeeded();
+      const uploadBox = await upload.boundingBox();
+      expect(uploadBox!.y).toBeGreaterThanOrEqual(0);
+      expect(uploadBox!.y + uploadBox!.height).toBeLessThanOrEqual(viewport.height);
+      const chooser = page.waitForEvent("filechooser");
+      await upload.click();
+      await (await chooser).setFiles([]);
+      await expect(modal(page)).toHaveCount(0);
+      await expect(photoButton(page, "viewer-1")).toBeFocused();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(viewport.width);
+    });
+  }
+
   test("sticky picker remains reachable below gallery without covering last photo", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     // Keep enough rows to scroll the primary actions out of the compact hub.
