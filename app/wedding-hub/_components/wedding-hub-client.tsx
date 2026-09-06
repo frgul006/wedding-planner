@@ -147,11 +147,9 @@ function HubIcon({ kind }: { kind: "upload" | "music" | "photo" }) {
 function WeddingRings() {
   return (
     <svg aria-hidden="true" className={motion.rings} width="36" height="28" viewBox="0 0 40 30" fill="none" stroke="currentColor" strokeWidth="1.3">
-      <g className={motion.ringLeft}><ellipse cx="14" cy="18" rx="7.5" ry="9" transform="rotate(-22 14 18)" /></g>
-      <g className={motion.ringRight}>
-        <ellipse cx="25" cy="18" rx="7.5" ry="9" transform="rotate(22 25 18)" />
-        <path d="m28 4 3 3-4 3-2-4Z" strokeLinejoin="round" />
-      </g>
+      <circle cx="14" cy="18" r="8" />
+      <circle cx="25" cy="18" r="8" />
+      <path d="m28 4 3 3-4 3-2-4Z" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -755,7 +753,7 @@ export function WeddingHubClient({
           </h1>
         </section>
 
-        <section ref={primaryActionsRef} className="grid grid-cols-2 gap-3 px-5 pb-6 pt-2">
+        <section ref={primaryActionsRef} data-motion-active={isPrimaryActionsVisible && !isUploading} className={`${motion.actions} grid grid-cols-2 gap-3 px-5 pb-6 pt-2`}>
           <button
             aria-label="Ladda upp bilder"
             className={`${motion.uploadAction} flex min-h-40 min-w-0 flex-col items-center justify-center gap-3 rounded border border-[#15130f] px-3 py-5 text-center transition-colors active:bg-[#302b22] disabled:cursor-not-allowed disabled:opacity-60 ${
