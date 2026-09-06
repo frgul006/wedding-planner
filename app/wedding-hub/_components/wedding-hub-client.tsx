@@ -258,7 +258,6 @@ export function WeddingHubClient({
   }
   const photos = photoData.live.photos.photos;
   const feed = photoData.live.feed;
-  const photoCount = photoData.live.photos.totalPhotoCount;
   const [viewer, setViewer] = useState<{ photoId: string; opener: HTMLButtonElement } | null>(null);
   const uploadQueueRef = useRef<HTMLElement>(null);
   const browseViewsRef = useRef<HTMLElement>(null);
@@ -784,11 +783,6 @@ export function WeddingHubClient({
 
         {uploadSummary ? <p className="mx-5 my-2 rounded border border-[#3f7250]/20 bg-[#3f7250]/5 px-4 py-3 text-sm text-[#3f7250]" role="status">{uploadSummary}</p> : null}
 
-        <section className="mx-5 flex flex-wrap items-baseline justify-between gap-2 border-t border-[#15130f]/15 pt-5">
-          <h2 className="font-serif text-2xl italic tracking-tight">Våra minnen</h2>
-          <p className="font-mono text-[0.625rem] uppercase tracking-[0.15em] text-[#6b6358]">{photoCount} {photoCount === 1 ? "bild" : "bilder"}</p>
-        </section>
-
         {selectedPhotos.length ? (
           <section ref={uploadQueueRef} tabIndex={-1} aria-label="Valda filer" className="scroll-mt-4 px-5 py-5">
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
@@ -857,7 +851,7 @@ export function WeddingHubClient({
           </section>
         ) : null}
 
-        <section ref={browseViewsRef} tabIndex={-1} className="mx-5 mt-3 grid grid-cols-2 border-b border-[#15130f]/15" aria-label="Bildvyer">
+        <section ref={browseViewsRef} tabIndex={-1} className="mx-5 grid grid-cols-2 border-b border-[#15130f]/15" aria-label="Bildvyer">
           <button
             aria-pressed={activeTab === "flow"}
             className={`min-h-12 border-b-2 px-2 py-3 text-center font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.2em] transition-colors ${

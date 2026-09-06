@@ -287,15 +287,17 @@ test.describe("Wedding hub photo viewer", () => {
 
   test("sticky picker remains reachable below gallery without covering last photo", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await browseCollection(page, 12);
+    // Keep enough rows to scroll the primary actions out of the compact hub.
+    await browseCollection(page, 18);
     await page.getByRole("button", { name: "Galleriet", exact: true }).click();
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await expect(page.getByRole("button", { name: "Ladda upp bilder", exact: true })).not.toBeInViewport();
     const sticky = page.getByRole("button", { name: "↑ Välj bilder", exact: true });
     await expect(sticky).toBeInViewport();
-    const last = await photoButton(page, "viewer-11").boundingBox();
+    const last = await photoButton(page, "viewer-17").boundingBox();
     const bar = await sticky.locator("../..").boundingBox();
     expect(last!.y + last!.height).toBeLessThanOrEqual(bar!.y);
-    await photoButton(page, "viewer-11").tap();
+    await photoButton(page, "viewer-17").tap();
     await expect(sticky).toHaveCount(0);
     await expect(modal(page).getByRole("button", { name: /Ladda upp egna bilder/ })).toBeInViewport();
   });
