@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import { connection } from "next/server";
 
@@ -10,6 +10,11 @@ import { GUEST_NAVIGATION_COOKIE_NAME } from "@/lib/guest-navigation-session";
 
 export const metadata: Metadata = {
   title: "Wedding hub | Wedding Planner",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#f1eadc",
+  viewportFit: "cover",
 };
 
 export default async function WeddingHubPage() {

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   MAX_HUB_FILES_PER_REQUEST,
@@ -19,7 +19,7 @@ import type {
 } from "@/lib/wedding-hub-photo-verification";
 import type { HubContext } from "@/lib/wedding-hub-access";
 import type { HubWedding } from "@/lib/wedding-hub";
-import { getWeddingHubDisplay } from "@/lib/wedding-settings-display";
+import { getPublicPartnerNames, getWeddingHubDisplay } from "@/lib/wedding-settings-display";
 import { HubPhotoViewer } from "./hub-photo-viewer";
 
 type UploadIntent = {
@@ -92,10 +92,6 @@ function validateUploadFile(file: File) {
   return null;
 }
 
-function readableFileError(fileCount: number, maxFiles: number) {
-  return `${fileCount}/${maxFiles} bilder valda`;
-}
-
 function isAllowedThumbnailType(mimeType: string) {
   return PHOTO_UPLOAD_THUMBNAIL_MIME_TYPE_SET.has(mimeType);
 }
@@ -130,6 +126,28 @@ function PhotoPreview({ src, alt, sizes, fallbackLabel = "Förhandsvisning sakna
     </span>
   ) : (
     <Image alt={alt} className="object-cover" fill sizes={sizes} src={src} unoptimized onError={() => setFailedSource(src)} />
+  );
+}
+
+function HubIcon({ kind }: { kind: "upload" | "music" | "photo" }) {
+  return (
+    <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      {kind === "upload" ? <path d="M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5" /> : kind === "music" ? (
+        <><path d="M9 18V5l11-2v13M9 9l11-2" /><ellipse cx="6" cy="18" rx="3" ry="2.5" /><ellipse cx="17" cy="16" rx="3" ry="2.5" /></>
+      ) : (
+        <><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8" cy="8" r="1.5" /><path d="m3 17 5-5 4 4 4-6 5 7" /></>
+      )}
+    </svg>
+  );
+}
+
+function EmptyPhotos({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded border border-[#15130f]/10 bg-[#f7f2ea]/65 px-5 py-7 text-center">
+      <span className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-[#b79d7a]/45 text-[#76543c]"><HubIcon kind="photo" /></span>
+      <h2 className="font-serif text-2xl tracking-tight">{title}</h2>
+      <p className="mx-auto mt-2 max-w-64 text-sm leading-6 text-[#6b6358]">{children}</p>
+    </div>
   );
 }
 
@@ -418,18 +436,6 @@ export function WeddingHubClient({
   const [isPrimaryActionsVisible, setIsPrimaryActionsVisible] = useState(true);
 
   const canUpload = Boolean(context?.uploadAllowed);
-  const uploadBanner = useMemo(() => {
-    if (context?.uploadAllowed) {
-      return "Ladda upp dina bilder här."
-    }
-
-    if (wedding.allow_anonymous_hub_upload) {
-      return "Gästinloggning saknas."
-    }
-
-    return "Anonym uppladdning är stängd. Logga in med en aktiv inbjudningslänk för att kunna ladda upp.";
-  }, [context?.uploadAllowed, wedding.allow_anonymous_hub_upload]);
-
   const refreshGallery = useCallback(async () => {
     const requestId = ++galleryRequestRef.current;
     const response = await fetch("/api/wedding-hub/photos");
@@ -710,57 +716,57 @@ export function WeddingHubClient({
   }, [canUpload, refreshGallery, selectedPhotos, updateSelected, wedding.photo_upload_requires_review]);
 
   return (
-    <main className="min-h-dvh bg-[#f1eadc] pb-[calc(8rem+env(safe-area-inset-bottom))] text-[#15130f]" style={{
+    <main lang="sv" className="min-h-dvh bg-[#f1eadc] pb-[calc(7rem+env(safe-area-inset-bottom))] font-sans text-[#15130f] [&_button:enabled]:cursor-pointer [&_button]:touch-manipulation [&_a]:touch-manipulation [&_:where(:focus-visible)]:outline-2 [&_:where(:focus-visible)]:outline-offset-4 [&_:where(:focus-visible)]:outline-[#b34a2c]" style={{
       backgroundImage:
-        "radial-gradient(rgba(21,19,15,0.045) 1px, transparent 1.4px), radial-gradient(rgba(179,74,44,0.045) 1px, transparent 1.6px)",
+        "radial-gradient(rgba(21,19,15,0.025) 0.7px, transparent 1px), radial-gradient(rgba(179,74,44,0.02) 0.7px, transparent 1px)",
       backgroundSize: "5px 5px, 11px 11px",
     }}>
       <section className="mx-auto flex min-h-dvh w-full max-w-md flex-col shadow-[0_0_0_1px_rgba(21,19,15,0.08)]">
-        <header className="flex items-center justify-between border-b border-[#15130f]/15 px-5 py-4">
-          <p className="font-serif text-2xl italic tracking-tight text-[#6f4f33]">
+        <header className="flex items-center justify-between gap-4 border-b border-[#15130f]/10 px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
+          <p className="shrink-0 font-serif text-2xl italic tracking-tight text-[#6f4f33]">
             {hubDisplay.monogram}
           </p>
-          <p className="font-mono text-[0.65rem] uppercase tracking-[0.25em] text-[#6b6358]">
+          <p className="text-right font-mono text-[0.625rem] leading-5 uppercase tracking-[0.18em] text-[#6b6358]">
             Bröllopshub · {hubDisplay.dateBadge}
           </p>
         </header>
 
-        <section className="px-6 pb-4 pt-8 text-center">
-          <p className="font-mono text-[0.65rem] uppercase tracking-[0.4em] text-[#6f4f33]">{wedding.name}</p>
-          <h1 className="mt-4 font-serif text-5xl leading-[0.95] tracking-tight">
+        <section className="px-5 pb-5 pt-8 text-center">
+          <p className="text-balance break-words font-mono text-[0.625rem] leading-5 uppercase tracking-[0.25em] text-[#6f4f33]">{getPublicPartnerNames(wedding).displayName}</p>
+          <h1 className="mt-4 font-serif text-[clamp(2.5rem,12.3vw,3rem)] leading-[1.02] tracking-tight">
             Lägg till en <span className="italic text-[#b34a2c]">låt</span>
             <br />
             eller en <span className="italic text-[#b34a2c]">bild</span>.
           </h1>
-          <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-[#6b6358]">{uploadBanner}</p>
         </section>
 
-        <section ref={primaryActionsRef} className="grid grid-cols-2 gap-3 px-5 py-3">
+        <section ref={primaryActionsRef} className="grid grid-cols-2 gap-3 px-5 pb-6 pt-2">
           <button
             aria-label="Ladda upp bilder"
-            className={`min-h-34 flex min-w-0 flex-col items-center justify-center gap-3 border px-4 py-6 text-center disabled:cursor-not-allowed ${
+            className={`flex min-h-40 min-w-0 flex-col items-center justify-center gap-3 rounded border border-[#15130f] px-3 py-5 text-center transition-colors active:bg-[#302b22] disabled:cursor-not-allowed disabled:opacity-60 ${
               canUpload ? "bg-[#15130f] text-[#f1eadc]" : "cursor-not-allowed bg-[#15130f]/70 text-[#f1eadc]/80"
             }`}
             onClick={onSelectFileClick}
             disabled={!canUpload || isUploading}
             type="button"
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-current text-2xl">↑</span>
-            <span className="font-serif text-3xl italic leading-none">Bilder</span>
-            <span className="font-mono text-[0.65rem] uppercase tracking-[0.28em]">{canUpload ? "Ladda upp" : "Lås"}</span>
+            <span className="flex h-10 w-10 items-center justify-center rounded-full border border-current/35"><HubIcon kind="upload" /></span>
+            <span className="font-serif text-[clamp(1.5rem,7.7vw,1.875rem)] italic leading-none">Bilder</span>
+            <span className="font-mono text-[0.625rem] uppercase tracking-[0.2em]">{canUpload ? "Ladda upp" : "Stängd"}</span>
           </button>
 
           <a
-            className={`min-h-34 flex min-w-0 flex-col items-center justify-center gap-3 border px-3 py-6 text-center ${
-              hubDisplay.spotifyEnabled ? "text-[#15130f]" : "text-[#15130f]/50"
-            } border-[#15130f]/30`}
+            aria-disabled={!hubDisplay.spotifyEnabled}
+            className={`flex min-h-40 min-w-0 flex-col items-center justify-center gap-3 rounded border px-3 py-5 text-center transition-colors ${
+              hubDisplay.spotifyEnabled ? "bg-[#f7f2ea]/60 text-[#15130f] active:bg-[#e6dcc7]" : "text-[#15130f]/50"
+            } border-[#b79d7a]/65`}
             href={hubDisplay.spotifyEnabled ? hubDisplay.spotifyUrl ?? "" : undefined}
             rel="noopener noreferrer"
             target="_blank"
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-current text-2xl">♪</span>
-            <span className="max-w-full break-words font-serif text-2xl italic leading-none tracking-tight">Spellista</span>
-            <span className="font-mono text-[0.65rem] uppercase tracking-[0.28em]">{hubDisplay.spotifyEnabled ? "Öppna" : "Saknas"}</span>
+            <span className="flex h-10 w-10 items-center justify-center rounded-full border border-current/35"><HubIcon kind="music" /></span>
+            <span className="whitespace-nowrap font-serif text-[clamp(1.5rem,7.7vw,1.875rem)] italic leading-none tracking-tight">Spellista</span>
+            <span className="font-mono text-[0.625rem] uppercase tracking-[0.2em]">{hubDisplay.spotifyEnabled ? <>Öppna <span aria-hidden="true">↗</span><span className="sr-only"> i Spotify (ny flik)</span></> : "Saknas"}</span>
           </a>
         </section>
 
@@ -776,28 +782,29 @@ export function WeddingHubClient({
           </p>
         ) : null}
 
-        {uploadSummary ? <p className="mx-5 my-2 text-sm text-[#6f4f33]" role="status">{uploadSummary}</p> : null}
+        {uploadSummary ? <p className="mx-5 my-2 rounded border border-[#3f7250]/20 bg-[#3f7250]/5 px-4 py-3 text-sm text-[#3f7250]" role="status">{uploadSummary}</p> : null}
 
-        <section className="mt-3 border-y border-[#15130f]/15 px-5">
-          <div className="py-3 text-center">
-            <p className="font-serif text-3xl leading-none">{photoCount}</p>
-            <p className="mt-1 font-mono text-[0.6rem] uppercase tracking-[0.32em] text-[#6b6358]">Bilder</p>
-          </div>
+        <section className="mx-5 flex flex-wrap items-baseline justify-between gap-2 border-t border-[#15130f]/15 pt-5">
+          <h2 className="font-serif text-2xl italic tracking-tight">Våra minnen</h2>
+          <p className="font-mono text-[0.625rem] uppercase tracking-[0.15em] text-[#6b6358]">{photoCount} {photoCount === 1 ? "bild" : "bilder"}</p>
         </section>
 
         {selectedPhotos.length ? (
-          <section ref={uploadQueueRef} tabIndex={-1} aria-label="Valda filer" className="scroll-mt-4 px-5 py-3">
-            <p className="mb-2 font-mono text-sm uppercase tracking-[0.22em] text-[#6f4f33]">Valda filer</p>
+          <section ref={uploadQueueRef} tabIndex={-1} aria-label="Valda filer" className="scroll-mt-4 px-5 py-5">
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="font-serif text-2xl tracking-tight">Valda filer</h2>
+              <p className="text-xs text-[#6b6358]">{selectedPhotos.length} av {MAX_HUB_FILES_PER_REQUEST} bilder</p>
+            </div>
             {selectedPhotos.some(photo => photo.file.type === "image/heic" || photo.file.type === "image/heif") ? (
               <p className="mb-2 text-xs text-[#6b6358]">HEIC/HEIF kan sakna förhandsvisning i den här webbläsaren. Öppna originalet, eller välj JPEG för visning i fler webbläsare.</p>
             ) : null}
-            <div className="grid gap-2">
+            <div className="grid gap-3">
               {selectedPhotos.map((photo) => (
                 <div
                   key={photo.id}
-                  className="grid grid-cols-[56px_1fr_auto] items-center gap-3 border border-[#15130f]/20 bg-[#f5efe3] px-2 py-2"
+                  className="grid grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded border border-[#15130f]/15 bg-[#f7f2ea]/80 p-3"
                 >
-                  <a className="relative block h-14 w-14 overflow-hidden" href={photo.previewUrl} target="_blank" rel="noopener noreferrer" aria-label={`Öppna original: ${photo.fileName}`}>
+                  <a className="relative block h-14 w-14 overflow-hidden rounded-sm" href={photo.previewUrl} target="_blank" rel="noopener noreferrer" aria-label={`Öppna original: ${photo.fileName}`}>
                     <PhotoPreview
                       alt="Miniatur"
                       fallbackLabel="Öppna original"
@@ -807,8 +814,21 @@ export function WeddingHubClient({
                   </a>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{photo.fileName}</p>
+                    <p className="mt-1 text-xs text-[#6b6358]">{photo.file.size < 1024 * 1024 ? `${Math.max(1, Math.round(photo.file.size / 1024))} KB` : `${(photo.file.size / (1024 * 1024)).toLocaleString("sv-SE", { maximumFractionDigits: 1 })} MB`}</p>
+                  </div>
+                  <button
+                    className="min-h-11 rounded px-2 text-xs text-[#76543c] underline decoration-[#b79d7a] underline-offset-4 active:bg-[#e6dcc7] disabled:opacity-50"
+                    onClick={() => clearFile(photo.id)}
+                    disabled={isUploading}
+                    type="button"
+                  >
+                    Ta bort
+                  </button>
+                  <div className="col-span-3 min-w-0">
+                    <label className="mb-1.5 block text-xs text-[#6b6358]" htmlFor={`photo-note-${photo.id}`}>Kommentar <span className="text-[#6b6358]">(valfritt)</span><span className="sr-only"> för {photo.fileName}</span></label>
                     <input
-                      className="mt-1 w-full rounded border border-[#15130f]/30 px-2 py-1 text-xs"
+                      id={`photo-note-${photo.id}`}
+                      className="min-h-11 w-full scroll-mb-32 rounded border border-[#15130f]/20 bg-[#fffdf8]/70 px-3 py-2 text-base placeholder:text-[#6b6358] disabled:opacity-60"
                       maxLength={MAX_PHOTO_NOTE_LENGTH}
                       disabled={isUploading || Boolean(photo.finalizeUpload)}
                       onChange={(event) => {
@@ -820,37 +840,28 @@ export function WeddingHubClient({
                       type="text"
                       value={photo.note}
                     />
-                    {photo.message ? <p className="mt-1 text-xs text-[#6b6358]">{photo.message}</p> : null}
-                    {isUploading ? <p className="mt-1 text-[11px] text-[#6f4f33]">{photo.progress}%</p> : null}
+                    {photo.message ? <p className={`mt-2 break-words text-xs leading-5 ${photo.status === "error" || photo.status === "rejected" ? "text-[#8a2b18]" : "text-[#6b6358]"}`}>{photo.message}</p> : null}
+                    {isUploading ? <progress aria-label={`Uppladdning av ${photo.fileName}`} className="mt-2 block h-1 w-full overflow-hidden rounded-full accent-[#b34a2c]" max={100} value={photo.progress} /> : null}
                   </div>
-                  <button
-                    className="rounded border border-[#15130f]/20 px-2 py-2 text-xs"
-                    onClick={() => {
-                      clearFile(photo.id);
-                    }}
-                    disabled={isUploading}
-                    type="button"
-                  >
-                    Ta bort
-                  </button>
                 </div>
               ))}
             </div>
             <button
-              className="mt-3 w-full border border-[#15130f] bg-[#15130f] px-3 py-3 text-sm font-semibold text-[#f1eadc] disabled:opacity-60"
+              className="mt-3 min-h-12 w-full rounded border border-[#15130f] bg-[#15130f] px-3 py-3 text-sm font-semibold text-[#f1eadc] active:bg-[#302b22] disabled:opacity-60"
               disabled={!canUpload || isUploading}
               onClick={onUpload}
               type="button"
             >
-              {isUploading ? "Laddar upp..." : `Ladda upp ${readableFileError(selectedPhotos.length, MAX_HUB_FILES_PER_REQUEST)}`}
+              {isUploading ? "Laddar upp…" : `Ladda upp ${selectedPhotos.length} ${selectedPhotos.length === 1 ? "bild" : "bilder"}`}
             </button>
           </section>
         ) : null}
 
-        <section ref={browseViewsRef} tabIndex={-1} className="mt-3 grid grid-cols-2 border-b border-[#15130f]/15 px-5" aria-label="Bildvyer">
+        <section ref={browseViewsRef} tabIndex={-1} className="mx-5 mt-3 grid grid-cols-2 border-b border-[#15130f]/15" aria-label="Bildvyer">
           <button
-            className={`border-b-2 px-2 py-4 text-center font-mono text-[0.7rem] font-semibold uppercase tracking-[0.28em] ${
-              activeTab === "flow" ? "border-[#b34a2c]" : "border-transparent text-[#6b6358]"
+            aria-pressed={activeTab === "flow"}
+            className={`min-h-12 border-b-2 px-2 py-3 text-center font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.2em] transition-colors ${
+              activeTab === "flow" ? "border-[#b34a2c] text-[#8f321d]" : "border-transparent text-[#6b6358]"
             }`}
             onClick={() => setActiveTab("flow")}
             type="button"
@@ -858,8 +869,9 @@ export function WeddingHubClient({
             Flöde
           </button>
           <button
-            className={`border-b-2 px-2 py-4 text-center font-mono text-[0.7rem] font-semibold uppercase tracking-[0.28em] ${
-              activeTab === "gallery" ? "border-[#b34a2c]" : "border-transparent text-[#6b6358]"
+            aria-pressed={activeTab === "gallery"}
+            className={`min-h-12 border-b-2 px-2 py-3 text-center font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.2em] transition-colors ${
+              activeTab === "gallery" ? "border-[#b34a2c] text-[#8f321d]" : "border-transparent text-[#6b6358]"
             }`}
             onClick={() => setActiveTab("gallery")}
             type="button"
@@ -868,40 +880,35 @@ export function WeddingHubClient({
           </button>
         </section>
 
-        <section className="flex flex-1 flex-col px-5 py-6">
+        <section className="flex flex-1 flex-col px-5 py-5">
           {activeTab === "flow" ? (
             feed.length > 0 ? (
-              <div className="grid gap-3">
+              <div className="grid gap-4">
                 {feed.map((entry) => (
-                  <div key={entry.id} className="grid grid-cols-[2.75rem_1fr] gap-3 border-b border-[#15130f]/20 pb-4">
+                  <div key={entry.id} className="grid grid-cols-[4rem_minmax(0,1fr)] items-start gap-3 border-b border-[#15130f]/10 pb-4 last:border-0">
                     <button
                       aria-label={`Öppna foto från ${entry.who}`}
-                      className="relative block h-11 w-11 overflow-hidden border border-[#15130f]/20 bg-[#e6dcc7]"
+                      className="relative block h-16 w-16 overflow-hidden rounded border border-[#15130f]/10 bg-[#e6dcc7] active:opacity-80"
                       data-photo-id={entry.id}
                       onClick={event => setViewer({ photoId: entry.id, opener: event.currentTarget })}
                       type="button"
                     >
-                      <PhotoPreview src={entry.thumbnailUrl} alt="" sizes="44px" />
+                      <PhotoPreview src={entry.thumbnailUrl} alt="" sizes="64px" />
                     </button>
-                    <div>
-                      <p className="text-sm font-medium">
-                        {entry.who} laddade upp en bild
-                        {entry.caption ? <> — “{entry.caption}”</> : null}
-                      </p>
-                      <span className="mt-1 block font-mono text-[0.65rem] uppercase tracking-[0.22em] text-[#6b6358]">{entry.when}</span>
+                    <div className="min-w-0 wrap-anywhere">
+                      <p className="text-sm leading-5"><span className="font-medium">{entry.who}</span> <span className="text-[#6b6358]">laddade upp en bild</span></p>
+                      <span className="mt-1 block font-mono text-[0.625rem] leading-4 uppercase tracking-[0.1em] text-[#6b6358]">{entry.when}</span>
+                      {entry.caption ? <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#514b42]">{entry.caption}</p> : null}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="rounded-none border border-[#15130f]/15 bg-[#f1eadc]/70 p-4">
-                <h2 className="font-mono text-[0.7rem] font-semibold uppercase tracking-[0.32em]">Inga nya bidrag än</h2>
-                <p className="mt-1 text-sm leading-6 text-[#6b6358]">
-                  {wedding.photo_upload_requires_review
-                    ? "Dela din bild så visar vi den här efter godkännande."
-                    : "Dela din bild så visar vi den här direkt."}
-                </p>
-              </div>
+              <EmptyPhotos title="Inga nya bidrag än">
+                {wedding.photo_upload_requires_review
+                  ? "Dela din bild så visar vi den här efter godkännande."
+                  : "Dela din bild så visar vi den här direkt."}
+              </EmptyPhotos>
             )
           ) : photos.length ? (
             <div className="grid grid-cols-3 gap-2">
@@ -909,7 +916,7 @@ export function WeddingHubClient({
                 <button
                   key={photo.id}
                   aria-label={`Öppna foto från ${photo.who}`}
-                  className="relative block h-28 w-full overflow-hidden"
+                  className="relative block aspect-square w-full overflow-hidden rounded border border-[#15130f]/10 bg-[#e6dcc7] active:opacity-80"
                   data-photo-id={photo.id}
                   onClick={event => setViewer({ photoId: photo.id, opener: event.currentTarget })}
                   type="button"
@@ -923,28 +930,25 @@ export function WeddingHubClient({
               ))}
             </div>
           ) : (
-            <div className="rounded-none border border-[#15130f]/15 bg-[#f1eadc]/70 p-4">
-              <h2 className="font-mono text-[0.7rem] font-semibold uppercase tracking-[0.32em]">Galleriet är tomt</h2>
-              <p className="mt-1 text-sm leading-6 text-[#6b6358]">Bli först med att ladda upp en bild.</p>
-            </div>
+            <EmptyPhotos title="Galleriet är tomt">Bli först med att ladda upp en bild.</EmptyPhotos>
           )}
         </section>
       </section>
 
       {!isPrimaryActionsVisible && !viewer ? (
-        <div className="fixed inset-x-0 bottom-0 border-t-2 border-[#b34a2c] bg-[#15130f]/95 px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[#f1eadc]/15 bg-[#15130f]/95 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgb(21_19_15/10%)] backdrop-blur">
           <div className="mx-auto grid max-w-md grid-cols-2 gap-3">
             <button
-              className="bg-[#b34a2c] px-3 py-4 text-center font-mono text-[0.75rem] font-semibold uppercase tracking-[0.28em] text-[#f1eadc] disabled:opacity-65"
+              className="min-h-12 rounded bg-[#b34a2c] px-2 py-3 text-center font-mono text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-[#f1eadc] active:bg-[#8f321d] disabled:opacity-65"
               disabled={!canUpload || isUploading}
               onClick={selectedPhotos.length > 0 ? onUpload : onSelectFileClick}
               type="button"
             >
-              {selectedPhotos.length > 0 ? "↑ Ladda upp" : "↑ Välj bilder"}
+              {isUploading ? "Laddar upp…" : selectedPhotos.length > 0 ? "↑ Ladda upp" : "↑ Välj bilder"}
             </button>
             {hubDisplay.spotifyEnabled ? (
               <a
-                className="border border-white/25 px-3 py-4 text-center font-mono text-[0.75rem] font-semibold uppercase tracking-[0.28em] text-[#f1eadc] no-underline"
+                className="flex min-h-12 items-center justify-center rounded border border-white/25 px-2 py-3 text-center font-mono text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-[#f1eadc] no-underline active:bg-white/10"
                 href={hubDisplay.spotifyUrl ?? ""}
                 rel="noopener noreferrer"
                 target="_blank"
@@ -952,7 +956,7 @@ export function WeddingHubClient({
                 ♪ Lägg till låt
               </a>
             ) : (
-              <button className="border border-white/25 px-3 py-4 text-center font-mono text-[0.75rem] font-semibold uppercase tracking-[0.28em] text-[#f1eadc] opacity-65" type="button" disabled>
+              <button className="min-h-12 rounded border border-white/25 px-2 py-3 text-center font-mono text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-[#f1eadc] opacity-65" type="button" disabled>
                 ♪ Saknas
               </button>
             )}
