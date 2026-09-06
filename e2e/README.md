@@ -10,14 +10,20 @@ This directory contains the Playwright Test foundation for guest-facing and admi
    pnpm install
    ```
 
-2. Start local Supabase and copy the printed local keys into `.env.local` if needed:
+2. Install the browser runtime after installing or updating Playwright:
+
+   ```bash
+   pnpm exec playwright install chromium
+   ```
+
+3. Start local Supabase and copy the printed local keys into `.env.local` if needed:
 
    ```bash
    pnpm supabase:start
    pnpm supabase:status
    ```
 
-3. Reset and seed deterministic test data:
+4. Reset and seed deterministic test data:
 
    ```bash
    supabase db reset

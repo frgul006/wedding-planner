@@ -14,6 +14,8 @@ Production: https://wedding-planner-gamma-lovat.vercel.app/
 
 ## Getting started
 
+Use the Node.js version in [`.nvmrc`](.nvmrc) and the pnpm version pinned in [`package.json`](package.json). Local development also requires Docker Desktop running and the Supabase CLI installed.
+
 ```bash
 pnpm install
 cp .env.example .env.local
@@ -26,7 +28,7 @@ pnpm dev
 
 Open http://localhost:3000.
 
-For detailed local setup, seed data, and testing notes, see [`docs/local-development.md`](docs/local-development.md).
+For detailed local setup, seed data, browser installation, and testing notes, see [`docs/local-development.md`](docs/local-development.md).
 
 ## Useful commands
 

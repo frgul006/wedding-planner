@@ -66,17 +66,38 @@ async function addGuestNavigationCookieForInvite(
   return response;
 }
 
+function redirectWithSession(url: URL, sessionResponse: NextResponse) {
+  const response = NextResponse.redirect(url);
+
+  sessionResponse.cookies.getAll().forEach((cookie) => {
+    response.cookies.set(cookie);
+  });
+
+  for (const name of ["cache-control", "expires", "pragma"]) {
+    const value = sessionResponse.headers.get(name);
+
+    if (value !== null) {
+      response.headers.set(name, value);
+    }
+  }
+
+  return response;
+}
+
 async function handleAdminProxy(request: NextRequest) {
   const { response, user, adminProfile } = await updateSupabaseSession(request);
   const { pathname, search } = request.nextUrl;
 
   if (pathname.startsWith("/admin/login")) {
     if (user && adminProfile) {
-      return NextResponse.redirect(new URL("/admin", request.url));
+      return redirectWithSession(new URL("/admin", request.url), response);
     }
 
     if (user && !adminProfile) {
-      return NextResponse.redirect(new URL("/admin/unauthorized", request.url));
+      return redirectWithSession(
+        new URL("/admin/unauthorized", request.url),
+        response,
+      );
     }
 
     return response;
@@ -85,11 +106,14 @@ async function handleAdminProxy(request: NextRequest) {
   if (!user) {
     const redirectUrl = new URL("/admin/login", request.url);
     redirectUrl.searchParams.set("next", `${pathname}${search}`);
-    return NextResponse.redirect(redirectUrl);
+    return redirectWithSession(redirectUrl, response);
   }
 
   if (!adminProfile && !pathname.startsWith("/admin/unauthorized")) {
-    return NextResponse.redirect(new URL("/admin/unauthorized", request.url));
+    return redirectWithSession(
+      new URL("/admin/unauthorized", request.url),
+      response,
+    );
   }
 
   return response;

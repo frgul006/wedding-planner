@@ -8,10 +8,9 @@ For deployed Vercel/Supabase environment mapping, see [`deployment-environments.
 
 ## Current stack
 
-- Node.js: 24.x locally
-- Package manager: pnpm 10.x
-- Next.js: 16.2.4
-- React: 19.2.4
+- Node.js: version declared in [`.nvmrc`](../.nvmrc) and [`package.json`](../package.json)
+- Package manager: pnpm, pinned by `packageManager` in [`package.json`](../package.json)
+- Next.js / React: versions declared in [`package.json`](../package.json), with resolved dependencies in [`pnpm-lock.yaml`](../pnpm-lock.yaml)
 - Supabase CLI: installed locally on the machine
 - Playwright CLI wrapper: `playwright-cli`
 - Typed linting: `oxlint` with type-aware rules via `oxlint-tsgolint`
@@ -41,6 +40,22 @@ If `docker info` says it cannot connect to the Docker daemon, open/start Docker 
 ```bash
 pnpm install
 ```
+
+## Dependency maintenance
+
+Review available updates and security advisories with:
+
+```bash
+pnpm outdated
+pnpm audit
+```
+
+The September 2026 update retains two compatibility limits:
+
+- ESLint 9: the React, accessibility, and import plugins used by Next.js do not yet declare ESLint 10 support. Check their published peer requirements before upgrading: [React](https://registry.npmjs.org/eslint-plugin-react/7.37.5), [JSX accessibility](https://registry.npmjs.org/eslint-plugin-jsx-a11y/6.10.2), and [imports](https://registry.npmjs.org/eslint-plugin-import/2.32.0).
+- TypeScript 6: [typescript-eslint supports TypeScript versions below 6.1](https://typescript-eslint.io/users/dependency-versions/), so TypeScript 7 is outside the supported range.
+
+Recheck these limits before future major upgrades, then run lint, build, and the browser regression tests after dependency changes.
 
 ## Run the Next.js app locally
 
@@ -135,7 +150,7 @@ Create local env file:
 cp .env.example .env.local
 ```
 
-Variables planned for the app:
+Core app variables (see [`.env.example`](../.env.example) for the complete template, including SMS settings):
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
@@ -219,6 +234,12 @@ playwright-cli kill-all
 ## Automated Playwright e2e regression tests
 
 The automated e2e suite uses Playwright Test. Test files and helpers live in `e2e/`.
+
+Install the browser runtime after installing or updating Playwright:
+
+```bash
+pnpm exec playwright install chromium
+```
 
 Prepare local data before running the suite:
 
