@@ -1,0 +1,104 @@
+.rings,
+.successHeart {
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.rings {
+  color: #b34a2c;
+}
+
+.musicGlyph {
+  transform-box: fill-box;
+  transform-origin: 50% 75%;
+}
+
+.uploadAction svg {
+  overflow: visible;
+}
+
+.heartSpark {
+  opacity: 0;
+}
+
+/* All gestures finish once. The default, including reduced motion, is still. */
+@media (prefers-reduced-motion: no-preference) {
+  .ringLeft {
+    animation: ringKiss 850ms ease-in-out 150ms;
+    --ring-distance: -3px;
+  }
+
+  .ringRight {
+    animation: ringKiss 850ms ease-in-out 150ms;
+    --ring-distance: 3px;
+  }
+
+  .uploadAction:enabled .uploadGlyph {
+    animation: arrowHop 650ms ease-out 400ms;
+  }
+
+  .musicAction[href] > span > svg {
+    animation: noteDance 750ms ease-in-out 800ms;
+    transform-origin: 50% 75%;
+  }
+
+  /* A separate inner element lets interaction replay the arrival gesture. */
+  .uploadAction:enabled:is(:focus-visible, :active) .uploadGlyph > path {
+    animation: arrowHop 650ms ease-out;
+  }
+
+  .musicAction[href]:is(:focus-visible, :active) .musicGlyph {
+    animation: noteDance 750ms ease-in-out;
+  }
+
+  .successHeart {
+    animation: heartHurrah 650ms ease-out;
+  }
+
+  .heartSpark {
+    animation: littleSpark 650ms ease-out;
+  }
+
+  /* Touch taps use :active; hover must not stick after a tap on mobile. */
+  @media (hover: hover) and (pointer: fine) {
+    .uploadAction:enabled:hover .uploadGlyph > path {
+      animation: arrowHop 650ms ease-out;
+    }
+
+    .musicAction[href]:hover .musicGlyph {
+      animation: noteDance 750ms ease-in-out;
+    }
+  }
+}
+
+@keyframes ringKiss {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(var(--ring-distance)); }
+  58% { transform: translateX(calc(var(--ring-distance) * -0.4)); }
+  78% { transform: translateX(calc(var(--ring-distance) * 0.2)); }
+}
+
+@keyframes arrowHop {
+  0%, 100% { transform: translateY(0); }
+  35% { transform: translateY(-3px); }
+  60% { transform: translateY(1px); }
+  80% { transform: translateY(-1px); }
+}
+
+@keyframes noteDance {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: translateY(-1px) rotate(-9deg); }
+  50% { transform: translateY(-2px) rotate(7deg); }
+  75% { transform: rotate(-3deg); }
+}
+
+@keyframes heartHurrah {
+  0%, 100% { transform: scale(1); }
+  40% { transform: translateY(-2px) scale(1.15) rotate(-6deg); }
+  70% { transform: scale(0.96) rotate(3deg); }
+}
+
+@keyframes littleSpark {
+  0%, 100% { opacity: 0; }
+  35%, 55% { opacity: 1; }
+}

@@ -1,5 +1,7 @@
 # Wedding hub photo browsing
 
+The header rings nudge together once on arrival; the upload arrow hops and the playlist notes dance once, with a replay on enabled hover, keyboard focus, or touch press. A small heart celebrates the first confirmed upload in each batch beside the existing receipt. These brief decorations preserve the layout and controls, do not loop, and stay still when the guest prefers reduced motion. Disabled actions stay still too.
+
 `/wedding-hub` shares one full-screen, in-page photo viewer between **Flöde** and **Galleriet**. Tap a thumbnail to open it; use **Föregående bild**, **Nästa bild**, keyboard arrows, or a horizontal swipe over the image. Images fit without cropping. The viewer shows the contributor, optional scrollable caption, and position in the loaded collection (up to 60 photos, not the total upload count). Navigation stops at either end. While the selected original loads, **Laddar bild…** and any available separate thumbnail give feedback; navigation and upload stay usable. Only the selected full-size image loads.
 
 **Stäng** or Escape returns focus and scroll position to browsing. Background refresh keeps the selected photo ID, even when newer photos arrive. If it disappears from the public collection, the viewer reports that it is unavailable rather than showing a different photo.
