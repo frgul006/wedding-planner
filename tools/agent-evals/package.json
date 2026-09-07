@@ -1,0 +1,26 @@
+{
+  "name": "@wedding-planner/agent-evals",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cli": "node --import tsx -- src/cli.ts",
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --config .oxlintrc.json --deny-warnings src test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^4.0.60",
+    "ai": "^7.0.93",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "prettier": "3.9.6",
+    "tsx": "^4.23.13",
+    "typescript": "^6.0.3"
+  }
+}

@@ -19,6 +19,9 @@ const eslintConfig = defineConfig([
     "coverage/**",
     "playwright-report/**",
     "test-results/**",
+    // Independent Node package has its own TypeScript/offline checks.
+    "tools/agent-evals/**",
+    "evals/**",
   ]),
 ]);
 

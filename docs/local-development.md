@@ -304,3 +304,7 @@ pnpm supabase:status
 - The app has a temporary Supabase health endpoint at `/api/health/supabase`.
 - Admin auth docs are in `docs/admin-auth.md`.
 - The public homepage is still the default Vercel/Next.js template page.
+
+## Coding-agent evaluations
+
+The independent TypeScript package under `tools/agent-evals` runs native Pi against synthetic isolated fixtures. See [Agent Evaluation](../evals/README.md) for setup, separate Pi/grader credentials, live smoke commands, offline checks and budget controls. It does not use the production-linked Pi sandbox or the application's `.env.local` in trials.
