@@ -1,0 +1,26 @@
+{
+  "id": "local-pi-controlled-v2",
+  "concurrency": 1,
+  "runtimeMs": 900000,
+  "maxAgentTokens": 1500000,
+  "maxAgentEstimatedCostUsd": null,
+  "estimatedApiBudgetUsd": 1,
+  "agentRetries": 0,
+  "grader": {
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "none",
+    "maxOutputTokens": 800,
+    "maxInputChars": 18000,
+    "timeoutMs": 20000,
+    "maxRetries": 0,
+    "inputPerMillion": 0.2,
+    "outputPerMillion": 1.2,
+    "pricingSource": "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+    "pricingCheckedOn": "2026-09-16"
+  },
+  "agentBilling": "subscription",
+  "harness": "pi",
+  "pi": {
+    "runtime": "controlled"
+  }
+}

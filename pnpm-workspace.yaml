@@ -1,3 +1,9 @@
+packages:
+  - .
+  - tools/agent-evals
+
+# pnpm 12 requires explicit decisions for dependency lifecycle scripts.
 allowBuilds:
   sharp: false
   unrs-resolver: false
+  esbuild: true

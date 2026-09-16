@@ -1,0 +1,8 @@
+{
+  "algorithm": "sha256",
+  "files": {
+    "bundle.json": "aa81eeb726b197855211fd3c95d3c2183f7b49d67de5b3253f62c4e316018a22",
+    "report.md": "1457a820efbddb0841bf01215fc6f97060532ce897a65349e6497035af256f41",
+    "bundle-fingerprint.json": "c4d560d302b20f2d90157aea574de6ae9bc21910914883982956ac49a3771c31"
+  }
+}

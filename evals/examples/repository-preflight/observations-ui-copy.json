@@ -1,0 +1,66 @@
+{
+  "kind": "real-repository-preflight",
+  "taskId": "repository-ui-copy",
+  "recordedOn": "2026-09-16",
+  "modelCalls": 0,
+  "repositoryRevision": "30d2388f71595d1ba65d0d2fabc8b97b6ee48f80",
+  "runtime": {
+    "node": "v24.15.0",
+    "pnpm": "12.3.4",
+    "playwright": "0.1.11",
+    "browser": "Google Chrome for Testing 153.0.8010.12",
+    "fileWorkerSha256": "2de3a30aa60f372befd17728fbdadd01f9170cc101a4099dbd45301c1a08beac",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "lockfileSha256": "010aa0088bce3c9162f4450461ac41938c610357c2cf5b9e6673a5aa6401eea0",
+    "installedLockfileSha256": "965f41d0ea705b9b22fe00b7adf6e681ea206cd43ae617bcde2e5f1e29be4267"
+  },
+  "broken": {
+    "exitCode": 1,
+    "stderrExcerpt": "AssertionError [ERR_ASSERTION]: Expected the requested visible submit button label"
+  },
+  "repaired": {
+    "checks": [
+      {
+        "id": "repository-lint",
+        "actor": "evaluator",
+        "status": "pass",
+        "exitCode": 0
+      },
+      {
+        "id": "repository-build",
+        "actor": "evaluator",
+        "status": "pass",
+        "exitCode": 0
+      },
+      {
+        "id": "repository-browser-acceptance",
+        "actor": "evaluator",
+        "status": "pass",
+        "exitCode": 0
+      },
+      {
+        "id": "acceptance-source-stability",
+        "actor": "evaluator",
+        "status": "pass",
+        "exitCode": 0
+      }
+    ],
+    "browserFacts": {
+      "route": "/admin/login",
+      "label": "Sign in to manage the wedding",
+      "pendingDisabled": true,
+      "requiredInputValidation": true,
+      "serverActionRequests": 1,
+      "errorVisible": true,
+      "hydratedWithoutErrors": true,
+      "authentication": "Only the unavailable local auth endpoint error path is exercised; successful authentication and Supabase are not evaluated."
+    },
+    "changedFiles": [
+      "app/admin/login/login-form.tsx"
+    ],
+    "patchSha256": "03d8b678490bd10c4869989b6ef26bffc133c781105a9e6533e9ae53b8abfb68"
+  },
+  "privateRecordingSha256": "cc993a2865886c2be40843773141e7b7746952555b4f93e52085e5b8e109157d",
+  "scope": "Evaluator-authored red/green acceptance probe; no agent behavior or instruction-usefulness result."
+}

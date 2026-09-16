@@ -1,0 +1,48 @@
+diff --git a/app/admin/login/login-form.tsx b/app/admin/login/login-form.tsx
+index 7f710b1..f5f402a 100644
+--- a/app/admin/login/login-form.tsx
++++ b/app/admin/login/login-form.tsx
+@@ -50,7 +50,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
+         type="submit"
+         disabled={pending}
+       >
+-        {pending ? "Signing in..." : "Sign in"}
++        {pending ? "Signing in..." : "Sign in to manage the wedding"}
+       </button>
+     </form>
+   );
+diff --git a/e2e/smoke.spec.ts b/e2e/smoke.spec.ts
+index bc7747b..79230c9 100644
+--- a/e2e/smoke.spec.ts
++++ b/e2e/smoke.spec.ts
+@@ -13,7 +13,7 @@ test.describe("admin auth smoke", () => {
+ 
+     await page.getByLabel("Email").fill(SEEDED_ADMIN.email);
+     await page.getByLabel("Password").fill("wrong-password");
+-    await page.getByRole("button", { name: "Sign in" }).click();
++    await page.getByRole("button", { name: "Sign in to manage the wedding" }).click();
+ 
+     await expect(page.getByText("Invalid email or password.", { exact: true }))
+       .toBeVisible();
+@@ -21,7 +21,7 @@ test.describe("admin auth smoke", () => {
+ 
+     await page.getByLabel("Email").fill(SEEDED_ADMIN.email);
+     await page.getByLabel("Password").fill(SEEDED_ADMIN.password);
+-    await page.getByRole("button", { name: "Sign in" }).click();
++    await page.getByRole("button", { name: "Sign in to manage the wedding" }).click();
+ 
+     await expect(page.getByRole("heading", { name: "Admin dashboard" })).toBeVisible();
+     await expect(page.getByText("Signed in as Local Admin.")).toBeVisible();
+diff --git a/e2e/support/auth.ts b/e2e/support/auth.ts
+index 4c8a6e3..298fe89 100644
+--- a/e2e/support/auth.ts
++++ b/e2e/support/auth.ts
+@@ -6,7 +6,7 @@ export async function signInAsSeededAdmin(page: Page) {
+   await page.goto("/admin/login");
+   await page.getByLabel("Email").fill(SEEDED_ADMIN.email);
+   await page.getByLabel("Password").fill(SEEDED_ADMIN.password);
+-  await page.getByRole("button", { name: "Sign in" }).click();
++  await page.getByRole("button", { name: "Sign in to manage the wedding" }).click();
+   await expect(page).toHaveURL(/\/admin$/);
+   await expect(page.getByRole("heading", { name: "Admin dashboard" })).toBeVisible();
+ }

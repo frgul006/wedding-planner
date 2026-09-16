@@ -1,0 +1,10 @@
+{
+  "name": "wedding-copy-eval-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/server.mjs",
+    "lint": "node scripts/check.mjs",
+    "build": "node scripts/check.mjs"
+  }
+}

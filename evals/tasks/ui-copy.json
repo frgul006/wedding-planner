@@ -1,0 +1,12 @@
+{
+  "id": "ui-copy",
+  "title": "Clarify the wedding schedule link",
+  "fixture": "wedding-copy",
+  "rubric": "task-clarity",
+  "version": "1",
+  "kind": "ui",
+  "prompt": "The schedule link on Alex and Sam's wedding page currently says 'Details', which guests find vague. Change its visible label to 'View the wedding schedule'. Keep the link destination and the rest of the page working. This is a small copy change in index.html.",
+  "targetFile": "index.html",
+  "expectedText": "View the wedding schedule",
+  "flowPath": "/"
+}

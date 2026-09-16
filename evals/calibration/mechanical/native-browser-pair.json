@@ -1,0 +1,144 @@
+{
+  "task": {
+    "id": "ui-copy",
+    "version": "1",
+    "kind": "ui",
+    "prompt": "The schedule link on Alex and Sam's wedding page currently says 'Details', which guests find vague. Change its visible label to 'View the wedding schedule'. Keep the link destination and the rest of the page working. This is a small copy change in index.html.",
+    "targetFile": "index.html",
+    "expectedText": "View the wedding schedule",
+    "flowPath": "/"
+  },
+  "variant": "enabled",
+  "localUrl": "http://127.0.0.1:57007",
+  "artifacts": [
+    {
+      "id": "artifact-1",
+      "path": "index.html",
+      "content": "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Alex &amp; Sam — Our wedding</title>\n  <style>\n    :root { color-scheme: light; font-family: Georgia, serif; color: #26382d; background: #f8f5ed; }\n    body { margin: 0; }\n    main { max-width: 780px; margin: 5rem auto; padding: 2rem; }\n    .eyebrow { font: 0.8rem system-ui; letter-spacing: .16em; text-transform: uppercase; }\n    h1 { font-size: clamp(3rem, 9vw, 5.5rem); font-weight: 400; margin: 1rem 0; }\n    .intro { max-width: 35rem; font-size: 1.2rem; line-height: 1.7; }\n    .schedule-link { display: inline-block; background: #294f3c; color: white; padding: 1rem 1.5rem; margin: 1rem 0 3rem; border-radius: 4px; font: 1rem system-ui; text-decoration: none; }\n    .schedule-link:focus-visible { outline: 3px solid #bd8628; outline-offset: 4px; }\n    #schedule { border-top: 1px solid #cbd4c8; padding-top: 1.5rem; }\n    li { line-height: 2; }\n  </style>\n</head>\n<body>\n  <main>\n    <p class=\"eyebrow\">Saturday, 12 June 2027 · Garden House</p>\n    <h1>Alex &amp; Sam</h1>\n    <p class=\"intro\">We’re getting married, and we can’t wait to celebrate with you. Find the plan for our day below.</p>\n    <a class=\"schedule-link\" href=\"#schedule\">View the wedding schedule</a>\n    <section id=\"schedule\" aria-labelledby=\"schedule-title\">\n      <h2 id=\"schedule-title\">The wedding schedule</h2>\n      <ul><li>15:00 — Ceremony in the garden</li><li>16:00 — Drinks and photographs</li><li>18:00 — Dinner and dancing</li></ul>\n    </section>\n  </main>\n</body>\n</html>\n",
+      "sha256": "b1ebfeb4ed3146d374516d40644788d963fff95351fedc8a85306defc84ef81c",
+      "observedBy": "evaluator"
+    },
+    {
+      "id": "artifact-2",
+      "path": ".playwright-cli/page-2026-09-07T19-32-43-403Z.yml",
+      "content": "- main [ref=e2]:\n  - paragraph [ref=e3]: Saturday, 12 June 2027 · Garden House\n  - heading \"Alex & Sam\" [level=1] [ref=e4]\n  - paragraph [ref=e5]: We’re getting married, and we can’t wait to celebrate with you. Find the plan for our day below.\n  - link \"View the wedding schedule\" [ref=e6] [cursor=pointer]:\n    - /url: \"#schedule\"\n  - region \"The wedding schedule\" [ref=e7]:\n    - heading \"The wedding schedule\" [level=2] [ref=e8]\n    - list [ref=e9]:\n      - listitem [ref=e10]: 15:00 — Ceremony in the garden\n      - listitem [ref=e11]: 16:00 — Drinks and photographs\n      - listitem [ref=e12]: 18:00 — Dinner and dancing",
+      "sha256": "508991bf6c624aa6266200d41742568bfc409a6c82b4afaa291d9bfa06ee0095",
+      "observedBy": "evaluator"
+    }
+  ],
+  "events": [
+    {
+      "id": "trace-1",
+      "sequence": 1,
+      "timestamp": "2026-09-07T00:00:00.000Z",
+      "actor": "agent",
+      "kind": "pi",
+      "data": {
+        "type": "tool_execution_start",
+        "toolCallId": "trace-edit",
+        "toolName": "edit",
+        "args": {
+          "path": "index.html",
+          "edits": [
+            {
+              "oldText": "<a class=\"schedule-link\" href=\"#schedule\">Details</a>",
+              "newText": "<a class=\"schedule-link\" href=\"#schedule\">View the wedding schedule</a>"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "trace-2",
+      "sequence": 2,
+      "timestamp": "2026-09-07T00:00:00.000Z",
+      "actor": "agent",
+      "kind": "pi",
+      "data": {
+        "type": "tool_execution_end",
+        "toolCallId": "trace-edit",
+        "toolName": "edit",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Successfully replaced 1 block(s) in index.html."
+            }
+          ],
+          "details": {
+            "evaluation": {
+              "kind": "file-edit",
+              "path": "index.html",
+              "targetBeforeHash": "0e1fb80f80fd520fc3a6e17ff9607ed61a6b206f42a10ac2a5934a3e6859c353",
+              "targetAfterHash": "b1ebfeb4ed3146d374516d40644788d963fff95351fedc8a85306defc84ef81c"
+            }
+          }
+        },
+        "isError": false
+      }
+    },
+    {
+      "id": "trace-3",
+      "sequence": 3,
+      "timestamp": "2026-09-07T00:00:00.000Z",
+      "actor": "agent",
+      "kind": "pi",
+      "data": {
+        "type": "tool_execution_start",
+        "toolCallId": "trace-browser-pair",
+        "toolName": "bash",
+        "args": {
+          "command": "playwright-cli -s=eval-smoke-ui open http://127.0.0.1:57007 && playwright-cli -s=eval-smoke-ui snapshot",
+          "timeout": 120
+        }
+      }
+    },
+    {
+      "id": "trace-4",
+      "sequence": 4,
+      "timestamp": "2026-09-07T00:00:00.000Z",
+      "actor": "agent",
+      "kind": "pi",
+      "data": {
+        "type": "tool_execution_end",
+        "toolCallId": "trace-browser-pair",
+        "toolName": "bash",
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "### Browser `eval-smoke-ui` opened with pid 12345.\n### Ran Playwright code\n```js\nawait page.goto('http://127.0.0.1:57007');\n```\n### Page\n- Page URL: http://127.0.0.1:57007/\n- Page Title: Alex & Sam — Our wedding\n### Snapshot\n- [Snapshot](.playwright-cli/page-2026-09-07T19-32-43-403Z.yml)\n### Page\n- Page URL: http://127.0.0.1:57007/\n- Page Title: Alex & Sam — Our wedding\n### Snapshot\n```yaml\n- main [ref=e2]:\n  - paragraph [ref=e3]: Saturday, 12 June 2027 · Garden House\n  - heading \"Alex & Sam\" [level=1] [ref=e4]\n  - paragraph [ref=e5]: We’re getting married, and we can’t wait to celebrate with you. Find the plan for our day below.\n  - link \"View the wedding schedule\" [ref=e6] [cursor=pointer]:\n    - /url: \"#schedule\"\n  - region \"The wedding schedule\" [ref=e7]:\n    - heading \"The wedding schedule\" [level=2] [ref=e8]\n    - list [ref=e9]:\n      - listitem [ref=e10]: 15:00 — Ceremony in the garden\n      - listitem [ref=e11]: 16:00 — Drinks and photographs\n      - listitem [ref=e12]: 18:00 — Dinner and dancing\n```\n"
+            }
+          ],
+          "details": {
+            "evaluation": {
+              "kind": "bash",
+              "exitCode": 0,
+              "targetBeforeHash": "b1ebfeb4ed3146d374516d40644788d963fff95351fedc8a85306defc84ef81c",
+              "targetAfterHash": "b1ebfeb4ed3146d374516d40644788d963fff95351fedc8a85306defc84ef81c"
+            }
+          }
+        },
+        "isError": false
+      }
+    }
+  ],
+  "agent": {
+    "status": "budget_exceeded",
+    "startedAt": "2026-09-07T00:00:00.000Z",
+    "endedAt": "2026-09-07T00:00:01.000Z",
+    "exitCode": 0,
+    "signal": null,
+    "usage": {
+      "inputTokens": 19331,
+      "outputTokens": 1927,
+      "cacheReadTokens": 102400,
+      "cacheWriteTokens": 0,
+      "estimatedCostUsd": 0.20566500000000001,
+      "costSource": "Pi provider-reported usage × Pi catalog prices; estimate, not billing or a provider-enforced cap"
+    },
+    "model": null,
+    "thinkingLevel": null,
+    "events": []
+  }
+}

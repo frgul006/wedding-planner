@@ -1,0 +1,13 @@
+diff --git a/app/admin/login/login-form.tsx b/app/admin/login/login-form.tsx
+index 2e8a4e0..7f710b1 100644
+--- a/app/admin/login/login-form.tsx
++++ b/app/admin/login/login-form.tsx
+@@ -40,7 +40,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
+       </label>
+ 
+       {state.error ? (
+-        <p className="hidden rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
++        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+           {state.error}
+         </p>
+       ) : null}

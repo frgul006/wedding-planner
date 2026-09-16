@@ -1,0 +1,29 @@
+{
+  "id": "repository-ui-copy",
+  "title": "Clarify the real admin login action",
+  "environment": "repository",
+  "repository": {
+    "revision": "30d2388f71595d1ba65d0d2fabc8b97b6ee48f80"
+  },
+  "acceptance": "admin-login-copy",
+  "allowedChangedPaths": [
+    "app/admin/login/login-form.tsx",
+    "e2e/smoke.spec.ts",
+    "e2e/support/auth.ts"
+  ],
+  "graders": [
+    "target-outcome",
+    "browser-compliance",
+    "browser-behavior",
+    "acceptance-checks",
+    "diff-scope",
+    "semantic-task-clarity"
+  ],
+  "rubric": "repository-task",
+  "version": "2",
+  "kind": "ui",
+  "prompt": "On the admin login page, change the idle submit button label from 'Sign in' to 'Sign in to manage the wedding'. Keep the existing pending label, validation and error feedback working.",
+  "targetFile": "app/admin/login/login-form.tsx",
+  "expectedText": "Sign in to manage the wedding",
+  "flowPath": "/admin/login"
+}

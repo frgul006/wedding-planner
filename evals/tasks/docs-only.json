@@ -1,0 +1,12 @@
+{
+  "id": "docs-only",
+  "title": "Document how to start the local page",
+  "fixture": "wedding-copy",
+  "rubric": "task-clarity",
+  "version": "1",
+  "kind": "docs",
+  "prompt": "Add a concise 'Local development' section to README.md explaining that developers start this wedding page locally with pnpm dev. This request is documentation only; the app already works.",
+  "targetFile": "README.md",
+  "expectedText": "pnpm dev",
+  "flowPath": "/"
+}

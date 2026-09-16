@@ -20,6 +20,8 @@
     "out/**",
     "next-env.d.ts",
     "playwright-report/**",
-    "test-results/**"
+    "test-results/**",
+    "tools/agent-evals/**",
+    "evals/**"
   ]
 }

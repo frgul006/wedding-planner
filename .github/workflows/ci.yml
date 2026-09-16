@@ -23,6 +23,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          # Offline evaluation tests validate tasks against their pinned app commit.
+          fetch-depth: 0
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6.1.0
@@ -38,6 +41,12 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+      - name: Check evaluation package
+        run: pnpm check:evals
+
+      - name: Test evaluation package (offline)
+        run: pnpm test:evals
 
       - name: Build
         run: pnpm build
