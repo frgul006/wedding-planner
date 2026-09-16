@@ -21,7 +21,9 @@ The pair completed with matching comparison conditions on the frozen evaluator i
 | Enabled     | Pass         | Pass               | Pass         | Pass              | Pass               | Pass           |
 | Disabled    | Pass         | Pass               | Pass         | Fail: no snapshot | Not applicable     | Pass           |
 
-The disabled trial also updated the corresponding test locators; its complete retained change is in [disabled.patch](disabled.patch). Both agent executions completed. Missing browser validation is the disabled condition's observed behavior, not a failed obligation when that instruction is absent.
+The disabled trial also updated the corresponding test locators; its complete retained change is in [disabled.patch](disabled.patch). Both agent executions completed. The disabled agent attempted browser validation twice with `@playwright/test`: the first script mixed `require()` with top-level `await`, and the corrected script then failed because Playwright's expected browser executable was absent from the isolated home cache. The [reviewed attempt receipts](disabled-browser-attempts.json) identify both failed native tool results and their hashes without exporting raw commands or private paths.
+
+The observed difference is a successful required `playwright-cli` snapshot in the enabled condition and no successful snapshot in the disabled condition. It does not show that the disabled agent chose not to validate. The browser-cache limitation affected its chosen alternative, and absence of the instruction made snapshot compliance not applicable.
 
 The generated [pair review](pair-review/report.md) contains both results, attributed receipt facts and integrity hashes. Its two Luna calls cost an estimated **$0.0013672** using the configured uncached input rates, against an aggregate reservation of $0.00912 and allowance of $0.02. Pi used the existing subscription; provider catalog dollar estimates are not direct API charges.
 

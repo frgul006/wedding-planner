@@ -1,15 +1,27 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { access, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import test from 'node:test';
-import { resolveHeadlessBrowser } from '../src/adapters/isolation/runtime.ts';
+import {
+  applicationBrowserRevision,
+  resolveHeadlessBrowser,
+} from '../src/adapters/isolation/runtime.ts';
 import { TrialProcesses } from '../src/adapters/isolation/processes.ts';
 import { copyResources, resourceFilesIn } from '../src/adapters/isolation/resources.ts';
 
 test('browser selection uses the current architecture and skips incomplete newer downloads', async () => {
-  const cache = await mkdtemp(join(tmpdir(), 'eval-runtime-test-'));
+  const cache = await realpath(await mkdtemp(join(tmpdir(), 'eval-runtime-test-')));
   try {
     const install = async (revision: number, architecture: string, executable = true) => {
       const directory = join(
@@ -29,10 +41,59 @@ test('browser selection uses the current architecture and skips incomplete newer
     await install(12, 'arm64', false);
     assert.equal((await resolveHeadlessBrowser(cache, 'arm64')).directory, arm);
     assert.equal((await resolveHeadlessBrowser(cache, 'x64')).directory, intel);
+    const newer = await install(13, 'arm64');
+    assert.equal((await resolveHeadlessBrowser(cache, 'arm64')).directory, newer);
+    const pinned = await resolveHeadlessBrowser(cache, 'arm64', '10');
+    assert.equal(pinned.directory, arm);
+    assert.equal(pinned.revision, '10');
+    await assert.rejects(resolveHeadlessBrowser(cache, 'arm64', '12'), /revision 12/);
+    await assert.rejects(resolveHeadlessBrowser(cache, 'arm64', '../10'), /Invalid.*revision/);
+    await rm(newer, { recursive: true });
     await rm(arm, { recursive: true });
     await assert.rejects(resolveHeadlessBrowser(cache, 'arm64'), /No executable.*macOS arm64/);
   } finally {
     await rm(cache, { recursive: true, force: true });
+  }
+});
+
+test('browser revision comes from the application Playwright dependency chain', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'eval-app-browser-test-'));
+  try {
+    await writeFile(join(root, 'package.json'), '{"name":"test-app"}');
+    for (const name of ['@playwright/test', 'playwright', 'playwright-core']) {
+      const directory = join(root, 'node_modules', name);
+      await mkdir(directory, { recursive: true });
+      await writeFile(join(directory, 'package.json'), JSON.stringify({ name, main: 'index.js' }));
+      await writeFile(join(directory, 'index.js'), '');
+    }
+    const registry = join(root, 'node_modules/playwright-core/browsers.json');
+    await writeFile(
+      registry,
+      JSON.stringify({ browsers: [{ name: 'chromium-headless-shell', revision: '1243' }] }),
+    );
+    assert.equal(await applicationBrowserRevision(root), '1243');
+    const alternate = join(root, 'separate-dependency-checkout');
+    await mkdir(alternate);
+    await writeFile(join(alternate, 'package.json'), '{"name":"separate-app"}');
+    for (const name of ['@playwright/test', 'playwright', 'playwright-core']) {
+      const directory = join(alternate, 'node_modules', name);
+      await mkdir(directory, { recursive: true });
+      await writeFile(join(directory, 'package.json'), JSON.stringify({ name, main: 'index.js' }));
+      await writeFile(join(directory, 'index.js'), '');
+    }
+    await writeFile(
+      join(alternate, 'node_modules/playwright-core/browsers.json'),
+      JSON.stringify({ browsers: [{ name: 'chromium-headless-shell', revision: '1250' }] }),
+    );
+    assert.equal(await applicationBrowserRevision(alternate), '1250');
+    assert.equal(await applicationBrowserRevision(root), '1243');
+    await writeFile(
+      registry,
+      JSON.stringify({ browsers: [{ name: 'firefox', revision: '1543' }] }),
+    );
+    await assert.rejects(applicationBrowserRevision(root), /Cannot resolve.*revision/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });
 

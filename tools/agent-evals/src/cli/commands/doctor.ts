@@ -27,7 +27,7 @@ export async function doctorCommand(context: CommandContext): Promise<number> {
     'Checking local runtime, native Pi and selected grader access…',
     () =>
       Promise.allSettled([
-        resolveLocalRuntime(repo),
+        resolveLocalRuntime(repo, source),
         inspectPi({ cwd: source }),
         !useGrader
           ? Promise.resolve(null)

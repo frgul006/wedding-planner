@@ -86,6 +86,9 @@ export async function prepareBoundary(options: {
   );
   toolEnv.PATH = paths.runtimeBin + ':' + toolEnv.PATH;
   toolEnv.PLAYWRIGHT_CLI_SESSION = 'eval-' + options.id.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 8);
+  // Ordinary @playwright/test launches must resolve the same installed browser as the CLI.
+  // The OS profile still grants read access only to that exact browser directory.
+  toolEnv.PLAYWRIGHT_BROWSERS_PATH = runtime.browser.cacheDirectory;
   toolEnv.PORT = String(options.port);
   Object.assign(toolEnv, options.toolEnvironment);
   const writableDirectories = [paths.workspace, paths.toolHome, paths.temporary];

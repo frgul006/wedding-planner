@@ -1,0 +1,45 @@
+{
+  "kind": "agent-reviewed-evidence-extract",
+  "trialId": "experiment-repository-ui-copy-2026-09-16T08-17-20-921Z-2-disabled",
+  "variant": "disabled",
+  "agentStatus": "completed",
+  "sourceIntegrity": {
+    "algorithm": "sha256",
+    "fingerprint": "a2b9b18fbfc7d3c82c67e0fb52278d0b90cb3efeddf1041aab827c64906e8c26",
+    "scope": "Verified private recording integrity manifest; the complete recording is not included in this extract."
+  },
+  "normalization": "Commands and raw error output are omitted to exclude private paths. Failure descriptions are reviewed classifications of the hashed native tool results.",
+  "attempts": [
+    {
+      "startEventId": "e02375",
+      "startSequence": 2375,
+      "completionEventId": "e02378",
+      "completionSequence": 2378,
+      "actor": "agent",
+      "tool": "bash",
+      "receipt": "bash",
+      "success": false,
+      "exitCode": 1,
+      "commandSha256": "e39759b06e10e5fd683e89f081c9379448ccd9ad76e34725df11b26524bf9a65",
+      "outputSha256": "13de60d4d3d18459608aed3108729423ec2a20e4a63a95a07a1ef0de443d07cc",
+      "failureKind": "module-format-error",
+      "description": "The first @playwright/test script mixed require() with top-level await and failed before browser launch."
+    },
+    {
+      "startEventId": "e02729",
+      "startSequence": 2729,
+      "completionEventId": "e02732",
+      "completionSequence": 2732,
+      "actor": "agent",
+      "tool": "bash",
+      "receipt": "bash",
+      "success": false,
+      "exitCode": 1,
+      "commandSha256": "c9c22b24a8a02aaf35c65e5721ffd2603d555d95ec3dd61e80b14365d2d11a9c",
+      "outputSha256": "7ff49be27d0ed0e8de7dd5f15a2b75ea68269ab901088ebe41ace1a616f9e8b6",
+      "failureKind": "browser-executable-missing",
+      "description": "The corrected script reached browser launch, but Playwright could not find its expected browser executable under the isolated home cache."
+    }
+  ],
+  "interpretation": "The agent attempted browser validation without the instruction. Neither attempt produced the required successful playwright-cli snapshot. This recording does not establish that the agent chose to omit validation; the second attempt was blocked by browser-cache availability in the isolated runtime."
+}

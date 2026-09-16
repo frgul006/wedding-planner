@@ -69,7 +69,7 @@ export async function prepareTrialEnvironment(
   const fixtureDirectory = await realpath(
     options.fixtureDir ?? join(sourceRepo, 'evals/fixtures/wedding-copy'),
   );
-  const runtime = await resolveLocalRuntime(sourceRepo);
+  const runtime = await resolveLocalRuntime(sourceRepo, resourceSource);
   const selection = validateResourceSelection(resourceSource, options.pi.resources);
   const paths = await createTrialPaths(selection.ancestors.length);
   const processes = new TrialProcesses(paths.processRegistry);

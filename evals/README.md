@@ -15,7 +15,7 @@ One command runs the two trials sequentially, keeps both results (including fail
 
 ## Prerequisites
 
-Live execution currently requires macOS, installed native Pi, `playwright-cli`, Chromium headless shell, and this repository's Node/pnpm versions. Dependencies for the pinned Wedding commit must already be installed in the original checkout. Trials copy them privately; they do not download packages. `COREPACK_HOME` and `PLAYWRIGHT_BROWSERS_PATH` are supported for nonstandard tool caches.
+Live execution currently requires macOS, installed native Pi, `playwright-cli`, the Chromium headless shell revision required by the application's Playwright package, and this repository's Node/pnpm versions. Dependencies for the pinned Wedding commit must already be installed in the original checkout. Trials copy them privately; they do not download packages. `COREPACK_HOME` and `PLAYWRIGHT_BROWSERS_PATH` are supported for nonstandard tool caches. Both `playwright-cli` and ordinary `@playwright/test` launches can use the selected browser inside the trial.
 
 ```bash
 pnpm evals doctor --no-grader

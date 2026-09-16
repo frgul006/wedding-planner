@@ -5,7 +5,7 @@ This revises the original synthetic-page demonstration after skeptical review of
 ## Verified without model calls
 
 - `pnpm check:evals`: typecheck, lint and formatting passed.
-- `pnpm test:evals`: 244 offline tests passed. Coverage includes a second grader, a second harness composition, shared live/regrade judgments, retained failures, comparison factors and adversarial browser evidence.
+- `pnpm test:evals`: 245 offline tests passed. Coverage includes a second grader, a second harness composition, shared live/regrade judgments, retained failures, comparison factors, pinned browser selection and adversarial browser evidence.
 - `pnpm evals validate`: all five tasks and two profiles passed configuration validation.
 - `pnpm --dir tools/agent-evals exec tsx test/repository-native-smoke.ts`: the seeded invisible login error failed browser acceptance. Removing its `hidden` class made the same acceptance pass. Required inputs, empty-submit validation, disabled pending state, exactly one real Server Action POST, visible error feedback and absence of browser page errors were checked.
 - Final independent acceptance ran the actual `pnpm lint` script, including ESLint and nested oxlint, and `pnpm build --webpack`. Both passed; source inventory remained unchanged by evaluator commands.
@@ -27,9 +27,36 @@ Experiment `experiment-repository-ui-copy-2026-09-16T08-17-20-921Z` completed bo
 | Enabled     | Completed       | Pass         | Pass                   | Pass       | Pass              | Pass               | Pass             |
 | Disabled    | Completed       | Pass         | Pass                   | Pass       | Fail: no snapshot | Not applicable     | Pass             |
 
-See the [reviewed live example](examples/repository-ui-copy/README.md) for exact retained patches, the enabled agent's explicit snapshot, receipt facts and the generated pair summary. The disabled condition's browser failure is an observation, not an obligation failure. Both real application outcomes passed the same independent checks.
+See the [reviewed live example](examples/repository-ui-copy/README.md) for exact retained patches, the enabled agent's explicit snapshot, receipt facts and the generated pair summary. The disabled agent attempted browser validation twice with `@playwright/test`: a module-syntax error stopped the first script, and the corrected script could not launch Playwright's expected browser from the isolated home cache. [Reviewed attempt receipts](examples/repository-ui-copy/disabled-browser-attempts.json) retain event IDs, statuses and source hashes. The observed difference is successful required snapshot capture, not a choice to omit validation; the alternative browser path encountered a runtime limitation. Snapshot compliance was not applicable without that instruction. Both real application outcomes passed the same independent checks.
 
 The two Luna calls cost an estimated **$0.0013672**, using conservative uncached input rates. Including the earlier completed diagnostic call ($0.0008162), the three new direct grader calls total **$0.0021834**. The interrupted diagnostic condition was cancelled before grading dispatch. No expensive fallback or SDK retry occurred. Pi used its subscription with separate usage accounting.
+
+Subsequent review traced the disabled trial's launch failure to the omitted `PLAYWRIGHT_BROWSERS_PATH` in the isolated environment. The final adapter exposes that cache location, selects the exact Chromium revision required by the installed application Playwright package, and keeps filesystem access restricted to that browser installation. `pnpm --dir tools/agent-evals exec tsx test/playwright-package-native-smoke.ts` verified a default `@playwright/test` launch against the actual login page and denied listing the cache root. It made no Pi or API call. The historical pair predates this fix and retains its original limitation; no new matched pair was run after the change.
+
+## Documentation and configuration comparison
+
+```bash
+pnpm evals run repository-docs --profile smoke --no-grader
+pnpm evals run repository-docs --profile controlled --no-grader
+pnpm evals compare trial-repository-docs-enabled-2026-09-16T08-27-05-322Z \
+  trial-repository-docs-enabled-2026-09-16T08-30-33-960Z --factor agent-configuration
+```
+
+Both documentation trials completed on evaluator commit `291b7d3`, changed only `docs/admin-auth.md`, and passed target, independent acceptance and change-scope checks. Both browser judgments were correctly not applicable. The native trial recorded 230,274 cumulative Pi tokens; the controlled trial recorded 279,411. Neither made a grader API call.
+
+Comparison `comparison-2026-09-16T08-34-13-633Z` was eligible with no condition mismatches. Both kept the instruction enabled; the declared factor was native conversation settings versus disabled compaction/retries. These runs exercise configuration comparison and documentation applicability, not the quality of the documentation or the effect of compaction/retries on reliability.
+
+## Retained live repair failure
+
+```bash
+pnpm evals run repository-login-error --no-grader
+```
+
+Trial `trial-repository-login-error-enabled-2026-09-16T08-34-15-292Z` ended with `agent_error` after a WebSocket closure, one native Pi provider retry, and the provider response `{"detail":"Bad Request"}`. It recorded 139,125 cumulative Pi tokens, made no source changes and incurred no grader API call. Lint, production build and source stability passed; browser acceptance rejected the still-hidden error, as intended. Both agent browser judgments were `unknown` because execution ended before successful validation.
+
+This is a retained failed live trial, not a successful repair. Its underlying provider error has not been diagnosed. The separate no-model red/green preflight proves that acceptance rejects the seeded defect and accepts the one-line repair; it does not substitute for a successful live agent repair. No automatic trial rerun or replacement result was used.
+
+Read-only cleanup audits of the UI pair, documentation pair and failed repair found private authentication/configuration files absent, no processes with the recorded workspace command line or working directory, and closed service ports. Original recording seals remained valid. The ignored audit files are under `evals/runs/audit-2026-09-16`. These are post-run observations; the emptied process registry is not a complete historical process trace.
 
 ## Configuration and limits
 

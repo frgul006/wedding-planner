@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { access, readFile, readdir, realpath } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { homedir } from 'node:os';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import { resolveExecutable } from './sandbox.ts';
@@ -57,7 +58,13 @@ export interface LocalRuntime {
   node: { executable: string; version: string };
   pnpm: { executable: string; directory: string; version: string };
   playwright: { executable: string; version: string };
-  browser: { executable: string; directory: string; version: string };
+  browser: {
+    executable: string;
+    directory: string;
+    version: string;
+    cacheDirectory: string;
+    revision: string;
+  };
 }
 
 async function version(executable: string, args: string[], label: string): Promise<string> {
@@ -71,10 +78,17 @@ async function version(executable: string, args: string[], label: string): Promi
   throw new Error(`Cannot run ${label}. Repair its local installation before starting a trial.`);
 }
 
-/** Select a complete installation for this architecture, newest revision first. */
-export async function resolveHeadlessBrowser(cache: string, architecture: 'arm64' | 'x64') {
+/** Select an installed revision; production callers pin it to the application's Playwright. */
+export async function resolveHeadlessBrowser(
+  cache: string,
+  architecture: 'arm64' | 'x64',
+  revision?: string,
+) {
+  if (revision !== undefined && !/^\d+$/.test(revision))
+    throw new Error('Invalid Playwright browser revision');
   let entries: string[];
   try {
+    cache = await realpath(cache);
     entries = await readdir(cache);
   } catch {
     throw new Error(
@@ -82,25 +96,58 @@ export async function resolveHeadlessBrowser(cache: string, architecture: 'arm64
     );
   }
   const candidates = entries
-    .filter((name) => /^chromium_headless_shell-\d+$/.test(name))
+    .filter((name) =>
+      revision === undefined
+        ? /^chromium_headless_shell-\d+$/.test(name)
+        : name === `chromium_headless_shell-${revision}`,
+    )
     .sort((left, right) => Number(right.split('-').at(-1)) - Number(left.split('-').at(-1)));
   for (const candidate of candidates) {
     const directory = join(cache, candidate, `chrome-headless-shell-mac-${architecture}`);
     const executable = join(directory, 'chrome-headless-shell');
     try {
       await access(executable, constants.X_OK);
-      return { directory, executable };
+      return {
+        directory,
+        executable,
+        cacheDirectory: cache,
+        revision: candidate.split('-').at(-1)!,
+      };
     } catch {
       /* Skip an incomplete or differently architected installation. */
     }
   }
   throw new Error(
-    `No executable Playwright Chromium headless shell is installed for macOS ${architecture}. Install the matching browser runtime first.`,
+    `No executable Playwright Chromium headless shell${revision ? ` revision ${revision}` : ''} is installed for macOS ${architecture}. Install the matching browser runtime first.`,
+  );
+}
+
+/** Follow the app's installed package resolution, not the independently installed CLI version. */
+export async function applicationBrowserRevision(sourceRepo: string): Promise<string> {
+  try {
+    const testModule = createRequire(join(sourceRepo, 'package.json')).resolve('@playwright/test');
+    const playwright = createRequire(testModule).resolve('playwright');
+    const core = createRequire(playwright).resolve('playwright-core');
+    const registry = JSON.parse(await readFile(join(dirname(core), 'browsers.json'), 'utf8')) as {
+      browsers?: Array<{ name: string; revision: string }>;
+    };
+    const revision = registry.browsers?.find(
+      (browser) => browser.name === 'chromium-headless-shell',
+    )?.revision;
+    if (revision && /^\d+$/.test(revision)) return revision;
+  } catch {
+    /* Report one actionable dependency prerequisite. */
+  }
+  throw new Error(
+    'Cannot resolve the application Playwright browser revision. Run pnpm install with the pinned lockfile first.',
   );
 }
 
 /** Doctor and trials resolve the same pinned tools; no trial directories are created. */
-export async function resolveLocalRuntime(sourceRepo: string): Promise<LocalRuntime> {
+export async function resolveLocalRuntime(
+  sourceRepo: string,
+  browserDependencyRepo = sourceRepo,
+): Promise<LocalRuntime> {
   if (process.platform !== 'darwin') {
     throw new Error(
       'Isolated evaluations require macOS sandbox-exec. No unsandboxed fallback is supported.',
@@ -144,6 +191,7 @@ export async function resolveLocalRuntime(sourceRepo: string): Promise<LocalRunt
   const browser = await resolveHeadlessBrowser(
     process.env.PLAYWRIGHT_BROWSERS_PATH ?? join(homedir(), 'Library/Caches/ms-playwright'),
     process.arch,
+    await applicationBrowserRevision(browserDependencyRepo),
   );
   const [playwrightVersion, browserVersion] = await Promise.all([
     version(nodeExecutable, [playwrightExecutable, '--version'], 'playwright-cli'),

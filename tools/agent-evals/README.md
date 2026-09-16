@@ -64,6 +64,7 @@ Explicit local probes are separate:
 ```bash
 pnpm --dir tools/agent-evals exec tsx test/isolation-native-smoke.ts
 pnpm --dir tools/agent-evals exec tsx test/repository-native-smoke.ts
+pnpm --dir tools/agent-evals exec tsx test/playwright-package-native-smoke.ts
 ```
 
 They exercise native tools without a Pi prompt or grader generation. They may refresh native authentication while preparing the environment. The repository probe demonstrates a failing original condition and a passing repaired condition using the real app. Live trials use the public CLI and remain outside routine CI.
