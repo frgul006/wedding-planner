@@ -23,7 +23,6 @@ const hash = (content: string) => createHash('sha256').update(content).digest('h
 const EXPECTED = 'Plan your wedding together';
 const SNAPSHOT = `- main:\n  - heading "${EXPECTED}" [level=1]\n`;
 const SNAPSHOT_PATH = '.playwright-cli/page-2026-09-07T12-00-00-000Z.yml';
-const SNAPSHOT_HASH = hash(SNAPSHOT);
 
 function nativeBrowserPair(): TrialEvidence {
   return JSON.parse(
@@ -134,7 +133,13 @@ function change(evidence: TrialEvidence, before = 'initial', after = 'changed') 
 function browser(
   evidence: TrialEvidence,
   args: string[],
-  options: { actor?: Actor; isError?: boolean; text?: string; exitCode?: number } = {},
+  options: {
+    actor?: Actor;
+    isError?: boolean;
+    text?: string;
+    exitCode?: number;
+    snapshot?: string;
+  } = {},
 ) {
   const action = args.find((arg) => !arg.startsWith('-'));
   const receipt: Record<string, unknown> = {
@@ -144,8 +149,10 @@ function browser(
     targetBeforeHash: hash('changed'),
     targetAfterHash: hash('changed'),
   };
-  if (action === 'snapshot')
-    receipt.snapshot = { path: SNAPSHOT_PATH, content: SNAPSHOT, sha256: SNAPSHOT_HASH };
+  if (action === 'snapshot') {
+    const content = options.snapshot ?? SNAPSHOT;
+    receipt.snapshot = { path: SNAPSHOT_PATH, content, sha256: hash(content) };
+  }
   return tool(evidence, 'bash', { command: `playwright-cli ${args.join(' ')}` }, receipt, {
     ...options,
     text:
@@ -154,12 +161,12 @@ function browser(
   });
 }
 
-function artifact(evidence: TrialEvidence) {
+function artifact(evidence: TrialEvidence, snapshot = SNAPSHOT) {
   evidence.artifacts.push({
     id: 'snapshot-1',
     path: SNAPSHOT_PATH,
-    sha256: SNAPSHOT_HASH,
-    content: SNAPSHOT,
+    sha256: hash(snapshot),
+    content: snapshot,
     observedBy: 'evaluator',
   });
   evidence.artifacts.push({
@@ -218,14 +225,8 @@ test('real native navigation && snapshot trace can be regraded without rerunning
   const grade = gradeBrowserCompliance(evidence);
   assert.equal(evidence.agent.status, 'budget_exceeded');
   assert.equal(grade.verdict, 'pass');
-  assert.equal(grade.version, '1.4.0');
-  assert.deepEqual(grade.evidenceRefs, [
-    'trace-2',
-    'trace-3',
-    'trace-4',
-    'artifact-2',
-    'artifact-1',
-  ]);
+  assert.equal(grade.version, '1.6.0');
+  assert.deepEqual(grade.evidenceRefs, ['trace-2', 'trace-3', 'trace-4', 'artifact-1']);
 });
 
 for (const command of [
@@ -274,7 +275,7 @@ test('literal browser pair requires a successful trusted sandbox bash receipt', 
   }
 });
 
-test('literal browser pair requires two exact native page URLs and matching explicit YAML', () => {
+test('literal browser pair requires two exact native page URLs and the requested text in explicit YAML', () => {
   const fixture = nativeBrowserPair();
   const result = fixture.events[3].data.result as { content: Array<{ text: string }> };
   const output = result.content[0].text;
@@ -287,8 +288,6 @@ test('literal browser pair requires two exact native page URLs and matching expl
     (evidence.events[3].data.result as { content: Array<{ text: string }> }).content[0].text = text;
     assert.notEqual(gradeBrowserCompliance(evidence).verdict, 'pass');
   }
-  fixture.artifacts.find((item) => item.id === 'artifact-2')!.content = 'a forged snapshot';
-  assert.notEqual(gradeBrowserCompliance(fixture).verdict, 'pass');
 });
 
 test('native explicit snapshot remains captured evidence after the agent cleans up its workspace snapshot files', () => {
@@ -319,6 +318,7 @@ test('missing workspace snapshots cannot rescue absent, truncated, or unsuccessf
     'native-error',
     'failed-receipt',
     'changed-target',
+    'truncated',
   ] as const) {
     const evidence = nativeBrowserPair();
     evidence.agent.status = 'completed';
@@ -327,7 +327,7 @@ test('missing workspace snapshots cannot rescue absent, truncated, or unsuccessf
     );
     const result = evidence.events[3].data.result as {
       content: Array<{ text: string }>;
-      details: { evaluation: { exitCode: number } };
+      details: { evaluation: { exitCode: number }; truncation?: { truncated: boolean } };
     };
     if (patch === 'missing-inline')
       result.content[0].text = result.content[0].text.replace(/### Snapshot\n```yaml[\s\S]*$/, '');
@@ -340,16 +340,43 @@ test('missing workspace snapshots cannot rescue absent, truncated, or unsuccessf
       result.content[0].text = `### Error\nSnapshot error\n${result.content[0].text}`;
     if (patch === 'failed-receipt') result.details.evaluation.exitCode = 1;
     if (patch === 'changed-target') evidence.artifacts[0].sha256 = 'c'.repeat(64);
+    if (patch === 'truncated') result.details.truncation = { truncated: true };
     assert.notEqual(gradeBrowserCompliance(evidence).verdict, 'pass', patch);
   }
 });
 
-test('a retained conflicting file stays unknown despite complete native inline output', () => {
+test('an earlier automatic navigation snapshot cannot override the explicit tool-output snapshot', () => {
   const evidence = nativeBrowserPair();
   evidence.agent.status = 'completed';
   evidence.artifacts.find((item) => item.path.endsWith('.yml'))!.content =
     '- main: Unexpected replacement';
-  assert.equal(gradeBrowserCompliance(evidence).verdict, 'unknown');
+  assert.equal(gradeBrowserCompliance(evidence).verdict, 'pass');
+});
+
+test('hydration between automatic and explicit snapshots does not discard completed browser validation', () => {
+  // The real repository recording's explicit snapshot gained an empty Next alert
+  // after open had already written its automatic snapshot file.
+  const evidence = nativeBrowserPair();
+  evidence.agent.status = 'completed';
+  const result = evidence.events[3].data.result as { content: Array<{ text: string }> };
+  result.content[0].text = result.content[0].text.replace(
+    /\n```\n$/,
+    '\n  - alert [ref=e39]\n```\n',
+  );
+  tool(
+    evidence,
+    'bash',
+    { command: "playwright-cli eval '() => location.href'" },
+    {
+      kind: 'bash',
+      exitCode: 0,
+      targetBeforeHash: evidence.artifacts[0].sha256,
+      targetAfterHash: evidence.artifacts[0].sha256,
+    },
+  );
+  const grade = gradeBrowserCompliance(evidence);
+  assert.equal(grade.verdict, 'pass');
+  assert.deepEqual(grade.evidenceRefs, ['trace-2', 'trace-3', 'trace-4', 'artifact-1']);
 });
 
 test('documentation-only applicability is not-applicable even with optional browser use', () => {
@@ -437,12 +464,45 @@ test('another browser session cannot inherit a successful navigation', () => {
   assert.equal(gradeBrowserCompliance(evidence).verdict, 'fail');
 });
 
-test('a navigation-changing action invalidates the known changed flow', () => {
+test('fill and submit preserve local navigation for a final transient error snapshot', () => {
+  const evidence = fixture();
+  evidence.task.expectedText = 'Invalid email or password.';
+  evidence.task.flowPath = '/admin/login';
+  evidence.localUrl = 'http://127.0.0.1:43123/admin/login';
+  const snapshot = '- alert: Invalid email or password.\n';
+  change(evidence);
+  browser(evidence, ['-s=login', 'open', evidence.localUrl]);
+  browser(evidence, ['-s=login', 'fill', 'email', 'evaluation@example.invalid']);
+  browser(evidence, ['-s=login', 'fill', 'password', 'not-a-real-password']);
+  browser(evidence, ['-s=login', 'click', 'submit']);
+  browser(evidence, ['-s=login', 'snapshot'], { snapshot });
+  artifact(evidence, snapshot);
+  assert.equal(gradeBrowserCompliance(evidence).verdict, 'pass');
+  evidence.artifacts[1].sha256 = hash('changed-after-validation');
+  assert.equal(gradeBrowserCompliance(evidence).verdict, 'unknown');
+});
+
+test('an interaction reported to navigate away invalidates the local session history', () => {
   const evidence = fixture();
   change(evidence);
   browser(evidence, ['open', evidence.localUrl]);
-  browser(evidence, ['click', 'e1']);
+  browser(evidence, ['click', 'e1'], {
+    text: '### Page\n- Page URL: https://example.com/\n',
+  });
   browser(evidence, ['snapshot']);
+  artifact(evidence);
+  assert.equal(gradeBrowserCompliance(evidence).verdict, 'fail');
+});
+
+test('an interaction cannot validate an off-origin final snapshot', () => {
+  const evidence = fixture();
+  change(evidence);
+  browser(evidence, ['open', evidence.localUrl]);
+  browser(evidence, ['fill', 'email', 'evaluation@example.invalid']);
+  browser(evidence, ['click', 'submit']);
+  browser(evidence, ['snapshot'], {
+    text: '### Page\n- Page URL: https://example.com/\n',
+  });
   artifact(evidence);
   assert.equal(gradeBrowserCompliance(evidence).verdict, 'fail');
 });

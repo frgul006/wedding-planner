@@ -2,7 +2,7 @@ import type {
   AgentResult,
   AgentRunner,
   EvidenceEvent,
-  Grade,
+  FinalObservation,
   Grader,
   PreparedEnvironment,
   RunStore,
@@ -10,6 +10,7 @@ import type {
   TrialEnvironment,
   TrialEvidence,
 } from '../domain/types.ts';
+import { flattenGrades, gradeEvidence } from './grade-evidence.ts';
 import { availableSkills, discoveredSkills, type InventorySkill } from './skill-inventory.ts';
 
 export interface RunTrialOptions {
@@ -26,11 +27,12 @@ export interface RunTrialOptions {
 }
 export async function runTrial(
   options: RunTrialOptions,
-  ports: { environment: TrialEnvironment; agent: AgentRunner; grader: Grader; store: RunStore },
+  ports: { environment: TrialEnvironment; agent: AgentRunner; graders: Grader[]; store: RunStore },
 ) {
   const startedAt = new Date().toISOString();
   const events: EvidenceEvent[] = [];
   const agentEvents: EvidenceEvent[] = [];
+  const recordedAgentEventIds = new Set<string>();
   let preparedSkills: InventorySkill[] = [];
   let recordedDiscovery = false;
   const record = (event: Omit<EvidenceEvent, 'id' | 'sequence'>): EvidenceEvent => {
@@ -66,6 +68,8 @@ export async function runTrial(
     record({ timestamp: new Date().toISOString(), actor, kind: 'lifecycle', data });
   let environment: PreparedEnvironment | undefined;
   let before = '';
+  let beforeArtifacts: TrialEvidence['artifacts'] = [];
+  let finalObservation: FinalObservation | undefined;
   let cleanupError: string | undefined;
   let statusBeforeCleanupFailure: AgentResult['status'] | undefined;
   let agent: AgentResult = {
@@ -103,7 +107,7 @@ export async function runTrial(
         ...options.manifest,
         invariants: {
           ...priorInvariants,
-          runtime: environment.provenance.runtime,
+          runtime: environment.provenance.comparableRuntime ?? environment.provenance.runtime,
           skillTreeFingerprint: environment.provenance.skillTreeFingerprint,
         },
       };
@@ -123,9 +127,11 @@ export async function runTrial(
         note: 'Files copied by environment setup; native discovery and content loading are not yet observed.',
       });
     options.signal?.throwIfAborted();
-    before =
-      (await environment.collectArtifacts()).find((a) => a.path === options.task.targetFile)
-        ?.content ?? '';
+    beforeArtifacts = (await environment.collectArtifacts()).map((artifact) => ({
+      ...artifact,
+      id: `before-${artifact.id}`,
+    }));
+    before = beforeArtifacts.find((a) => a.path === options.task.targetFile)?.content ?? '';
     options.signal?.throwIfAborted();
     agent = await ports.agent.run({
       signal: options.signal,
@@ -133,15 +139,24 @@ export async function runTrial(
       env: environment.env,
       args: environment.agentArgs,
       executable: options.executable,
-      prompt: `${options.task.prompt}\n\nThe local development server is already running at ${environment.url}.`,
+      prompt: [options.task.prompt, environment.agentContext].filter(Boolean).join('\n\n'),
       expectedModel: options.expectedModel,
       runtimeMs: options.runtimeMs,
       maxTokens: options.maxTokens,
       maxEstimatedCostUsd: options.maxEstimatedCostUsd,
       onEvent: (event) => {
+        if (recordedAgentEventIds.has(event.id)) return;
+        recordedAgentEventIds.add(event.id);
         agentEvents.push(record(event));
       },
     });
+    // Runners may return a complete recording without streaming. Preserve both
+    // delivery modes while avoiding duplicated events from streaming runners.
+    for (const event of agent.events) {
+      if (recordedAgentEventIds.has(event.id)) continue;
+      recordedAgentEventIds.add(event.id);
+      agentEvents.push(record(event));
+    }
   } catch (error) {
     // Never persist adapter error objects or cause chains (may contain credentials).
     const cancelled =
@@ -164,6 +179,23 @@ export async function runTrial(
     });
   } finally {
     if (environment) {
+      if (environment.finalize) {
+        try {
+          finalObservation = await environment.finalize();
+          artifacts = finalObservation.artifacts;
+          if (finalObservation.beforeArtifacts)
+            beforeArtifacts = finalObservation.beforeArtifacts.map((artifact) => ({
+              ...artifact,
+              id: artifact.id.startsWith('before-') ? artifact.id : `before-${artifact.id}`,
+            }));
+        } catch (error) {
+          agent = { ...agent, status: 'infrastructure_error', error: 'Final observation failed' };
+          lifecycle('evaluator', {
+            type: 'artifact_collection_error',
+            message: error instanceof Error ? error.message : 'Unknown final observation error',
+          });
+        }
+      }
       // Stop tool descendants before observing final files; background commands
       // must not be able to mutate an artifact while the evaluator collects it.
       try {
@@ -174,7 +206,7 @@ export async function runTrial(
         agent = { ...agent, status: 'infrastructure_error' };
       }
       try {
-        artifacts = await environment.collectArtifacts();
+        if (!finalObservation) artifacts = await environment.collectArtifacts();
       } catch (error) {
         agent = { ...agent, status: 'infrastructure_error', error: 'Artifact collection failed' };
         lifecycle('evaluator', {
@@ -203,35 +235,32 @@ export async function runTrial(
     localUrl: environment?.url ?? 'http://127.0.0.1:0',
     agent,
     artifacts,
+    beforeArtifacts,
+    ...(finalObservation?.patch ? { patch: finalObservation.patch } : {}),
+    ...(finalObservation?.changedFiles ? { changedFiles: finalObservation.changedFiles } : {}),
+    ...(finalObservation?.checks ? { checks: finalObservation.checks } : {}),
     events,
   };
   // A later grader failure must not lose a completed, potentially paid trial.
   await ports.store.save('evidence.json', evidence);
-  let grades: Grade[];
-  try {
-    grades = await ports.grader.grade(evidence, options.signal);
-  } catch (error) {
-    const cancelled =
-      options.signal?.aborted &&
-      (error === options.signal.reason || (error instanceof Error && error.name === 'AbortError'));
-    lifecycle('evaluator', {
+  const gradingResults = await gradeEvidence(evidence, ports.graders, options.signal);
+  for (const result of gradingResults) {
+    if (result.status === 'completed') continue;
+    const cancelled = result.status === 'cancelled';
+    const errorEvent = lifecycle('evaluator', {
       type: cancelled ? 'grader_cancelled' : 'grader_error',
+      grader: result.grader,
       message: cancelled
         ? 'Grading cancelled by user; saved evidence can be regraded.'
         : 'The grading adapter failed; saved evidence can be regraded.',
     });
-    grades = [
-      {
-        grader: 'deterministic',
-        version: '1',
-        verdict: 'unknown',
-        reason: cancelled ? 'Grading cancelled by user' : 'Grader error',
-        evidenceRefs: [events.at(-1)!.id],
-      },
-    ];
+    for (const judgment of result.grades)
+      if (!judgment.evidenceRefs.length) judgment.evidenceRefs.push(errorEvent.id);
   }
+  const grades = flattenGrades(gradingResults);
   await ports.store.save('evidence.json', evidence);
   await ports.store.save('grades.json', grades);
+  await ports.store.save('grading-results.json', gradingResults);
   const manifest = {
     ...manifestMetadata,
     id: options.id,
@@ -245,5 +274,5 @@ export async function runTrial(
     agentUsage: agent.usage,
   };
   await ports.store.save('manifest.json', manifest);
-  return { evidence, grades, manifest };
+  return { evidence, grades, gradingResults, manifest };
 }

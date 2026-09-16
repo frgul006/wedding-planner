@@ -1,15 +1,17 @@
 # Implementation verification — 7 September 2026
 
+Historical evidence from the original synthetic-fixture milestone. See [16 September verification](verification-2026-09-16.md) for the real-repository implementation and its current limitations.
+
 Implemented and reviewed on `codex/agent-evals` in the sibling worktree. The original checkout remains unchanged. Generated evidence is local and ignored under `evals/runs/`; this note contains no credentials or full transcripts.
 
 ## Final matched pair
 
 Two sequential UI trials ran against the frozen implementation, fixture, task, resource profile, runtime, model/reasoning and budget. The only intended instruction change was removal of the exact browser-validation paragraph. The comparison command verified the recorded conditions and returned **eligible**, with no mismatches.
 
-| Trial | Execution | Target outcome | Browser compliance | Browser behavior | Semantic clarity |
-| --- | --- | --- | --- | --- | --- |
-| Enabled · `21-01-54-738Z` | Completed | Pass | Pass | Pass | Pass |
-| Disabled · `21-04-58-174Z` | Completed | Pass | Not applicable | Fail: no snapshot | Pass |
+| Trial                      | Execution | Target outcome | Browser compliance | Browser behavior  | Semantic clarity |
+| -------------------------- | --------- | -------------- | ------------------ | ----------------- | ---------------- |
+| Enabled · `21-01-54-738Z`  | Completed | Pass           | Pass               | Pass              | Pass             |
+| Disabled · `21-04-58-174Z` | Completed | Pass           | Not applicable     | Fail: no snapshot | Pass             |
 
 The enabled trial ran native browser navigation and an explicit snapshot after editing, then removed its temporary browser files. Grader **1.4.0** verified the preserved trusted output, successful receipts, local URLs, ordering and final target hash. The disabled trial completed the copy change without calling `playwright-cli`. The failing browser-behavior grade describes that observation; it does not turn the absent instruction into a compliance failure. Its CLI returned the evaluation-failure status as designed, while Pi’s execution remained **completed**.
 
@@ -23,12 +25,12 @@ The real docs-only trial `smoke-docs-only-enabled-2026-09-07T20-35-49-076Z` comp
 
 Earlier UI attempts are retained rather than rewritten:
 
-| Enabled trial suffix | Bound | Observation |
-| --- | ---: | --- |
-| `19-24-30-967Z` | 80,000 tokens | Budget exceeded during setup/early editing after sandbox Git runtime errors; compliance unknown. |
-| `19-28-12-330Z` | 80,000 tokens | Copy, agent lint/build succeeded; budget exceeded while learning browser CLI usage; compliance unknown. |
-| `19-31-56-784Z` | 120,000 tokens | Copy and browser checks succeeded; budget exceeded later during Git checks. Offline browser regrade passes; interruption status remains. |
-| `19-48-42-163Z` | 300,000 tokens | Completed; outcome, browser compliance and browser behavior pass with the final offline grader. Original live semantic clarity passed separately. |
+| Enabled trial suffix |          Bound | Observation                                                                                                                                       |
+| -------------------- | -------------: | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `19-24-30-967Z`      |  80,000 tokens | Budget exceeded during setup/early editing after sandbox Git runtime errors; compliance unknown.                                                  |
+| `19-28-12-330Z`      |  80,000 tokens | Copy, agent lint/build succeeded; budget exceeded while learning browser CLI usage; compliance unknown.                                           |
+| `19-31-56-784Z`      | 120,000 tokens | Copy and browser checks succeeded; budget exceeded later during Git checks. Offline browser regrade passes; interruption status remains.          |
+| `19-48-42-163Z`      | 300,000 tokens | Completed; outcome, browser compliance and browser behavior pass with the final offline grader. Original live semantic clarity passed separately. |
 
 These directories begin with `smoke-ui-copy-enabled-2026-09-07T`. The first three used Node 26; subsequent verification uses the repository’s Node 24. Different bounds, runtimes and harness versions make these debugging evidence, not matched experiments. Explicit retry links retain that history.
 
@@ -57,12 +59,12 @@ The actual implementation worktree is **untrusted** in native Pi. It therefore s
 
 ## API cost
 
-| Direct OpenAI activity | Estimated cost |
-| --- | ---: |
-| Initial standalone grader smoke and four earlier UI graders | $0.0013814 |
-| Final enabled trial · 931 input / 91 output tokens | $0.0002954 |
-| Final disabled trial · 931 input / 120 output tokens | $0.0003302 |
-| **Total: seven grader calls** | **$0.0020070** |
+| Direct OpenAI activity                                      | Estimated cost |
+| ----------------------------------------------------------- | -------------: |
+| Initial standalone grader smoke and four earlier UI graders |     $0.0013814 |
+| Final enabled trial · 931 input / 91 output tokens          |     $0.0002954 |
+| Final disabled trial · 931 input / 120 output tokens        |     $0.0003302 |
+| **Total: seven grader calls**                               | **$0.0020070** |
 
 The final pair added **$0.0006256**. Pi ran on verified Codex OAuth subscription authentication, so its catalog estimates are retained for audit and excluded from the API dollar allowance. No broad matrix or automatic retry ran.
 

@@ -307,4 +307,4 @@ pnpm supabase:status
 
 ## Coding-agent evaluations
 
-The independent TypeScript package under `tools/agent-evals` runs native Pi against synthetic isolated fixtures. See [Agent Evaluation](../evals/README.md) for setup, separate Pi/grader credentials, live smoke commands, offline checks and budget controls. It does not use the production-linked Pi sandbox or the application's `.env.local` in trials.
+The independent TypeScript package under `tools/agent-evals` runs native Pi against a pinned, isolated checkout of this application. Start with `pnpm evals experiment repository-ui-copy --dry-run`. See [Agent Evaluation](../evals/README.md) for prerequisites, independent acceptance checks, separate Pi/grader budgets and recorded configuration differences. Trials use local-only settings rather than the production-linked Pi sandbox or this checkout's application credentials.

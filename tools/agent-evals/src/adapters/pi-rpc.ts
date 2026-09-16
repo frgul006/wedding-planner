@@ -201,7 +201,34 @@ export class UsageAccumulator {
   private finished = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
   private streaming: JsonObject = {};
   private known = false;
+  private observedTokens = false;
+  private add(usage: JsonObject): void {
+    this.observedTokens ||= ['input', 'output', 'cacheRead', 'cacheWrite'].some(
+      (field) => typeof usage[field] === 'number',
+    );
+    for (const field of ['input', 'output', 'cacheRead', 'cacheWrite'] as const)
+      this.finished[field] += number(usage[field]);
+    this.finished.cost += number(object(usage.cost).total);
+    this.known ||= typeof object(usage.cost).total === 'number';
+  }
   accept(event: JsonObject): void {
+    if (event.type === 'compaction_end') this.add(object(object(event.result).usage));
+    if (event.type === 'response' && event.command === 'get_session_stats') {
+      const stats = object(event.data);
+      const tokens = object(stats.tokens);
+      // Session totals include compacted history and native summarization calls.
+      // Reconcile totals rather than adding them to already observed messages.
+      for (const field of ['input', 'output', 'cacheRead', 'cacheWrite'] as const)
+        this.finished[field] = Math.max(this.finished[field], number(tokens[field]));
+      this.finished.cost = Math.max(this.finished.cost, number(stats.cost));
+      // Pi initializes empty session totals to zero even when no provider usage
+      // was returned. Such a summary cannot turn an unknown request into $0.
+      const observedTotals = ['input', 'output', 'cacheRead', 'cacheWrite'].some(
+        (field) => number(tokens[field]) > 0,
+      );
+      this.observedTokens ||= observedTotals;
+      this.known ||= typeof stats.cost === 'number' && (stats.cost > 0 || observedTotals);
+    }
     if (event.type === 'message_start') this.streaming = {};
     if (event.type === 'message_update') this.streaming = object(event.usage);
     if (event.type === 'message_end') {
@@ -209,10 +236,7 @@ export class UsageAccumulator {
       if (message.role === 'assistant' || message.role === 'toolResult') {
         const usage = object(message.usage);
         if (Object.keys(usage).length) {
-          for (const field of ['input', 'output', 'cacheRead', 'cacheWrite'] as const)
-            this.finished[field] += number(usage[field]);
-          this.finished.cost += number(object(usage.cost).total);
-          this.known ||= typeof object(usage.cost).total === 'number';
+          this.add(usage);
         }
       }
       this.streaming = {};
@@ -220,6 +244,11 @@ export class UsageAccumulator {
   }
   value(): Usage {
     const streamingCost = object(this.streaming.cost).total;
+    const observedTokens =
+      this.observedTokens ||
+      ['input', 'output', 'cacheRead', 'cacheWrite'].some(
+        (field) => typeof this.streaming[field] === 'number',
+      );
     return {
       inputTokens: this.finished.input + number(this.streaming.input),
       outputTokens: this.finished.output + number(this.streaming.output),
@@ -229,8 +258,9 @@ export class UsageAccumulator {
         this.known || typeof streamingCost === 'number'
           ? this.finished.cost + number(streamingCost)
           : null,
-      costSource:
-        'Pi provider-reported usage × Pi catalog prices; estimate, not billing or a provider-enforced cap',
+      costSource: observedTokens
+        ? 'Pi provider-reported usage × Pi catalog prices; estimate, not billing or a provider-enforced cap'
+        : 'Unknown: no successful usage response',
     };
   }
 }
@@ -335,6 +365,13 @@ export class PiRpcRunner implements AgentRunner {
           const message = object(event.message);
           if (
             message.role === 'assistant' &&
+            ['stop', 'toolUse'].includes(String(message.stopReason))
+          ) {
+            hasAgentError = false;
+            if (!stopping) error = undefined;
+          }
+          if (
+            message.role === 'assistant' &&
             ['error', 'aborted', 'length'].includes(String(message.stopReason))
           ) {
             hasAgentError = true;
@@ -423,8 +460,8 @@ export class PiRpcRunner implements AgentRunner {
         throw new Error(
           `Required isolation extension did not register ${requiredCommand}; refusing to prompt Pi`,
         );
-      await rpc.request('set_auto_retry', { enabled: false });
-      await rpc.request('set_auto_compaction', { enabled: false });
+      // Conversation behavior belongs to the selected native settings/profile.
+      // The runner only enforces the outer trial deadline and usage bounds.
       if (!stopping) {
         await rpc.request('prompt', { message: request.prompt });
         await done;

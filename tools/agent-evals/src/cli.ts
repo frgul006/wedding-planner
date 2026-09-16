@@ -34,6 +34,8 @@ async function main(argv: string[], signal: AbortSignal): Promise<number> {
       return (await import('./cli/commands/doctor.ts')).doctorCommand(context);
     case 'run':
       return (await import('./cli/commands/run.ts')).runCommand(context);
+    case 'experiment':
+      return (await import('./cli/commands/experiment.ts')).experimentCommand(context);
     case 'grader-smoke':
       return (await import('./cli/commands/grader-smoke.ts')).graderSmokeCommand(context);
   }

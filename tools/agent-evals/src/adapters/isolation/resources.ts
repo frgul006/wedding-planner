@@ -132,13 +132,14 @@ export async function prepareResources(options: {
   paths: Pick<TrialPaths, 'workspace' | 'piDirectory' | 'instructionAncestors'>;
   variant: 'enabled' | 'disabled';
   native: NativeResources;
+  repositoryWorkspace?: boolean;
 }): Promise<PreparedResources> {
   const { paths, sourceRepo, native } = options;
   const selection = validateResourceSelection(sourceRepo, native);
   if (paths.instructionAncestors.length !== selection.ancestors.length) {
     throw new Error('The prepared workspace does not preserve the inspected instruction ancestry.');
   }
-  await copyResources(options.fixtureDirectory, paths.workspace);
+  if (!options.repositoryWorkspace) await copyResources(options.fixtureDirectory, paths.workspace);
   // Fixtures supply task files, not instruction/skill settings that could change
   // the selected profile or shadow the instruction under evaluation.
   for (const name of [
@@ -150,7 +151,7 @@ export async function prepareResources(options: {
     '.pi',
     '.agents',
   ]) {
-    if (await exists(join(paths.workspace, name))) {
+    if (!options.repositoryWorkspace && (await exists(join(paths.workspace, name)))) {
       throw new Error(
         `The fixture contains competing agent resources (${name}). Keep agent resources in the source checkout so native inspection can select them.`,
       );
@@ -273,7 +274,9 @@ export async function prepareResources(options: {
     fixtureRevision: sha256(JSON.stringify(fixtureFiles)),
     originalInstructionSha256: sha256(original),
     effectiveInstructionSha256: sha256(effective),
-    skillTreeFingerprint: sha256(JSON.stringify(skillTrees)),
+    skillTreeFingerprint: sha256(
+      JSON.stringify(skillTrees.map(({ name, scope, files }) => ({ name, scope, files }))),
+    ),
     instructionChange:
       options.variant === 'disabled'
         ? { removed: VALIDATION_INSTRUCTION, source: 'AGENTS.md' }

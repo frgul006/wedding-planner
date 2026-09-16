@@ -8,6 +8,7 @@ import {
   type TaskDefinition,
 } from './evaluation-config.ts';
 import type { inspectPi } from './pi-inspection.ts';
+import { isolatedPiSettings } from './isolation/pi-configuration.ts';
 
 type PiInspection = Awaited<ReturnType<typeof inspectPi>>;
 
@@ -26,22 +27,44 @@ export async function trialInvariants(
     ...pi.resources.extensions,
     ...pi.resources.prompts,
   ];
-  const sourceHashes = sources.map((source) => ({ path: source.path, sha256: source.sha256 }));
+  // Local locations belong in inspection.json, not in cross-checkout equality.
+  const sourceIdentity = (file: string) => {
+    for (const [root, label] of [
+      [pi.resources.cwd, 'project'],
+      [pi.agentDir, 'user'],
+    ] as const) {
+      const relative = path.relative(root, file);
+      if (
+        relative &&
+        relative !== '..' &&
+        !relative.startsWith('../') &&
+        !path.isAbsolute(relative)
+      )
+        return `${label}/${relative}`;
+    }
+    return `ancestor/${path.basename(file)}`;
+  };
+  const sourceHashes = sources.map((source) => ({
+    source: sourceIdentity(source.path),
+    sha256: source.sha256,
+  }));
   const comparisonEligible =
     [...pi.resources.instructions, ...pi.resources.systemPrompts].reduce(
       (count, source) => count + Number(source.pilotRuleOccurrences ?? 0),
       0,
     ) === 1;
-  const revision = execFileSync('git', ['rev-parse', 'HEAD'], {
+  const revision = execFileSync('git', ['rev-parse', task.repository?.revision ?? 'HEAD'], {
     cwd: repo,
     encoding: 'utf8',
   }).trim();
   const [fixtureHash, repositorySkillsHash, harnessHash, instruction, lockfile] = await Promise.all(
     [
-      treeHash(path.join(repo, 'evals/fixtures', task.fixture)),
-      treeHash(path.join(repo, '.agents/skills')),
+      task.environment === 'repository'
+        ? Promise.resolve(revision)
+        : treeHash(path.join(repo, 'evals/fixtures', task.fixture)),
+      treeHash(path.join(pi.resources.cwd, '.agents/skills')),
       treeHash(path.join(repo, 'tools/agent-evals/src')),
-      readFile(path.join(repo, 'AGENTS.md'), 'utf8'),
+      readFile(path.join(pi.resources.cwd, 'AGENTS.md'), 'utf8'),
       readFile(path.join(repo, 'pnpm-lock.yaml'), 'utf8'),
     ],
   );
@@ -53,22 +76,34 @@ export async function trialInvariants(
       repositorySkillsHash,
       harnessHash,
       taskHash: hashText(JSON.stringify(task)),
-      profileHash: hashText(JSON.stringify(profile)),
+      profileHash: hashText(
+        JSON.stringify({ ...profile, id: undefined, pi: undefined, harness: undefined }),
+      ),
+      agentConfiguration: {
+        adapter: profile.harness,
+        runtime: profile.pi.runtime,
+        settings: isolatedPiSettings(pi.conversationSettings, profile.pi.runtime),
+        extensionPolicy: 'disabled',
+        tools: ['read', 'bash', 'edit', 'write'],
+      },
       instructionTemplateHash: hashText(instruction),
       dependencyLockHash: hashText(lockfile),
       rubric: { id: task.rubric, sha256: hashText(rubric) },
       sourceProfile: {
-        cwd: pi.resources.cwd,
         projectTrusted: pi.resources.projectTrusted,
-        instructions: pi.resources.instructions.map(({ path, scope }) => ({ path, scope })),
-        skills: pi.resources.skills.map(({ path, name, scope, source, origin }) => ({
-          path,
+        instructions: pi.resources.instructions.map(({ path, scope }) => ({
+          source: sourceIdentity(path),
+          scope,
+        })),
+        skills: pi.resources.skills.map(({ path, name, scope }) => ({
+          source: sourceIdentity(path),
           name,
           scope,
-          source,
-          origin,
         })),
-        systemPrompts: pi.resources.systemPrompts.map(({ path, scope }) => ({ path, scope })),
+        systemPrompts: pi.resources.systemPrompts.map(({ path, scope }) => ({
+          source: sourceIdentity(path),
+          scope,
+        })),
       },
       piVersion: pi.version,
       model: pi.defaults,

@@ -149,13 +149,7 @@ test('legacy migration regrades the genuine native trace without changing sealed
   );
   const grade = gradeBrowserCompliance(normalized);
   assert.equal(grade.verdict, 'pass');
-  assert.deepEqual(grade.evidenceRefs, [
-    'trace-2',
-    'trace-3',
-    'trace-4',
-    'artifact-2',
-    'artifact-1',
-  ]);
+  assert.deepEqual(grade.evidenceRefs, ['trace-2', 'trace-3', 'trace-4', 'artifact-1']);
   assert.deepEqual(normalizeLegacyEvidence(normalized), normalized, 'migration is idempotent');
   const withoutNativeProtocol: TrialEvidence = {
     ...normalized,
@@ -305,6 +299,18 @@ test('native browser output becomes URL, linked-file, explicit-YAML and error ob
   assert.equal(
     parsePlaywrightOutput(output + 'Trailing unverified output').finalInlineSnapshot,
     undefined,
+  );
+  assert.equal(
+    parsePlaywrightOutput(
+      output + "### Ran Playwright code\n```js\nawait page.getByRole('button').click();\n```\n",
+    ).finalInlineSnapshot,
+    undefined,
+    'a later JavaScript closing fence cannot extend an earlier YAML snapshot',
+  );
+  assert.equal(
+    parsePlaywrightOutput(output + '### Snapshot\n```yaml\n- alert "Latest"\n```\n')
+      .finalInlineSnapshot,
+    '- alert "Latest"',
   );
   assert.deepEqual(
     parsePlaywrightOutput('I saw Page URL: http://127.0.0.1:1234/ and took a snapshot.'),

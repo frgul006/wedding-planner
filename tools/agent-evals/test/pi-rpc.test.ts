@@ -33,6 +33,7 @@ test('malformed, oversized, and unfinished JSONL records fail visibly', () => {
 test('streaming usage is cumulative per message and final usage is counted once', () => {
   const accumulator = new UsageAccumulator();
   assert.equal(accumulator.value().estimatedCostUsd, null);
+  assert.equal(accumulator.value().costSource, 'Unknown: no successful usage response');
   const usage = { input: 10, output: 3, cacheRead: 5, cacheWrite: 0, cost: { total: 0.1 } };
   accumulator.accept({ type: 'message_update', usage });
   accumulator.accept({ type: 'message_update', usage: { ...usage, output: 4 } });
@@ -87,6 +88,7 @@ process.stdin.on('data', chunk => {
       if (scenario === 'budget') { send({ type: 'message_update', usage: { ...usage, input: 100000 } }); continue; }
       send({ type: 'tool_execution_start', toolName: 'bash', toolCallId: 'browser', args: { command: 'playwright-cli snapshot' } });
       send({ type: 'tool_execution_end', toolName: 'bash', toolCallId: 'browser', isError: false, result: { content: [{ type: 'text', text: 'snapshot' }] } });
+      if (scenario === 'recovered-retry') send({ type: 'message_end', message: { role: 'assistant', usage, stopReason: 'error', errorMessage: 'temporary provider error' } });
       send({ type: 'message_end', message: { role: 'assistant', usage, stopReason: scenario === 'provider-error' ? 'error' : 'stop', errorMessage: scenario === 'provider-error' ? 'provider unavailable' : undefined } });
       send({ type: 'agent_end', willRetry: false });
       setTimeout(() => { send({ type: 'test_event_after_agent_end' }); send({ type: 'agent_settled' }); }, 30);
@@ -134,10 +136,61 @@ test('native RPC run waits for agent_settled and attributes controller versus ag
     'agent',
   );
   assert.equal(
-    result.events.find((event) => event.data.command === 'set_auto_retry')?.actor,
+    result.events.find((event) => event.data.command === 'get_state')?.actor,
     'evaluator',
   );
+  assert.ok(
+    !result.events.some((event) =>
+      ['set_auto_retry', 'set_auto_compaction'].includes(String(event.data.command)),
+    ),
+  );
   assert.equal(JSON.stringify(result).includes('must-not-persist'), false);
+});
+
+test('native compaction usage is counted and reconciled with session totals without duplication', () => {
+  const accumulator = new UsageAccumulator();
+  const usage = { input: 10, output: 3, cacheRead: 5, cost: { total: 0.1 } };
+  accumulator.accept({ type: 'message_end', message: { role: 'assistant', usage } });
+  accumulator.accept({ type: 'compaction_end', result: { usage } });
+  assert.equal(accumulator.value().inputTokens, 20);
+  assert.equal(accumulator.value().estimatedCostUsd, 0.2);
+  accumulator.accept({
+    type: 'response',
+    command: 'get_session_stats',
+    data: { tokens: { input: 20, output: 6, cacheRead: 10 }, cost: 0.2 },
+  });
+  assert.equal(accumulator.value().inputTokens, 20);
+  assert.equal(accumulator.value().estimatedCostUsd, 0.2);
+});
+
+test('empty initialized session totals do not turn missing provider usage into zero cost', () => {
+  const accumulator = new UsageAccumulator();
+  accumulator.accept({ type: 'message_end', message: { role: 'assistant', stopReason: 'error' } });
+  accumulator.accept({
+    type: 'response',
+    command: 'get_session_stats',
+    data: {
+      tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      cost: 0,
+    },
+  });
+  assert.equal(accumulator.value().estimatedCostUsd, null);
+  accumulator.accept({
+    type: 'message_end',
+    message: {
+      role: 'assistant',
+      usage: {
+        input: 4,
+        output: 1,
+        cost: { total: 0 },
+      },
+    },
+  });
+  assert.equal(
+    accumulator.value().estimatedCostUsd,
+    0,
+    'A provider-reported zero remains a known estimate',
+  );
 });
 
 test('provider errors are agent errors; rejected prompts and process failures are infrastructure errors', async () => {
@@ -147,6 +200,10 @@ test('provider errors are agent errors; rejected prompts and process failures ar
   assert.equal(crashed.status, 'infrastructure_error');
   assert.equal(crashed.exitCode, 7);
   assert.equal((await trial('malformed')).status, 'infrastructure_error');
+  const recovered = await trial('recovered-retry');
+  assert.equal(recovered.status, 'completed');
+  assert.equal(recovered.error, undefined);
+  assert.equal(recovered.usage.inputTokens, 20);
 });
 
 test('observed token budget and runtime exhaustion remain distinct', async () => {

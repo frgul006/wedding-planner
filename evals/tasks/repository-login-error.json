@@ -1,0 +1,27 @@
+{
+  "id": "repository-login-error",
+  "title": "Repair invisible login error feedback",
+  "environment": "repository",
+  "repository": {
+    "revision": "30d2388f71595d1ba65d0d2fabc8b97b6ee48f80"
+  },
+  "acceptance": "admin-login-visible-error",
+  "allowedChangedPaths": [
+    "app/admin/login/login-form.tsx",
+    "e2e/smoke.spec.ts"
+  ],
+  "graders": [
+    "browser-compliance",
+    "browser-behavior",
+    "acceptance-checks",
+    "diff-scope",
+    "semantic-task-clarity"
+  ],
+  "rubric": "repository-task",
+  "version": "2",
+  "kind": "ui",
+  "prompt": "The admin login form gives no visible feedback when sign-in fails. Make the error visible to the person signing in while keeping the existing form validation and pending behavior.",
+  "targetFile": "app/admin/login/login-form.tsx",
+  "expectedText": "Invalid email or password.",
+  "flowPath": "/admin/login"
+}

@@ -88,8 +88,11 @@ export async function runSandboxCommand(
     timeoutMs?: number;
     input?: string;
     onSpawn?: (pid: number) => void;
+    signal?: AbortSignal;
   },
 ): Promise<SandboxCommandResult> {
+  if (options.signal?.aborted)
+    return { stdout: '', stderr: 'Acceptance cancelled before dispatch.', exitCode: null };
   return new Promise((resolveResult, reject) => {
     const child = spawn('/usr/bin/sandbox-exec', ['-f', profilePath, executable, ...args], {
       cwd: options.cwd,
@@ -106,15 +109,29 @@ export async function runSandboxCommand(
     child.stderr.on('data', (chunk) => {
       stderr += String(chunk);
     });
-    child.on('error', reject);
-    const timer = setTimeout(() => {
+    const kill = () => {
       try {
         if (child.pid) process.kill(-child.pid, 'SIGKILL');
       } catch {}
-    }, options.timeoutMs ?? 15_000);
-    child.on('close', (exitCode) => {
+    };
+    const timer = setTimeout(kill, options.timeoutMs ?? 15_000);
+    options.signal?.addEventListener('abort', kill, { once: true });
+    if (options.signal?.aborted) kill();
+    const release = () => {
       clearTimeout(timer);
-      resolveResult({ stdout, stderr, exitCode });
+      options.signal?.removeEventListener('abort', kill);
+    };
+    child.on('error', (error) => {
+      release();
+      reject(error);
+    });
+    child.on('close', (exitCode) => {
+      release();
+      resolveResult({
+        stdout,
+        stderr: options.signal?.aborted ? `${stderr}\nAcceptance cancelled by user.` : stderr,
+        exitCode: options.signal?.aborted ? null : exitCode,
+      });
     });
     child.stdin.end(options.input);
   });

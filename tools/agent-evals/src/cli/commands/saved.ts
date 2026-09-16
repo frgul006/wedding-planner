@@ -15,7 +15,13 @@ import {
 import { defaultEnvFile, loadGraderKey } from '../../adapters/secrets.ts';
 import { EstimatedBudget } from '../../domain/budget.ts';
 import { compareTrials } from '../../domain/comparison.ts';
-import { gradeTrial } from '../../domain/deterministic-graders.ts';
+import { gradeEvidence, flattenGrades } from '../../application/grade-evidence.ts';
+import {
+  createTaskGraders,
+  selectedGraderIds,
+  selectedModelGraderCount,
+} from '../../adapters/task-graders.ts';
+import { semanticView } from '../grading-view.ts';
 import { renderComparisonReport, renderReport } from '../../domain/report.ts';
 import { timestampId, type CommandContext } from '../context.ts';
 import { gradeLines, table } from '../output.ts';
@@ -28,6 +34,13 @@ function object(value: unknown): Record<string, unknown> {
 }
 
 function gradingCriteria(run: SavedRun, revision: GradingRevision) {
+  if (revision.gradingResults)
+    return {
+      harnessHash: revision.harnessHash ?? object(run.manifest.invariants).harnessHash,
+      graders: revision.gradingResults
+        .map(({ grader, version, criteria }) => ({ id: grader, version, criteria }))
+        .sort((left, right) => left.id.localeCompare(right.id)),
+    };
   const semantic = object(revision.semantic);
   const hasSemantic = revision.grades.some((grade) => grade.grader === 'semantic-task-clarity');
   return {
@@ -78,8 +91,19 @@ Next: pnpm evals show latest`
 
 async function regradeCommand(context: CommandContext, run: SavedRun): Promise<number> {
   const { repo, request, callerCwd, output } = context;
-  const grades = gradeTrial(run.evidence);
-  let semantic;
+  // Override only factory selection. Graders still receive the original sealed evidence.
+  const gradingTask =
+    request.values.graders === undefined
+      ? run.evidence.task
+      : {
+          ...run.evidence.task,
+          graders: request.values.graders.split(',').map((id) => id.trim()),
+        };
+  const selectedGraders = selectedGraderIds(gradingTask);
+  const modelGraderCount = selectedModelGraderCount(gradingTask);
+  if (request.values.graders !== undefined && modelGraderCount && !request.values.semantic)
+    throw new Error('Explicit API grader selection requires --semantic.');
+  let semanticOptions: Parameters<typeof createTaskGraders>[1] = {};
   let key = '';
   let budget: unknown = {
     appliesTo: 'none; offline deterministic regrade',
@@ -87,6 +111,10 @@ async function regradeCommand(context: CommandContext, run: SavedRun): Promise<n
   };
   let semanticConfiguration: unknown;
   if (request.values.semantic) {
+    if (!modelGraderCount)
+      throw new Error(
+        'No API grader is selected. Use --graders to select a registered API grader with --semantic.',
+      );
     const profile = await loadProfile(repo, request.values.profile, {
       budgetUsd: request.values['budget-usd'],
       graderModel: request.values['grader-model'],
@@ -98,7 +126,8 @@ async function regradeCommand(context: CommandContext, run: SavedRun): Promise<n
       throw new Error('Saved task has an invalid rubric name.');
     const rubric = await readFile(path.join(repo, 'evals/rubrics', `${rubricName}.md`), 'utf8');
     // Admission precedes credentials and all external work, including availability checks.
-    const reservation = new AiSdkRubricGrader('', profile.grader, rubric).reservationUsd();
+    const reservation =
+      modelGraderCount * new AiSdkRubricGrader('', profile.grader, rubric).reservationUsd();
     const allowance = new EstimatedBudget(profile.estimatedApiBudgetUsd);
     allowance.reserve(reservation);
     budget = {
@@ -113,27 +142,31 @@ async function regradeCommand(context: CommandContext, run: SavedRun): Promise<n
     key = await loadGraderKey(envFile);
     await checkGraderModel(key, profile.grader.model, context.signal);
     semanticConfiguration = profile.grader;
-    semantic = await output.during(`Grading saved evidence with ${profile.grader.model}…`, () =>
-      new AiSdkRubricGrader(key, profile.grader, rubric).evaluate(run.evidence, context.signal),
-    );
-    grades.push(semantic.grade);
+    semanticOptions = { semantic: { key, config: profile.grader, rubric } };
   }
+  const gradingResults = await output.during('Grading saved evidence…', () =>
+    gradeEvidence(run.evidence, createTaskGraders(gradingTask, semanticOptions), context.signal),
+  );
+  const grades = flattenGrades(gradingResults);
+  const semantic = semanticView(gradingResults);
   const name = `regrade-${timestampId()}`;
   const harnessHash = await treeHash(path.join(repo, 'tools/agent-evals/src'));
   const regradedAt = new Date().toISOString();
   const store = new FileRunStore(run.directory, [key]);
   await store.save(`${name}.json`, {
     grades,
+    gradingResults,
     semantic,
     budget,
     regradedAt,
     harnessHash,
-    criteria: { semanticConfiguration },
+    criteria: { selectedGraders, semanticConfiguration },
     sourceIntegrityHash: run.integrityHash,
   });
   await store.save(
     `${name}.md`,
     renderReport(name, run.evidence, grades, semantic, {
+      gradingResults,
       trialId: run.id,
       regrade: { id: name, regradedAt, harnessHash, sourceIntegrityHash: run.integrityHash },
       availableFiles: [
@@ -153,12 +186,21 @@ async function regradeCommand(context: CommandContext, run: SavedRun): Promise<n
   await sealRegrade(store, name);
   const report = path.join(run.directory, `${name}.md`);
   output.result(
-    { trialId: run.id, revision: name, grades, semantic: semantic ?? null, budget, report },
+    {
+      trialId: run.id,
+      revision: name,
+      grades,
+      gradingResults,
+      selectedGraders,
+      semantic: semantic ?? null,
+      budget,
+      report,
+    },
     `Regraded ${run.id}
 
 ${gradeLines(grades)}
 
-${semantic ? 'Semantic grading attempted; see recorded status and usage. Pi was not rerun.' : 'Offline · no new model calls or API cost.'}
+${gradingResults.some((result) => result.metering === 'semantic-api' || result.usage) ? 'API grading attempted; see recorded status and usage. Pi was not rerun.' : 'Offline · no new model calls or API cost.'}
 Original evidence and grades retained.
 
 Report: ${report}
@@ -184,7 +226,9 @@ async function compareCommand(context: CommandContext): Promise<number> {
     comparisonEligible: run.manifest.comparisonEligible === true,
     grading: gradingCriteria(run, revisions[index]),
   }));
-  const result = compareTrials(pair[0], pair[1]);
+  const factor = (request.values.factor ?? 'instruction') as
+    'instruction' | 'model' | 'agent-configuration';
+  const result = compareTrials(pair[0], pair[1], { factor });
   const observations = runs.map((run, index) => ({
     id: run.id,
     variant: run.evidence.variant,
@@ -202,6 +246,7 @@ async function compareCommand(context: CommandContext): Promise<number> {
   await store.initialize();
   await store.save('comparison.json', {
     ...result,
+    factor,
     observations,
     selectedGrades: request.values.grades ?? 'latest',
   });

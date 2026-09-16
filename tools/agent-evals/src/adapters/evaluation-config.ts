@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { readFile, readdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
@@ -24,13 +25,22 @@ export const taskSchema = z
     title: z.string().min(1).optional(),
     version: z.string().min(1),
     kind: z.enum(['ui', 'docs']),
+    environment: z.enum(['synthetic', 'repository']).default('synthetic'),
+    repository: z
+      .object({ revision: z.string().regex(/^[a-f0-9]{40}$/, 'Pin a complete Git revision') })
+      .strict()
+      .optional(),
+    acceptance: identifier.optional(),
+    allowedChangedPaths: z.array(relativeFile).optional(),
+    graders: z
+      .array(identifier)
+      .min(1)
+      .refine((ids) => new Set(ids).size === ids.length, 'Grader IDs must be unique')
+      .optional(),
     fixture: identifier.default('wedding-copy'),
     rubric: identifier.default('task-clarity'),
     prompt: z.string().min(1),
-    targetFile: relativeFile.refine(
-      (value) => /\.(md|html|ya?ml|json|log|txt)$/.test(value),
-      'The local fixture adapter captures md, html, yaml, json, log and txt targets',
-    ),
+    targetFile: relativeFile,
     expectedText: z.string().min(1),
     flowPath: z
       .string()
@@ -43,16 +53,38 @@ export const taskSchema = z
         'Use a local URL path such as / or /schedule',
       ),
   })
-  .strict();
+  .strict()
+  .superRefine((task, context) => {
+    if (task.environment === 'repository' && !task.repository)
+      context.addIssue({
+        code: 'custom',
+        path: ['repository'],
+        message: 'Repository tasks require a pinned revision',
+      });
+    if (
+      task.environment === 'synthetic' &&
+      !/\.(md|html|ya?ml|json|log|txt)$/.test(task.targetFile)
+    )
+      context.addIssue({
+        code: 'custom',
+        path: ['targetFile'],
+        message: 'The synthetic fixture adapter captures md, html, yaml, json, log and txt targets',
+      });
+  });
 
 export type TaskDefinition = Task & z.infer<typeof taskSchema>;
 
 export const profileSchema = z
   .object({
     id: z.string().min(1),
+    harness: identifier.default('pi'),
     concurrency: z.literal(1),
-    runtimeMs: z.number().int().positive().max(300_000),
-    maxAgentTokens: z.number().int().positive().max(500_000),
+    pi: z
+      .object({ runtime: z.enum(['native', 'controlled']) })
+      .strict()
+      .default({ runtime: 'native' }),
+    runtimeMs: z.number().int().positive().max(900_000),
+    maxAgentTokens: z.number().int().positive().max(1_500_000),
     agentBilling: z.enum(['subscription', 'api']),
     maxAgentEstimatedCostUsd: z.number().positive().max(0.95).nullable(),
     estimatedApiBudgetUsd: z.number().positive().max(1),
@@ -144,6 +176,29 @@ export async function loadTask(repo: string, name: string): Promise<TaskDefiniti
   const task = parseConfiguration(taskSchema, await readJson(file), file);
   if (task.id !== name)
     throw new Error(`Task id "${task.id}" must match its filename ${name}.json`);
+  if (task.environment === 'repository') {
+    const revision = task.repository!.revision;
+    try {
+      const kind = execFileSync('git', ['cat-file', '-t', `${revision}:${task.targetFile}`], {
+        cwd: repo,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }).trim();
+      if (kind !== 'blob') throw new Error('Target is not a file');
+      const entry = execFileSync('git', ['ls-tree', revision, '--', task.targetFile], {
+        cwd: repo,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      if (!/^100(?:644|755) blob /.test(entry)) throw new Error('Target must be a regular file');
+    } catch {
+      throw new Error(
+        `Repository target must be a regular file at the pinned revision: ${task.targetFile}`,
+      );
+    }
+    await readFile(path.join(repo, 'evals/rubrics', `${task.rubric}.md`), 'utf8');
+    return task;
+  }
   const fixture = await realpath(path.join(repo, 'evals/fixtures', task.fixture));
   const fixtureRoot = await realpath(path.join(repo, 'evals/fixtures'));
   if (!fixture.startsWith(fixtureRoot + path.sep))

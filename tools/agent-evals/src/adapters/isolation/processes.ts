@@ -68,6 +68,60 @@ export class TrialProcesses {
     );
   }
 
+  async startRepository(
+    paths: TrialPaths,
+    nodeExecutable: string,
+    env: Record<string, string>,
+    url: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    signal?.throwIfAborted();
+    const server = spawn(
+      '/usr/bin/sandbox-exec',
+      [
+        '-f',
+        paths.profile,
+        nodeExecutable,
+        join(paths.workspace, 'node_modules/next/dist/bin/next'),
+        'dev',
+        '--webpack',
+        '--hostname',
+        '127.0.0.1',
+        '--port',
+        new URL(url).port,
+      ],
+      { cwd: paths.workspace, env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] },
+    );
+    if (server.pid) this.register(server.pid);
+    let output = '';
+    for (const stream of [server.stdout, server.stderr])
+      stream.on('data', (chunk) => {
+        output = (output + String(chunk)).slice(-24_000);
+      });
+    server.on('error', (error) => {
+      output += error.message;
+    });
+    for (let attempt = 0; attempt < 120; attempt++) {
+      signal?.throwIfAborted();
+      try {
+        if (
+          (
+            await fetch(url + '/admin/login', {
+              signal: AbortSignal.any([AbortSignal.timeout(1000), ...(signal ? [signal] : [])]),
+            })
+          ).ok
+        )
+          return;
+      } catch {
+        /* Compile the real route before admitting an agent. */
+      }
+      signal?.throwIfAborted();
+      if (server.exitCode !== null) break;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    throw new Error(`Real Wedding Next.js server did not become ready: ${output}`);
+  }
+
   async stop(): Promise<void> {
     const groups = new Set(this.evaluatorGroups);
     let malformed = false;
@@ -91,6 +145,8 @@ export class TrialProcesses {
           /* The group already exited. */
         }
       }
+      this.evaluatorGroups.clear();
+      await writeFile(this.registryPath, '');
     }
     if (malformed)
       throw new Error('Malformed process registry; some child groups could not be identified.');

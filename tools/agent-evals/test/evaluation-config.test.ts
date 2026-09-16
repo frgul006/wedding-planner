@@ -7,6 +7,7 @@ import {
   catalogNames,
   loadProfile,
   loadTask,
+  taskSchema,
   treeHash,
 } from '../src/adapters/evaluation-config.ts';
 
@@ -41,6 +42,26 @@ const profile = {
     pricingCheckedOn: '2026-09-07',
   },
 };
+
+test('repository tasks select a pinned source revision, TSX target, acceptance and graders', () => {
+  const configured = taskSchema.parse({
+    ...task,
+    environment: 'repository',
+    repository: { revision: 'a'.repeat(40) },
+    targetFile: 'app/page.tsx',
+    acceptance: 'admin-login-copy',
+    graders: ['target-outcome', 'acceptance-checks', 'diff-scope'],
+    allowedChangedPaths: ['app/page.tsx'],
+  });
+  assert.equal(configured.environment, 'repository');
+  assert.deepEqual(configured.graders, ['target-outcome', 'acceptance-checks', 'diff-scope']);
+  assert.equal(taskSchema.safeParse({ ...task, environment: 'repository' }).success, false);
+  assert.equal(taskSchema.safeParse({ ...task, targetFile: 'app/page.tsx' }).success, false);
+  assert.equal(
+    taskSchema.safeParse({ ...task, graders: ['diff-scope', 'diff-scope'] }).success,
+    false,
+  );
+});
 
 async function fixture(run: (repo: string) => Promise<void>) {
   const repo = await mkdtemp(join(tmpdir(), 'eval-configuration-'));

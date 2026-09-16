@@ -106,11 +106,7 @@ test('application records adapter-discovered skills without decoding a provider 
           return agent;
         },
       },
-      grader: {
-        async grade() {
-          return [];
-        },
-      },
+      graders: [],
       store: { async save() {}, append() {} },
     },
   );

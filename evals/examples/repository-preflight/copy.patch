@@ -1,0 +1,13 @@
+diff --git a/app/admin/login/login-form.tsx b/app/admin/login/login-form.tsx
+index 7f710b1..f5f402a 100644
+--- a/app/admin/login/login-form.tsx
++++ b/app/admin/login/login-form.tsx
+@@ -50,7 +50,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
+         type="submit"
+         disabled={pending}
+       >
+-        {pending ? "Signing in..." : "Sign in"}
++        {pending ? "Signing in..." : "Sign in to manage the wedding"}
+       </button>
+     </form>
+   );

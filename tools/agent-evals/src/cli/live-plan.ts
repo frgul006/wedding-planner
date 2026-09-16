@@ -9,6 +9,8 @@ import {
 import { readSavedRun, resolveRun } from '../adapters/saved-runs.ts';
 import { defaultEnvFile } from '../adapters/secrets.ts';
 import { EstimatedBudget, estimateCost } from '../domain/budget.ts';
+import { selectedModelGraderCount } from '../adapters/task-graders.ts';
+import { harnesses } from '../adapters/harnesses.ts';
 import type { CommandContext } from './context.ts';
 
 export interface ManualRetry {
@@ -27,6 +29,7 @@ export interface TrialPlan {
   useGrader: boolean;
   budget: EstimatedBudget;
   retryOf: ManualRetry | null;
+  agentSource: string;
 }
 
 export function profileOverrides(context: CommandContext) {
@@ -44,19 +47,28 @@ export function graderEnvFile(context: CommandContext): string {
   return requested ? path.resolve(context.callerCwd, requested) : defaultEnvFile(context.repo);
 }
 
+export function agentSource(context: CommandContext): string {
+  const requested = context.request.values['agent-source'];
+  return requested
+    ? path.resolve(context.callerCwd, requested)
+    : path.dirname(defaultEnvFile(context.repo));
+}
+
 export function reserveBudget(
   profile: EvaluationProfile,
   useGrader: boolean,
   includeAgent: boolean,
+  modelGraderCount = 1,
 ): EstimatedBudget {
   const budget = new EstimatedBudget(profile.estimatedApiBudgetUsd);
   if (useGrader)
     budget.reserve(
-      estimateCost(profile.grader.maxInputChars, profile.grader.maxOutputTokens, {
-        inputPerMillion: profile.grader.inputPerMillion,
-        outputPerMillion: profile.grader.outputPerMillion,
-        source: profile.grader.pricingSource,
-      }),
+      modelGraderCount *
+        estimateCost(profile.grader.maxInputChars, profile.grader.maxOutputTokens, {
+          inputPerMillion: profile.grader.inputPerMillion,
+          outputPerMillion: profile.grader.outputPerMillion,
+          source: profile.grader.pricingSource,
+        }),
     );
   if (includeAgent && profile.agentBilling === 'api')
     budget.reserve(profile.maxAgentEstimatedCostUsd!);
@@ -66,13 +78,20 @@ export function reserveBudget(
 /** Validate all local inputs and admission controls before credentials or network work. */
 export async function createTrialPlan(context: CommandContext): Promise<TrialPlan> {
   const { repo, callerCwd, request } = context;
-  const taskName = request.args[0] ?? request.values.task ?? 'ui-copy';
+  const taskName = request.args[0] ?? request.values.task ?? 'repository-ui-copy';
   const [task, profile] = await Promise.all([
     loadTask(repo, taskName),
     loadProfile(repo, request.values.profile, profileOverrides(context)),
   ]);
-  const useGrader = !request.values['no-grader'];
-  const budget = reserveBudget(profile, useGrader, true);
+  const modelGraderCount = selectedModelGraderCount(task);
+  if (request.values.semantic && modelGraderCount === 0)
+    throw new Error('This task has no configured API graders; omit --semantic.');
+  const useGrader = Boolean(request.values.semantic) && modelGraderCount > 0;
+  if (!Object.hasOwn(harnesses, profile.harness))
+    throw new Error(
+      `Unknown harness "${profile.harness}". Registered: ${Object.keys(harnesses).join(', ')}`,
+    );
+  const budget = reserveBudget(profile, useGrader, true, modelGraderCount);
   let retryOf: ManualRetry | null = null;
   if (request.values['retry-of']) {
     const previous = await readSavedRun(
@@ -92,8 +111,10 @@ export async function createTrialPlan(context: CommandContext): Promise<TrialPla
     budget,
     retryOf,
     variant: request.values.variant === 'disabled' ? 'disabled' : 'enabled',
-    fixtureDirectory: path.join(repo, 'evals/fixtures', task.fixture),
+    fixtureDirectory:
+      task.environment === 'repository' ? repo : path.join(repo, 'evals/fixtures', task.fixture),
     rubric: await readFile(path.join(repo, 'evals/rubrics', `${task.rubric}.md`), 'utf8'),
     envFile: graderEnvFile(context),
+    agentSource: agentSource(context),
   };
 }

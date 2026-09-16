@@ -68,6 +68,9 @@ export async function prepareBoundary(options: {
   port: number;
   runtimeMs: number;
   registerProcess: (pid: number) => void;
+  toolEnvironment?: Record<string, string>;
+  trustedReadableFiles?: string[];
+  trustedReadableDirectories?: string[];
 }): Promise<PreparedBoundary> {
   const { paths, runtime, resources } = options;
   await installRuntimeLaunchers(paths, runtime);
@@ -84,6 +87,7 @@ export async function prepareBoundary(options: {
   toolEnv.PATH = paths.runtimeBin + ':' + toolEnv.PATH;
   toolEnv.PLAYWRIGHT_CLI_SESSION = 'eval-' + options.id.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 8);
   toolEnv.PORT = String(options.port);
+  Object.assign(toolEnv, options.toolEnvironment);
   const writableDirectories = [paths.workspace, paths.toolHome, paths.temporary];
   const readableDirectories = [
     '/System',
@@ -104,6 +108,7 @@ export async function prepareBoundary(options: {
     runtime.pnpm.directory,
     paths.runtimeBin,
     resources.skillsDirectory,
+    ...(options.trustedReadableDirectories ?? []),
   ];
   await writeFile(
     paths.profile,
@@ -116,6 +121,7 @@ export async function prepareBoundary(options: {
         ...resources.readableFiles,
         paths.browserConfig,
         paths.fileWorker,
+        ...(options.trustedReadableFiles ?? []),
         '/private/etc/passwd',
         '/private/etc/group',
         '/private/etc/localtime',

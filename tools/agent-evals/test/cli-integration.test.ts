@@ -36,7 +36,7 @@ import { syncBuiltinESMExports } from 'node:module';
 globalThis.fetch = async () => { throw new Error('Offline CLI dispatched a forbidden network request'); };
 const gitRead = childProcess.execFileSync;
 childProcess.execFileSync = (file, args, ...rest) => {
-  if (file !== 'git' || args[0] !== 'rev-parse') throw new Error('Offline CLI dispatched an unexpected process');
+  if (file !== 'git' || !['rev-parse', 'cat-file', 'ls-tree'].includes(args[0])) throw new Error('Offline CLI dispatched an unexpected process');
   return gitRead(file, args, ...rest);
 };
 for (const method of ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile']) {
@@ -93,6 +93,7 @@ test('complete CLI task discovery, validation and dry-run return clean machine-r
       'run',
       'ui-copy',
       '--dry-run',
+      '--semantic',
       '--grader-env-file',
       join(root, 'does-not-exist.env'),
       '--json',
@@ -108,6 +109,65 @@ test('complete CLI task discovery, validation and dry-run return clean machine-r
     );
     assert.equal(free.useGrader, false);
     assert.equal(free.budget.reservedEstimateUsd, 0);
+  });
+});
+
+test('one-command experiments preview actual repository tasks and admit the entire API allowance offline', async () => {
+  await offlineCli(async (invoke, root) => {
+    const preview = JSON.parse((await invoke(['experiment', '--dry-run', '--json'])).stdout);
+    assert.equal(preview.task.id, 'repository-ui-copy');
+    assert.equal(preview.task.environment, 'repository');
+    assert.equal(preview.useGrader, false);
+    assert.equal(preview.profile.harness, 'pi');
+    assert.match(preview.task.repository.revision, /^[a-f0-9]{40}$/);
+    assert.equal(preview.budget.reservedEstimateUsd, 0);
+    assert.deepEqual(
+      preview.steps.map((step: { variant: string }) => step.variant),
+      ['enabled', 'disabled'],
+    );
+    const repeated = JSON.parse(
+      (
+        await invoke([
+          'experiment',
+          'ui-copy',
+          '--pairs',
+          '2',
+          '--semantic',
+          '--dry-run',
+          '--grader-env-file',
+          join(root, 'missing.env'),
+          '--budget-usd',
+          '0.02',
+          '--json',
+        ])
+      ).stdout,
+    );
+    assert.equal(repeated.steps.length, 4);
+    assert.ok(
+      Math.abs(repeated.budget.reservedEstimateUsd - 4 * repeated.budget.perTrialReservationUsd) <
+        1e-10,
+    );
+    await assert.rejects(
+      invoke([
+        'experiment',
+        'ui-copy',
+        '--semantic',
+        '--dry-run',
+        '--budget-usd',
+        '0.005',
+        '--grader-env-file',
+        join(root, 'missing.env'),
+        '--json',
+      ]),
+      (error) => {
+        assert.match((error as { stderr: string }).stderr, /budget exceeded before dispatch/);
+        assert.doesNotMatch(
+          (error as { stderr: string }).stderr,
+          /ENOENT|forbidden network|agent or browser/,
+        );
+        return true;
+      },
+    );
   });
 });
 
@@ -179,6 +239,60 @@ test('full CLI regrading preserves sealed original evidence, including Ctrl-C du
     const shown = await invoke(['show', '../results/saved-trial', '--json'], caller);
     assert.equal(JSON.parse(shown.stdout).selectedGrading, output.revision);
     assert.equal(shown.stderr, '');
+
+    // Add a registered grader to existing evidence without rewriting the original task.
+    const originalEvidence = await readFile(join(run.directory, 'evidence.json'), 'utf8');
+    const extended = JSON.parse(
+      (
+        await invoke(
+          ['regrade', '../results/saved-trial', '--graders', 'target-outcome,diff-scope', '--json'],
+          caller,
+        )
+      ).stdout,
+    );
+    assert.deepEqual(extended.selectedGraders, ['target-outcome', 'diff-scope']);
+    assert.deepEqual(
+      extended.gradingResults.map((item: { grader: string }) => item.grader),
+      ['target-outcome', 'diff-scope'],
+    );
+    assert.equal(extended.grades[1].verdict, 'not-applicable');
+    const extendedSaved = await readSavedRun(run.directory);
+    assert.deepEqual(
+      (selectGrading(extendedSaved).criteria as { selectedGraders: string[] }).selectedGraders,
+      extended.selectedGraders,
+    );
+    assert.equal(await readFile(join(run.directory, 'evidence.json'), 'utf8'), originalEvidence);
+    assert.equal(await readFile(join(run.directory, 'integrity.json'), 'utf8'), originalSeal);
+    await assert.rejects(
+      invoke(
+        [
+          'regrade',
+          '../results/saved-trial',
+          '--graders',
+          'missing-grader',
+          '--semantic',
+          '--grader-env-file',
+          join(root, 'missing.env'),
+          '--json',
+        ],
+        caller,
+      ),
+      (error) => {
+        assert.match((error as { stderr: string }).stderr, /Unknown task grader/);
+        assert.doesNotMatch((error as { stderr: string }).stderr, /ENOENT|network/);
+        return true;
+      },
+    );
+    await assert.rejects(
+      invoke(
+        ['regrade', '../results/saved-trial', '--graders', 'semantic-task-clarity', '--json'],
+        caller,
+      ),
+      (error) => {
+        assert.match((error as { stderr: string }).stderr, /requires --semantic/);
+        return true;
+      },
+    );
 
     const keyFile = join(root, 'synthetic-grader.env');
     await writeFile(keyFile, 'OPENAI_API_KEY=synthetic-test-key\n');

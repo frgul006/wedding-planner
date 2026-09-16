@@ -80,6 +80,11 @@ export interface Task {
   targetFile: string;
   expectedText: string;
   flowPath: string;
+  environment?: 'synthetic' | 'repository';
+  repository?: { revision: string };
+  acceptance?: string;
+  allowedChangedPaths?: string[];
+  graders?: string[];
 }
 export interface Usage {
   inputTokens: number;
@@ -108,6 +113,33 @@ export interface Grade {
   reason: string;
   evidenceRefs: string[];
 }
+export interface GradingResult {
+  grader: string;
+  version: string;
+  status: 'completed' | 'grader_error' | 'cancelled';
+  metering?: 'none' | 'semantic-api';
+  grades: Grade[];
+  usage?: Usage;
+  /** Stable judgment inputs, excluding response IDs, timestamps and observed usage. */
+  criteria?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+export interface CommandCheck {
+  id: string;
+  actor: 'evaluator';
+  command: string[];
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  status: 'pass' | 'fail' | 'unknown';
+}
+export interface FinalObservation {
+  artifacts: Artifact[];
+  beforeArtifacts?: Artifact[];
+  patch?: Artifact;
+  changedFiles?: string[];
+  checks?: CommandCheck[];
+}
 export interface TrialEvidence {
   task: Task;
   variant: 'enabled' | 'disabled';
@@ -115,6 +147,10 @@ export interface TrialEvidence {
   agent: AgentResult;
   artifacts: Artifact[];
   events: EvidenceEvent[];
+  beforeArtifacts?: Artifact[];
+  patch?: Artifact;
+  changedFiles?: string[];
+  checks?: CommandCheck[];
 }
 export interface AgentRunRequest {
   signal?: AbortSignal;
@@ -134,7 +170,12 @@ export interface AgentRunner {
   run(request: AgentRunRequest): Promise<AgentResult>;
 }
 export interface Grader {
-  grade(evidence: TrialEvidence, signal?: AbortSignal): Promise<Grade[]>;
+  id: string;
+  version: string;
+  metering?: 'none' | 'semantic-api';
+  /** Known configuration, retained even if cancellation prevents grading. */
+  criteria?: Record<string, unknown>;
+  grade(evidence: TrialEvidence, signal?: AbortSignal): Promise<GradingResult>;
 }
 export interface RunStore {
   save(name: string, value: unknown): Promise<void>;
@@ -147,7 +188,11 @@ export interface PreparedEnvironment {
   env: Record<string, string>;
   agentArgs: string[];
   provenance: Record<string, unknown>;
+  /** Startup facts the agent needs, without embedding task answers or grading controls. */
+  agentContext?: string;
   collectArtifacts(): Promise<Artifact[]>;
+  /** Stop agent descendants, run trusted acceptance checks, then capture final evidence. */
+  finalize?(): Promise<FinalObservation>;
   cleanup(): Promise<void>;
 }
 export interface TrialEnvironment {

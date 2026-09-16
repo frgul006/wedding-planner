@@ -1,84 +1,73 @@
 # Agent Evaluation package
 
-This TypeScript workspace package runs and judges coding-agent trials. It is independent of the Wedding application: Next.js imports no evaluation code, and evaluation domain/application code imports no Pi, AI SDK, filesystem or subprocess implementation.
+The evaluator prepares a task environment, runs an agent, records what happened, and grades the saved evidence. The Wedding application imports none of this package. Domain/application code does not import Pi, AI SDK, filesystem or subprocess code.
 
-[Use the CLI](../../evals/README.md) · [Add tasks and adapters](../../evals/authoring.md) · [Boundary decision](../../docs/adr/0004-agent-evaluation-boundary.md)
+[Run an experiment](../../evals/README.md) · [Add a task, grader or harness](../../evals/authoring.md)
 
-## Find the right place to change
+## Where to change something
 
-| Location                                                             | Owns                                                                                         |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `src/domain/types.ts`                                                | Tasks, attributed evidence/observations, grades, usage and ports                             |
-| `src/domain/deterministic-graders.ts`                                | Pure mechanical outcome, browser and skill judgments                                         |
-| `src/domain/comparison.ts`                                           | Controlled-pair eligibility and structural mismatch explanations                             |
-| `src/domain/report.ts`                                               | Readable trial/regrade/comparison reports                                                    |
-| `src/domain/budget.ts`                                               | Estimated cost admission                                                                     |
-| `src/application/run-trial.ts`                                       | One trial’s lifecycle, attribution, cleanup, persistence and deterministic grading           |
-| `src/application/skill-inventory.ts`                                 | Distinguishing prepared files from actual discovery                                          |
-| `src/adapters/pi-rpc.ts`, `pi-evidence.ts`, `playwright-evidence.ts` | Native Pi transport and translation of tool receipts/browser output into domain observations |
-| `src/adapters/pi-inspection.ts`                                      | Installed Pi configuration and native resource inspection                                    |
-| `src/adapters/trial-environment.ts`, `isolation/`                    | Synthetic workspace/services, tool restrictions, credential preparation and cleanup          |
-| `src/adapters/ai-sdk-grader.ts`                                      | Direct OpenAI structured output, usage and verified citations                                |
-| `src/adapters/file-run-store.ts`, `saved-runs.ts`                    | Redaction, evidence integrity, retained runs and grading revisions                           |
-| `src/adapters/evaluation-config.ts`                                  | Task/profile discovery, schemas and source hashes                                            |
-| `src/adapters/trial-manifest.ts`                                     | Frozen execution conditions, source hashes and comparison eligibility                        |
-| `src/cli/arguments.ts`, `live-plan.ts`                               | Command validation and preview/admission before external work                                |
-| `src/cli/commands/`                                                  | Adapter composition for each CLI workflow                                                    |
-| `src/cli/presenters/saved-run.ts`, `output.ts`                       | Human/JSON views of the selected grading revision and usage                                  |
-| `src/cli/cancellation.ts`                                            | Signal handling that lets cleanup and evidence writes finish                                 |
-| `../../evals/`                                                       | Repository-specific tasks, fixtures, rubrics, profiles and calibration material              |
+| Responsibility                                               | Module                                                               |
+| ------------------------------------------------------------ | -------------------------------------------------------------------- |
+| Tasks, evidence, grades and runtime contracts                | `src/domain/types.ts`                                                |
+| Observable browser/skill behavior                            | `src/domain/deterministic-graders.ts`                                |
+| Independent acceptance and change scope                      | `src/domain/acceptance-graders.ts`                                   |
+| Fixed conditions and declared experiment factors             | `src/domain/comparison.ts`                                           |
+| A trial's lifecycle, evidence and cleanup                    | `src/application/run-trial.ts`                                       |
+| Shared live/regrade judgment operation                       | `src/application/grade-evidence.ts`                                  |
+| Paired scheduling, retained attempts and aggregate admission | `src/application/run-experiment.ts`                                  |
+| Task-selected graders                                        | `src/adapters/task-graders.ts`                                       |
+| Harness selection and native Pi composition                  | `src/adapters/harnesses.ts`, `pi-harness.ts`                         |
+| Native Pi transport and normalized observations              | `src/adapters/pi-rpc.ts`, `pi-evidence.ts`, `playwright-evidence.ts` |
+| Workspace, processes, local services and final checks        | `src/adapters/trial-environment.ts`, `isolation/`                    |
+| Direct OpenAI rubric generation                              | `src/adapters/ai-sdk-grader.ts`                                      |
+| Saved evidence, integrity and regrading history              | `src/adapters/file-run-store.ts`, `saved-runs.ts`                    |
+| Allowlisted public review summaries                          | `src/adapters/review-bundle.ts`                                      |
+| CLI parsing, previews and presentation                       | `src/cli/`                                                           |
+| Repository tasks, profiles and rubrics                       | `../../evals/`                                                       |
 
-Dependencies point inward. Domain functions work with plain data. Application code calls ports. Adapters implement external behavior. The CLI selects inputs, composes those adapters and presents results. Changes to a task should normally require JSON/Markdown edits, while a different runtime belongs in an adapter.
+The harness registry owns external wiring. An adapter supplies an `AgentRunner` and `TrialEnvironment`; trial and experiment execution do not need to know how that agent authenticates or launches. Diagnostics and profile-specific configuration still need an implementation for each backend. The environment encapsulates process shutdown, trusted acceptance and artifact capture. Graders use those saved observations; they never reach into a live workspace.
 
-## Follow a trial
+## Lifecycle
 
-1. The CLI validates the task, profile and API allowance before external work. A dry run stops after previewing this configuration.
-2. Native inspection freezes Pi’s configured model/reasoning and resource provenance. The environment prepares a synthetic Git checkout, local server and sandboxed tools.
-3. Native credential refresh uses the original Pi store’s locking. Only the selected provider is copied privately, with validity covering the bounded trial. Settings/model selection stay unchanged.
-4. `runTrial` asks `AgentRunner` to run. The Pi adapter waits for `agent_settled`, normalizes native events and retains raw messages for audit. The application assigns one ordered transcript with agent/environment/evaluator attribution.
-5. Cleanup stops tool descendants before final artifacts are observed, and removes private authentication copies. Execution failures and cleanup failures remain visible independently of known outcomes.
-6. The application persists evidence before deterministic grading. The CLI optionally adds the bounded semantic judgment, writes the final report and seals the saved files.
+1. Validate task/profile/registry entries and admit the aggregate API reservation.
+2. Inspect and freeze the selected harness configuration once per experiment.
+3. Prepare an isolated checkout, native resources, local services and private authentication.
+4. Run the agent. Normalize streamed or returned events into one attributed transcript.
+5. Stop agent descendants, independently check the final application and capture its changes.
+6. Unconditionally clean up processes and private credentials, retaining failures and evidence.
+7. Save evidence before grading; run selected graders through `gradeEvidence`; save rich grader status, usage, metadata and judgments.
+8. Seal recordings and produce reports. A paired experiment retains all attempts and compares fixed conditions.
 
-Reading/regrading saved evidence does not rerun Pi. The filesystem adapter verifies seals and normalizes older native recordings in memory; raw saved files remain unchanged. Each regrade records its own harness and source provenance. Comparison selects an entire grading revision and checks both execution conditions and grading criteria.
+`regrade` starts at step 7 with verified saved evidence. Both paths use the same registry and application operation. Each regrade appends a revision; original results remain intact. A grading failure cannot erase a completed paid trial.
 
-Cancellation travels through an `AbortSignal` from the CLI to the active adapter. A cancelled Pi run retains its observed usage and artifacts; cancelling a later grader preserves Pi’s execution status. Cleanup and evidence sealing finish before the CLI returns its signal exit code. Keep these phases separate when extending the lifecycle.
+## Contracts that matter
 
-## Preserve the important distinctions
+- Agent, environment and evaluator are different actors. Evaluator browser checks cannot prove agent compliance.
+- A runner can stream events, return its complete event list, or do both. The application retains events once and assigns recording IDs.
+- Execution status is separate from verdicts. A completed run can fail; an interrupted run can have useful artifacts.
+- A grader returns versioned judgments plus execution status and optional usage/metadata. Exceptions become retained unknown judgments.
+- Native model/auth selection is preserved; optional extension tools remain excluded by this isolated Pi adapter. Reports expose that difference.
+- Subscription usage has runtime/token bounds; direct grader API spending has its own aggregate reservation.
+- Comparisons declare the varying factor. Model/configuration changes cannot silently enter an instruction comparison.
 
-- **Execution and judgment:** an interrupted trial can have a passing artifact outcome. A completed run can have unknown compliance.
-- **Actor and evidence:** evaluator-run checks cannot earn agent compliance. Raw command text alone does not prove execution.
-- **Skill availability, discovery and loading:** copied files and descriptions do not prove content was read. Adherence and useful outcome need separate judgments.
-- **Subscription and API cost:** Pi token/runtime limits remain active; the direct API allowance is independent when the verified subscription profile disables Pi’s dollar threshold.
-- **Original and regraded results:** new judgments append a revision rather than overwrite history or silently merge selected passes.
-
-Native-specific decoding belongs in `pi-evidence.ts` and `playwright-evidence.ts`, including discovery shapes, error flags, tool-boundary receipts and browser output. `ToolReceipt` distinguishes file operations, shell commands, browser commands and unknown attestation. Invalid fields, missing exit status or mismatched snapshot fingerprints cannot become successful receipts. Domain graders consume these typed facts without parsing native stdout formats. Extend that seam when supporting another protocol or new evidence, and retain the raw source for audit.
-
-## Check a change
-
-From the repository root:
+## Validation
 
 ```bash
-pnpm evals validate
 pnpm check:evals
 pnpm test:evals
 ```
 
-These commands are offline and never start a model. Tests use normalized evidence, authored/minimized native traces, in-memory ports and controlled fake processes. Add cases that distinguish the intended behavior from plausible false positives and failure paths.
+These offline checks run in CI. Tests cover transport/failure behavior, live/regrade equivalence, actor attribution, genuine and false browser evidence, task/harness registration, comparison eligibility and retained attempts. Tests requiring macOS sandbox-exec skip on other platforms.
 
-`check:evals` runs TypeScript, lint and formatting checks for this package. Use `pnpm --dir tools/agent-evals format` to apply its formatter after editing package files.
-
-The explicit native tooling check is separate:
+Explicit local probes are separate:
 
 ```bash
 pnpm --dir tools/agent-evals exec tsx test/isolation-native-smoke.ts
+pnpm --dir tools/agent-evals exec tsx test/repository-native-smoke.ts
 ```
 
-It exercises the local sandbox and real browser tools without a model call. It requires the same local Pi/tool installations as the environment adapter and may prepare/refresh native authentication. Its observations are attributed to environment/evaluator activity, not an agent obeying the instruction.
+They exercise native tools without a Pi prompt or grader generation. They may refresh native authentication while preparing the environment. The repository probe demonstrates a failing original condition and a passing repaired condition using the real app. Live trials use the public CLI and remain outside routine CI.
 
-A live Pi/API check always uses an explicit CLI command. Keep it outside ordinary tests and CI defaults. Run root application checks separately when changing workspace configuration or application code.
+## Remaining scope
 
-## Current scope
-
-The environment adapter supports a synthetic, dependency-free Wedding fixture on macOS, resolving Intel and Apple Silicon browser installations. Native verification so far used Apple Silicon. It uses native Pi with recorded instruction/skill resources and a controlled extension profile. It does not evaluate the full Next.js/Supabase production workflow. Semantic calibration still awaits human labels.
-
-The first extension milestone is a focused `diagnose` suite, followed by repeated controlled comparisons with a shared experiment budget. Add concepts such as suites and experiment scheduling when that work needs them; the current package needs only one-trial orchestration and saved-evidence operations.
+The current real-app environment runs macOS/Next.js and the admin login UI with an unavailable local authentication endpoint. It does not prove database behavior, successful authentication or production integration. Full native extension/subagent execution needs an environment adapter that can enforce isolation and usage accounting for that complete process tree. Semantic human calibration and reliable population estimates remain research work, not properties established by one pair.

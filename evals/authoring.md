@@ -1,144 +1,113 @@
 # Add an evaluation
 
-Start with a task JSON when the existing fixture and graders can express the question. Add a new adapter only when the required runtime or evidence changes.
+[Run the CLI](README.md) · [Code map](../tools/agent-evals/README.md)
 
-[Run evaluations](README.md) · [Code boundaries](../tools/agent-evals/README.md)
+## Add a task
 
-## Add a task using an existing fixture
-
-Create `evals/tasks/readme-start.json`:
+Copy `evals/tasks/repository-ui-copy.json`, choose an ID matching the filename, and edit the prompt, target, expected result and selected graders. Pin a complete repository commit. Keep the prompt natural: do not repeat the instruction being tested or name a skill when measuring natural activation.
 
 ```json
 {
-  "id": "readme-start",
-  "title": "Explain how to start the Wedding page",
+  "id": "my-login-task",
+  "title": "A clear task name",
   "version": "1",
-  "kind": "docs",
-  "fixture": "wedding-copy",
-  "rubric": "task-clarity",
-  "prompt": "README.md should help a new contributor run this Wedding page. Add a concise Local development section explaining pnpm dev. This is a documentation change; the page already works.",
-  "targetFile": "README.md",
-  "expectedText": "pnpm dev",
-  "flowPath": "/"
+  "kind": "ui",
+  "environment": "repository",
+  "repository": { "revision": "30d2388f71595d1ba65d0d2fabc8b97b6ee48f80" },
+  "prompt": "Describe the user-visible result you want.",
+  "targetFile": "app/admin/login/login-form.tsx",
+  "expectedText": "The requested visible text",
+  "flowPath": "/admin/login",
+  "allowedChangedPaths": ["app/admin/login/login-form.tsx"],
+  "acceptance": "admin-login-copy",
+  "graders": ["browser-compliance", "acceptance-checks", "diff-scope"],
+  "rubric": "repository-task"
 }
 ```
 
-Then validate and preview it:
+This is a shape example, not a ready-made acceptance test. Select an existing acceptance case only when its actual assertions match your task; otherwise add one. `expectedText` alone proves only a substring. `allowedChangedPaths` declares exact file paths, including legitimate supporting tests as well as the main target, and the diff grader evaluates the independent source inventory rather than trusting the agent's Git index or `.gitignore`.
 
 ```bash
 pnpm evals validate
-pnpm evals tasks
-pnpm evals run readme-start --dry-run
+pnpm evals run my-login-task --dry-run
+pnpm evals experiment my-login-task
 ```
 
-The filename determines the CLI name and must match `id`. There is no source-code registry to update. `title` keeps the task catalog easy to scan. The optional `fixture` and `rubric` fields default to `wedding-copy` and `task-clarity`; specify them for new tasks so the dependencies are visible.
+Bump the task version when meaning changes. Configuration hashes also capture edits. The schema checks referenced targets against the pinned commit, so ordinary `.ts`/`.tsx` source files work. Repository tasks use real installed dependencies with a matching lockfile. Synthetic tasks set `environment` to `synthetic` and select a fixture under `evals/fixtures`; those are intended for small regression cases.
 
-| Field          | Meaning                                                                  |
-| -------------- | ------------------------------------------------------------------------ |
-| `id`           | Lowercase, hyphenated identifier matching the JSON filename              |
-| `version`      | Version of the task’s prompt and expectations                            |
-| `kind`         | `ui` or `docs`; determines browser-rule applicability                    |
-| `fixture`      | Directory name under `evals/fixtures/`                                   |
-| `rubric`       | Markdown filename under `evals/rubrics/`, without `.md`                  |
-| `prompt`       | The realistic request sent to Pi                                         |
-| `targetFile`   | An existing text file inside the fixture                                 |
-| `expectedText` | A minimal observable outcome; never sent as a hidden grading instruction |
-| `flowPath`     | Local URL path used to identify the changed browser flow                 |
+## Add an independent acceptance case
 
-The task above reuses the docs expectations already covered by `task-clarity`. A different requested result may need its own rubric. The current shared rubric explicitly describes the schedule-link copy task and the `pnpm dev` documentation task; it is not a general-purpose specification for every new task.
+Acceptance belongs to the environment adapter because it needs the final local application. Repository cases currently live in `tools/agent-evals/src/adapters/isolation/repository-acceptance.mjs`; their selection is recorded in the task. The evaluator executes a private copy after the agent stops. Add assertions for the observable user behavior, and prove that the original or defective implementation fails and the intended repair passes.
 
-`expectedText` supports a narrow code-based check. Finding that substring does not prove layout, accessibility, destination correctness or absence of unrelated edits. Give those claims an appropriate deterministic or semantic grader. The model grader currently receives the task prompt and captured target-file artifacts, not the entire workspace or an unrestricted transcript.
+Register the new case ID in `REPOSITORY_ACCEPTANCE_IDS` in `repository-checkout.ts` as well as the private script's dispatcher. Preparation rejects unknown IDs before starting services.
 
-Keep prompts natural. When measuring whether an AGENTS.md instruction is followed, the task should not repeat that instruction. When eventually measuring natural skill activation, avoid naming the skill in positive task prompts. Explicitly requested skill execution is a separate question. Before measuring a repository skill, check `pnpm evals doctor --no-grader`: an untrusted worktree can legitimately suppress project skills. Establish the intended native trust/profile deliberately and keep it fixed across trials.
+A different service setup belongs in an environment adapter. Do not add arbitrary shell commands to task JSON. Expected answers, private acceptance controls, application credentials and production service hooks must stay outside the agent's workspace. Save check exit status and output with actor `evaluator`; these checks cannot earn agent-compliance credit.
 
-Bump `version` when a task’s meaning changes. Content hashes also record edits, even if someone forgets to bump the label. Keep enabled and disabled trials on the same task version and content.
+The repository adapter captures changed source before/after and a patch. Graders run only on retained evidence, so the same final outcome can be regraded after the workspace disappears.
 
-## Add a fixture within the current environment
+## Add a grader
 
-Copy `evals/fixtures/wedding-copy/` to a new lowercase, hyphenated directory, adapt its synthetic content, and point the task’s `fixture` field at it.
+Implement the `Grader` contract and register one factory in `src/adapters/task-graders.ts`. Select its ID in the task's `graders` array. Both live trials and saved regrading discover it through that registry; neither CLI command needs a branch for the new ID.
 
-The current local adapter has a deliberately small runtime contract:
+A grader returns its ID/version, execution status and judgments. It can also return usage, stable grading criteria and response metadata. A failed execution is different from a completed judgment with verdict `fail`.
 
-- `scripts/server.mjs` starts a dependency-free local Node server, reads the assigned `PORT` and binds to `127.0.0.1`. The adapter starts this file directly.
-- `package.json` exposes successful `pnpm lint` and `pnpm build` commands. These are preflighted inside the sandbox before Pi receives a prompt.
-- The task’s `targetFile` already exists inside the fixture and uses `.md`, `.html`, `.yaml`, `.yml`, `.json`, `.log` or `.txt`. The current collector observes one target and browser snapshots, skipping files larger than 256,000 bytes.
-- `flowPath` is a route the server serves. Changing the JSON does not create a route.
-- Files and runtime services are synthetic and self-contained. Use regular files, not symlinks, and keep secrets, deployments, messaging and production hooks out of fixture startup.
+```ts
+const myGrader: Grader = {
+  id: 'my-check',
+  version: '1',
+  async grade(evidence) {
+    const judgment = judgeMyClaim(evidence);
+    return {
+      grader: 'my-check',
+      version: '1',
+      status: 'completed',
+      grades: [judgment],
+    };
+  },
+};
 
-Fixtures contain the work the agent sees. Tasks, expected answers, rubrics and calibration controls live outside the agent’s writable environment. Fixture lint/build scripts should check ordinary application validity rather than reveal the hidden expected answer.
-
-`validate` checks configuration and referenced targets/rubrics; it does not start the server or prove browser behavior. After offline validation, exercise one bounded trial:
-
-```bash
-pnpm evals run YOUR_TASK --dry-run
-pnpm evals run YOUR_TASK --no-grader
-pnpm evals show latest
+// In graderRegistry:
+'my-check': { metering: 'none', create: () => myGrader },
 ```
 
-A fixture needing Next.js dependencies, multiple services, databases or a different operating system needs an environment-adapter change. Simply adding shell commands to JSON does not extend the sandbox. Preserve the current adapter’s fail-closed restrictions while implementing the new runtime through the `TrialEnvironment` port.
+Keep mechanical judgment functions in `src/domain/`; external model calls belong in adapters. Cite saved evidence IDs and respect attribution, success and applicability. Missing or unobservable evidence yields `unknown`. Version changes must reflect changed judgment meaning.
 
-## Add a semantic rubric
+For a model grader, use `metering: 'semantic-api'`. Its factory receives the admitted key/config/rubric context, and the common planner reserves one bounded call for each selected model grader before any dispatch. Honor those bounds and return usage, model/rubric criteria and citations. The direct OpenAI adapter is the example; no tools or expensive fallback are configured. A new provider or metering scheme needs its own explicit budget implementation.
 
-Create `evals/rubrics/YOUR_RUBRIC.md` and select its basename in the task JSON. Describe the claim being judged, concrete pass/fail criteria, what evidence is insufficient, and what falls outside the judgment.
-
-A useful rubric separates facts the grader can see from assumptions. For example, a target HTML file can support a judgment about link wording and its declared destination, while successful browser execution needs command evidence and belongs to a code-based grader.
-
-Retain the verdict vocabulary: `pass`, `fail`, `unknown`, `not-applicable`. Require exact evidence IDs and verbatim quotations. The adapter already treats all evidence as untrusted, exposes no tools, bounds input/output, verifies citations and preserves grader failures as unknown.
-
-Keep the rubric, task prompt and captured target within the profile’s combined `maxInputChars` bound. Oversized semantic input is rejected before generation rather than silently truncated.
-
-Add a small calibration file under `evals/calibration/` covering an obvious success, a meaningful defect, insufficient evidence and an instruction-injection attempt. Expected labels authored by an agent are sanity expectations. A person must fill `humanVerdict`, reviewer and date before the grader is described as calibrated.
-
-A semantic regrade uses the currently selected task rubric and profile and records their provenance:
+Use the registry's injectable interface in tests to verify a second grader without changing orchestration. Cover a known pass, a meaningful failure, absent evidence and plausible false positives. Confirm live and regrade paths give the same judgments for the same recording.
 
 ```bash
+pnpm evals regrade RUN_ID
+pnpm evals regrade RUN_ID --graders my-check,diff-scope
 pnpm evals regrade RUN_ID --semantic --budget-usd 0.01
 ```
 
-That command adds one API call without rerunning Pi. Prefer offline deterministic regrading while developing mechanical evidence checks. Compare whole revisions with matching grader versions, rubric and configuration; do not combine favorable judgments from different revisions.
+Use `--graders` to apply a newly registered grader to an old recording. The revision records that selection; original task expectations and sealed evidence remain unchanged. Explicitly selecting a model grader also requires `--semantic`.
 
-## Add a deterministic grader
+A semantic rubric lives in `evals/rubrics`. The model receives task and before/after/patch evidence within its input bound, without tools. Oversized evidence produces a visible error. Add calibration examples and obtain human labels before claiming agreement with human judgment.
 
-Put a pure evidence-to-judgment function in `tools/agent-evals/src/domain/`. It should accept the existing `TrialEvidence`, return a `Grade`, and use only evidence whose actor, success and provenance support the claim. Wire it into `gradeTrial`, or supply a different `Grader` implementation at the CLI’s composition boundary when a task needs a distinct set of judgments.
+## Add a harness
 
-Use the existing browser and outcome graders as examples, with these invariants:
+Implement a `HarnessFactory` from `src/adapters/harnesses.ts` and register it there. Select its ID with the profile's `harness` field. A prepared harness supplies:
 
-- An agent’s claim does not prove tool execution. Environment/evaluator actions cannot count as agent behavior.
-- Incomplete, truncated or unattested evidence yields `unknown`, not an invented pass or fail.
-- Applicability is separate from observed behavior, and execution status is separate from a grade.
-- Each grade identifies its grader/version, explains the decision and cites saved evidence IDs.
+- An `AgentRunner` for a bounded request, normalized attributed events, native usage and explicit execution status.
+- A `TrialEnvironment` for isolated preparation, artifact capture, independent final checks and unconditional cleanup.
+- Inspected configuration, a readable description, expected model and reproducibility metadata.
 
-The Pi adapter translates raw protocol messages into domain observations. A grader should consume those observations rather than parse new Pi event shapes itself. If a new claim needs evidence the domain does not yet represent, add the observation contract and normalize it in the relevant adapter.
+`pi-harness.ts` contains the Pi-specific inspection, authentication rules, runner and environment wiring. The trial and experiment commands consume the returned contracts. A different agent must normalize its own observations and provide the same evidence guarantees; it must not label its output as Pi. The offline registry test uses a second harness to exercise this composition seam.
 
-Add meaningful offline cases under `tools/agent-evals/test/`: a known pass, a real failure, missing evidence and the most plausible false positive. For browser changes, the minimized real native traces in `evals/calibration/mechanical/` provide additional regression material. Increment the grader version when its meaning changes, then regrade saved runs before spending tokens on another trial.
+Pi remains the only live harness implementation. `doctor`, adapter configuration in the profile schema, and some CLI presentation still assume Pi. A real second backend may need changes there; the registry test proves that trial and experiment execution can consume another adapter, not that every CLI feature already supports it.
 
-## Add a profile
+An environment's `finalize()` stops agent descendants, checks the final application and captures evidence while required services are available. Once `prepare()` returns an environment, orchestration always calls its `cleanup()`, including after agent or final-observation failures, before grading. If `prepare()` fails partway through, the adapter must stop any processes and remove private credentials itself before throwing; orchestration has no returned environment to clean up. Preserve failed trials and save evidence before grading. Test isolation and cleanup before using credentials or sending live prompts.
 
-Copy `evals/profiles/smoke.json`, give the copy a descriptive filename and `id`, and change the relevant limits. The CLI selects the filename without `.json`:
+## Compare configurations
+
+Profiles set the harness, runtime/budget bounds and grader configuration. The included `smoke` and `controlled` profiles differ only in Pi conversation policy: native settings versus disabled compaction/retries. Both retain the explicitly restricted tool surface described in [the setup guide](README.md).
 
 ```bash
-pnpm evals profiles
-pnpm evals validate
-pnpm evals run ui-copy --profile YOUR_PROFILE --dry-run
+pnpm evals run repository-docs --profile smoke
+pnpm evals run repository-docs --profile controlled
+pnpm evals compare FIRST_ID SECOND_ID --factor agent-configuration
 ```
 
-`agentBilling: "subscription"` requires a null agent dollar threshold and verified supported OAuth authentication. An API-billed agent needs an explicit dollar threshold. Pi token/runtime bounds always remain active. Grader bounds and the direct API allowance remain separate.
-
-Profiles currently retain concurrency one and zero automatic retries, with schema ceilings appropriate to this pilot. The [configuration adapter](../tools/agent-evals/src/adapters/evaluation-config.ts) is the single schema. Treat broad scheduling and total experiment spending as a separate application feature rather than bypassing those limits in scripts.
-
-Changing the grader model requires reviewed availability, structured-output support and prices. No automatic expensive fallback is configured. Model/profile changes create different experiment conditions and cannot be silently mixed into an instruction comparison.
-
-## Add an agent or environment adapter
-
-Implement the existing port from `domain/types.ts`, then compose it in `src/cli/commands/`. Keep external APIs, subprocesses and filesystem operations inside adapters.
-
-| Port               | Responsibilities                                                                                                                            |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AgentRunner`      | Run one bounded request, emit attributed observations, retain errors and usage, and return an explicit execution status                     |
-| `TrialEnvironment` | Prepare an isolated workspace/services, expose provenance, collect artifacts and stop descendants/remove private credentials during cleanup |
-| `Grader`           | Produce versioned evidence-backed judgments without owning the agent lifecycle                                                              |
-| `RunStore`         | Retain manifests, events and reports; durable evidence remains available after a later failure                                              |
-
-Keep the current native Pi adapter as the baseline. Another agent must normalize its own evidence rather than masquerade as Pi. An environment must prove its boundary and cleanup behavior before using live credentials or model calls. Use in-memory ports and controlled fake processes for offline tests, then one explicit local preflight/live smoke when prerequisites permit.
-
-The application layer coordinates the ports and saves evidence before grading. Preserve that ordering: an expensive completed trial must remain regradable even if a later grader fails.
+For instruction comparisons use `experiment TASK`; it freezes one profile and schedules the enabled/disabled pair. `--pairs N` repeats with alternating condition order under one aggregate API allowance. Repetition does not itself establish statistical confidence or calibrate semantic grading. Model comparisons must declare `--factor model` and keep the other conditions fixed.

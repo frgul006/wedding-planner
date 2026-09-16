@@ -1,5 +1,5 @@
 import type { ComparisonResult } from './comparison.ts';
-import type { Grade, TrialEvidence, Usage } from './types.ts';
+import type { Grade, GradingResult, TrialEvidence, Usage } from './types.ts';
 
 export { compareTrials, type ComparableTrial } from './comparison.ts';
 
@@ -12,6 +12,7 @@ export interface SemanticReport {
 
 /** Report identity is distinct from the saved trial, especially during regrading. */
 export interface ReportContext {
+  gradingResults?: readonly GradingResult[];
   trialId?: string;
   regrade?: {
     id?: string;
@@ -164,13 +165,23 @@ ${grades.length ? gradeTable(grades) : 'No judgments were recorded.'}`);
     controls?.data.agentCostLimitEnabled === false
       ? `Pi’s dollar threshold was disabled; tokens and runtime remained bounded. Catalog price estimate: ${cost(usage.estimatedCostUsd)}, retained for audit only.`
       : `Agent cost: ${cost(usage.estimatedCostUsd)}. ${inline(usage.costSource)}.`;
-  const graderUsage = semantic
-    ? `Grader API: **${inline(semantic.model)}** · ${inline(semantic.status)} · ${cost(semantic.usage.estimatedCostUsd)}.
+  const modelResults = context.gradingResults?.filter(
+    (result) => result.metering === 'semantic-api' || result.usage,
+  );
+  const graderUsage = modelResults?.length
+    ? modelResults
+        .map(
+          (result) =>
+            `Grader API: **${inline(result.grader)}** · ${inline(result.criteria?.model ?? 'unknown model')} · ${inline(result.status)} · ${cost(result.usage?.estimatedCostUsd)}.\n\nGrader tokens: ${tokenSummary(result.usage ?? {})}.`,
+        )
+        .join('\n\n')
+    : semantic
+      ? `Grader API: **${inline(semantic.model)}** · ${inline(semantic.status)} · ${cost(semantic.usage.estimatedCostUsd)}.
 
 Grader tokens: ${tokenSummary(semantic.usage)}.`
-    : context.regrade
-      ? 'Grader API: not run for this regrade (no new API cost). Any earlier semantic judgment remains in the original report; it is not a judgment from this regrade.'
-      : 'Grader API: not run (no API cost).';
+      : context.regrade
+        ? 'Grader API: not run for this regrade (no new API cost). Any earlier semantic judgment remains in the original report; it is not a judgment from this regrade.'
+        : 'Grader API: not run (no API cost).';
   sections.push(`## Usage and cost
 
 ${agentTokens}
@@ -211,7 +222,7 @@ ${provenance}`
 
 The manifest records versions, model settings, budget and attempts. Evidence and transcripts retain attributed observations; evaluator actions do not earn agent compliance.`);
   sections.push(
-    'This is one trial of a synthetic fixture. It establishes neither reliable compliance nor whether the instruction is needed. Semantic judgments remain provisional until a person reviews the calibration cases.',
+    `This is one trial of ${evidence.task.environment === 'repository' ? 'a pinned repository revision' : 'a synthetic fixture'}. It establishes neither reliable compliance nor whether the instruction is needed. Semantic judgments remain provisional until a person reviews the calibration cases.`,
   );
   return `${sections.join('\n\n')}
 `;

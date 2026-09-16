@@ -1,8 +1,8 @@
 {
-  "id": "local-pi-smoke-v1",
+  "id": "local-pi-repository-v2",
   "concurrency": 1,
-  "runtimeMs": 300000,
-  "maxAgentTokens": 300000,
+  "runtimeMs": 900000,
+  "maxAgentTokens": 1500000,
   "maxAgentEstimatedCostUsd": null,
   "estimatedApiBudgetUsd": 1,
   "agentRetries": 0,
@@ -16,7 +16,11 @@
     "inputPerMillion": 0.2,
     "outputPerMillion": 1.2,
     "pricingSource": "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
-    "pricingCheckedOn": "2026-09-07"
+    "pricingCheckedOn": "2026-09-16"
   },
-  "agentBilling": "subscription"
+  "agentBilling": "subscription",
+  "harness": "pi",
+  "pi": {
+    "runtime": "native"
+  }
 }

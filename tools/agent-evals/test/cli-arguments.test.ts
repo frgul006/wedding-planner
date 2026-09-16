@@ -57,8 +57,44 @@ test('help is available without loading configuration or credentials', () => {
   assert.throws(() => parseCommand(['help', 'missing']), /help <command>/);
 });
 
+test('explicit regrade grader selection is syntactically bounded and command-specific', () => {
+  assert.equal(
+    parseCommand(['regrade', 'latest', '--graders', 'target-outcome,diff-scope']).values.graders,
+    'target-outcome,diff-scope',
+  );
+  for (const selection of ['', 'target-outcome,', 'target-outcome,target-outcome', '../private'])
+    assert.throws(
+      () => parseCommand(['regrade', 'latest', '--graders', selection]),
+      /unique grader IDs/,
+    );
+  assert.throws(() => parseCommand(['run', '--graders', 'target-outcome']), /does not apply/);
+  assert.match(helpText('regrade'), /--graders id,id/);
+});
+
 test('unknown names, including inherited Object properties, are not commands', () => {
   for (const name of ['missing', 'toString', '__proto__']) {
     assert.throws(() => parseCommand([name]), /Unknown command/);
   }
+});
+
+test('experiment flags describe a bounded whole experiment and reject conflicting grader modes', () => {
+  const request = parseCommand([
+    'experiment',
+    'repository-ui-copy',
+    '--pairs',
+    '3',
+    '--semantic',
+    '--agent-source',
+    '/checkout',
+  ]);
+  assert.equal(request.command, 'experiment');
+  assert.equal(request.values.pairs, '3');
+  assert.equal(request.values['agent-source'], '/checkout');
+  for (const pairs of ['0', '11', '1.5'])
+    assert.throws(() => parseCommand(['experiment', '--pairs', pairs]), /between 1 and 10/);
+  assert.throws(() => parseCommand(['experiment', '--semantic', '--no-grader']), /not both/);
+  assert.throws(() => parseCommand(['experiment', '--variant', 'enabled']), /does not apply/);
+  assert.equal(parseCommand(['compare', 'a', 'b', '--factor', 'model']).values.factor, 'model');
+  assert.throws(() => parseCommand(['compare', 'a', 'b', '--factor', 'anything']), /--factor/);
+  assert.match(helpText('experiment'), /entire experiment/);
 });

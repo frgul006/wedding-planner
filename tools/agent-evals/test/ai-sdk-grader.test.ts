@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   AiSdkRubricGrader,
   checkGraderModel,
+  semanticEvidence,
   type RubricConfig,
 } from '../src/adapters/ai-sdk-grader.ts';
 import type { TrialEvidence } from '../src/domain/types.ts';
@@ -87,6 +88,47 @@ const validGrade = {
   reason: 'The startup command is documented.',
   evidence: [{ id: 'target', quote: 'pnpm dev' }],
 };
+
+test('semantic evidence includes independent before, after and complete patch sources', () => {
+  const enriched = {
+    ...trial,
+    beforeArtifacts: [
+      { ...trial.artifacts[0], id: 'before-target', content: 'Old startup guidance' },
+    ],
+    patch: {
+      ...trial.artifacts[0],
+      id: 'final-patch',
+      path: 'changes.patch',
+      content: '-Old startup guidance\n+Run pnpm dev',
+    },
+  };
+  const sources = semanticEvidence(enriched);
+  assert.deepEqual(
+    sources.map(({ id, stage }) => [id, stage]),
+    [
+      ['before-target', 'before'],
+      ['target', 'after'],
+      ['final-patch', 'patch'],
+    ],
+  );
+  assert.equal(sources[0].content, 'Old startup guidance');
+  assert.match(sources[2].content, /Old startup guidance/);
+});
+
+test('the Grader port retains semantic usage and citation metadata', async (context) => {
+  context.mock.method(globalThis, 'fetch', async () => response(JSON.stringify(validGrade)));
+  const result = await new AiSdkRubricGrader(
+    'synthetic-test-key',
+    config,
+    'Grade documentation.',
+  ).grade(trial);
+  assert.equal(result.grader, 'semantic-task-clarity');
+  assert.equal(result.status, 'completed');
+  assert.equal(result.grades[0].verdict, 'pass');
+  assert.equal(result.usage?.estimatedCostUsd, 0.000044);
+  assert.deepEqual(result.metadata?.citations, validGrade.evidence);
+  assert.equal(result.metadata?.model, config.model);
+});
 
 test('semantic grading uses structured direct OpenAI output, bounded tokens, no storage and verified citations', async (context) => {
   let requests = 0;

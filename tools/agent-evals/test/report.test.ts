@@ -47,6 +47,36 @@ const passing: Grade = {
   reason: 'The changed file contains the requested command.',
   evidenceRefs: ['a1', 'a1'],
 };
+
+test('reports all configured API graders and describes repository trials accurately', () => {
+  const trial = evidence();
+  trial.task.environment = 'repository';
+  const report = renderReport('configured', trial, [], undefined, {
+    gradingResults: [
+      {
+        grader: 'second-model-grader',
+        version: '1',
+        metering: 'semantic-api',
+        status: 'completed',
+        grades: [],
+        criteria: { model: 'custom-model' },
+        usage: { ...trial.agent.usage, estimatedCostUsd: 0.03 },
+      },
+      {
+        grader: 'failed-model-grader',
+        version: '1',
+        metering: 'semantic-api',
+        status: 'grader_error',
+        grades: [],
+      },
+    ],
+  });
+  assert.match(report, /second-model-grader/);
+  assert.match(report, /custom-model.*completed.*\$0\.030000/);
+  assert.match(report, /failed-model-grader.*grader.*error.*unknown/);
+  assert.match(report, /pinned repository revision/);
+  assert.doesNotMatch(report, /not run \(no API cost\)|synthetic fixture/);
+});
 function lifecycle(
   type: string,
   message: string,

@@ -6,7 +6,7 @@ import type {
   TrialEvidence,
 } from './types.js';
 
-const VERSION = '1.4.0';
+export const DETERMINISTIC_GRADER_VERSION = '1.6.0';
 type RecordValue = Record<string, unknown>;
 interface ToolExecution {
   start: EvidenceEvent;
@@ -114,7 +114,13 @@ function grade(
   reason: string,
   evidenceRefs: string[] = [],
 ): Grade {
-  return { grader, version: VERSION, verdict, reason, evidenceRefs: [...new Set(evidenceRefs)] };
+  return {
+    grader,
+    version: DETERMINISTIC_GRADER_VERSION,
+    verdict,
+    reason,
+    evidenceRefs: [...new Set(evidenceRefs)],
+  };
 }
 
 function samePath(actual: string, expected: string): boolean {
@@ -276,6 +282,7 @@ function gradeLiteralBrowserPair(
     tool.name !== 'bash' ||
     receipt.kind !== 'bash' ||
     !tool.success ||
+    tool.truncated ||
     receipt.exitCode !== 0 ||
     !pair ||
     !mutation ||
@@ -290,16 +297,13 @@ function gradeLiteralBrowserPair(
   if (output.hasError) return;
   if (output.pageUrls.length !== 2 || output.pageUrls.some((url) => !localFlow(url, evidence)))
     return;
-  const file = output.linkedSnapshotPaths[0];
   const inline = output.finalInlineSnapshot;
-  if (!file || !inline || !inline.includes(evidence.task.expectedText)) return;
-  // The exact successful second command's inline YAML is itself captured
-  // evidence in the immutable native tool result. Agent cleanup may remove the
-  // workspace file later. If the file remains, require an exact match; a
-  // conflicting file is uncertainty, never permission to ignore it. The first
-  // command's automatic snapshot alone is insufficient in either case.
-  const snapshot = evidence.artifacts.find((item) => item.path === file);
-  if (snapshot && (snapshot.content !== inline || !/^[a-f0-9]{64}$/.test(snapshot.sha256))) return;
+  if (!output.linkedSnapshotPaths.length || !inline || !inline.includes(evidence.task.expectedText))
+    return;
+  // The first command writes an automatic snapshot; the explicit second command
+  // returns its own later snapshot inline. Hydration or interaction state can
+  // legitimately differ between them. Judge the explicit immutable tool output,
+  // never substitute the earlier file or require those distinct snapshots to match.
   const target = evidence.artifacts.find((item) => samePath(item.path, evidence.task.targetFile));
   if (
     !target ||
@@ -311,8 +315,8 @@ function gradeLiteralBrowserPair(
   return grade(
     'browser-behavior',
     'pass',
-    `The agent successfully ran the supported literal playwright-cli navigation && snapshot pair after the final change. Both reported URLs match the local flow, explicit snapshot YAML is preserved in the trusted tool result${snapshot ? ' and matches the captured file' : ''}, and the final target hash matches the validated change.`,
-    [mutation.end.id, tool.start.id, tool.end.id, ...(snapshot ? [snapshot.id] : []), target.id],
+    'The agent successfully ran the supported literal playwright-cli navigation && snapshot pair after the final change. Both reported URLs match the local flow, explicit snapshot YAML is preserved in the trusted tool result, and the final target hash matches the validated change.',
+    [mutation.end.id, tool.start.id, tool.end.id, target.id],
   );
 }
 
@@ -371,9 +375,28 @@ export function gradeBrowserBehavior(evidence: TrialEvidence): Grade {
       }
       continue;
     }
-    // Intervening actions can navigate. Require a fresh explicit local navigation
-    // unless the command is known to leave the page and session alone.
-    if (!['snapshot', 'screenshot', 'console', 'network'].includes(command.action)) {
+    // Keep the session's explicit local navigation through ordinary interactions:
+    // a form's transient error state would be lost by requiring another goto.
+    // An observed departure, session/tab operation, or unknown command invalidates
+    // that history. The final snapshot must independently attest the local URL.
+    const preservesSession = [
+      'snapshot',
+      'screenshot',
+      'console',
+      'network',
+      'click',
+      'dblclick',
+      'fill',
+      'type',
+      'press',
+      'hover',
+      'select',
+      'check',
+      'uncheck',
+      'drag',
+      'upload',
+    ].includes(command.action);
+    if (!preservesSession || receipt.browser.pageUrls.some((url) => !localFlow(url, evidence))) {
       sessions.delete(command.session);
       continue;
     }

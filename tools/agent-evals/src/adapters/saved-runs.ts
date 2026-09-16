@@ -1,7 +1,7 @@
 import { access, readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
-import type { Grade, TrialEvidence } from '../domain/types.ts';
+import type { Grade, GradingResult, TrialEvidence } from '../domain/types.ts';
 import { normalizeLegacyEvidence } from './pi-evidence.ts';
 import { FileRunStore, hash } from './file-run-store.ts';
 import { readJson } from './evaluation-config.ts';
@@ -12,6 +12,31 @@ const gradeSchema = z.object({
   verdict: z.enum(['pass', 'fail', 'unknown', 'not-applicable']),
   reason: z.string(),
   evidenceRefs: z.array(z.string()),
+});
+const usageSchema = z.object({
+  inputTokens: z.number(),
+  outputTokens: z.number(),
+  cacheReadTokens: z.number(),
+  cacheWriteTokens: z.number(),
+  estimatedCostUsd: z.number().nullable(),
+  costSource: z.string(),
+});
+const gradingResultSchema = z.object({
+  grader: z.string(),
+  version: z.string(),
+  status: z.enum(['completed', 'grader_error', 'cancelled']),
+  metering: z.enum(['none', 'semantic-api']).optional(),
+  grades: z.array(gradeSchema),
+  usage: usageSchema.optional(),
+  criteria: z.record(z.string(), z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+const artifactSchema = z.object({
+  id: z.string(),
+  path: z.string(),
+  sha256: z.string(),
+  content: z.string(),
+  observedBy: z.literal('evaluator'),
 });
 const manifestSchema = z
   .object({
@@ -38,6 +63,7 @@ export interface GradingRevision {
   id: string;
   label: string;
   grades: Grade[];
+  gradingResults?: GradingResult[];
   gradedAt?: string;
   harnessHash?: string;
   semantic?: unknown;
@@ -193,15 +219,23 @@ function validateEvidence(value: unknown): TrialEvidence {
       .passthrough(),
     variant: z.enum(['enabled', 'disabled']),
     localUrl: z.string(),
-    artifacts: z.array(
-      z.object({
-        id: z.string(),
-        path: z.string(),
-        sha256: z.string(),
-        content: z.string(),
-        observedBy: z.literal('evaluator'),
-      }),
-    ),
+    artifacts: z.array(artifactSchema),
+    beforeArtifacts: z.array(artifactSchema).optional(),
+    patch: artifactSchema.optional(),
+    changedFiles: z.array(z.string()).optional(),
+    checks: z
+      .array(
+        z.object({
+          id: z.string(),
+          actor: z.literal('evaluator'),
+          command: z.array(z.string()),
+          exitCode: z.number().nullable(),
+          stdout: z.string(),
+          stderr: z.string(),
+          status: z.enum(['pass', 'fail', 'unknown']),
+        }),
+      )
+      .optional(),
     events: z.array(
       z
         .object({
@@ -280,6 +314,7 @@ async function readGradingRevision(
   const revision = z
     .object({
       grades: z.array(gradeSchema),
+      gradingResults: z.array(gradingResultSchema).optional(),
       sourceIntegrityHash: z.string(),
       harnessHash: z.string(),
       regradedAt: z.string(),
@@ -306,6 +341,7 @@ async function readGradingRevision(
       id,
       label: id,
       grades: revision.grades,
+      gradingResults: revision.gradingResults,
       gradedAt: revision.regradedAt,
       harnessHash: revision.harnessHash,
       semantic: revision.semantic,
@@ -342,6 +378,16 @@ export async function readSavedRun(directory: string): Promise<SavedRun> {
   );
   const id = manifest.id ?? path.basename(directory);
   const grades = z.array(gradeSchema).parse(await readJson(path.join(directory, 'grades.json')));
+  let gradingResults: GradingResult[] | undefined;
+  try {
+    gradingResults = z
+      .array(gradingResultSchema)
+      .parse(await readJson(path.join(directory, 'grading-results.json')));
+    if (!seal.files['grading-results.json'])
+      throw new Error('Original grading-results.json is missing from the evidence integrity seal.');
+  } catch (error) {
+    if (!isMissing(error)) throw error;
+  }
   let semantic: unknown;
   try {
     semantic = await readJson(path.join(directory, 'semantic.json'));
@@ -354,6 +400,7 @@ export async function readSavedRun(directory: string): Promise<SavedRun> {
     id: 'original',
     label: 'Original grading',
     grades,
+    gradingResults,
     semantic,
     reportPath: path.join(directory, 'report.md'),
   };

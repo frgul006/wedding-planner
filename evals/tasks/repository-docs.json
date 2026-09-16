@@ -1,0 +1,23 @@
+{
+  "id": "repository-docs",
+  "title": "Document checking the real admin login page",
+  "environment": "repository",
+  "repository": { "revision": "30d2388f71595d1ba65d0d2fabc8b97b6ee48f80" },
+  "acceptance": "local-development-docs",
+  "allowedChangedPaths": ["docs/admin-auth.md"],
+  "graders": [
+    "target-outcome",
+    "browser-compliance",
+    "browser-behavior",
+    "acceptance-checks",
+    "diff-scope",
+    "semantic-task-clarity"
+  ],
+  "rubric": "repository-task",
+  "version": "1",
+  "kind": "docs",
+  "prompt": "Add a short section titled 'Verify the admin login page' to the admin authentication documentation. Explain how to start the app and open the admin login page locally, and distinguish checking that the form renders from testing a successful login. This is a documentation change.",
+  "targetFile": "docs/admin-auth.md",
+  "expectedText": "Verify the admin login page",
+  "flowPath": "/admin/login"
+}

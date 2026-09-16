@@ -2,11 +2,54 @@ import { execFile } from 'node:child_process';
 import { access, readFile, readdir, realpath } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import { resolveExecutable } from './sandbox.ts';
 
 const execute = promisify(execFile);
+
+/** Find a real pnpm installation; do not put a network-capable Corepack shim in trials. */
+export async function resolvePinnedPnpm(
+  pinnedVersion: string,
+  nodeExecutable: string,
+): Promise<{ executable: string; directory: string; version: string }> {
+  const candidates: string[] = [];
+  try {
+    candidates.push(await resolveExecutable('pnpm'));
+  } catch {
+    /* Try Corepack's installed cache. */
+  }
+  const corepackHome = process.env.COREPACK_HOME ?? join(homedir(), '.cache/node/corepack');
+  for (const cache of [corepackHome, join(homedir(), 'Library/Caches/node/corepack')])
+    for (const layout of ['v1/pnpm', 'pnpm'])
+      candidates.push(
+        join(
+          cache,
+          layout,
+          pinnedVersion,
+          'bin',
+          Number(pinnedVersion.split('.')[0]) >= 12 ? 'pnpm.mjs' : 'pnpm.cjs',
+        ),
+      );
+  for (const candidate of new Set(candidates)) {
+    try {
+      const executable = await realpath(candidate);
+      const directory = dirname(dirname(executable));
+      const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8')) as {
+        name?: string;
+        version?: string;
+      };
+      if (manifest.name !== 'pnpm' || manifest.version !== pinnedVersion) continue;
+      const actual = await version(nodeExecutable, [executable, '--version'], 'pinned pnpm');
+      if (actual === pinnedVersion) return { executable, directory, version: actual };
+    } catch {
+      /* Missing cache entries and Corepack shims are not the runtime. */
+    }
+  }
+  throw new Error(
+    `Pinned pnpm ${pinnedVersion} is not installed. Run pnpm install first, or install pnpm ${pinnedVersion} directly on PATH. COREPACK_HOME is supported.`,
+  );
+}
 
 export interface LocalRuntime {
   platform: 'darwin';
@@ -88,28 +131,7 @@ export async function resolveLocalRuntime(sourceRepo: string): Promise<LocalRunt
   const pinnedVersion = repository.packageManager?.match(/^pnpm@([0-9.]+)/)?.[1];
   if (!pinnedVersion)
     throw new Error('Pin the repository pnpm version in package.json before running evaluations.');
-  const pnpmDirectory = join(homedir(), '.cache/node/corepack/v1/pnpm', pinnedVersion);
-  const pnpmExecutable = join(
-    pnpmDirectory,
-    'bin',
-    Number(pinnedVersion.split('.')[0]) >= 12 ? 'pnpm.mjs' : 'pnpm.cjs',
-  );
-  try {
-    await access(pnpmExecutable);
-  } catch {
-    throw new Error(
-      `Pinned pnpm ${pinnedVersion} is missing from the Corepack cache. Run pnpm install in the repository first.`,
-    );
-  }
-  const pnpmVersion = await version(
-    nodeExecutable,
-    [pnpmExecutable, '--version'],
-    `pinned pnpm ${pinnedVersion}`,
-  );
-  if (pnpmVersion !== pinnedVersion)
-    throw new Error(
-      `The cached pnpm runtime reports ${pnpmVersion}; the repository pins ${pinnedVersion}. Repair the Corepack cache.`,
-    );
+  const pnpm = await resolvePinnedPnpm(pinnedVersion, nodeExecutable);
 
   let playwrightExecutable: string;
   try {
@@ -120,7 +142,7 @@ export async function resolveLocalRuntime(sourceRepo: string): Promise<LocalRunt
     );
   }
   const browser = await resolveHeadlessBrowser(
-    join(homedir(), 'Library/Caches/ms-playwright'),
+    process.env.PLAYWRIGHT_BROWSERS_PATH ?? join(homedir(), 'Library/Caches/ms-playwright'),
     process.arch,
   );
   const [playwrightVersion, browserVersion] = await Promise.all([
@@ -131,7 +153,7 @@ export async function resolveLocalRuntime(sourceRepo: string): Promise<LocalRunt
     platform: 'darwin',
     architecture: process.arch,
     node: { executable: nodeExecutable, version: process.version },
-    pnpm: { executable: pnpmExecutable, directory: pnpmDirectory, version: pnpmVersion },
+    pnpm,
     playwright: { executable: playwrightExecutable, version: playwrightVersion },
     browser: { ...browser, version: browserVersion },
   };

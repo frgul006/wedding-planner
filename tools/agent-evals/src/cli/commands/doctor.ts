@@ -6,7 +6,7 @@ import { resolveLocalRuntime } from '../../adapters/isolation/runtime.ts';
 import { inspectPi } from '../../adapters/pi-inspection.ts';
 import { loadGraderKey, safeError } from '../../adapters/secrets.ts';
 import { timestampId, type CommandContext } from '../context.ts';
-import { graderEnvFile, profileOverrides } from '../live-plan.ts';
+import { agentSource, graderEnvFile, profileOverrides } from '../live-plan.ts';
 import { table } from '../output.ts';
 
 interface Check {
@@ -20,14 +20,16 @@ export async function doctorCommand(context: CommandContext): Promise<number> {
   const { repo, request, output } = context;
   const profile = await loadProfile(repo, request.values.profile, profileOverrides(context));
   const keyFile = graderEnvFile(context);
+  const source = agentSource(context);
+  const useGrader = Boolean(request.values.semantic);
   let key = '';
   const [runtime, pi, grader] = await output.during(
     'Checking local runtime, native Pi and selected grader access…',
     () =>
       Promise.allSettled([
         resolveLocalRuntime(repo),
-        inspectPi({ cwd: repo }),
-        request.values['no-grader']
+        inspectPi({ cwd: source }),
+        !useGrader
           ? Promise.resolve(null)
           : (async () => {
               key = await loadGraderKey(keyFile);
@@ -91,14 +93,14 @@ export async function doctorCommand(context: CommandContext): Promise<number> {
       status: grader.value ? 'pass' : 'skipped',
       detail: grader.value
         ? `${profile.grader.model} available; no generation sent`
-        : '--no-grader · no API key needed',
+        : 'Semantic grading disabled · no API key needed',
     });
   } else {
     checks.push({
       name: 'API grader',
       status: 'fail',
       detail: safeError(grader.reason),
-      remedy: `Put OPENAI_API_KEY in ${keyFile}, or use doctor --no-grader and run --no-grader.`,
+      remedy: `Put OPENAI_API_KEY in ${keyFile}, or omit --semantic.`,
     });
   }
   const directory = path.join(repo, 'evals/runs', `doctor-${timestampId()}`);
@@ -109,7 +111,8 @@ export async function doctorCommand(context: CommandContext): Promise<number> {
     runtime: runtime.status === 'fulfilled' ? runtime.value : null,
     pi: pi.status === 'fulfilled' ? pi.value : null,
     grader: grader.status === 'fulfilled' ? grader.value : null,
-    graderKeyFile: request.values['no-grader'] ? null : keyFile,
+    graderKeyFile: useGrader ? keyFile : null,
+    agentSource: source,
     productionHooks: 'Production-linked startup hooks are excluded from evaluation trials.',
   });
   const ready = checks.every((check) => check.status !== 'fail');
@@ -134,7 +137,7 @@ ${remedies}
 }
 No agent prompt or billed generation was sent.
 Details: ${path.join(directory, 'inspection.json')}
-${ready ? `Next: pnpm evals run ui-copy${request.values['no-grader'] ? ' --no-grader' : ''}` : 'Fix the failed checks, then run doctor again.'}`,
+${ready ? `Next: pnpm evals experiment repository-ui-copy${useGrader ? ' --semantic' : ''}` : 'Fix the failed checks, then run doctor again.'}`,
   );
   return ready ? 0 : 1;
 }

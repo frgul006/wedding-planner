@@ -21,7 +21,8 @@ async function captureWorkspaceFile(
   try {
     const file = await safeFile(paths.workspace, candidate);
     const info = await stat(file);
-    if (info.size > 256_000 || !/\.(md|html|ya?ml|json|log|txt)$/.test(file)) return;
+    if (info.size > 256_000 || !/\.(md|html|ya?ml|json|log|txt|[cm]?[jt]sx?|css)$/.test(file))
+      return;
     const result = await run(nodeExecutable, [paths.fileWorker, 'read', file], 5000);
     if (result.exitCode !== 0) return;
     return { path: candidate, content: result.stdout, sha256: sha256(result.stdout) };

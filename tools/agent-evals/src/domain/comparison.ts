@@ -17,6 +17,15 @@ export interface ComparisonResult {
   mismatches: InvariantMismatch[];
 }
 
+/** Exactly one declared factor may vary; grading and all other conditions stay fixed. */
+export type ComparisonFactor = 'instruction' | 'model' | 'agent-configuration';
+
+const varyingFields: Record<ComparisonFactor, readonly string[]> = {
+  instruction: [],
+  model: ['model'],
+  'agent-configuration': ['agentConfiguration', 'piVersion'],
+};
+
 function record(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -50,7 +59,12 @@ export function invariantMismatches(
   return [{ path, left, right }];
 }
 
-export function compareTrials(left: ComparableTrial, right: ComparableTrial): ComparisonResult {
+export function compareTrials(
+  left: ComparableTrial,
+  right: ComparableTrial,
+  options: { factor?: ComparisonFactor } = {},
+): ComparisonResult {
+  const factor = options.factor ?? 'instruction';
   if (!left.comparisonEligible || !right.comparisonEligible)
     return {
       eligible: false,
@@ -59,12 +73,19 @@ export function compareTrials(left: ComparableTrial, right: ComparableTrial): Co
       mismatches: [],
     };
   if (
-    new Set([left.variant, right.variant]).size !== 2 ||
-    ![left.variant, right.variant].every((variant) => ['enabled', 'disabled'].includes(variant))
+    factor === 'instruction' &&
+    (new Set([left.variant, right.variant]).size !== 2 ||
+      ![left.variant, right.variant].every((variant) => ['enabled', 'disabled'].includes(variant)))
   )
     return {
       eligible: false,
       reason: 'Comparison requires one enabled and one disabled trial.',
+      mismatches: [],
+    };
+  if (factor !== 'instruction' && left.variant !== right.variant)
+    return {
+      eligible: false,
+      reason: `The instruction must stay fixed when comparing ${factor}.`,
       mismatches: [],
     };
   if (
@@ -79,8 +100,36 @@ export function compareTrials(left: ComparableTrial, right: ComparableTrial): Co
         'Saved trial invariants are missing or incomplete; a controlled comparison cannot be established.',
       mismatches: [],
     };
+  const differences = invariantMismatches(left.invariants, right.invariants);
+  if (factor !== 'instruction') {
+    const field = factor === 'model' ? 'model' : 'agentConfiguration';
+    if (
+      !record(left.invariants[field]) ||
+      !record(right.invariants[field]) ||
+      !Object.keys(left.invariants[field]).length ||
+      !Object.keys(right.invariants[field]).length
+    )
+      return {
+        eligible: false,
+        reason: `Both trials need observed ${factor} provenance.`,
+        mismatches: [],
+      };
+  }
+  const varies = (difference: InvariantMismatch) =>
+    varyingFields[factor].some(
+      (field) =>
+        difference.path === `invariants.${field}` ||
+        difference.path.startsWith(`invariants.${field}.`) ||
+        difference.path.startsWith(`invariants.${field}[`),
+    );
+  if (factor !== 'instruction' && !differences.some(varies))
+    return {
+      eligible: false,
+      reason: `The declared ${factor} factor did not change.`,
+      mismatches: [],
+    };
   const mismatches = [
-    ...invariantMismatches(left.invariants, right.invariants),
+    ...differences.filter((difference) => !varies(difference)),
     ...invariantMismatches(left.grading, right.grading, 'grading'),
   ];
   if (mismatches.length)
@@ -91,8 +140,7 @@ export function compareTrials(left: ComparableTrial, right: ComparableTrial): Co
     };
   return {
     eligible: true,
-    reason:
-      'Matched controlled pair. Report observations only; repeat paired trials before estimating usefulness. A few successful disabled runs do not show that an instruction is unnecessary.',
+    reason: `Matched controlled pair for ${factor}. Report observations only; repeat paired trials before estimating usefulness. A few successful disabled runs do not show that an instruction is unnecessary.`,
     mismatches: [],
   };
 }

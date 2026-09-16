@@ -41,6 +41,60 @@ test('artifact collection rejects paths and symlinks outside workspace', async (
   }
 });
 test(
+  'cancelled acceptance does not dispatch and an in-flight command is killed promptly',
+  { skip: process.platform !== 'darwin' },
+  async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'eval-cancel-')));
+    try {
+      const profile = join(root, 'sandbox.sb');
+      await writeFile(
+        profile,
+        sandboxProfile({
+          workspace: root,
+          writableDirectories: [root],
+          readableDirectories: ['/bin', '/usr', '/System'],
+          readableFiles: [],
+          port: 59999,
+        }),
+      );
+      const env = minimalEnvironment(root, root, '/usr/bin');
+      let spawned = false;
+      const skipped = await runSandboxCommand(profile, '/bin/sleep', ['10'], {
+        cwd: root,
+        env,
+        signal: AbortSignal.abort(),
+        onSpawn: () => {
+          spawned = true;
+        },
+      });
+      assert.equal(spawned, false);
+      assert.equal(skipped.exitCode, null);
+      assert.match(skipped.stderr, /cancelled before dispatch/);
+
+      const controller = new AbortController();
+      let pid: number | undefined;
+      const started = Date.now();
+      const running = await runSandboxCommand(profile, '/bin/sleep', ['10'], {
+        cwd: root,
+        env,
+        timeoutMs: 12_000,
+        signal: controller.signal,
+        onSpawn: (child) => {
+          pid = child;
+          setTimeout(() => controller.abort(), 100);
+        },
+      });
+      assert.equal(running.exitCode, null);
+      assert.match(running.stderr, /cancelled by user/);
+      assert.ok(Date.now() - started < 3000, 'Cancellation must not wait for command timeout.');
+      assert.ok(pid);
+      assert.throws(() => process.kill(pid!, 0), /ESRCH/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+test(
   'OS sandbox blocks an outside canary, write escape, and arbitrary network',
   { skip: process.platform !== 'darwin' },
   async () => {

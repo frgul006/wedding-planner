@@ -115,6 +115,56 @@ async function saveRevision(store: FileRunStore, name: string, sealed = true) {
   if (sealed) await sealRegrade(store, name);
 }
 
+test('saved evidence retains final acceptance, full patch and rich grader metadata for regrading', async () => {
+  await fixture(async (repo) => {
+    const store = await saveTrial(repo);
+    const enriched = {
+      ...evidence,
+      beforeArtifacts: [
+        { ...evidence.artifacts[0], id: 'before-target', content: 'Original documentation' },
+      ],
+      patch: { ...evidence.artifacts[0], id: 'patch', path: 'changes.patch', content: '+pnpm dev' },
+      changedFiles: ['README.md'],
+      checks: [
+        {
+          id: 'lint',
+          actor: 'evaluator',
+          command: ['pnpm', 'lint'],
+          exitCode: 0,
+          stdout: 'Passed',
+          stderr: '',
+          status: 'pass',
+        },
+      ],
+    };
+    const results = [
+      {
+        grader: 'target-outcome',
+        version: '1',
+        status: 'completed',
+        grades: [mechanical],
+        metadata: { source: 'independent' },
+      },
+    ];
+    await store.save('evidence.json', enriched);
+    await store.save('grading-results.json', results);
+    await store.seal([
+      'manifest.json',
+      'evidence.json',
+      'grades.json',
+      'semantic.json',
+      'report.md',
+      'grading-results.json',
+    ]);
+    const loaded = await readSavedRun(store.directory);
+    assert.deepEqual(loaded.evidence.beforeArtifacts, enriched.beforeArtifacts);
+    assert.deepEqual(loaded.evidence.patch, enriched.patch);
+    assert.deepEqual(loaded.evidence.changedFiles, enriched.changedFiles);
+    assert.deepEqual(loaded.evidence.checks, enriched.checks);
+    assert.deepEqual(loaded.original.gradingResults, results);
+  });
+});
+
 test('saved run selectors accept IDs, caller-relative paths and latest by trial time', async () => {
   await fixture(async (repo) => {
     const first = await saveTrial(repo, 'trial-first', '2026-09-07T12:00:00Z');

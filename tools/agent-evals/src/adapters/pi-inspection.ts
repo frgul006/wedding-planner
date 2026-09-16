@@ -18,8 +18,45 @@ import { dirname, isAbsolute, join, delimiter } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { modelMetadata, object, RpcProcess } from './pi-rpc.js';
+import { piConversationSettings } from './isolation/pi-configuration.ts';
 
 type JsonObject = Record<string, unknown>;
+
+/** Fail before probing when global-only projection would misrepresent a trusted project. */
+export async function assertSupportedProjectRuntimeSettings(
+  cwd: string,
+  projectTrusted: boolean,
+): Promise<void> {
+  if (!projectTrusted) return;
+  let raw: string;
+  try {
+    raw = await readFile(join(cwd, '.pi/settings.json'), 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+    throw new Error('Cannot inspect the trusted source project’s .pi/settings.json.');
+  }
+  let settings: JsonObject;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error();
+    settings = parsed as JsonObject;
+  } catch {
+    throw new Error(
+      'The trusted source project’s .pi/settings.json is not a valid settings object.',
+    );
+  }
+  const overrides = [
+    'defaultProvider',
+    'defaultModel',
+    'defaultThinkingLevel',
+    'defaultTools',
+    ...Object.keys(piConversationSettings(settings)),
+  ].filter((key) => Object.hasOwn(settings, key));
+  if (overrides.length)
+    throw new Error(
+      `Trusted project runtime overrides are not supported by this isolated Pi adapter: ${overrides.join(', ')}. Select --agent-source with supported settings or add effective project-settings projection before evaluating this configuration.`,
+    );
+}
 export interface PiSource {
   path: string;
   realPath: string;
@@ -318,6 +355,7 @@ export async function inspectPi(options: {
     packageRoot: installation.packageRoot,
     agentDir,
   });
+  await assertSupportedProjectRuntimeSettings(options.cwd, resources.projectTrusted);
   const temporary = await mkdtemp(join(tmpdir(), 'pi-eval-inspect-'));
   let rpc: RpcProcess | undefined;
   try {
@@ -378,6 +416,7 @@ export async function inspectPi(options: {
         model: settings.defaultModel,
         thinkingLevel: settings.defaultThinkingLevel,
       },
+      conversationSettings: piConversationSettings(settings),
       rpc: {
         model,
         thinkingLevel: state.thinkingLevel ?? null,

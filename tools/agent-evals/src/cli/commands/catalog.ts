@@ -1,6 +1,8 @@
 import { catalogNames, loadProfile, loadTask } from '../../adapters/evaluation-config.ts';
 import type { CommandContext } from '../context.ts';
 import { formatDuration, table } from '../output.ts';
+import { selectedGraderIds } from '../../adapters/task-graders.ts';
+import { harnesses } from '../../adapters/harnesses.ts';
 
 export async function catalogCommand(context: CommandContext): Promise<number> {
   const { repo, request, output } = context;
@@ -13,11 +15,18 @@ export async function catalogCommand(context: CommandContext): Promise<number> {
       `Tasks
 
 ${table(
-  ['ID', 'KIND', 'FIXTURE', 'DESCRIPTION'],
-  tasks.map((task) => [task.id, task.kind, task.fixture, task.title ?? task.prompt]),
+  ['ID', 'KIND', 'SOURCE', 'DESCRIPTION'],
+  tasks.map((task) => [
+    task.id,
+    task.kind,
+    task.environment === 'repository'
+      ? `repository@${task.repository!.revision.slice(0, 7)}`
+      : `fixture:${task.fixture}`,
+    task.title ?? task.prompt,
+  ]),
 )}
 
-Try: pnpm evals run ${tasks[0]?.id ?? 'ui-copy'} --dry-run
+Try: pnpm evals experiment repository-ui-copy --dry-run
 Add a task: evals/authoring.md`,
     );
     return 0;
@@ -34,9 +43,10 @@ Add a task: evals/authoring.md`,
       `Profiles
 
 ${table(
-  ['NAME', 'PI BILLING', 'TOKEN LIMIT', 'DEADLINE', 'API ALLOWANCE', 'GRADER'],
+  ['NAME', 'HARNESS', 'PI BILLING', 'TOKEN LIMIT', 'DEADLINE', 'API ALLOWANCE', 'GRADER'],
   profiles.map((profile) => [
     profile.name,
+    `${profile.harness}/${profile.pi.runtime}`,
     profile.agentBilling,
     profile.maxAgentTokens.toLocaleString('en-US'),
     formatDuration(profile.runtimeMs),
@@ -52,8 +62,13 @@ Select one with --profile NAME. API allowances are application estimates.`,
   const tasks = await catalogNames(repo, 'tasks');
   const profiles = await catalogNames(repo, 'profiles');
   const checks = await Promise.allSettled([
-    ...tasks.map((name) => loadTask(repo, name)),
-    ...profiles.map((name) => loadProfile(repo, name)),
+    ...tasks.map(async (name) => selectedGraderIds(await loadTask(repo, name))),
+    ...profiles.map(async (name) => {
+      const profile = await loadProfile(repo, name);
+      if (!Object.hasOwn(harnesses, profile.harness))
+        throw new Error(`Unknown harness: ${profile.harness}`);
+      return profile;
+    }),
   ]);
   const errors = checks.flatMap((check, index) =>
     check.status === 'rejected'
