@@ -14,6 +14,23 @@ This revises the original synthetic-page demonstration after skeptical review of
 
 The [reviewed red/green extract](examples/repository-preflight/README.md) includes the actual repair patch, check statuses and runtime/source hashes. It contains no agent result and makes no instruction-usefulness claim.
 
+## Live matched instruction pair
+
+```bash
+pnpm evals experiment repository-ui-copy --semantic --budget-usd 0.02
+```
+
+Experiment `experiment-repository-ui-copy-2026-09-16T08-17-20-921Z` completed both trials with matching comparison conditions. It ran against the frozen evaluator in commit `a0e1b7b` with task version 2. The later temporary-directory portability fix affects Linux filesystem tests and leaves the macOS runtime path unchanged.
+
+| Instruction | Agent execution | Task outcome | Independent acceptance | Diff scope | Browser behavior  | Browser compliance | Semantic clarity |
+| ----------- | --------------- | ------------ | ---------------------- | ---------- | ----------------- | ------------------ | ---------------- |
+| Enabled     | Completed       | Pass         | Pass                   | Pass       | Pass              | Pass               | Pass             |
+| Disabled    | Completed       | Pass         | Pass                   | Pass       | Fail: no snapshot | Not applicable     | Pass             |
+
+See the [reviewed live example](examples/repository-ui-copy/README.md) for exact retained patches, the enabled agent's explicit snapshot, receipt facts and the generated pair summary. The disabled condition's browser failure is an observation, not an obligation failure. Both real application outcomes passed the same independent checks.
+
+The two Luna calls cost an estimated **$0.0013672**, using conservative uncached input rates. Including the earlier completed diagnostic call ($0.0008162), the three new direct grader calls total **$0.0021834**. The interrupted diagnostic condition was cancelled before grading dispatch. No expensive fallback or SDK retry occurred. Pi used its subscription with separate usage accounting.
+
 ## Configuration and limits
 
 Pi inspection used the original checkout's actual trusted project, with 17 discovered skills and its saved `openai-codex/gpt-5.5/xhigh` OAuth subscription configuration. The default preserves native conversation settings, including compaction and provider retries. The controlled comparison disables those two settings. Neither profile enables arbitrary optional extension tools or subagents; both use the isolated `read`, `bash`, `edit`, `write` surface. This does not establish full parity with the user's interactive extension setup.

@@ -1,0 +1,122 @@
+{
+  "kind": "agent-reviewed-evidence-extract",
+  "trialId": "experiment-repository-ui-copy-2026-09-16T08-17-20-921Z-1-enabled",
+  "task": {
+    "id": "repository-ui-copy",
+    "version": "2",
+    "repositoryRevision": "30d2388f71595d1ba65d0d2fabc8b97b6ee48f80"
+  },
+  "variant": "enabled",
+  "agentStatus": "completed",
+  "sourceIntegrity": {
+    "algorithm": "sha256",
+    "fingerprint": "4babbafca1d8458e492701e0151db3e126207794eb0c82537fbbe82e80ce5b35",
+    "scope": "Verified private recording integrity manifest; the complete recording is not included in this extract."
+  },
+  "normalization": "Only the receipt command and reported page URLs replace the recorded loopback origin with <LOCAL_ORIGIN>. Exported patch and inline snapshot bytes are unchanged.",
+  "files": {
+    "patch": {
+      "file": "enabled.patch",
+      "sha256": "03d8b678490bd10c4869989b6ef26bffc133c781105a9e6533e9ae53b8abfb68",
+      "bytes": 473
+    },
+    "snapshot": {
+      "file": "enabled-snapshot.yaml",
+      "sha256": "6c180c2ce2c043b71864c73ed9f1010309d9669c1b8979b89646d246a19ef1bd",
+      "bytes": 1570
+    }
+  },
+  "browserGrade": {
+    "grader": "browser-behavior",
+    "version": "1.6.0",
+    "verdict": "pass",
+    "evidenceRefs": [
+      "e00466",
+      "e00661",
+      "e00665",
+      "artifact-1"
+    ]
+  },
+  "target": {
+    "path": "app/admin/login/login-form.tsx",
+    "before": {
+      "evidenceId": "before-file-1",
+      "observedBy": "evaluator",
+      "sha256": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f"
+    },
+    "final": {
+      "evidenceId": "artifact-1",
+      "observedBy": "evaluator",
+      "sha256": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25"
+    }
+  },
+  "mutation": {
+    "eventId": "e00466",
+    "sequence": 466,
+    "actor": "agent",
+    "success": true,
+    "receipt": "file-edit",
+    "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+    "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25"
+  },
+  "browser": {
+    "start": {
+      "eventId": "e00661",
+      "sequence": 661,
+      "actor": "agent",
+      "tool": "bash",
+      "command": "playwright-cli open <LOCAL_ORIGIN>/admin/login && playwright-cli snapshot",
+      "originalCommandSha256": "00d517a8dde64109404716b6ac10019aa6e2092ec2e8a1d7cd6f24af183fe743"
+    },
+    "completion": {
+      "eventId": "e00665",
+      "sequence": 665,
+      "actor": "agent",
+      "receipt": "bash",
+      "success": true,
+      "exitCode": 0,
+      "truncated": false,
+      "toolTextSha256": "da7f9a75fc6de24b1f18b4f39ee88040758656d1980cf282c3f1396c18551507",
+      "reportedPageUrls": [
+        "<LOCAL_ORIGIN>/admin/login",
+        "<LOCAL_ORIGIN>/admin/login"
+      ],
+      "hasError": false,
+      "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+      "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25"
+    },
+    "snapshot": {
+      "source": "observation.receipt.browser.finalInlineSnapshot",
+      "sourceEventId": "e00665",
+      "sha256": "6c180c2ce2c043b71864c73ed9f1010309d9669c1b8979b89646d246a19ef1bd",
+      "workspaceSnapshotFileRetained": false
+    }
+  },
+  "independentAcceptance": [
+    {
+      "id": "repository-lint",
+      "actor": "evaluator",
+      "status": "pass",
+      "exitCode": 0
+    },
+    {
+      "id": "repository-build",
+      "actor": "evaluator",
+      "status": "pass",
+      "exitCode": 0
+    },
+    {
+      "id": "repository-browser-acceptance",
+      "actor": "evaluator",
+      "status": "pass",
+      "exitCode": 0
+    },
+    {
+      "id": "acceptance-source-stability",
+      "actor": "evaluator",
+      "status": "pass",
+      "exitCode": 0
+    }
+  ],
+  "scope": "Selected final patch and browser evidence from an actual agent trial, not a complete transcript or an estimate of instruction usefulness."
+}

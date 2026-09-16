@@ -1,4 +1,5 @@
 import { mkdir, mkdtemp, realpath } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 /** Writable agent files occupy separate directories from private evaluator controls. */
@@ -23,7 +24,9 @@ export interface TrialPaths {
 }
 
 export async function createTrialPaths(ancestorCount = 0): Promise<TrialPaths> {
-  const root = await realpath(await mkdtemp('/private/tmp/wedding-eval-'));
+  // Keep native macOS Unix-socket paths short; filesystem-only tests also run on Linux.
+  const temporaryRoot = process.platform === 'darwin' ? '/private/tmp' : tmpdir();
+  const root = await realpath(await mkdtemp(join(temporaryRoot, 'wedding-eval-')));
   const control = join(root, 'control');
   const piDirectory = join(control, 'pi');
   const instructionAncestors: string[] = [];

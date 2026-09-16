@@ -1,0 +1,39 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - link "Admin – Wedding Planner startsida" [ref=e5] [cursor=pointer]:
+        - /url: /admin
+        - paragraph [ref=e6]: Admin
+        - paragraph [ref=e7]: Wedding Planner
+      - navigation "Admin" [ref=e8]:
+        - link "Översikt" [ref=e9] [cursor=pointer]:
+          - /url: /admin
+        - link "Gäster" [ref=e10] [cursor=pointer]:
+          - /url: /admin/guests
+        - link "SMS" [ref=e11] [cursor=pointer]:
+          - /url: /admin/messages
+        - link "Bilder" [ref=e12] [cursor=pointer]:
+          - /url: /admin/photos
+        - link "QR" [ref=e13] [cursor=pointer]:
+          - /url: /admin/qr-code
+        - link "Uppdateringar" [ref=e14] [cursor=pointer]:
+          - /url: /admin/updates
+        - link "Inställningar" [ref=e15] [cursor=pointer]:
+          - /url: /admin/settings
+    - main [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - paragraph [ref=e21]: Wedding Planner
+          - heading "Admin login" [level=1] [ref=e22]
+          - paragraph [ref=e23]: Sign in with your Supabase admin account to manage the wedding.
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - text: Email
+            - textbox "Email" [ref=e26]
+          - generic [ref=e27]:
+            - text: Password
+            - textbox "Password" [ref=e28]
+          - button "Sign in to manage the wedding" [ref=e29]
+  - button "Open Next.js Dev Tools" [ref=e35] [cursor=pointer]:
+    - img [ref=e36]
+  - alert [ref=e39]

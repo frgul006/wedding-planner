@@ -1,0 +1,1069 @@
+{
+  "schemaVersion": 1,
+  "id": "experiment-repository-ui-copy-2026-09-16T08-17-20-921Z",
+  "scope": "Allowlisted review summary. Raw prompts, instructions, paths, tool output, artifact contents and free-form reasons remain private. This bundle is not a replayable transcript.",
+  "budget": {
+    "limitUsd": 0.02,
+    "reservedEstimateUsd": 0.00912,
+    "observedApiEstimateUsd": 0.0013672
+  },
+  "incompleteAttempts": 0,
+  "comparisons": [
+    {
+      "pair": 1,
+      "eligible": true,
+      "mismatchFields": []
+    }
+  ],
+  "trials": [
+    {
+      "id": "experiment-repository-ui-copy-2026-09-16T08-17-20-921Z-1-enabled",
+      "task": "repository-ui-copy",
+      "variant": "enabled",
+      "status": "completed",
+      "model": {
+        "provider": "openai-codex",
+        "id": "gpt-5.5"
+      },
+      "reasoning": "xhigh",
+      "originalIntegrityHash": "4babbafca1d8458e492701e0151db3e126207794eb0c82537fbbe82e80ce5b35",
+      "agentUsage": {
+        "inputTokens": 48582,
+        "outputTokens": 5329,
+        "cacheReadTokens": 307200,
+        "cacheWriteTokens": 0,
+        "estimatedCostUsd": 0.55638
+      },
+      "graderUsage": [
+        {
+          "grader": "semantic-task-clarity",
+          "status": "completed",
+          "usage": {
+            "inputTokens": 1561,
+            "outputTokens": 184,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "estimatedCostUsd": 0.000533
+          }
+        }
+      ],
+      "grades": [
+        {
+          "grader": "target-outcome",
+          "version": "1.6.0",
+          "verdict": "pass",
+          "evidenceRefs": [
+            "e01709"
+          ]
+        },
+        {
+          "grader": "browser-compliance",
+          "version": "1.6.0",
+          "verdict": "pass",
+          "evidenceRefs": [
+            "e00466",
+            "e00661",
+            "e00665",
+            "artifact-1"
+          ]
+        },
+        {
+          "grader": "browser-behavior",
+          "version": "1.6.0",
+          "verdict": "pass",
+          "evidenceRefs": [
+            "e00466",
+            "e00661",
+            "e00665",
+            "artifact-1"
+          ]
+        },
+        {
+          "grader": "acceptance-checks",
+          "version": "1",
+          "verdict": "pass",
+          "evidenceRefs": [
+            "repository-lint",
+            "repository-build",
+            "repository-browser-acceptance",
+            "acceptance-source-stability"
+          ]
+        },
+        {
+          "grader": "diff-scope",
+          "version": "1",
+          "verdict": "pass",
+          "evidenceRefs": [
+            "repository-patch"
+          ]
+        },
+        {
+          "grader": "semantic-task-clarity",
+          "version": "2",
+          "verdict": "pass",
+          "evidenceRefs": [
+            "repository-patch",
+            "artifact-1",
+            "artifact-1",
+            "artifact-1",
+            "artifact-1"
+          ]
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "artifact-1",
+          "sha256": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "bytes": 1736
+        },
+        {
+          "id": "artifact-2",
+          "sha256": "7d76c549f837fc72daa1d73925f41b70e116cb4b5f911b20d68465d27360fdf9",
+          "bytes": 1874
+        },
+        {
+          "id": "artifact-3",
+          "sha256": "7d5ca8d85db76e7d5f6c9adfc4f7a693fa729717d1748d6c086e97d31d771d21",
+          "bytes": 1550
+        },
+        {
+          "id": "artifact-4",
+          "sha256": "729c0b64d40d22475f3df45f204380471aa2ffe7de2a2924aab1d9b12d8fd8e4",
+          "bytes": 1626
+        },
+        {
+          "id": "repository-file-manifest",
+          "sha256": "87f8cb608d238c0b9c9fa37a3564eced98bb31c094b290590cfab0c60962441c",
+          "bytes": 63528
+        }
+      ],
+      "toolObservations": [
+        {
+          "id": "e00064",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00087",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00088",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00172",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00232",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00273",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00302",
+          "actor": "agent",
+          "success": false,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 127,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00303",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00304",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00367",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00390",
+          "actor": "agent",
+          "success": true,
+          "receipt": "file-read",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": null,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00391",
+          "actor": "agent",
+          "success": true,
+          "receipt": "file-read",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": null,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00392",
+          "actor": "agent",
+          "success": true,
+          "receipt": "file-read",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": null,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00466",
+          "actor": "agent",
+          "success": true,
+          "receipt": "file-edit",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": null,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00493",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00518",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00520",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00551",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00593",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00618",
+          "actor": "agent",
+          "success": true,
+          "receipt": "file-read",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": null,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00665",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00710",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00792",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00822",
+          "actor": "agent",
+          "success": true,
+          "receipt": "file-read",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": null,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00946",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01219",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01247",
+          "actor": "agent",
+          "success": true,
+          "receipt": "playwright-cli",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": "729c0b64d40d22475f3df45f204380471aa2ffe7de2a2924aab1d9b12d8fd8e4"
+        },
+        {
+          "id": "e01271",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01272",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01326",
+          "actor": "agent",
+          "success": false,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 128,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01392",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01429",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01486",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01514",
+          "actor": "agent",
+          "success": true,
+          "receipt": "playwright-cli",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        }
+      ]
+    },
+    {
+      "id": "experiment-repository-ui-copy-2026-09-16T08-17-20-921Z-2-disabled",
+      "task": "repository-ui-copy",
+      "variant": "disabled",
+      "status": "completed",
+      "model": {
+        "provider": "openai-codex",
+        "id": "gpt-5.5"
+      },
+      "reasoning": "xhigh",
+      "originalIntegrityHash": "a2b9b18fbfc7d3c82c67e0fb52278d0b90cb3efeddf1041aab827c64906e8c26",
+      "agentUsage": {
+        "inputTokens": 67295,
+        "outputTokens": 6679,
+        "cacheReadTokens": 525824,
+        "cacheWriteTokens": 0,
+        "estimatedCostUsd": 0.7997570000000002
+      },
+      "graderUsage": [
+        {
+          "grader": "semantic-task-clarity",
+          "status": "completed",
+          "usage": {
+            "inputTokens": 2125,
+            "outputTokens": 341,
+            "cacheReadTokens": 2122,
+            "cacheWriteTokens": 0,
+            "estimatedCostUsd": 0.0008342
+          }
+        }
+      ],
+      "grades": [
+        {
+          "grader": "target-outcome",
+          "version": "1.6.0",
+          "verdict": "pass",
+          "evidenceRefs": [
+            "e03304"
+          ]
+        },
+        {
+          "grader": "browser-compliance",
+          "version": "1.6.0",
+          "verdict": "not-applicable",
+          "evidenceRefs": []
+        },
+        {
+          "grader": "browser-behavior",
+          "version": "1.6.0",
+          "verdict": "fail",
+          "evidenceRefs": [
+            "e01556"
+          ]
+        },
+        {
+          "grader": "acceptance-checks",
+          "version": "1",
+          "verdict": "pass",
+          "evidenceRefs": [
+            "repository-lint",
+            "repository-build",
+            "repository-browser-acceptance",
+            "acceptance-source-stability"
+          ]
+        },
+        {
+          "grader": "diff-scope",
+          "version": "1",
+          "verdict": "pass",
+          "evidenceRefs": [
+            "repository-patch"
+          ]
+        },
+        {
+          "grader": "semantic-task-clarity",
+          "version": "2",
+          "verdict": "pass",
+          "evidenceRefs": [
+            "repository-patch",
+            "artifact-1",
+            "artifact-1",
+            "artifact-1",
+            "artifact-1"
+          ]
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "artifact-1",
+          "sha256": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "bytes": 1736
+        },
+        {
+          "id": "final-file-2",
+          "sha256": "bad2023fa14b127fb862639477eeda68c3975a8e3518e3b822ba4773c438f56f",
+          "bytes": 5370
+        },
+        {
+          "id": "final-file-3",
+          "sha256": "604d6c26df36db733708472c6788b76b21896b7c0b6c6dfcc118627e07e70625",
+          "bytes": 730
+        },
+        {
+          "id": "repository-file-manifest",
+          "sha256": "abd1cfb0d770db2628937737d4516ca0b1eb4fadc4f6f3a6aa2fca38c6e9eec0",
+          "bytes": 63580
+        }
+      ],
+      "toolObservations": [
+        {
+          "id": "e00047",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00110",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00282",
+          "actor": "agent",
+          "success": false,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 1,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00329",
+          "actor": "agent",
+          "success": false,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 1,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00370",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00422",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00468",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00518",
+          "actor": "agent",
+          "success": false,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 127,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00572",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00627",
+          "actor": "agent",
+          "success": false,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 2,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00718",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00765",
+          "actor": "agent",
+          "success": true,
+          "receipt": "file-read",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": null,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00798",
+          "actor": "agent",
+          "success": true,
+          "receipt": "file-read",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": null,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00886",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e00973",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01001",
+          "actor": "agent",
+          "success": true,
+          "receipt": "file-read",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": null,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01077",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01111",
+          "actor": "agent",
+          "success": true,
+          "receipt": "file-read",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": null,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01240",
+          "actor": "agent",
+          "success": false,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 127,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01392",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01484",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01556",
+          "actor": "agent",
+          "success": true,
+          "receipt": "file-edit",
+          "truncated": false,
+          "targetBeforeHash": "b013e8c7e1cce7c9b0f70ce3f8aac966b4a20aeb11387c19206fb42f7716026f",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": null,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01631",
+          "actor": "agent",
+          "success": false,
+          "receipt": "file-edit",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": null,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01696",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01759",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01803",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01877",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e01985",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e02017",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e02048",
+          "actor": "agent",
+          "success": true,
+          "receipt": "file-read",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": null,
+          "snapshotHash": null
+        },
+        {
+          "id": "e02378",
+          "actor": "agent",
+          "success": false,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 1,
+          "snapshotHash": null
+        },
+        {
+          "id": "e02732",
+          "actor": "agent",
+          "success": false,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 1,
+          "snapshotHash": null
+        },
+        {
+          "id": "e02763",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e02819",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e02846",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e02905",
+          "actor": "agent",
+          "success": false,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 128,
+          "snapshotHash": null
+        },
+        {
+          "id": "e02963",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e03009",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e03073",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        },
+        {
+          "id": "e03101",
+          "actor": "agent",
+          "success": true,
+          "receipt": "bash",
+          "truncated": false,
+          "targetBeforeHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "targetAfterHash": "35333fa51f90549fe1497f704ce1361fc94c924ab06f6b1b794c741503a2bd25",
+          "exitCode": 0,
+          "snapshotHash": null
+        }
+      ]
+    }
+  ]
+}
