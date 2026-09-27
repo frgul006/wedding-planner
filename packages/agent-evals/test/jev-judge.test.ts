@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Fetch } from '@typesafe-ai/sdk';
-import { JEV_MODEL, jevJudge } from '../src/adapters/jev.ts';
+import { JEV_MODEL, jevJudge } from '../src/adapters/jev/index.ts';
 import { canonicalJson } from '../src/core/serialization.ts';
 import { JudgePreparationError, JudgeExecutionError } from '../src/core/judge-errors.ts';
 import type { JudgmentJob, JudgeRequest } from '../src/core/types.ts';

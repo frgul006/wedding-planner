@@ -36,9 +36,9 @@
       "default": "./dist/adapters/pi/index.js"
     },
     "./jev": {
-      "types": "./dist/adapters/jev.d.ts",
-      "import": "./dist/adapters/jev.js",
-      "default": "./dist/adapters/jev.js"
+      "types": "./dist/adapters/jev/index.d.ts",
+      "import": "./dist/adapters/jev/index.js",
+      "default": "./dist/adapters/jev/index.js"
     },
     "./files": {
       "types": "./dist/adapters/files.d.ts",

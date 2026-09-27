@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { JEV_MODEL, jevJudge } from '../src/adapters/jev.ts';
+import { JEV_MODEL, jevJudge } from '../src/adapters/jev/index.ts';
 import { fileStore } from '../src/adapters/files.ts';
 import { createEvaluator, modelGrader } from '../src/index.ts';
 

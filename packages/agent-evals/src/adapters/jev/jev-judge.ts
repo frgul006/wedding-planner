@@ -8,13 +8,13 @@ import {
   type Fetch,
   type SystemOneRequestPayload,
 } from '@typesafe-ai/sdk';
-import { canonicalJson, contentHash } from '../core/serialization.ts';
+import { canonicalJson, contentHash } from '../../core/serialization.ts';
 import {
   JudgePreparationError,
   JudgeExecutionError,
   validObservedUsage,
-} from '../core/judge-errors.ts';
-import type { Judge, JudgeRequest, JudgeResponse, JudgmentJob, Verdict } from '../core/types.ts';
+} from '../../core/judge-errors.ts';
+import type { Judge, JudgeRequest, JudgeResponse, JudgmentJob, Verdict } from '../../core/types.ts';
 
 /** Version and price verified against https://docs.typesafe.ai/models on 2026-09-27. */
 export const JEV_MODEL = 'jev-1.13.0';
