@@ -7,18 +7,22 @@ import {
   resolveTrialLimits,
   type TrialLimits,
 } from '../../core/trial-limits.ts';
-import { runTrial } from './run-trial.ts';
-import { FileRunStore } from './file-run-store.ts';
-import { recordedTrialFromEvidence } from './recorded-trial.ts';
+import { runTrial } from './runtime/run-trial.ts';
+import { FileRunStore } from './runtime/file-run-store.ts';
+import { recordedTrialFromEvidence } from './evidence/recorded-trial.ts';
 import { immutableCopy } from '../../core/serialization.ts';
-import { inspectPi } from './pi-inspection.ts';
-import { piModelArguments, selectPiModel, type PiModelSelection } from './pi-model-selection.ts';
+import { inspectPi } from './setup/pi-inspection.ts';
+import {
+  piModelArguments,
+  selectPiModel,
+  type PiModelSelection,
+} from './setup/pi-model-selection.ts';
 import {
   selectPiEndpoint,
   type PiEndpointPolicy,
   type PiEndpointSelection,
-} from './pi-endpoint-selection.ts';
-import { PiRpcRunner } from './pi-rpc.ts';
+} from './setup/pi-endpoint-selection.ts';
+import { PiRpcRunner } from './runtime/pi-rpc.ts';
 
 export type PiBilling =
   | { type: 'subscription'; maxEstimatedCostUsd: null }

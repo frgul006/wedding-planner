@@ -16,23 +16,23 @@ import {
 } from 'agent-evals/pi';
 import { DEFAULT_TRIAL_LIMITS, type EvaluationTask } from 'agent-evals';
 import { collectTrialArtifacts } from './artifacts.ts';
-import { prepareBoundary, type PreparedBoundary } from './boundary.ts';
-import { cleanupPrivateTrial } from './cleanup.ts';
-import { verifySandboxRuntime } from './preflight.ts';
-import { reserveLocalPort, TrialProcesses } from './processes.ts';
-import { resolveLocalRuntime } from './runtime.ts';
-import { runSandboxCommand, type SandboxCommandResult } from './sandbox.ts';
+import { prepareBoundary, type PreparedBoundary } from './isolation/boundary.ts';
+import { cleanupPrivateTrial } from './runtime/cleanup.ts';
+import { verifySandboxRuntime } from './isolation/preflight.ts';
+import { reserveLocalPort, TrialProcesses } from './runtime/processes.ts';
+import { resolveLocalRuntime } from './runtime/runtime.ts';
+import { runSandboxCommand, type SandboxCommandResult } from './isolation/sandbox.ts';
 import { createTrialPaths } from './trial-paths.ts';
 import {
   prepareRepositoryCheckout,
   prepareRepositoryRuntime,
   repositoryGit,
-} from './repository-checkout.ts';
+} from './repository/repository-checkout.ts';
 import {
   collectRepositoryEvidence,
   independentCommand,
   snapshotRepository,
-} from './repository-evidence.ts';
+} from './repository/repository-evidence.ts';
 import { createTrialManifest } from './trial-manifest.ts';
 import { loginRetry } from '../tasks/login-retry.ts';
 
@@ -144,7 +144,7 @@ export async function prepareTrialEnvironment(
     const repositoryRuntime = await prepareRepositoryRuntime(paths, port);
     const acceptanceScript = join(paths.control, 'repository-acceptance.mjs');
     await copyFile(
-      fileURLToPath(new URL('./repository-acceptance.mjs', import.meta.url)),
+      fileURLToPath(new URL('./repository/repository-acceptance.mjs', import.meta.url)),
       acceptanceScript,
     );
     const testModule = createRequire(join(resourceSource, 'package.json')).resolve(

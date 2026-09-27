@@ -2,7 +2,7 @@ import type { PreparedItem, RecordedTrial } from '../../src/index.ts';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileStore } from '../../src/adapters/files.ts';
+import { fileStore } from '../../src/adapters/files/index.ts';
 
 export const trial = (id = 'trial-example'): RecordedTrial => ({
   id,

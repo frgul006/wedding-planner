@@ -4,8 +4,8 @@ import { parseEnv } from 'node:util';
 import type { EvalConfig } from 'agent-evals';
 import type { JevJudgeOptions } from 'agent-evals/jev';
 import { loginRetry } from './tasks/login-retry.ts';
-import { falsifiableHypothesis, relevantProbe } from './views/diagnosis.ts';
-import { finalValidation } from './views/validation-history.ts';
+import { falsifiableHypothesis, relevantProbe } from './views/diagnosis/index.ts';
+import { finalValidation } from './views/validation-history/index.ts';
 
 const sourceRepo = path.resolve(import.meta.dirname, '..');
 
@@ -35,7 +35,7 @@ export default {
     const [{ piRunner }, { prepareTrialEnvironment }, { resolveSourceRepo }] = await Promise.all([
       import('agent-evals/pi'),
       import('./environment/prepare.ts'),
-      import('./environment/source-repo.ts'),
+      import('./environment/repository/source-repo.ts'),
     ]);
     return piRunner({
       agentSource: process.env.EVAL_AGENT_SOURCE ?? resolveSourceRepo(sourceRepo),

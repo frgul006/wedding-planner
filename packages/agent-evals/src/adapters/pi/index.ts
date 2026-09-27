@@ -16,19 +16,19 @@ export type {
   ToolReceipt,
   BrowserOutput,
 } from './types.ts';
-export { inspectPi, locatePi } from './pi-inspection.ts';
+export { inspectPi, locatePi } from './setup/pi-inspection.ts';
 export {
   inspectPiResources,
   type PiSource,
   type PiContextSource,
   type PiSkillSource,
-} from './pi-resource-inspection.ts';
+} from './setup/pi-resource-inspection.ts';
 export {
   preparePiConfiguration,
   isolatedPiSettings,
   type InspectedPi,
-} from './pi-configuration.ts';
-export { verifyPrivatePiAuthentication, type PrivateAuthentication } from './native-auth.ts';
+} from './setup/pi-configuration.ts';
+export { verifyPrivatePiAuthentication, type PrivateAuthentication } from './setup/native-auth.ts';
 export {
   prepareResources,
   validateResourceSelection,
@@ -39,14 +39,14 @@ export {
   type ResourcePaths,
   type ResourceMapping,
   type PreparedResources,
-} from './resources.ts';
+} from './setup/resources.ts';
 export {
   normalizePiEvent,
   normalizeToolReceipt,
   portablePiTool,
   matchesPiTool,
   visiblePiMessageText,
-} from './pi-evidence.ts';
-export { parsePlaywrightOutput } from './playwright-evidence.ts';
-export { recordedTrialFromEvidence } from './recorded-trial.ts';
+} from './evidence/pi-evidence.ts';
+export { parsePlaywrightOutput } from './evidence/playwright-evidence.ts';
+export { recordedTrialFromEvidence } from './evidence/recorded-trial.ts';
 export { redact } from '../redaction.ts';

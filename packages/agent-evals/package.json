@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "cli": "node dist/cli.js",
-    "test": "tsx --test test/*.test.ts",
+    "test": "tsx --test \"test/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --config .oxlintrc.json --deny-warnings src test",
     "format": "prettier --write .",
@@ -41,9 +41,9 @@
       "default": "./dist/adapters/jev/index.js"
     },
     "./files": {
-      "types": "./dist/adapters/files.d.ts",
-      "import": "./dist/adapters/files.js",
-      "default": "./dist/adapters/files.js"
+      "types": "./dist/adapters/files/index.d.ts",
+      "import": "./dist/adapters/files/index.js",
+      "default": "./dist/adapters/files/index.js"
     }
   },
   "description": "Record coding-agent trials, inspect grading evidence, and regrade saved recordings.",

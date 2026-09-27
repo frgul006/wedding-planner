@@ -11,8 +11,8 @@ import type {
 } from './types.ts';
 import { immutableCopy } from './serialization.ts';
 import { resolveTrialLimits } from './trial-limits.ts';
-import { snapshotGraders } from './grading-definition.ts';
-import { createTrialGrader } from './grade-trial.ts';
+import { snapshotGraders } from './grading/grading-definition.ts';
+import { createTrialGrader } from './grading/grade-trial.ts';
 
 const identity = (prefix: string) => `${prefix}-${Date.now()}-${crypto.randomUUID()}`;
 

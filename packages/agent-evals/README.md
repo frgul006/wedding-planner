@@ -72,7 +72,7 @@ Execution status, grader errors, and behavioral verdicts are separate. Missing e
 
 ## Development
 
-`src/core` contains portable contracts and evaluation rules. `src/adapters` contains Pi, Jev, and filesystem integrations. `src/cli` loads consumer config and composes those contracts. Tests include an installed-tarball consumer that runs outside this repository, and Pi tests use a second, non-Wedding environment.
+`src/core` contains portable contracts and evaluation rules, with grading rules in `src/core/grading`. Pi setup, runtime, and evidence live in `src/adapters/pi/setup`, `runtime`, and `evidence`; adapter directories expose their public entry points. `src/cli` loads consumer config and composes those contracts. Tests are grouped by core, CLI, Jev, files, Pi, and adapter behavior. The shared evaluator fixture lives in `test/fixtures`; the packaged CLI test installs a tarball in an unrelated directory, and Pi tests use a second, non-Wedding environment.
 
 ```bash
 pnpm build

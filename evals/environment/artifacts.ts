@@ -1,8 +1,8 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { resourceFilesIn, sha256, type Artifact } from 'agent-evals/pi';
-import type { RunSandboxedCommand } from './boundary.ts';
-import { safeFile } from './sandbox.ts';
+import type { RunSandboxedCommand } from './isolation/boundary.ts';
+import { safeFile } from './isolation/sandbox.ts';
 import type { TrialPaths } from './trial-paths.ts';
 
 interface CapturedContent {

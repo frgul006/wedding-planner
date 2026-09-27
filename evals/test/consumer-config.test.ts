@@ -7,7 +7,7 @@ import test from 'node:test';
 import config from '../config.ts';
 import completedAttempt from '../completed-attempt.config.ts';
 import { loginRetry } from '../tasks/login-retry.ts';
-import { resolveSourceRepo } from '../environment/source-repo.ts';
+import { resolveSourceRepo } from '../environment/repository/source-repo.ts';
 
 const repo = resolve(import.meta.dirname, '../..');
 

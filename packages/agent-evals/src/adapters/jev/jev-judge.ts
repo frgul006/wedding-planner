@@ -13,7 +13,7 @@ import {
   JudgePreparationError,
   JudgeExecutionError,
   validObservedUsage,
-} from '../../core/judge-errors.ts';
+} from '../../core/grading/judge-errors.ts';
 import type { Judge, JudgeRequest, JudgeResponse, JudgmentJob, Verdict } from '../../core/types.ts';
 
 /** Version and price verified against https://docs.typesafe.ai/models on 2026-09-27. */

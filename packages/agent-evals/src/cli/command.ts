@@ -2,7 +2,7 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { createEvaluator } from '../core/evaluator.ts';
 import type { GradingRecord } from '../core/types.ts';
-import { fileStore } from '../adapters/files.ts';
+import { fileStore } from '../adapters/files/file-store.ts';
 import {
   CACHED_TOKEN_WEIGHT,
   DEFAULT_TRIAL_LIMITS,
