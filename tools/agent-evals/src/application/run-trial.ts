@@ -93,7 +93,6 @@ export async function runTrial(
     limits,
   };
   let artifacts: TrialEvidence['artifacts'] = [];
-  let manifestMetadata = options.manifest;
   await ports.store.save('manifest.json', {
     ...options.manifest,
     id: options.id,
@@ -104,17 +103,6 @@ export async function runTrial(
   try {
     options.signal?.throwIfAborted();
     environment = await ports.environment.prepare(options.task, options.id);
-    const priorInvariants = options.manifest.invariants;
-    if (priorInvariants && typeof priorInvariants === 'object' && !Array.isArray(priorInvariants)) {
-      manifestMetadata = {
-        ...options.manifest,
-        invariants: {
-          ...priorInvariants,
-          runtime: environment.provenance.comparableRuntime ?? environment.provenance.runtime,
-          skillTreeFingerprint: environment.provenance.skillTreeFingerprint,
-        },
-      };
-    }
     await ports.store.save('environment.json', environment.provenance);
     lifecycle('environment', {
       type: 'environment_prepared',
@@ -238,7 +226,7 @@ export async function runTrial(
   // Persist the observed attempt; the portable evaluator owns separate grading records.
   await ports.store.save('evidence.json', evidence);
   const manifest = {
-    ...manifestMetadata,
+    ...options.manifest,
     id: options.id,
     startedAt,
     endedAt: new Date().toISOString(),

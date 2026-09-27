@@ -19,7 +19,7 @@ const inspection = {
 };
 
 test('the profile selects Luna without changing native provider, reasoning or saved defaults', () => {
-  const selection = selectPiModel(inspection, { runtime: 'native', model: 'gpt-6-luna' });
+  const selection = selectPiModel(inspection, { model: 'gpt-6-luna' });
   assert.deepEqual(selection, { ...defaults, model: 'gpt-6-luna' });
   assert.equal(inspection.defaults.model, 'gpt-6-astra');
   assert.deepEqual(piModelArguments(selection), [
@@ -33,7 +33,7 @@ test('the profile selects Luna without changing native provider, reasoning or sa
 });
 
 test('omitting the model override retains native selection', () => {
-  assert.deepEqual(selectPiModel(inspection, { runtime: 'native' }), defaults);
+  assert.deepEqual(selectPiModel(inspection, {}), defaults);
 });
 
 test('an unavailable model cannot silently fall back or change the authenticated provider', () => {
@@ -44,20 +44,15 @@ test('an unavailable model cannot silently fall back or change the authenticated
     [null],
   ])
     assert.throws(
-      () =>
-        selectPiModel(
-          { defaults, rpc: { availableModels } },
-          { runtime: 'native', model: 'gpt-6-luna' },
-        ),
+      () => selectPiModel({ defaults, rpc: { availableModels } }, { model: 'gpt-6-luna' }),
       /openai-codex\/gpt-6-luna is unavailable.*No fallback model was selected/,
     );
 });
 
 test('profile model IDs reject blank values', () => {
   const piSchema = profileSchema.shape.pi;
-  assert.deepEqual(piSchema.parse({ runtime: 'native', model: 'gpt-6-luna' }), {
-    runtime: 'native',
+  assert.deepEqual(piSchema.parse({ model: 'gpt-6-luna' }), {
     model: 'gpt-6-luna',
   });
-  assert.equal(piSchema.safeParse({ runtime: 'native', model: ' ' }).success, false);
+  assert.equal(piSchema.safeParse({ model: ' ' }).success, false);
 });

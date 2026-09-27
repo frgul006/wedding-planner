@@ -107,8 +107,10 @@ export async function libraryCommand(
     },
   });
   const [action = 'help', reference] = parsed.positionals;
-  const print = (value: unknown, human: string) =>
-    process.stdout.write(parsed.values.json ? JSON.stringify(value, null, 2) + '\n' : human + '\n');
+  const print = (value: unknown, human?: string) =>
+    process.stdout.write(
+      (!parsed.values.json && human !== undefined ? human : JSON.stringify(value, null, 2)) + '\n',
+    );
   if (parsed.values.help || action === 'help') {
     print({ help: libraryHelp }, libraryHelp);
     return 0;
@@ -183,7 +185,7 @@ export async function libraryCommand(
         ),
       })),
     }));
-    print({ run, trials: summaries }, JSON.stringify({ run, trials: summaries }, null, 2));
+    print({ run, trials: summaries });
     return 0;
   }
   const graders = exampleGraders(
@@ -196,17 +198,7 @@ export async function libraryCommand(
   const profile =
     action === 'run' ? await loadProfile(context.repo, parsed.values.profile) : undefined;
   const agentModel = profile?.pi.model ?? 'native saved model (resolved before prompting)';
-  const limits = resolveTrialLimits(
-    profile
-      ? {
-          runtimeMs: profile.runtimeMs,
-          maxTurns: profile.maxAgentTurns,
-          maxTokens: profile.maxAgentTokens,
-        }
-      : undefined,
-    task?.limits,
-    limitOverrides,
-  );
+  const limits = resolveTrialLimits(profile?.limits, task?.limits, limitOverrides);
   if (parsed.values['dry-run']) {
     const plan = {
       action,
@@ -229,7 +221,7 @@ export async function libraryCommand(
       store: directory,
       noCalls: true,
     };
-    print(plan, JSON.stringify(plan, null, 2));
+    print(plan);
     return 0;
   }
   let judge;
@@ -332,7 +324,7 @@ export async function libraryCommand(
         report: path.join(directory, 'gradings', record.id, 'report.md'),
         usage: record.requests.map((entry) => entry.response?.usage ?? entry.observedUsage ?? null),
       }));
-      print(summary, JSON.stringify(summary, null, 2));
+      print(summary);
       return records.some(gradingFailed) ? 2 : 0;
     }
   } finally {

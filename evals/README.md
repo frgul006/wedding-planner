@@ -35,7 +35,7 @@ Token accounting is `input + output + 0.1 × (cacheRead + cacheWrite)` across al
 pnpm evals library run --max-runtime-ms 1800000 --max-turns 100 --max-tokens 1000000 --dry-run
 ```
 
-Limits resolve field by field: shared defaults, profile values, Pi runner defaults, task limits, then explicit per-trial overrides. CLI flags override task values. Profiles use `runtimeMs`, `maxAgentTurns`, and `maxAgentTokens`; TypeScript tasks and task JSON use `limits: { runtimeMs, maxTurns, maxTokens }`. Omitted fields inherit. Values must be positive safe integers, and runtime must fit Node's timer range (2,147,483,647 milliseconds). The environment and authentication deadlines receive the same resolved runtime; a longer OAuth trial fails preparation if credentials cannot remain valid long enough.
+Limits resolve field by field: shared defaults, profile values, Pi runner defaults, task limits, then explicit per-trial overrides. CLI flags override task values. Profiles, TypeScript tasks, and task JSON use the same `limits: { runtimeMs, maxTurns, maxTokens }` object. Omitted fields inherit. Values must be positive safe integers, and runtime must fit Node's timer range (2,147,483,647 milliseconds). The environment and authentication deadlines receive the same resolved runtime; a longer OAuth trial fails preparation if credentials cannot remain valid long enough.
 
 The `smoke` profile selects `gpt-6-luna` and preserves the saved provider, reasoning, compaction, and native retry settings without changing global Pi settings. An unavailable model or incompatible reasoning level fails before prompting; there is no model fallback.
 

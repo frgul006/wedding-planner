@@ -142,34 +142,29 @@ test('resolved per-trial limits reach the agent and remain in evidence and manif
   assert.equal(saved.get('evidence.json'), result.evidence);
 });
 
-test('saved execution invariants include the prepared resource fingerprint and runtime', async () => {
+test('prepared resource fingerprints and runtime remain in their environment recording', async () => {
   const saved = new Map<string, unknown>();
   const runtime = { node: { version: '24.15.0' } };
   const skillTreeFingerprint = 'a'.repeat(64);
-  await runTrial(
-    { ...options, manifest: { invariants: { profile: 'same-profile' } } },
-    {
-      environment: {
-        async prepare() {
-          return prepared({ provenance: { runtime, skillTreeFingerprint } });
-        },
-      },
-      agent: {
-        async run() {
-          return completed();
-        },
-      },
-      store: {
-        async save(name, value) {
-          saved.set(name, value);
-        },
-        append() {},
+  await runTrial(options, {
+    environment: {
+      async prepare() {
+        return prepared({ provenance: { runtime, skillTreeFingerprint } });
       },
     },
-  );
-  const manifest = saved.get('manifest.json') as { invariants: Record<string, unknown> };
-  assert.deepEqual(manifest.invariants, {
-    profile: 'same-profile',
+    agent: {
+      async run() {
+        return completed();
+      },
+    },
+    store: {
+      async save(name, value) {
+        saved.set(name, value);
+      },
+      append() {},
+    },
+  });
+  assert.deepEqual(saved.get('environment.json'), {
     runtime,
     skillTreeFingerprint,
   });

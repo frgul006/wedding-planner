@@ -337,11 +337,7 @@ export function jevJudge(options: JevJudgeOptions): Judge {
         if (request.reservedCostUsd < (reservedInputTokens * INPUT_USD_PER_MILLION) / 1_000_000) {
           fail('Jev request cost reservation is insufficient.');
         }
-        const raw: unknown = await client.systemOne(body, {
-          signal,
-          timeout: timeoutMs,
-          retry: { maxRetries: 0 },
-        });
+        const raw: unknown = await client.systemOne(body, { signal });
         try {
           return validateResponse(raw, request);
         } catch (error) {

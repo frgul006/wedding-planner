@@ -18,18 +18,14 @@ async function setup() {
   const repo = await mkdtemp(path.join(tmpdir(), 'eval-library-cli-'));
   const profile: {
     id: string;
-    pi: { runtime: 'native'; model?: string; endpoint?: 'native' | 'catalog' };
-    runtimeMs: number;
-    maxAgentTokens: number;
-    maxAgentTurns: number;
+    pi: { model?: string; endpoint?: 'native' | 'catalog' };
+    limits: { runtimeMs: number; maxTokens: number; maxTurns: number };
     agentBilling: 'subscription';
     maxAgentEstimatedCostUsd: null;
   } = {
     id: 'offline-native',
-    pi: { runtime: 'native', model: 'explicit-test-model' },
-    runtimeMs: 4_000,
-    maxAgentTokens: 1_000,
-    maxAgentTurns: 100,
+    pi: { model: 'explicit-test-model' },
+    limits: { runtimeMs: 4_000, maxTokens: 1_000, maxTurns: 100 },
     agentBilling: 'subscription',
     maxAgentEstimatedCostUsd: null,
   };
@@ -60,7 +56,6 @@ async function setup() {
       id: 'repository-login-retry',
       version: '1',
       prompt: 'Repair retry behavior.',
-      environment: 'repository',
       repository: { revision },
       acceptance: 'admin-login-retry',
       targetFile: 'index.html',
@@ -156,8 +151,8 @@ test('library preview reads the selected profile and per-trial limits without na
 
     delete context.profile.pi.model;
     delete context.profile.pi.endpoint;
-    context.profile.runtimeMs = 900_000;
-    context.profile.maxAgentTokens = 1_500_000;
+    context.profile.limits.runtimeMs = 900_000;
+    context.profile.limits.maxTokens = 1_500_000;
     await writeFile(
       path.join(context.repo, 'evals/profiles/smoke.json'),
       JSON.stringify(context.profile),

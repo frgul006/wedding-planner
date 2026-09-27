@@ -10,14 +10,12 @@ import {
   loadTask,
   profileSchema,
   taskSchema,
-  treeHash,
 } from '../src/adapters/evaluation-config.ts';
 import { DEFAULT_TRIAL_LIMITS } from '../src/domain/trial-limits.ts';
 
 const task = {
   id: 'login-case',
   version: '1',
-  environment: 'repository',
   repository: { revision: 'a'.repeat(40) },
   acceptance: 'admin-login-retry',
   prompt: 'Repair login retry.',
@@ -27,7 +25,7 @@ const task = {
 };
 const profile = {
   id: 'smoke',
-  pi: { runtime: 'native', model: 'gpt-6-luna', endpoint: 'catalog' },
+  pi: { model: 'gpt-6-luna', endpoint: 'catalog' },
   agentBilling: 'subscription',
   maxAgentEstimatedCostUsd: null,
 };
@@ -75,18 +73,19 @@ async function fixture(run: (repo: string, definition: typeof task) => Promise<v
 
 test('profile limits inherit shared defaults and accept larger explicit per-trial bounds', () => {
   const defaults = profileSchema.parse(profile);
-  assert.equal(defaults.runtimeMs, DEFAULT_TRIAL_LIMITS.runtimeMs);
-  assert.equal(defaults.maxAgentTurns, DEFAULT_TRIAL_LIMITS.maxTurns);
-  assert.equal(defaults.maxAgentTokens, DEFAULT_TRIAL_LIMITS.maxTokens);
+  assert.deepEqual(defaults.limits, DEFAULT_TRIAL_LIMITS);
   const limits = { runtimeMs: 7_200_000, maxTurns: 1000, maxTokens: 10_000_000 };
   assert.deepEqual(taskSchema.parse({ ...task, limits }).limits, limits);
   assert.equal(
-    profileSchema.parse({ ...profile, runtimeMs: limits.runtimeMs }).runtimeMs,
+    profileSchema.parse({ ...profile, limits: { runtimeMs: limits.runtimeMs } }).limits.runtimeMs,
     limits.runtimeMs,
   );
   for (const maxTurns of [0, -1, 1.5, Number.POSITIVE_INFINITY])
     assert.equal(taskSchema.safeParse({ ...task, limits: { maxTurns } }).success, false);
-  assert.equal(profileSchema.safeParse({ ...profile, runtimeMs: 2_147_483_648 }).success, false);
+  assert.equal(
+    profileSchema.safeParse({ ...profile, limits: { runtimeMs: 2_147_483_648 } }).success,
+    false,
+  );
 });
 
 test('catalog tasks require repository pins and the supported acceptance path, without legacy grading config', () => {
@@ -173,15 +172,17 @@ test('native profiles preserve subscription/API billing boundaries and reject re
   await fixture(async (repo) => {
     const loaded = await loadProfile(repo);
     assert.equal(loaded.pi.model, 'gpt-6-luna');
-    assert.equal(loaded.pi.runtime, 'native');
     assert.equal(loaded.maxAgentEstimatedCostUsd, null);
     for (const invalid of [
       { ...profile, pi: { runtime: 'controlled' } },
-      { ...profile, pi: { runtime: 'native', model: '' } },
-      { ...profile, pi: { runtime: 'native', endpoint: 'arbitrary' } },
+      { ...profile, pi: { model: '' } },
+      { ...profile, pi: { endpoint: 'arbitrary' } },
       { ...profile, grader: { model: 'unused' } },
       { ...profile, harness: 'another' },
       { ...profile, concurrency: 1 },
+      { ...profile, runtimeMs: 1000 },
+      { ...profile, maxAgentTurns: 100 },
+      { ...profile, maxAgentTokens: 1000 },
       { ...profile, maxAgentEstimatedCostUsd: 0.1 },
       { ...profile, agentBilling: 'api' },
     ])
@@ -199,16 +200,5 @@ test('native profiles preserve subscription/API billing boundaries and reject re
         false,
       );
     await assert.rejects(loadProfile(repo, '../smoke'), /Unknown profile/);
-  });
-});
-
-test('source tree hashes change with content and reject symlink resources', async () => {
-  await fixture(async (repo) => {
-    const directory = join(repo, 'app');
-    const before = await treeHash(directory);
-    await writeFile(join(repo, task.targetFile), 'Changed source');
-    assert.notEqual(await treeHash(directory), before);
-    await symlink('login-form.tsx', join(repo, 'app/admin/login/link.tsx'));
-    await assert.rejects(treeHash(directory), /Unexpected symlink/);
   });
 });

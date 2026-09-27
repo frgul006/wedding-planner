@@ -2,10 +2,7 @@ import { createHash } from 'node:crypto';
 import { normalizePiEvent } from '../adapters/pi-evidence.ts';
 import { canonicalJson } from '../application/serialization.ts';
 import { extractChainedBrowserSnapshot } from './chained-browser-evidence.ts';
-import {
-  containsVerificationInvocation,
-  verificationInvocationKinds,
-} from './browser-command-chain.ts';
+import { classifyVerificationCommand } from './browser-command-chain.ts';
 import type {
   CheckResult,
   CodeGrader,
@@ -182,7 +179,7 @@ export function prepareDiagnosticEpisodes(
       ),
     ];
   }
-  return hypotheses.flatMap((hypothesis, index) => {
+  return hypotheses.map((hypothesis, index) => {
     const end = hypotheses[index + 1]?.sequence ?? Infinity;
     const episode = events.filter(
       (event) => event.sequence >= hypothesis.sequence && event.sequence < end,
@@ -198,28 +195,26 @@ export function prepareDiagnosticEpisodes(
     const previousProbe = previousCall ? probe(trial, events, previousCall) : undefined;
     // One item per stated hypothesis window, retaining failed probes, edits and contradictions.
     // Merely finding a subsequent tool never establishes that it tested the hypothesis.
-    return [
-      makeItem(
-        `episode-${hypothesis.id}`,
-        {
-          task: trial.task.prompt,
-          extraction: 'explicit_episode',
-          hypothesis: message(hypothesis),
-          conversation,
-          priorResult: previousProbe?.result ?? null,
-          probes,
-        },
-        [
-          ...conversation.map((item) => item.sourceRef),
-          ...probes.flatMap(probeRefs),
-          ...(previousProbe ? probeRefs(previousProbe) : []),
-        ],
-        `Observable hypothesis at event ${hypothesis.id}, all following tools and conversation before the next explicit hypothesis, plus the preceding tool result.`,
-        [
-          'Earlier tools and conversation are outside this episode; their relevance has not been assessed. Hidden model reasoning is not observable.',
-        ],
-      ),
-    ];
+    return makeItem(
+      `episode-${hypothesis.id}`,
+      {
+        task: trial.task.prompt,
+        extraction: 'explicit_episode',
+        hypothesis: message(hypothesis),
+        conversation,
+        priorResult: previousProbe?.result ?? null,
+        probes,
+      },
+      [
+        ...conversation.map((item) => item.sourceRef),
+        ...probes.flatMap(probeRefs),
+        ...(previousProbe ? probeRefs(previousProbe) : []),
+      ],
+      `Observable hypothesis at event ${hypothesis.id}, all following tools and conversation before the next explicit hypothesis, plus the preceding tool result.`,
+      [
+        'Earlier tools and conversation are outside this episode; their relevance has not been assessed. Hidden model reasoning is not observable.',
+      ],
+    );
   });
 }
 function probeRefs(item: ObservedProbe): string[] {
@@ -355,21 +350,11 @@ function completedPrefixGaps(
     if (event.type === 'lifecycle' && canonicalJson(raw) !== canonicalJson(event.data))
       gaps.push(`Native lifecycle differs at ${event.id}.`);
     if (event.type === 'message') {
-      const native = object(raw.message);
-      const content =
-        typeof native.content === 'string'
-          ? native.content
-          : (Array.isArray(native.content) ? native.content : [])
-              .flatMap((block) => {
-                const value = object(block);
-                return value.type === 'text' && typeof value.text === 'string' ? [value.text] : [];
-              })
-              .join('\n');
       if (
         event.source.kind !== 'pi' ||
         raw.type !== 'message_end' ||
-        native.role !== event.data.role ||
-        content !== event.data.text ||
+        nativeMessage.role !== event.data.role ||
+        nativeVisibleText !== event.data.text ||
         event.data.partial
       )
         gaps.push(`Visible message coverage differs at ${event.id}.`);
@@ -750,15 +735,12 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
       gaps.push(`Unfinished agent tool ${call.id} could hide a later edit or verification.`);
     if (['edit', 'write'].includes(name) && !directEdit)
       gaps.push(`Missing edit attestation for ${call.id}.`);
-    if (
-      !kind &&
-      name === 'bash' &&
-      (containsVerificationInvocation(text(args.command)) ||
-        (/^(?:pnpm|npm|npx|bash|sh|zsh|playwright-cli)\b/.test(text(args.command).trim()) &&
-          /\b(?:test|lint|build|snapshot|vitest|jest)\b/.test(text(args.command)))) &&
-      packageCommand?.verifies !== false
-    ) {
-      const checkKinds = verificationInvocationKinds(text(args.command));
+    const unsupported =
+      !kind && name === 'bash' && packageCommand?.verifies !== false
+        ? classifyVerificationCommand(text(args.command))
+        : undefined;
+    if (unsupported) {
+      const { checkKinds } = unsupported;
       unsupportedCommands.push({
         callRef: call.id,
         ...(result ? { resultRef: result.id } : {}),
@@ -768,18 +750,15 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
       refs.push(call.id, ...(result ? [result.id] : []));
     }
     if (!kind && !edit) continue;
-    refs.push(
-      call.id,
-      ...(result ? [result.id] : []),
-      ...(fullOutput(trial, result) ? [fullOutput(trial, result)!.id] : []),
-    );
+    const retained = fullOutput(trial, result);
+    refs.push(call.id, ...(result ? [result.id] : []), ...(retained ? [retained.id] : []));
     const base = {
       callRef: call.id,
       name,
       args,
       receipt,
       resultText: text(result?.data.text),
-      ...(fullOutput(trial, result) ? { fullOutput: fullOutput(trial, result) } : {}),
+      ...(retained ? { fullOutput: retained } : {}),
       ...(result ? { resultRef: result.id } : {}),
       sequence: result?.sequence ?? call.sequence,
       startedSequence: call.sequence,
@@ -812,7 +791,7 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
               ...(chained?.snapshot ? { inlineSnapshot: chained.snapshot } : {}),
             }
           : {}),
-        ...(result?.data.truncated === true && !fullOutput(trial, result)
+        ...(result?.data.truncated === true && !retained
           ? { unknown: `Truncated verification output for ${call.id}.` }
           : {}),
       });

@@ -79,7 +79,6 @@ export interface Task {
   targetFile: string;
   expectedText: string;
   flowPath: string;
-  environment?: 'repository';
   repository?: { revision: string };
   acceptance?: string;
   limits?: Partial<TrialLimits>;

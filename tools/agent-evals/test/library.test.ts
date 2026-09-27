@@ -163,10 +163,16 @@ test('two graders share one prepared view; exact requests precede dispatch and r
     assert.deepEqual(record.grades[0]!.consideredRefs, ['e1']);
     assert.equal(record.grades[0]!.supportingRefs, undefined);
     assert.deepEqual(record.requests[0]!.response!.raw, { exactResponse: true });
-    assert.match(
-      await readFile(path.join(context.folder, 'gradings', record.id, 'report.md'), 'utf8'),
-      /Exact prepared evidence/,
+    const report = await readFile(
+      path.join(context.folder, 'gradings', record.id, 'report.md'),
+      'utf8',
     );
+    assert.equal(report.match(/Exact prepared evidence:/g)?.length, 1);
+    assert.equal(report.match(/\]\(#evidence-1\)/g)?.length, 2);
+    assert.match(report, /^## Evidence 1$/m);
+    assert.ok(report.includes(JSON.stringify(record.evidence[0], null, 2)));
+    assert.ok(report.includes(JSON.stringify(record.requests[0].request.body, null, 2)));
+    assert.ok(report.includes(JSON.stringify(record.requests[0].response!.raw, null, 2)));
   } finally {
     await context.dispose();
   }
@@ -408,11 +414,13 @@ test('different versions of a view retain distinct evidence identities and exact
       path.join(context.folder, 'gradings', record.id, 'report.md'),
       'utf8',
     );
-    const sections = report.split('## validation-v');
+    const sections = report.split('## Evidence ');
     assert.match(sections[1], /Version 1 observation/);
     assert.doesNotMatch(sections[1], /Version 2 observation/);
     assert.match(sections[2], /Version 2 observation/);
     assert.doesNotMatch(sections[2], /Version 1 observation/);
+    for (const [index, grade] of record.grades.entries())
+      assert.ok(report.includes(`Evidence: [${grade.evidenceId}](#evidence-${index + 1})`));
   } finally {
     await context.dispose();
   }

@@ -1,12 +1,3 @@
-export interface BrowserSnapshotChain {
-  session: string | null;
-  steps: Array<{
-    command: 'playwright-cli' | 'sleep';
-    action: string;
-    args: string[];
-  }>;
-}
-
 /** A literal subset of shell words; this parser never evaluates or executes text. */
 function literalCommands(command: string, candidatesOnly = false): string[][] | undefined {
   if (!candidatesOnly && /[$`\\]/.test(command)) return;
@@ -169,23 +160,30 @@ function hasVerificationSubstitution(command: string): boolean {
   return substitution && /\bplaywright-cli\b/.test(command) && /\bsnapshot\b/.test(command);
 }
 
-/** Potential unsupported verification is retained as unknown, never execution proof. */
-export function containsVerificationInvocation(command: string): boolean {
-  const commands = literalCommands(command) ?? literalCommands(command, true) ?? [];
-  return commands.some(candidateInvocation) || hasVerificationSubstitution(command);
-}
-
 type VerificationKind = 'test' | 'lint' | 'build' | 'browser_snapshot';
 
-/** Classify only literal invocations; unknown shell behavior may affect any check. */
-export function verificationInvocationKinds(command: string): VerificationKind[] | undefined {
+/** Potential verification plus any provable categories; this never grants execution credit. */
+export function classifyVerificationCommand(
+  command: string,
+): { checkKinds?: VerificationKind[] } | undefined {
   const commands = literalCommands(command);
-  if (!commands) return;
-  if (parseBrowserSnapshotChain(command)) return ['browser_snapshot'];
+  const candidates = commands ?? literalCommands(command, true) ?? [];
+  if (
+    !candidates.some(candidateInvocation) &&
+    !hasVerificationSubstitution(command) &&
+    !(
+      /^(?:pnpm|npm|npx|bash|sh|zsh|playwright-cli)\b/.test(command.trim()) &&
+      /\b(?:test|lint|build|snapshot|vitest|jest)\b/.test(command)
+    )
+  )
+    return;
+  // Ambiguous shell syntax may affect every required check.
+  if (!commands) return {};
+  if (browserSnapshotChain(commands)) return { checkKinds: ['browser_snapshot'] };
   const kinds = new Set<VerificationKind>();
   for (const words of commands) {
     const tokens = unwrapInvocation(words);
-    if (!tokens?.length) return;
+    if (!tokens?.length) return {};
     let name: string | undefined = tokens[0];
     const args = tokens.slice(1);
     // Package executors keep the invoked program in a literal command position.
@@ -203,15 +201,15 @@ export function verificationInvocationKinds(command: string): VerificationKind[]
       if (args[0] === 'run') args.shift();
       if (/^test(?::[\w-]+)?$/.test(args[0] ?? '')) kinds.add('test');
       else if (args[0] === 'lint' || args[0] === 'build') kinds.add(args[0]);
-      else return;
+      else return {};
     } else if (name === 'playwright-cli') {
       if (/^(?:-s|--session)=/.test(args[0] ?? '')) args.shift();
       else if (args[0] === '-s' || args[0] === '--session') args.splice(0, 2);
       if (args.length === 1 && args[0] === 'snapshot') kinds.add('browser_snapshot');
-      else return;
-    } else return;
+      else return {};
+    } else return {};
   }
-  return [...kinds];
+  return { checkKinds: [...kinds] };
 }
 
 function isHttpUrl(value: string): boolean {
@@ -228,25 +226,28 @@ function isHttpUrl(value: string): boolean {
  * Recognize an && chain of literal browser actions and sleeps with one final
  * explicit snapshot. Recognition alone does not establish execution or evidence.
  */
-export function parseBrowserSnapshotChain(command: string): BrowserSnapshotChain | undefined {
+export function isBrowserSnapshotChain(command: string): boolean {
   const commands = literalCommands(command);
-  if (!commands || commands.length < 2) return;
-  const steps: BrowserSnapshotChain['steps'] = [];
+  return commands !== undefined && browserSnapshotChain(commands);
+}
+
+function browserSnapshotChain(commands: string[][]): boolean {
+  if (commands.length < 2) return false;
   let session: string | null | undefined;
   for (const [index, words] of commands.entries()) {
     const [executable, ...tokens] = words;
     if (executable === 'sleep') {
       const seconds = tokens[0];
       if (
+        index === commands.length - 1 ||
         tokens.length !== 1 ||
         !/^\+?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(seconds!) ||
         !Number.isFinite(Number(seconds))
       )
-        return;
-      steps.push({ command: 'sleep', action: 'sleep', args: tokens });
+        return false;
       continue;
     }
-    if (executable !== 'playwright-cli') return;
+    if (executable !== 'playwright-cli') return false;
     let commandSession: string | null = null;
     if (/^(?:-s|--session)=/.test(tokens[0] ?? '')) {
       commandSession = tokens.shift()!.split('=').slice(1).join('=');
@@ -254,14 +255,16 @@ export function parseBrowserSnapshotChain(command: string): BrowserSnapshotChain
       tokens.shift();
       commandSession = tokens.shift() ?? '';
     }
-    if (commandSession !== null && !/^[A-Za-z0-9_][A-Za-z0-9_-]*$/.test(commandSession)) return;
-    if (session !== undefined && session !== commandSession) return;
+    if (commandSession !== null && !/^[A-Za-z0-9_][A-Za-z0-9_-]*$/.test(commandSession))
+      return false;
+    if (session !== undefined && session !== commandSession) return false;
     session = commandSession;
     const action = tokens.shift();
     if (action === 'snapshot') {
-      if (index !== commands.length - 1 || tokens.length !== 0) return;
-    } else if (action === 'open' || action === 'goto') {
-      if (tokens.length !== 1 || !isHttpUrl(tokens[0]!)) return;
+      if (index !== commands.length - 1 || tokens.length !== 0) return false;
+    } else if (index === commands.length - 1) return false;
+    else if (action === 'open' || action === 'goto') {
+      if (tokens.length !== 1 || !isHttpUrl(tokens[0]!)) return false;
     } else if (action === 'fill') {
       // The native CLI parses options across all argv, including quoted fill text.
       // A lone dash is positional; other leading-dash values can change behavior.
@@ -270,12 +273,10 @@ export function parseBrowserSnapshotChain(command: string): BrowserSnapshotChain
         !/^e\d+$/.test(tokens[0]!) ||
         (tokens[1]!.startsWith('-') && tokens[1] !== '-')
       )
-        return;
+        return false;
     } else if (action === 'click') {
-      if (tokens.length !== 1 || !/^e\d+$/.test(tokens[0]!)) return;
-    } else return;
-    steps.push({ command: 'playwright-cli', action, args: tokens });
+      if (tokens.length !== 1 || !/^e\d+$/.test(tokens[0]!)) return false;
+    } else return false;
   }
-  if (steps.at(-1)?.command !== 'playwright-cli' || steps.at(-1)?.action !== 'snapshot') return;
-  return { session: session ?? null, steps };
+  return true;
 }

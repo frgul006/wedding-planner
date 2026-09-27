@@ -109,7 +109,6 @@ function snapshotGraders(graders: readonly Grader[]): Grader[] {
 }
 
 function validateItem(item: PreparedItem, sources: Set<string>) {
-  canonicalJson(item);
   if (
     !item.id ||
     !item.scope ||

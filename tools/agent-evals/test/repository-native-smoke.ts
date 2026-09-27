@@ -87,7 +87,7 @@ try {
   const git = await invoke('bash', { command: 'git status --short', timeout: 20 });
   assert.ok(!git.isError, JSON.stringify(git));
 
-  const broken = await trial.verifyAcceptance!();
+  const broken = await trial.verifyAcceptance();
   assert.notEqual(broken.exitCode, 0, 'The seeded login retry defect must fail acceptance.');
   assert.match(
     broken.stderr,

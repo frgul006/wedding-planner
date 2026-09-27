@@ -43,22 +43,13 @@ export function piRunner(
         throw new Error('Pi task version and prompt must match the pinned task catalog entry.');
       const originalProfile = await loadProfile(sourceRepo, options.profile);
       const limits = resolveTrialLimits(
-        {
-          runtimeMs: originalProfile.runtimeMs,
-          maxTurns: originalProfile.maxAgentTurns,
-          maxTokens: originalProfile.maxAgentTokens,
-        },
+        originalProfile.limits,
         options.limits,
         definition.limits,
         task.limits,
         request.limits,
       );
-      const profile = {
-        ...originalProfile,
-        runtimeMs: limits.runtimeMs,
-        maxAgentTurns: limits.maxTurns,
-        maxAgentTokens: limits.maxTokens,
-      };
+      const profile = { ...originalProfile, limits };
       const directory = join(sourceRepo, 'evals/runs', request.trialId);
       await mkdir(join(sourceRepo, 'evals/runs'), { recursive: true, mode: 0o700 });
       // An explicit ID must never replace an earlier attempt.
@@ -77,9 +68,7 @@ export function piRunner(
           id: request.trialId,
           signal: request.signal,
           task: definition,
-          runtimeMs: profile.runtimeMs,
-          maxTurns: profile.maxAgentTurns,
-          maxTokens: profile.maxAgentTokens,
+          ...limits,
           maxEstimatedCostUsd: profile.maxAgentEstimatedCostUsd,
           expectedModel: harness.expectedModel,
           manifest: { ...harness.manifest, profile, runner: 'pi-library-v1' },

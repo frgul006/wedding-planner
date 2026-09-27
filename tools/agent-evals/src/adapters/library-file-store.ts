@@ -38,7 +38,7 @@ export function renderGradingRecord(record: GradingRecord): string {
     '',
   ];
   for (const grade of record.grades) {
-    const evidence = record.evidence.find((item) => item.id === grade.evidenceId);
+    const evidenceIndex = record.evidence.findIndex((item) => item.id === grade.evidenceId);
     const job = record.jobs.find(
       (job) => job.grader.id === grade.grader.id && job.evidence.id === grade.evidenceId,
     );
@@ -46,7 +46,9 @@ export function renderGradingRecord(record: GradingRecord): string {
       `## ${grade.grader.id} · version ${grade.grader.version} · ${grade.verdict}`,
       '',
       `Execution: ${grade.status}`,
-      `Evidence: ${grade.evidenceId}`,
+      evidenceIndex < 0
+        ? `Evidence: ${grade.evidenceId} (not retained)`
+        : `Evidence: [${grade.evidenceId}](#evidence-${evidenceIndex + 1})`,
       `Considered sources: ${grade.consideredRefs.join(', ') || '(none)'}`,
       `Explicit supporting sources: ${grade.supportingRefs?.join(', ') || '(none supplied)'}`,
       '',
@@ -60,6 +62,12 @@ export function renderGradingRecord(record: GradingRecord): string {
             '',
           ]
         : []),
+    );
+  }
+  for (const [index, evidence] of record.evidence.entries()) {
+    lines.push(
+      `## Evidence ${index + 1}`,
+      '',
       'Exact prepared evidence:',
       '```json',
       json(evidence),

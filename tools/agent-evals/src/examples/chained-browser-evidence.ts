@@ -4,7 +4,7 @@ import { parsePlaywrightOutput } from '../adapters/playwright-evidence.ts';
 import { canonicalJson } from '../application/serialization.ts';
 import type { RecordedTrial, TraceArtifact, TraceEvent } from '../domain/library.ts';
 import type { BrowserOutput } from '../domain/types.ts';
-import { parseBrowserSnapshotChain } from './browser-command-chain.ts';
+import { isBrowserSnapshotChain } from './browser-command-chain.ts';
 
 type ObjectValue = Record<string, unknown>;
 const object = (value: unknown): ObjectValue =>
@@ -30,7 +30,7 @@ export function extractChainedBrowserSnapshot(
   result: TraceEvent | undefined,
 ): ChainedBrowserSnapshot | undefined {
   const command = object(call.data.args).command;
-  if (typeof command !== 'string' || !parseBrowserSnapshotChain(command)) return;
+  if (typeof command !== 'string' || !isBrowserSnapshotChain(command)) return;
   const unknown = (message: string): ChainedBrowserSnapshot => ({ unknown: message });
   if (
     call.actor !== 'agent' ||

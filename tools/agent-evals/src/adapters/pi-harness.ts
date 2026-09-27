@@ -21,7 +21,7 @@ import { piModelArguments, selectPiModel } from './pi-model-selection.ts';
 import { selectPiEndpoint } from './pi-endpoint-selection.ts';
 import { PiRpcRunner } from './pi-rpc.ts';
 import { prepareTrialEnvironment } from './trial-environment.ts';
-import { trialInvariants } from './trial-manifest.ts';
+import { createTrialManifest } from './trial-manifest.ts';
 
 /** Native Pi selection and environment wiring are confined to this adapter. */
 export const preparePiHarness: HarnessFactory = async (options) => {
@@ -41,13 +41,11 @@ export const preparePiHarness: HarnessFactory = async (options) => {
     throw new Error(
       'Subscription profile requires verified openai-codex OAuth. Choose an API billing profile for other authentication.',
     );
-  const manifest = await trialInvariants(
+  const manifest = await createTrialManifest(
     options.sourceRepo,
     options.task,
     options.profile,
-    pi,
-    settings,
-    endpointSelection,
+    pi.conversationSettings,
   );
   const runner = new PiRpcRunner({
     requiredExtensionCommand: 'eval-sandbox-ready-v1',
@@ -73,7 +71,7 @@ export const preparePiHarness: HarnessFactory = async (options) => {
           id,
           signal: options.signal,
           pi: { ...pi, defaults: settings, endpointSelection },
-          runtimeMs: options.profile.runtimeMs,
+          runtimeMs: options.profile.limits.runtimeMs,
         }),
     },
     expectedModel: {

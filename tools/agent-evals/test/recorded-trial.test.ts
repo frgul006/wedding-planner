@@ -125,6 +125,29 @@ test('portable trace preserves native sources, attribution and observable text w
   assert.equal(JSON.stringify(evidence), original);
   assert.equal(trial.outcome.localUrl, evidence.localUrl);
   assert.equal(trial.task.metadata?.targetFile, 'form.tsx');
+  assert.deepEqual(trial.trace.contexts, [context]);
+  assert.deepEqual(trial.metadata.environment, { contextCaptureGaps: [] });
+  assert.deepEqual(environment.recordedContexts, [context]);
+});
+
+test('incomplete or changed historical contexts retain their original recorded data and explicit gaps', () => {
+  const rawContexts = [
+    context,
+    { id: 'missing-fields', content: 'Retain incomplete historical context.' },
+    { ...context, id: 'wrong-fingerprint', sha256: '0'.repeat(64) },
+  ];
+  const trial = recordedTrialFromEvidence('context-gaps', recording([settled]), {
+    recordedContexts: rawContexts,
+    contextCaptureGaps: [],
+  });
+  assert.equal(trial.trace.complete, false);
+  assert.ok(trial.trace.gaps.includes('A historical context record is incomplete.'));
+  assert.ok(trial.trace.gaps.some((gap) => gap.includes('wrong-fingerprint')));
+  assert.deepEqual(
+    (trial.metadata.environment as Record<string, unknown>).recordedContexts,
+    rawContexts,
+  );
+  assert.equal(trial.trace.contexts[1].sha256, context.sha256);
 });
 
 test('a finished trace can be complete even when required behavior never happened', () => {

@@ -90,7 +90,8 @@ export function recordedTrialFromEvidence(
   const finalArtifactIds = evidence.artifacts.map(retainArtifact);
   const patchId = evidence.patch ? retainArtifact(evidence.patch) : undefined;
   const contexts: RecordedTrial['trace']['contexts'] = [];
-  const rawContexts = environment.recordedContexts;
+  const { recordedContexts: rawContexts, ...environmentMetadata } = environment;
+  let contextExtractionLossy = rawContexts !== undefined && !Array.isArray(rawContexts);
   if (!Array.isArray(rawContexts) || rawContexts.length === 0)
     gaps.push(
       'Historical instruction and skill contents were not captured; current files cannot replace them.',
@@ -105,12 +106,21 @@ export function recordedTrialFromEvidence(
         typeof context.content !== 'string' ||
         typeof context.sha256 !== 'string'
       ) {
+        contextExtractionLossy = true;
         gaps.push('A historical context record is incomplete.');
         continue;
       }
       const sha256 = hash(context.content);
-      if (sha256 !== context.sha256)
+      if (sha256 !== context.sha256) {
+        contextExtractionLossy = true;
         gaps.push(`Historical context ${context.id} differs from its recorded fingerprint.`);
+      }
+      if (
+        Object.keys(context).some(
+          (key) => !['id', 'path', 'kind', 'content', 'sha256'].includes(key),
+        )
+      )
+        contextExtractionLossy = true;
       contexts.push({
         id: context.id,
         path: context.path,
@@ -230,8 +240,10 @@ export function recordedTrialFromEvidence(
       thinkingLevel: evidence.agent.thinkingLevel,
       startedAt: evidence.agent.startedAt,
       endedAt: evidence.agent.endedAt,
-      environment,
-      sourceFormat: 'legacy-trial-evidence',
+      environment: {
+        ...environmentMetadata,
+        ...(contextExtractionLossy ? { recordedContexts: rawContexts } : {}),
+      },
       omissions: ['Hidden reasoning is excluded from portable messages and source payloads.'],
     },
   };

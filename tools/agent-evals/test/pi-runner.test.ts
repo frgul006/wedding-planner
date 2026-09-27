@@ -12,9 +12,8 @@ import type { TrialLimits } from '../src/index.ts';
 const task = { id: 'sample', version: '1', prompt: 'Repair this local file.' };
 const profile = {
   id: 'test',
-  pi: { runtime: 'native', model: 'gpt-6-luna' },
-  runtimeMs: 900000,
-  maxAgentTokens: 1500000,
+  pi: { model: 'gpt-6-luna' },
+  limits: { runtimeMs: 900000, maxTokens: 1500000 },
   agentBilling: 'subscription',
   maxAgentEstimatedCostUsd: null,
 };
@@ -50,7 +49,6 @@ async function setup() {
       targetFile: 'index.html',
       expectedText: 'Repaired',
       flowPath: '/',
-      environment: 'repository',
       repository: { revision },
       acceptance: 'admin-login-retry',
     }),
@@ -64,11 +62,7 @@ test('each Pi trial resolves independent limits before environment preparation a
   const prepared: TrialLimits[] = [];
   const dispatched: TrialLimits[] = [];
   const prepareHarness: HarnessFactory = async ({ profile }) => {
-    prepared.push({
-      runtimeMs: profile.runtimeMs,
-      maxTurns: profile.maxAgentTurns,
-      maxTokens: profile.maxAgentTokens,
-    });
+    prepared.push(profile.limits);
     return {
       expectedModel: { provider: 'openai-codex', id: 'gpt-6-luna', thinkingLevel: 'xhigh' },
       inspection: {},
@@ -162,9 +156,9 @@ test('direct Pi runs snapshot caller-owned limits and identity before asynchrono
   const runner = piRunner(options, {
     prepareHarness: async ({ profile }) => {
       prepared = true;
-      assert.equal(profile.runtimeMs, 1000);
-      assert.equal(profile.maxAgentTurns, 3);
-      assert.equal(profile.maxAgentTokens, 100);
+      assert.equal(profile.limits.runtimeMs, 1000);
+      assert.equal(profile.limits.maxTurns, 3);
+      assert.equal(profile.limits.maxTokens, 100);
       throw new Error('Stop before native dispatch');
     },
   });
@@ -187,12 +181,12 @@ test('Pi bridge saves incremental redacted evidence and applies no graders or ta
   const fakeSecret = 'sk-offline-fixture-secret-value';
   const prepareHarness: HarnessFactory = async (options: HarnessOptions) => {
     assert.equal(options.profile.pi.model, 'gpt-6-luna');
-    assert.equal(options.profile.runtimeMs, 4000);
-    assert.equal(options.profile.maxAgentTokens, 1000);
+    assert.equal(options.profile.limits.runtimeMs, 4000);
+    assert.equal(options.profile.limits.maxTokens, 1000);
     assert.equal('metadata' in options.task, false);
     return {
       inspection: { defaults: { model: 'saved-model' }, evaluationModel: { model: 'gpt-6-luna' } },
-      manifest: { invariants: { model: { id: 'gpt-6-luna' } } },
+      manifest: {},
       expectedModel: { provider: 'openai-codex', id: 'gpt-6-luna', thinkingLevel: 'xhigh' },
       environment: {
         async prepare() {

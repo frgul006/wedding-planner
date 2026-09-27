@@ -1,7 +1,6 @@
 {
   "id": "repository-login-retry",
   "title": "Repair login retry after a failed submission",
-  "environment": "repository",
   "repository": {
     "revision": "30d2388f71595d1ba65d0d2fabc8b97b6ee48f80"
   },

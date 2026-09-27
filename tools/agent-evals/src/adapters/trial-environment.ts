@@ -42,7 +42,7 @@ export interface TrialEnvironmentOptions {
 }
 export interface PreparedTrialEnvironment extends PreparedEnvironment {
   runCommand(executable: string, args: string[]): Promise<SandboxCommandResult>;
-  verifyAcceptance?(): Promise<CommandCheck>;
+  verifyAcceptance(): Promise<CommandCheck>;
 }
 
 /**
@@ -58,8 +58,7 @@ export async function prepareTrialEnvironment(
   }
   const sourceRepo = await realpath(options.sourceRepo);
   const resourceSource = await realpath(options.pi.resources.cwd);
-  if (options.task.environment !== 'repository' || !options.task.repository)
-    throw new Error('Pi trials require a pinned repository task.');
+  if (!options.task.repository) throw new Error('Pi trials require a pinned repository task.');
   const runtime = await resolveLocalRuntime(sourceRepo, resourceSource);
   const selection = validateResourceSelection(resourceSource, options.pi.resources);
   const paths = await createTrialPaths(selection.ancestors.length);
@@ -215,17 +214,10 @@ export async function prepareTrialEnvironment(
       agentContext,
       provenance: {
         agentContext,
-        runtime: runtimeEvidence,
-        comparableRuntime: {
-          node: runtimeEvidence.node.version,
-          pnpm: runtimeEvidence.pnpm.version,
-          playwright: runtimeEvidence.playwright.version,
-          browser: runtimeEvidence.browser.version,
-          fileWorkerSha256: runtimeEvidence.fileWorkerSha256,
+        runtime: {
+          ...runtimeEvidence,
           platform: runtime.platform,
           architecture: runtime.architecture,
-          lockfileSha256: repositoryProvenance.lockfileSha256,
-          installedLockfileSha256: repositoryProvenance.installedLockfileSha256,
         },
         fixtureRevision: sha256(JSON.stringify(fixtureFiles)),
         fixtureFiles,

@@ -1,13 +1,14 @@
 {
   "id": "local-pi-repository-v2",
-  "runtimeMs": 1800000,
-  "maxAgentTokens": 1000000,
+  "limits": {
+    "runtimeMs": 1800000,
+    "maxTurns": 100,
+    "maxTokens": 1000000
+  },
   "maxAgentEstimatedCostUsd": null,
   "agentBilling": "subscription",
   "pi": {
-    "runtime": "native",
     "model": "gpt-6-luna",
     "endpoint": "catalog"
-  },
-  "maxAgentTurns": 100
+  }
 }

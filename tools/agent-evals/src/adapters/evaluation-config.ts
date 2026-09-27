@@ -1,10 +1,8 @@
-import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
-import type { Task } from '../domain/types.ts';
-import { DEFAULT_TRIAL_LIMITS, MAX_RUNTIME_MS } from '../domain/trial-limits.ts';
+import { MAX_RUNTIME_MS, resolveTrialLimits } from '../domain/trial-limits.ts';
 
 const positiveInteger = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const runtimeLimit = positiveInteger.max(MAX_RUNTIME_MS);
@@ -35,7 +33,6 @@ export const taskSchema = z
     id: identifier,
     title: z.string().min(1).optional(),
     version: z.string().min(1),
-    environment: z.literal('repository'),
     repository: z
       .object({ revision: z.string().regex(/^[a-f0-9]{40}$/, 'Pin a complete Git revision') })
       .strict(),
@@ -57,22 +54,19 @@ export const taskSchema = z
   })
   .strict();
 
-export type TaskDefinition = Task & z.infer<typeof taskSchema>;
+export type TaskDefinition = z.infer<typeof taskSchema>;
 
 export const profileSchema = z
   .object({
     id: z.string().min(1),
     pi: z
       .object({
-        runtime: z.literal('native'),
         model: z.string().trim().min(1).optional(),
         endpoint: z.enum(['native', 'catalog']).optional(),
       })
       .strict()
-      .default({ runtime: 'native' }),
-    runtimeMs: runtimeLimit.default(DEFAULT_TRIAL_LIMITS.runtimeMs),
-    maxAgentTurns: positiveInteger.default(DEFAULT_TRIAL_LIMITS.maxTurns),
-    maxAgentTokens: positiveInteger.default(DEFAULT_TRIAL_LIMITS.maxTokens),
+      .default({}),
+    limits: trialLimitsSchema.default({}).transform((limits) => resolveTrialLimits(limits)),
     agentBilling: z.enum(['subscription', 'api']),
     maxAgentEstimatedCostUsd: z.number().positive().nullable(),
   })
@@ -141,14 +135,8 @@ export async function loadTask(repo: string, name: string): Promise<TaskDefiniti
   const task = parseConfiguration(taskSchema, await readJson(file), file);
   if (task.id !== name)
     throw new Error(`Task id "${task.id}" must match its filename ${name}.json`);
-  const revision = task.repository!.revision;
+  const revision = task.repository.revision;
   try {
-    const kind = execFileSync('git', ['cat-file', '-t', `${revision}:${task.targetFile}`], {
-      cwd: repo,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }).trim();
-    if (kind !== 'blob') throw new Error('Target is not a file');
     const entry = execFileSync('git', ['ls-tree', revision, '--', task.targetFile], {
       cwd: repo,
       encoding: 'utf8',
@@ -166,27 +154,4 @@ export async function loadTask(repo: string, name: string): Promise<TaskDefiniti
 export async function loadProfile(repo: string, name = 'smoke'): Promise<EvaluationProfile> {
   const file = await catalogFile(repo, 'profiles', name);
   return parseConfiguration(profileSchema, await readJson(file), file);
-}
-
-export function hashText(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
-}
-
-export async function treeHash(directory: string): Promise<string> {
-  const records: string[] = [];
-  async function visit(folder: string): Promise<void> {
-    const entries = (await readdir(folder, { withFileTypes: true })).sort((a, b) =>
-      a.name.localeCompare(b.name),
-    );
-    for (const entry of entries) {
-      if (entry.name === 'node_modules') continue;
-      const file = path.join(folder, entry.name);
-      if (entry.isDirectory()) await visit(file);
-      else if (entry.isFile())
-        records.push(`${path.relative(directory, file)}:${hashText(await readFile(file, 'utf8'))}`);
-      else throw new Error(`Unexpected symlink in versioned evaluation input: ${file}`);
-    }
-  }
-  await visit(directory);
-  return hashText(records.join('\n'));
 }
