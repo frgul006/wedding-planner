@@ -118,7 +118,6 @@ function recording(
     task: {
       id: 'retry',
       version: '1',
-      kind: 'ui',
       prompt: 'Investigate the retry.',
       targetFile: 'form.tsx',
       expectedText: 'Retry',

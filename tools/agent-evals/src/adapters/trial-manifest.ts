@@ -19,7 +19,6 @@ export async function trialInvariants(
   task: TaskDefinition,
   profile: EvaluationProfile,
   pi: PiInspection,
-  rubric: string,
   effectiveModel: PiInspection['defaults'] = pi.defaults,
   endpointSelection?: PiEndpointSelection,
 ) {
@@ -51,48 +50,29 @@ export async function trialInvariants(
     source: sourceIdentity(source.path),
     sha256: source.sha256,
   }));
-  const comparisonEligible =
-    [...pi.resources.instructions, ...pi.resources.systemPrompts].reduce(
-      (count, source) => count + Number(source.pilotRuleOccurrences ?? 0),
-      0,
-    ) === 1;
-  const revision = execFileSync('git', ['rev-parse', task.repository?.revision ?? 'HEAD'], {
+  const revision = execFileSync('git', ['rev-parse', task.repository.revision], {
     cwd: repo,
     encoding: 'utf8',
   }).trim();
-  const [fixtureHash, repositorySkillsHash, harnessHash, instruction, lockfile] = await Promise.all(
-    [
-      task.environment === 'repository'
-        ? Promise.resolve(revision)
-        : treeHash(path.join(repo, 'evals/fixtures', task.fixture)),
-      treeHash(path.join(pi.resources.cwd, '.agents/skills')),
-      treeHash(path.join(repo, 'tools/agent-evals/src')),
-      readFile(path.join(pi.resources.cwd, 'AGENTS.md'), 'utf8'),
-      readFile(path.join(repo, 'pnpm-lock.yaml'), 'utf8'),
-    ],
-  );
+  const [harnessHash, lockfile] = await Promise.all([
+    treeHash(path.join(repo, 'tools/agent-evals/src')),
+    readFile(path.join(repo, 'pnpm-lock.yaml'), 'utf8'),
+  ]);
   return {
-    comparisonEligible,
     invariants: {
       revision,
-      fixtureHash,
-      repositorySkillsHash,
       harnessHash,
       taskHash: hashText(JSON.stringify(task)),
-      profileHash: hashText(
-        JSON.stringify({ ...profile, id: undefined, pi: undefined, harness: undefined }),
-      ),
+      profileHash: hashText(JSON.stringify(profile)),
       agentConfiguration: {
-        adapter: profile.harness,
+        adapter: 'pi',
         runtime: profile.pi.runtime,
         ...(endpointSelection ? { endpointPolicy: endpointSelection.policy } : {}),
-        settings: isolatedPiSettings(pi.conversationSettings, profile.pi.runtime),
+        settings: isolatedPiSettings(pi.conversationSettings),
         extensionPolicy: 'disabled',
         tools: ['read', 'bash', 'edit', 'write'],
       },
-      instructionTemplateHash: hashText(instruction),
       dependencyLockHash: hashText(lockfile),
-      rubric: { id: task.rubric, sha256: hashText(rubric) },
       sourceProfile: {
         projectTrusted: pi.resources.projectTrusted,
         instructions: pi.resources.instructions.map(({ path, scope }) => ({

@@ -8,12 +8,6 @@ import { isWithin, minimalEnvironment } from './sandbox.ts';
 import type { TrialPaths } from './trial-paths.ts';
 
 const execute = promisify(execFile);
-export const REPOSITORY_ACCEPTANCE_IDS = new Set([
-  'admin-login-copy',
-  'local-development-docs',
-  'admin-login-visible-error',
-  'admin-login-retry',
-]);
 const excludedResourceNames = [
   'AGENTS.md',
   'AGENTS.MD',
@@ -62,7 +56,7 @@ export async function prepareRepositoryCheckout(options: {
   acceptance?: string;
 }) {
   const { paths, revision } = options;
-  if (!options.acceptance || !REPOSITORY_ACCEPTANCE_IDS.has(options.acceptance))
+  if (options.acceptance !== 'admin-login-retry')
     throw new Error(`Unknown repository acceptance check: ${options.acceptance ?? 'missing'}`);
   if (!/^[a-f0-9]{40}$/.test(revision))
     throw new Error('Repository trials require a full pinned commit SHA.');
@@ -124,26 +118,19 @@ export async function prepareRepositoryCheckout(options: {
   });
   for (const name of excludedResourceNames)
     await rm(join(paths.workspace, name), { recursive: true, force: true });
-  let seededPatch: string | null = null;
-  if (['admin-login-visible-error', 'admin-login-retry'].includes(options.acceptance)) {
-    const path = join(paths.workspace, 'app/admin/login/login-form.tsx');
-    const original = await readFile(path, 'utf8');
-    const retry = options.acceptance === 'admin-login-retry';
-    const needle = retry ? 'disabled={pending}' : 'className="rounded-lg bg-red-50';
-    const replacement = retry
-      ? 'disabled={pending || Boolean(state.error)}'
-      : 'className="hidden rounded-lg bg-red-50';
-    if (original.split(needle).length !== 2)
-      throw new Error('Pinned login error fixture no longer matches its authored defect.');
-    await writeFile(path, original.replace(needle, replacement));
-    seededPatch = (
-      await repositoryGit(
-        paths.workspace,
-        ['diff', '--no-ext-diff', '--no-textconv', '--', 'app/admin/login/login-form.tsx'],
-        env,
-      )
-    ).stdout;
-  }
+  const path = join(paths.workspace, 'app/admin/login/login-form.tsx');
+  const original = await readFile(path, 'utf8');
+  const needle = 'disabled={pending}';
+  if (original.split(needle).length !== 2)
+    throw new Error('Pinned login retry task no longer matches its authored defect.');
+  await writeFile(path, original.replace(needle, 'disabled={pending || Boolean(state.error)}'));
+  const seededPatch = (
+    await repositoryGit(
+      paths.workspace,
+      ['diff', '--no-ext-diff', '--no-textconv', '--', 'app/admin/login/login-form.tsx'],
+      env,
+    )
+  ).stdout;
   return {
     revision,
     lockfileSha256: sha256(pinnedLock),

@@ -1,11 +1,8 @@
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
 import {
   collectRepositoryEvidence,
   snapshotRepository,
@@ -17,41 +14,6 @@ import {
 } from '../src/adapters/isolation/repository-checkout.ts';
 import { minimalEnvironment } from '../src/adapters/isolation/sandbox.ts';
 import { createTrialPaths } from '../src/adapters/isolation/trial-paths.ts';
-
-test('documentation acceptance requires command and route inside the added section', async () => {
-  const workspace = await mkdtemp(join(tmpdir(), 'eval-docs-acceptance-'));
-  const target = join(workspace, 'admin-auth.md');
-  const script = fileURLToPath(
-    new URL('../src/adapters/isolation/repository-acceptance.mjs', import.meta.url),
-  );
-  const check = () =>
-    promisify(execFile)(process.execPath, [
-      script,
-      'unused',
-      'unused',
-      'http://127.0.0.1:1',
-      'local-development-docs',
-      target,
-    ]);
-  const existing = '# Admin authentication\nStart with pnpm dev and visit /admin/login.\n';
-  try {
-    await writeFile(target, existing + '\n## Verify the admin login page\n');
-    await assert.rejects(check(), /new section must include the startup command/);
-    await writeFile(
-      target,
-      existing + '\n## Verify the admin login page\npnpm dev\n\n## Other section\n/admin/login\n',
-    );
-    await assert.rejects(check(), /new section must include the login route/);
-    await writeFile(
-      target,
-      existing +
-        '\n## Verify the admin login page\nRun pnpm dev and open /admin/login. Rendering the form does not test successful authentication.\n',
-    );
-    assert.match((await check()).stdout, /presence check passed/);
-  } finally {
-    await rm(workspace, { recursive: true, force: true });
-  }
-});
 
 test('retained source and patch include ignored additions, deletions, nested generated-looking paths and agent commits', async () => {
   const workspace = await mkdtemp(join(tmpdir(), 'eval-repository-evidence-'));
@@ -164,7 +126,7 @@ test('repository preparation rejects installed dependencies with a different app
         dependencyRepo: source,
         revision,
         paths,
-        acceptance: 'admin-login-copy',
+        acceptance: 'admin-login-retry',
       }),
       /Installed node_modules does not match/,
     );

@@ -6,9 +6,10 @@ import { fileURLToPath } from 'node:url';
 import { loadTask } from '../src/adapters/evaluation-config.ts';
 import { inspectPiResources, locatePi } from '../src/adapters/pi-inspection.ts';
 import { prepareTrialEnvironment } from '../src/adapters/trial-environment.ts';
+import { resolveSourceRepo } from '../src/adapters/secrets.ts';
 
 const sourceRepo = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-const agentSource = process.env.EVAL_AGENT_SOURCE ?? resolve(sourceRepo, '../../wedding-planner');
+const agentSource = process.env.EVAL_AGENT_SOURCE ?? resolveSourceRepo(sourceRepo);
 const pi = await locatePi();
 const agentDir = join(process.env.HOME!, '.pi/agent');
 const resources = await inspectPiResources({
@@ -18,8 +19,7 @@ const resources = await inspectPiResources({
 });
 const trial = await prepareTrialEnvironment({
   sourceRepo,
-  task: await loadTask(sourceRepo, 'repository-ui-copy'),
-  variant: 'disabled',
+  task: await loadTask(sourceRepo, 'repository-login-retry'),
   pi: { ...pi, agentDir, resources },
   runtimeMs: 120_000,
 });

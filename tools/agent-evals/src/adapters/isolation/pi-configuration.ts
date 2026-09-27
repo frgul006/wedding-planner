@@ -35,11 +35,8 @@ export function piConversationSettings(original: Record<string, unknown>): Recor
   );
 }
 
-/** Preserve native conversation settings; the controlled preset is an explicit ablation. */
-export function isolatedPiSettings(
-  original: Record<string, unknown>,
-  runtime: 'native' | 'controlled' = 'native',
-): Record<string, unknown> {
+/** Preserve native conversation settings inside the isolated trial workspace. */
+export function isolatedPiSettings(original: Record<string, unknown>): Record<string, unknown> {
   const nativeKeys = ['defaultProvider', 'defaultModel', 'defaultThinkingLevel'];
   return {
     ...piConversationSettings(original),
@@ -51,21 +48,14 @@ export function isolatedPiSettings(
     defaultProjectTrust: 'always',
     enableInstallTelemetry: false,
     enableAnalytics: false,
-    ...(runtime === 'controlled'
-      ? {
-          compaction: { enabled: false },
-          retry: { enabled: false, maxRetries: 0, provider: { maxRetries: 0 } },
-        }
-      : {}),
   };
 }
 
-/** Authentication stays private; neither preset exposes it to agent tools. */
+/** Authentication stays private and is never exposed to agent tools. */
 export async function preparePiConfiguration(
   pi: InspectedPi,
   paths: TrialPaths,
   runtimeMs: number,
-  runtime: 'native' | 'controlled' = 'native',
 ): Promise<PrivateAuthentication> {
   const original = JSON.parse(await readFile(join(pi.agentDir, 'settings.json'), 'utf8')) as Record<
     string,
@@ -77,7 +67,7 @@ export async function preparePiConfiguration(
     JSON.stringify(piConversationSettings(original)) !== JSON.stringify(pi.conversationSettings)
   )
     throw new Error(
-      'Native Pi conversation settings changed after inspection. Start a new experiment to freeze the new configuration.',
+      'Native Pi conversation settings changed after inspection. Start a new trial to freeze the new configuration.',
     );
   if (typeof provider !== 'string' || !provider)
     throw new Error('Select a provider in native Pi before preparing a trial.');
@@ -105,7 +95,7 @@ export async function preparePiConfiguration(
       await writeFile(destination, projected, { mode: 0o600 });
     }
   }
-  const settings = isolatedPiSettings(original, runtime);
+  const settings = isolatedPiSettings(original);
   await writeFile(join(paths.piDirectory, 'settings.json'), JSON.stringify(settings, null, 2));
   return authentication;
 }

@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { availableSkills, discoveredSkills } from '../src/application/skill-inventory.ts';
 import { runTrial } from '../src/application/run-trial.ts';
-import { observeSkills } from '../src/domain/deterministic-graders.ts';
 import type { AgentResult, Task } from '../src/domain/types.ts';
 
 const resources = [
@@ -38,7 +37,6 @@ test('application records adapter-discovered skills without decoding a provider 
   const task: Task = {
     id: 'docs',
     version: '1',
-    kind: 'docs',
     targetFile: 'README.md',
     prompt: 'Update docs',
     expectedText: 'Hello',
@@ -66,7 +64,6 @@ test('application records adapter-discovered skills without decoding a provider 
     {
       id: 'inventory',
       task,
-      variant: 'enabled',
       runtimeMs: 10,
       maxTokens: 100,
       maxEstimatedCostUsd: 1,
@@ -106,7 +103,6 @@ test('application records adapter-discovered skills without decoding a provider 
           return agent;
         },
       },
-      graders: [],
       store: { async save() {}, append() {} },
     },
   );
@@ -120,11 +116,10 @@ test('application records adapter-discovered skills without decoding a provider 
     (event) => event.observation?.type === 'skills_discovered',
   );
   assert.deepEqual(inventories[1].data.derivedFrom, [discovery?.id]);
-  const observed = observeSkills(result.evidence);
-  assert.equal(observed[0].available, 'yes');
-  assert.equal(observed[0].discovered, 'yes');
-  assert.equal(observed[0].loaded, 'unknown');
-  assert.equal(observed[1].available, 'yes');
-  assert.equal(observed[1].discovered, 'no');
-  assert.equal(observed[1].loaded, 'unknown');
+  assert.deepEqual(inventories[0].data.skills, availableSkills({ resources }));
+  assert.deepEqual(
+    inventories[1].data.skills,
+    discoveredSkills(availableSkills({ resources }), skills),
+  );
+  assert.match(String(inventories[1].data.note), /does not prove full skill content was loaded/);
 });

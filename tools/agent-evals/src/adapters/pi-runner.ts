@@ -18,7 +18,6 @@ export interface PiRunnerOptions {
   sourceRepo: string;
   agentSource: string;
   profile?: string;
-  variant?: 'enabled' | 'disabled';
   runtimeMs?: number;
   maxTurns?: number;
   maxTokens?: number;
@@ -65,8 +64,6 @@ export function piRunner(
         maxAgentTurns: limits.maxTurns,
         maxAgentTokens: limits.maxTokens,
       });
-      if (profile.harness !== 'pi') throw new Error('piRunner requires a Pi evaluation profile.');
-      const variant = options.variant ?? 'enabled';
       const directory = join(sourceRepo, 'evals/runs', request.trialId);
       await mkdir(join(sourceRepo, 'evals/runs'), { recursive: true, mode: 0o700 });
       // An explicit ID must never replace an earlier attempt.
@@ -77,10 +74,6 @@ export function piRunner(
         agentSource,
         task: definition,
         profile,
-        rubric: await readFile(
-          join(sourceRepo, 'evals/rubrics', `${definition.rubric}.md`),
-          'utf8',
-        ),
         signal: request.signal,
       });
       await store.save('inspection.json', harness.inspection);
@@ -89,15 +82,14 @@ export function piRunner(
           id: request.trialId,
           signal: request.signal,
           task: definition,
-          variant,
           runtimeMs: profile.runtimeMs,
           maxTurns: profile.maxAgentTurns,
           maxTokens: profile.maxAgentTokens,
           maxEstimatedCostUsd: profile.maxAgentEstimatedCostUsd,
           expectedModel: harness.expectedModel,
-          manifest: { ...harness.manifest, variant, profile, runner: 'pi-library-v1' },
+          manifest: { ...harness.manifest, profile, runner: 'pi-library-v1' },
         },
-        { agent: harness.agent, environment: harness.environment, graders: [], store },
+        { agent: harness.agent, environment: harness.environment, store },
       );
       const files = await readdir(directory);
       await store.seal(files.filter((file) => file.endsWith('.json') || file.endsWith('.jsonl')));
@@ -116,8 +108,8 @@ export function piRunner(
       trial.task.metadata = { ...trial.task.metadata, ...task.metadata };
       trial.metadata = {
         ...trial.metadata,
-        legacyDirectory: directory,
-        legacyIntegrity: join(directory, 'integrity.json'),
+        recordingDirectory: directory,
+        recordingIntegrity: join(directory, 'integrity.json'),
         limits,
         cachedTokenWeight: CACHED_TOKEN_WEIGHT,
       };

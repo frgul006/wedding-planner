@@ -1,128 +1,171 @@
-# Coding-agent evaluations
+# Record, inspect and regrade coding-agent trials
 
-Start with the [library workflow](library.md): one saved Luna trial, reusable evidence views, batched Jev grading, and inspection and regrading of the same recording. Preview it with `pnpm evals library run --dry-run`.
+The evaluation library records an agent attempt once, prepares evidence for specific questions, and lets you revise those questions against the same saved recording. A Runner executes tasks, Views prepare evidence, Graders define checks, a Judge answers model questions, and a Store retains trials and grading records. Task correctness, instruction compliance, and instruction usefulness are separate claims.
 
-[Library verification and review results](verification-2026-09-27.md)
+[Package architecture and development checks](../tools/agent-evals/README.md) · [Architecture decision](../docs/adr/0004-agent-evaluation-boundary.md)
 
-The commands below retain the earlier matched instruction-comparison workflow.
+## Run the example
 
-Run native Pi on a pinned checkout of Wedding Planner, check its changes independently, and compare the browser-validation instruction enabled versus disabled.
+Use Node 24 and this repository's pnpm version. Live execution requires macOS, native Pi with `gpt-6-luna` in the authenticated provider catalog, `playwright-cli`, and the Chromium headless shell required by the application's Playwright package. Dependencies matching the task's pinned Wedding commit must already be installed in the original checkout; trials copy them privately without downloading packages. `COREPACK_HOME` and `PLAYWRIGHT_BROWSERS_PATH` support nonstandard tool caches.
+
+Keep `TYPESAFE_API_KEY` in this worktree's ignored `.env.local`. The CLI reads only that key for Jev; `--key-file PATH` selects another file. Pi uses its existing subscription authentication separately. Application credentials and the Jev key do not enter the evaluated agent's environment.
 
 ```bash
 nvm use
 pnpm install
-pnpm evals experiment repository-ui-copy --dry-run
-pnpm evals experiment repository-ui-copy
+pnpm evals library run --dry-run
+pnpm evals library run
+pnpm evals library show RUN_ID
+pnpm evals library regrade RUN_ID --revision 2
 ```
 
-One command runs the two trials sequentially, keeps both results (including failures), and writes a comparison and a shareable review summary. It does not make grader API calls unless you add `--semantic`. The included profiles run Pi with `gpt-6-luna` for experimentation, using its existing provider, reasoning and authentication; subscription usage has separate runtime, turn and weighted-token bounds.
+`run` makes one isolated native Luna attempt at `repository-login-retry`, saves the recording, and applies two diagnostic Jev questions plus a deterministic validation-order check. The natural task asks Pi to investigate and repair a login form that remains stuck after an unsuccessful submission, without naming a skill or giving away the cause. Independent acceptance exercises two actual local Server Actions, required-input validation, pending state, and error feedback.
 
-[Author a task or grader](authoring.md) · [Code map](../tools/agent-evals/README.md) · [Real-repository verification](verification-2026-09-16.md)
+`show` reads local records. `regrade` appends results for the same saved trial without starting Pi; revision 2 sharpens the hypothesis question to require a refutable prediction before the probe. `--no-judge` selects only the deterministic grader. `--dry-run` previews configuration without credentials or calls, and `--json` produces machine-readable output. `--store PATH` changes the library store. Use the returned run ID with `show` and `regrade`; see `pnpm evals library --help` for all options.
 
-## Prerequisites
+Trial execution status and behavioral verdicts are separate. CLI exit code 1 means command setup or storage failed, such as invalid configuration, a missing key, or an unreadable saved record. Exit code 2 means a recorded trial's execution, preparation, or grading failed. A completed `fail` or `unknown` judgment is reported separately and does not change the exit code. Interrupted attempts remain saved. There is no automatic trial retry.
 
-Live execution currently requires macOS, installed native Pi, `playwright-cli`, the Chromium headless shell revision required by the application's Playwright package, and this repository's Node/pnpm versions. Dependencies for the pinned Wedding commit must already be installed in the original checkout. Trials copy them privately; they do not download packages. `COREPACK_HOME` and `PLAYWRIGHT_BROWSERS_PATH` are supported for nonstandard tool caches. Both `playwright-cli` and ordinary `@playwright/test` launches can use the selected browser inside the trial.
+## Limits and native configuration
+
+The defaults are **30 minutes, 100 completed turns, and 1,000,000 weighted tokens per trial**. Any reached limit stops that trial, and counters reset for each repetition. A turn is one assistant response plus its resulting tool calls/results, including failed attempts and native retries. Runtime includes Pi startup and agent execution, excluding environment preparation, final acceptance, and grading.
+
+Token accounting is `input + output + 0.1 × (cacheRead + cacheWrite)` across all calls. Raw provider usage remains unchanged. The first observed limit hit, its threshold, and the observed counter are recorded; usage may overshoot while a response is in flight. Reaching a boundary is an incomplete trial even if it coincides with an otherwise final response. Process shutdown and final accounting do not extend the execution-time counter.
 
 ```bash
-pnpm evals doctor --no-grader
-pnpm evals tasks
-pnpm evals validate
+pnpm evals library run --max-runtime-ms 1800000 --max-turns 100 --max-tokens 1000000 --dry-run
 ```
 
-These commands do not prompt an agent or generate a billed response. `doctor --semantic` also checks direct grader API access.
+Limits resolve field by field: shared defaults, profile values, Pi runner defaults, task limits, then explicit per-trial overrides. CLI flags override task values. Profiles use `runtimeMs`, `maxAgentTurns`, and `maxAgentTokens`; TypeScript tasks and task JSON use `limits: { runtimeMs, maxTurns, maxTokens }`. Omitted fields inherit. Values must be positive safe integers, and runtime must fit Node's timer range (2,147,483,647 milliseconds). The environment and authentication deadlines receive the same resolved runtime; a longer OAuth trial fails preparation if credentials cannot remain valid long enough.
 
-Pi's resource selection is inspected in the **original checkout**, preserving its actual trust decision. `--agent-source PATH` selects another checkout explicitly. This avoids accidentally losing repository skills just because the evaluation implementation runs in an untrusted worktree. Reports retain the inspected and effective resources, their hashes, and any profile differences.
+The `smoke` profile selects `gpt-6-luna` and preserves the saved provider, reasoning, compaction, and native retry settings without changing global Pi settings. An unavailable model or incompatible reasoning level fails before prompting; there is no model fallback.
 
-## What the repository tasks test
+The profile selects `pi.endpoint: "catalog"`. The adapter removes only an endpoint-only override from the private Pi configuration and verifies the native catalog endpoint before prompting. Saved and effective endpoint identities are recorded. Complex custom credentials or model definitions are rejected rather than redirected. Omit the field or use `"native"` to retain a configured endpoint.
 
-| Task                     | Work                                  | Independent acceptance                                                          |
-| ------------------------ | ------------------------------------- | ------------------------------------------------------------------------------- |
-| `repository-ui-copy`     | Clarify the real admin login button   | Rendered label, pending state, error feedback, lint/build                       |
-| `repository-login-error` | Repair invisible login error feedback | Visible error after submission, pending behavior, lint/build                    |
-| `repository-docs`        | Explain local login-page verification | Documentation checks and application checks; browser instruction not applicable |
+Pi resource discovery uses the original checkout's actual trust decision; `--agent-source PATH` explicitly selects another resource checkout. Instructions, skills, selected resources, and effective configuration are recorded with their hashes. Native Pi resolves copied instructions and skills before prompting. Trusted project-specific runtime overrides in `.pi/settings.json` are currently rejected rather than silently ignored.
 
-All three use the real TypeScript/React application at the full commit pinned in their task JSON. Prompts do not repeat the browser-validation instruction. The error task starts with an explicitly recorded one-line defect in the real login component. The old `ui-copy` and `docs-only` synthetic tasks remain small regression fixtures.
+The isolated tool surface is `read`, `bash`, `edit`, and `write`. Optional extension/package code and subagents are excluded, including automatic caveman injection. This configuration does not reproduce every extension in an interactive Pi session.
 
-The app runs Next.js with local-only environment values and an unavailable loopback authentication endpoint. This exercises rendering and failure feedback without a database. It does **not** test successful authentication, Supabase integration, or the broader wedding workflows. Offline font responses and webpack for development and production builds are recorded environment differences. The agent receives the supported `pnpm build --webpack` command as runtime context. Default Turbopack requires process/port access outside this boundary. The evaluator verifies the pinned and installed dependency locks before disabling pnpm’s automatic reinstall of copied dependencies. The production-linked Pi sandbox and application credentials are never used.
+Jev uses pinned `jev-1.13.0`, concurrency one, a 20-second request timeout, and no SDK retries. The default aggregate admission allowance is $0.01 per command; `--budget-usd` changes it up to $1. These estimates are application controls, not provider-enforced spending caps. Pi subscription usage is separate from the judge allowance.
 
-The evaluator stops agent descendants, runs its own checks, captures before/after source and a full source-change patch, then cleans up. Generated caches and immutable installed dependencies are excluded from source capture. Its checks never count as evidence that the agent obeyed an instruction. Acceptance code and expected answers stay outside the agent's writable workspace.
+## Inspect the evidence
 
-## Native Pi configuration
+Private records live under ignored `evals/runs/`. The default library store is `evals/runs/library/`:
 
-The default `smoke` profile selects `gpt-6-luna` while preserving the saved provider, reasoning, conversation compaction and retry settings. The `controlled` profile selects the same model and explicitly disables native compaction/retries for comparison. Native Pi resolves the copied instructions and skills again before prompting.
+| Record                                         | Contents                                                                                                                                        |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `trials/TRIAL_ID.json`                         | Observable normalized trace, retained native source payloads, artifacts, historical instruction/skill contents, outcome, and runtime provenance |
+| `runs/RUN_ID.json`                             | Trial and original grading IDs for a suite run                                                                                                  |
+| `gradings/GRADING_ID/grading.json`             | Exact prepared evidence, source references, content hashes, versions, questions, request membership, responses, errors, and usage               |
+| `gradings/GRADING_ID/report.md`                | Readable evidence, scope, omissions, verdicts, and judge request/response                                                                       |
+| `gradings/GRADING_ID/requests/REQUEST_ID.json` | Credential-free exact request body journaled before dispatch                                                                                    |
 
-The included profiles explicitly select `pi.endpoint: "catalog"`: evaluation uses the HTTPS endpoint in Pi’s native model catalog while retaining its OAuth authentication. Only an endpoint-only provider override is removed from the private trial copy; global Pi settings and other providers remain untouched. Inspection records the saved override and effective endpoint as origins plus exact identity hashes, and startup checks the effective endpoint before prompting. More complex custom provider credentials or model definitions are rejected rather than redirected. Omit the field or use `"native"` to retain the configured provider endpoint; doctor identifies a local Python static-file server before a model request. This addresses the observed stale localhost proxy override that produced a zero-token HTTP 501 trial, which remains saved.
+The Pi adapter also retains its incremental native recording under `evals/runs/TRIAL_ID/`. Full command outputs are retained separately. Historical context comes from that recording, never today's files. Source references point into saved events, artifacts, and contexts; they do not give Jev access to content omitted from its request. Hashes detect accidental changes, not malicious rewriting. Stores refuse overwrites, and regrading preserves the trial and earlier grading records.
 
-The optional `pi.model` profile field changes only the evaluated agent. Omit it to use Pi's saved model. Selection uses the exact ID in the authenticated provider's native catalog and fails before prompting when unavailable; it never falls back to a more expensive model. Trial launch arguments leave global Pi settings unchanged. Inspection retains the saved defaults separately from the effective evaluation model, which is frozen in the comparison and checked against Pi's active model/reasoning before dispatch. An incompatible saved reasoning level fails that check before prompting. The optional semantic grader remains separately configured as `gpt-5.6-luna`.
+A request journal proves preparation, not successful dispatch. The completed grading record records dispatch attempts and their responses; incomplete journals remain inspectable. Records may contain private paths and instruction text and should be reviewed before sharing.
 
-Trusted project-specific runtime overrides in `.pi/settings.json` are currently rejected with an actionable error; the adapter does not silently ignore them. Supporting their effective merged settings is a remaining Pi-adapter extension.
+## Views and verdicts
 
-Both profiles use the same isolated four-tool surface (`read`, `bash`, `edit`, `write`). Optional Pi extension/package code is excluded: arbitrary extension tools and subagents could bypass this adapter's tool restrictions. This includes the usual automatic caveman injection. **This is a documented isolated Pi configuration, not a claim of parity with every extension in an interactive Pi session.** Full extension/subagent fidelity remains a separate environment-adapter requirement.
+A View returns named evidence items with data, source references, scope, omissions, applicability, and coverage gaps. The engine prepares a shared View once per grading and saves its version and content hash. Empty Views and unresolved references are preparation errors. Missing required recording coverage yields `unknown`; observable omission of required behavior can yield `fail`; explicit inapplicability yields `not_applicable`.
 
-The included profiles allow one trial at a time, 30 minutes, 100 completed assistant turns and 1 million weighted tokens per trial, with no automatic trial retry. Input/output tokens count fully; cached reads and writes count at 10%. Task `limits` override profile values, and explicit `--max-runtime-ms`, `--max-turns` and `--max-tokens` flags override task values on `run` and `experiment`; preview the effective bounds with `--dry-run`. Native provider retries still apply in the native profile and consume the same outer bounds. Raw usage remains recorded, while costs or tokens unreported by the provider remain unknown. Limits may overshoot during an in-flight response. See [limit configuration](authoring.md#compare-configurations).
+The `diagnosis` View selects visible hypothesis windows using a lexical heuristic and retains subsequent tools and conversation, failures, contradictions, and the preceding tool result. If no hypothesis matches, it supplies the broader observable conversation and tools rather than asserting that diagnosis was absent. It does not submit hidden reasoning or all captured instruction/skill context. Selection can miss relevant context; a complete capture does not guarantee that a selected episode answers the question.
 
-## Read or regrade a result
+Two model graders ask whether the hypothesis is falsifiable and whether an actual probe tests it. A failed test can still be a relevant probe. Jev batches questions only when their complete submitted evidence envelopes match, including scope, source references, and coverage. Sharing a View name alone is insufficient. Requests contain explicit `pass`, `fail`, and `unknown` criteria and treat transcript content as untrusted evidence.
+
+Jev returns categorical answers, probabilities, confidence, and usage. Reports retain these without inventing explanations or supporting quotations. Considered sources are distinct from explicitly supporting sources. Per-grader rollup is any fail, otherwise any unknown, otherwise any pass, otherwise not applicable. Several episodes from one trial are not independent agent attempts.
+
+The deterministic `validationHistory` View checks agent-attributed validation after the final observed edit against the final target's fingerprint. Evaluator-owned acceptance and agent self-reports cannot earn agent-validation credit. Supported evidence includes literal lint/build/test commands, direct `playwright-cli snapshot` receipts, and literal browser chains joined with `&&` and ending in one explicit snapshot. Chain actions are `open`, `goto`, `fill`, `click`, and numeric `sleep`, all using one browser session. The chained path verifies native call/result correspondence and the exact retained output hash; an earlier automatic snapshot file cannot substitute for the final inline snapshot.
+
+Unsupported commands remain visible. They block a verdict when they could affect a required check; uncertain command categories can affect every required check. Recording gaps, missing attestations, and unsupported syntax remain distinct reasons for uncertainty. Arbitrary shell execution is never promoted to proof of validation merely because it exits successfully.
+
+### Regrade a completed diagnostic attempt
+
+Oversized evidence is rejected without silent truncation. The usual Jev state limit is 18,000 characters, with additional conservative byte-based context checks. For an interrupted native trial, explicitly select a smaller, auditable scope:
 
 ```bash
-pnpm evals run repository-ui-copy
-pnpm evals show latest
-pnpm evals regrade latest
-pnpm evals regrade latest --graders acceptance-checks,diff-scope
-pnpm evals show latest --grades original
-pnpm evals runs --limit 5
+pnpm evals library regrade RUN_ID --diagnosis-scope completed-attempt --revision 1
+pnpm evals library regrade RUN_ID --diagnosis-scope completed-attempt --revision 2
 ```
 
-A run reference accepts `latest`, a run ID, or a directory. Regrading uses the same task-selected grader registry as a live run and appends a revision without rerunning Pi or replacing original evidence. Incomplete grading revisions are reported rather than silently skipped. `--json` produces machine-readable output; use `pnpm --silent evals ... --json` in scripts.
+`completedDiagnosis` selects the first visible hypothesis and every intervening tool action/result through the first literal test attempt's completed native turn. It audits continuity from native start, matching source payloads, paired calls/results, and recorded context fingerprints. For an interrupted trial, only specific terminal gaps proven to occur after that boundary are waived; other gaps and unfamiliar formats remain unknown.
 
-`--graders` selects new judgments for an existing recording; the revision records the selection while original task expectations remain sealed.
+Earlier tool contents, later activity (including later contradictions or repairs), and context text are explicitly omitted from the semantic input. The parent trial's status and gaps remain unchanged; trial-wide validation still sees the original incomplete recording. This is a judgment of the selected attempt, not of eventual repair.
 
-Execution status and judgments are separate. A completed run can have failing grades; an interrupted run can leave useful changes. In an experiment, an expected failure in the disabled condition does not stop the other trial from running. Ctrl-C stops the active trial and finishes evidence writes and cleanup.
+Duplicate prompt/hypothesis text and redundant attachments are omitted from the request. Repeated output lines may use `line-dictionary-v1`, whose ordered references reconstruct the exact selected text, including empty lines and line endings. This is deterministic deduplication, not an AI-generated summary. The scoped CLI permits 30,000 state characters while retaining the same conservative context checks. Human calibration of this selection and representation remains outstanding.
 
-| Judgment                | Claim                                                                                               |
-| ----------------------- | --------------------------------------------------------------------------------------------------- |
-| `target-outcome`        | Expected text is present; deliberately a narrow check                                               |
-| `acceptance-checks`     | Independent evaluator checks of the final application passed                                        |
-| `diff-scope`            | Captured changes stay within the task's declared file scope                                         |
-| `browser-behavior`      | The agent successfully visited the changed local flow and explicitly captured the required snapshot |
-| `browser-compliance`    | That observed behavior satisfies the instruction when applicable                                    |
-| `semantic-task-clarity` | Optional provisional judgment of task quality from before/after/patch evidence                      |
+## Author a suite
 
-Verdicts are `pass`, `fail`, `unknown`, and `not-applicable`. Successful browser commands require attributed native evidence and matching artifact fingerprints. Screenshots, command mentions and self-reports are insufficient. Skill availability, native discovery, content loading, adherence and outcome are distinct observations.
+Use ordinary TypeScript functions; adding a Grader requires no registry or adapter change. Core and adapter imports are separate. This composition example assumes `task` contains a catalog-matching ID, version, and prompt, plus the metadata described below; `sourceRepo`, `agentSource`, and the privately loaded `typesafeKey` are supplied by the caller.
 
-## Optional cheap semantic grading
+```ts
+import {
+  defineView,
+  modelGrader,
+  codeGrader,
+  createEvaluator,
+} from "@wedding-planner/agent-evals";
+import { piRunner } from "@wedding-planner/agent-evals/pi";
+import { jevJudge } from "@wedding-planner/agent-evals/jev";
+import { fileStore } from "@wedding-planner/agent-evals/files";
+import {
+  prepareDiagnosticEpisodes,
+  validationHistory,
+  checkValidationOrder,
+} from "@wedding-planner/agent-evals/examples/diagnosis";
 
-Keep `OPENAI_API_KEY` in the ignored `.env.evals.local` in the original checkout. It is loaded privately and never enters Pi or the trial workspace. `--grader-env-file PATH` overrides the location.
-
-```bash
-pnpm evals experiment repository-ui-copy --semantic --budget-usd 0.02
-pnpm evals regrade latest --semantic --budget-usd 0.01
+const diagnosis = defineView({
+  id: "diagnosis",
+  version: 1,
+  prepare: prepareDiagnosticEpisodes,
+});
+const hypothesis = modelGrader({
+  id: "hypothesis",
+  version: 1,
+  view: diagnosis,
+  question: "Does the visible hypothesis make a falsifiable prediction?",
+  rubric: {
+    pass: "Predicts an observable result whose opposite would disprove it.",
+    fail: "The complete supplied conversation contains no such prediction.",
+    unknown: "The supplied evidence cannot establish this.",
+  },
+});
+const validation = codeGrader({
+  id: "validation",
+  version: 1,
+  view: validationHistory,
+  check: checkValidationOrder,
+});
+const evals = createEvaluator({
+  runner: piRunner({ sourceRepo, agentSource }),
+  judge: jevJudge({ apiKey: typesafeKey }),
+  store: fileStore("evals/runs/my-suite"),
+  budgetUsd: 0.01,
+});
+const run = await evals.run({
+  id: "retry",
+  tasks: [task],
+  graders: [hypothesis, validation],
+});
+await evals.regrade(run.id, {
+  graders: [
+    {
+      ...hypothesis,
+      version: 2,
+      question: "Was the refutable prediction stated before the probe?",
+    },
+  ],
+});
 ```
 
-The experiment reserves the **aggregate** direct API allowance before dispatching either trial. The default Luna grader allows 18,000 input characters, 800 output tokens, 20 seconds and no SDK retry. At the [recorded Luna prices](https://developers.openai.com/api/docs/models/gpt-5.6-luna), a call reserves $0.00456; a pair reserves $0.00912. Reservations are conservative application estimates, not provider-enforced spending caps. Pi subscription usage is excluded from this dollar allowance and reported separately.
+The runnable composition is [library-command.ts](../tools/agent-evals/src/cli/library-command.ts). Its task metadata declares `diagnosis: "required"` and `validation: { required: true, targetFile, requiredChecks: ["lint", "build", "browser_snapshot"], flowPath, expectedText }`. Views decide applicability from that metadata; it is not inserted into the evaluated agent's prompt. Code-grader evidence types are inferred from their View. Bump View and Grader versions when their meaning changes.
 
-The grader has no tools, treats evidence as untrusted, validates quoted citations and records failures separately. Oversized evidence is rejected instead of silently truncated. Its calibration examples still need human labels; a working API call does not establish grading accuracy. Alternate models require explicit prices, with no expensive automatic fallback.
+`evals.run(suite, { repetitions, concurrency, limits })` supports per-run limit overrides for each trial. `piRunner({ limits })` supplies runner defaults, and a direct `runner.run(task, { trialId, limits })` supplies per-trial overrides. `evals.grade(trialId, { graders })` grades one saved trial; `evals.regrade(runId, { graders })` regrades all trials in a saved suite run. A code-only suite needs no Judge, and saved-evidence grading needs no Runner. Implement the small `Runner`, `Judge`, or `Store` interface to replace an adapter.
 
-## Comparisons and evidence
+The current Pi adapter loads repository task definitions from `evals/tasks/`; task ID, version, and prompt must match the selected definition. Pin a full repository commit and keep the prompt natural when measuring skill activation. Starting defects and independent acceptance belong to the environment adapter, outside the agent's writable controls. Add a new local acceptance case only when its assertions match the intended task, and verify both the defective and repaired behavior. New Views can be tested entirely against saved evidence.
 
-```bash
-pnpm evals compare ENABLED_ID DISABLED_ID
-pnpm evals compare FIRST_ID SECOND_ID --factor agent-configuration
-pnpm evals compare FIRST_ID SECOND_ID --factor model
-```
+## Environment and interpretation limits
 
-Declare the factor that may differ. Everything else, including the task, application revision, budgets, evaluator implementation and selected grading criteria, must match. Audit locations are retained separately from content identities so moving a checkout does not itself change the experiment. Duplicate active browser instructions make an instruction comparison ineligible.
+The repository fixture exercises the real Next.js login UI against an unavailable loopback authentication endpoint. It does not test successful authentication, database behavior, Supabase integration, or broader wedding workflows. Offline font responses and webpack builds are explicit environment differences. Both `playwright-cli` and the installed `@playwright/test` can use the selected browser. The production-linked Pi sandbox is not used.
 
-A pair demonstrates observations and validates the workflow. It does not estimate reliability or establish that the instruction is unnecessary. Repetition, balanced ordering and human semantic calibration are required before making usefulness claims.
+The evaluator stops agent descendants, runs its own acceptance checks, captures source changes and artifacts, and cleans up the workspace. Generated caches and immutable dependencies are excluded from source capture. Agent actions, environment setup, and evaluator checks keep separate attribution.
 
-Private recordings live under ignored `evals/runs/`: `manifest.json`, `environment.json`, `inspection.json`, `transcript.jsonl`, `evidence.json`, grading results, integrity digests and readable reports. Evidence includes local paths and instruction text. The experiment's allowlisted review summary omits raw prompts, transcript content, source content and private paths; it is shareable context, not a replacement for the complete private recording.
-
-## Developing the evaluator
-
-```bash
-pnpm check:evals
-pnpm test:evals
-```
-
-Both run offline in CI. Live Pi/browser checks are separate explicit commands. See the [package guide](../tools/agent-evals/README.md) for responsibilities and [authoring guide](authoring.md) for extension recipes.
-
-Next research steps: natural `diagnose` activation positives and near-miss negatives, explicit skill-execution cases, repeated trials, and a runtime supporting the complete native extension/tool surface. Keep each claim tied to the configuration and evidence actually observed.
+One recorded trace demonstrates integration, not judge accuracy, natural skill-selection quality, or instruction benefit. Those require contrasting hand-reviewed examples and fresh matched trials. Removing instructions from an existing recording is not an ablation. Skill availability, discovery, loading, adherence, and task outcome must remain separate observations. Broad experiment matrices are deferred.

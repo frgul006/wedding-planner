@@ -3,14 +3,12 @@ import type {
   AgentRunner,
   EvidenceEvent,
   FinalObservation,
-  Grader,
   PreparedEnvironment,
   RunStore,
   Task,
   TrialEnvironment,
   TrialEvidence,
 } from '../domain/types.ts';
-import { flattenGrades, gradeEvidence } from './grade-evidence.ts';
 import { availableSkills, discoveredSkills, type InventorySkill } from './skill-inventory.ts';
 import { resolveTrialLimits } from '../domain/trial-limits.ts';
 
@@ -18,7 +16,6 @@ export interface RunTrialOptions {
   signal?: AbortSignal;
   id: string;
   task: Task;
-  variant: 'enabled' | 'disabled';
   runtimeMs: number;
   maxTokens: number;
   maxTurns?: number;
@@ -29,7 +26,7 @@ export interface RunTrialOptions {
 }
 export async function runTrial(
   options: RunTrialOptions,
-  ports: { environment: TrialEnvironment; agent: AgentRunner; graders: Grader[]; store: RunStore },
+  ports: { environment: TrialEnvironment; agent: AgentRunner; store: RunStore },
 ) {
   const limits = resolveTrialLimits(options.task.limits, {
     runtimeMs: options.runtimeMs,
@@ -109,7 +106,7 @@ export async function runTrial(
   });
   try {
     options.signal?.throwIfAborted();
-    environment = await ports.environment.prepare(options.task, options.variant, options.id);
+    environment = await ports.environment.prepare(options.task, options.id);
     const priorInvariants = options.manifest.invariants;
     if (priorInvariants && typeof priorInvariants === 'object' && !Array.isArray(priorInvariants)) {
       manifestMetadata = {
@@ -240,7 +237,6 @@ export async function runTrial(
   agent = { ...agent, limits: agent.limits ?? limits };
   const evidence: TrialEvidence = {
     task: options.task,
-    variant: options.variant,
     localUrl: environment?.url ?? 'http://127.0.0.1:0',
     agent,
     artifacts,
@@ -250,18 +246,8 @@ export async function runTrial(
     ...(finalObservation?.checks ? { checks: finalObservation.checks } : {}),
     events,
   };
-  // A later grader failure must not lose a completed, potentially paid trial.
+  // Persist the observed attempt; the portable evaluator owns separate grading records.
   await ports.store.save('evidence.json', evidence);
-  // Grading belongs to a separate record. Its errors must never rewrite the
-  // completed attempt or append evaluator events to its sealed observation.
-  const gradingResults = await gradeEvidence(
-    structuredClone(evidence),
-    ports.graders,
-    options.signal,
-  );
-  const grades = flattenGrades(gradingResults);
-  await ports.store.save('grades.json', grades);
-  await ports.store.save('grading-results.json', gradingResults);
   const manifest = {
     ...manifestMetadata,
     id: options.id,
@@ -278,5 +264,5 @@ export async function runTrial(
     limitHit: agent.limitHit,
   };
   await ports.store.save('manifest.json', manifest);
-  return { evidence, grades, gradingResults, manifest };
+  return { evidence, manifest };
 }

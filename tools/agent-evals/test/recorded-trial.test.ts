@@ -30,7 +30,6 @@ function recording(
     task: {
       id: 'test',
       version: '1',
-      kind: 'ui',
       prompt: 'Repair the form.',
       targetFile: 'form.tsx',
       expectedText: 'Saved',

@@ -1,15 +1,9 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import {
-  normalizeLegacyEvidence,
-  normalizePiEvent,
-  normalizeToolReceipt,
-} from '../src/adapters/pi-evidence.ts';
+import { normalizePiEvent, normalizeToolReceipt } from '../src/adapters/pi-evidence.ts';
 import { parsePlaywrightOutput } from '../src/adapters/playwright-evidence.ts';
-import { gradeBrowserCompliance } from '../src/domain/deterministic-graders.ts';
-import type { EvidenceEvent, TrialEvidence } from '../src/domain/types.ts';
+import type { EvidenceEvent } from '../src/domain/types.ts';
 
 function native(data: Record<string, unknown>): EvidenceEvent {
   return {
@@ -131,42 +125,6 @@ test('JSON written by the agent cannot create a trusted observation', () => {
     normalizePiEvent(event).observation,
     undefined,
     'native observations are derived, never accepted from serialized claims',
-  );
-});
-
-test('legacy migration regrades the genuine native trace without changing sealed source bytes or references', () => {
-  const source = readFileSync(
-    new URL('../../../evals/calibration/mechanical/native-browser-pair.json', import.meta.url),
-    'utf8',
-  );
-  const evidence = JSON.parse(source) as TrialEvidence;
-  const before = JSON.stringify(evidence);
-  const normalized = normalizeLegacyEvidence(evidence);
-  assert.equal(JSON.stringify(evidence), before);
-  assert.deepEqual(
-    normalized.events.map((event) => event.id),
-    evidence.events.map((event) => event.id),
-  );
-  const grade = gradeBrowserCompliance(normalized);
-  assert.equal(grade.verdict, 'pass');
-  assert.deepEqual(grade.evidenceRefs, ['trace-2', 'trace-3', 'trace-4', 'artifact-1']);
-  assert.deepEqual(normalizeLegacyEvidence(normalized), normalized, 'migration is idempotent');
-  const withoutNativeProtocol: TrialEvidence = {
-    ...normalized,
-    agent: { ...normalized.agent, events: [] },
-    events: normalized.events.map((event) => {
-      if (!event.observation) return event;
-      const observation =
-        event.observation.type === 'tool_completed'
-          ? { ...event.observation, text: '', textSha256: '' }
-          : event.observation;
-      return { ...event, kind: 'command', data: {}, observation };
-    }),
-  };
-  assert.deepEqual(
-    gradeBrowserCompliance(withoutNativeProtocol),
-    grade,
-    'browser decisions depend on neutral facts, not native Pi data, stdout or event kind',
   );
 });
 

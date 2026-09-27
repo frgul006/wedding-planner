@@ -31,43 +31,6 @@ export class TrialProcesses {
     this.evaluatorGroups.add(pid);
   };
 
-  async startFixture(
-    paths: TrialPaths,
-    nodeExecutable: string,
-    env: Record<string, string>,
-    url: string,
-  ): Promise<void> {
-    const server = spawn(
-      '/usr/bin/sandbox-exec',
-      ['-f', paths.profile, nodeExecutable, join(paths.workspace, 'scripts/server.mjs')],
-      {
-        cwd: paths.workspace,
-        env,
-        detached: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    );
-    if (server.pid) this.register(server.pid);
-    let errors = '';
-    server.stderr.on('data', (chunk) => {
-      errors = (errors + String(chunk)).slice(-16_000);
-    });
-    server.on('error', (error) => {
-      errors += error.message;
-    });
-    for (let attempt = 0; attempt < 50; attempt++) {
-      try {
-        if ((await fetch(url, { signal: AbortSignal.timeout(500) })).ok) return;
-      } catch {
-        /* A starting server may not have bound the loopback port yet. */
-      }
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    throw new Error(
-      `Isolated fixture server did not start: ${errors || 'No successful local response'}`,
-    );
-  }
-
   async startRepository(
     paths: TrialPaths,
     nodeExecutable: string,

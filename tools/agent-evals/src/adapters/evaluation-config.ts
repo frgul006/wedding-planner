@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { readFile, readdir, realpath, stat } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import type { Task } from '../domain/types.ts';
@@ -27,7 +27,7 @@ const relativeFile = z
       !path.isAbsolute(value) &&
       !value.includes('\\') &&
       value.split('/').every((part) => part !== '.' && part !== '..' && /^[\w.-]+$/.test(part)),
-    'Use a file path inside the fixture, without .. or absolute paths',
+    'Use a file path inside the repository, without .. or absolute paths',
   );
 
 export const taskSchema = z
@@ -35,21 +35,11 @@ export const taskSchema = z
     id: identifier,
     title: z.string().min(1).optional(),
     version: z.string().min(1),
-    kind: z.enum(['ui', 'docs']),
-    environment: z.enum(['synthetic', 'repository']).default('synthetic'),
+    environment: z.literal('repository'),
     repository: z
       .object({ revision: z.string().regex(/^[a-f0-9]{40}$/, 'Pin a complete Git revision') })
-      .strict()
-      .optional(),
-    acceptance: identifier.optional(),
-    allowedChangedPaths: z.array(relativeFile).optional(),
-    graders: z
-      .array(identifier)
-      .min(1)
-      .refine((ids) => new Set(ids).size === ids.length, 'Grader IDs must be unique')
-      .optional(),
-    fixture: identifier.default('wedding-copy'),
-    rubric: identifier.default('task-clarity'),
+      .strict(),
+    acceptance: z.literal('admin-login-retry'),
     prompt: z.string().min(1),
     limits: trialLimitsSchema.optional(),
     targetFile: relativeFile,
@@ -65,35 +55,16 @@ export const taskSchema = z
         'Use a local URL path such as / or /schedule',
       ),
   })
-  .strict()
-  .superRefine((task, context) => {
-    if (task.environment === 'repository' && !task.repository)
-      context.addIssue({
-        code: 'custom',
-        path: ['repository'],
-        message: 'Repository tasks require a pinned revision',
-      });
-    if (
-      task.environment === 'synthetic' &&
-      !/\.(md|html|ya?ml|json|log|txt)$/.test(task.targetFile)
-    )
-      context.addIssue({
-        code: 'custom',
-        path: ['targetFile'],
-        message: 'The synthetic fixture adapter captures md, html, yaml, json, log and txt targets',
-      });
-  });
+  .strict();
 
 export type TaskDefinition = Task & z.infer<typeof taskSchema>;
 
 export const profileSchema = z
   .object({
     id: z.string().min(1),
-    harness: identifier.default('pi'),
-    concurrency: z.literal(1),
     pi: z
       .object({
-        runtime: z.enum(['native', 'controlled']),
+        runtime: z.literal('native'),
         model: z.string().trim().min(1).optional(),
         endpoint: z.enum(['native', 'catalog']).optional(),
       })
@@ -103,23 +74,7 @@ export const profileSchema = z
     maxAgentTurns: positiveInteger.default(DEFAULT_TRIAL_LIMITS.maxTurns),
     maxAgentTokens: positiveInteger.default(DEFAULT_TRIAL_LIMITS.maxTokens),
     agentBilling: z.enum(['subscription', 'api']),
-    maxAgentEstimatedCostUsd: z.number().positive().max(0.95).nullable(),
-    estimatedApiBudgetUsd: z.number().positive().max(1),
-    agentRetries: z.literal(0),
-    grader: z
-      .object({
-        model: z.string().min(1),
-        reasoningEffort: z.literal('none'),
-        maxOutputTokens: z.number().int().positive().max(1_200),
-        maxInputChars: z.number().int().positive().max(24_000),
-        timeoutMs: z.number().int().positive().max(30_000),
-        maxRetries: z.literal(0),
-        inputPerMillion: z.number().nonnegative(),
-        outputPerMillion: z.number().nonnegative(),
-        pricingSource: z.string().min(1),
-        pricingCheckedOn: z.string().min(1),
-      })
-      .strict(),
+    maxAgentEstimatedCostUsd: z.number().positive().nullable(),
   })
   .strict()
   .superRefine((profile, context) => {
@@ -139,13 +94,6 @@ export const profileSchema = z
   });
 
 export type EvaluationProfile = z.infer<typeof profileSchema>;
-export interface ProfileOverrides {
-  budgetUsd?: string;
-  graderModel?: string;
-  graderInputPrice?: string;
-  graderOutputPrice?: string;
-}
-
 export async function readJson(file: string): Promise<unknown> {
   try {
     return JSON.parse(await readFile(file, 'utf8'));
@@ -181,7 +129,7 @@ async function catalogFile(
   const names = await catalogNames(repo, kind);
   if (!identifier.safeParse(name).success || !names.includes(name)) {
     throw new Error(
-      `Unknown ${kind === 'tasks' ? 'task' : 'profile'} "${name}". Available: ${names.join(', ')}.\nRun pnpm evals ${kind} to explore them.`,
+      `Unknown ${kind === 'tasks' ? 'task' : 'profile'} "${name}". Available: ${names.join(', ')}.`,
     );
   }
   return path.join(repo, 'evals', kind, `${name}.json`);
@@ -193,77 +141,31 @@ export async function loadTask(repo: string, name: string): Promise<TaskDefiniti
   const task = parseConfiguration(taskSchema, await readJson(file), file);
   if (task.id !== name)
     throw new Error(`Task id "${task.id}" must match its filename ${name}.json`);
-  if (task.environment === 'repository') {
-    const revision = task.repository!.revision;
-    try {
-      const kind = execFileSync('git', ['cat-file', '-t', `${revision}:${task.targetFile}`], {
-        cwd: repo,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-      }).trim();
-      if (kind !== 'blob') throw new Error('Target is not a file');
-      const entry = execFileSync('git', ['ls-tree', revision, '--', task.targetFile], {
-        cwd: repo,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-      if (!/^100(?:644|755) blob /.test(entry)) throw new Error('Target must be a regular file');
-    } catch {
-      throw new Error(
-        `Repository target must be a regular file at the pinned revision: ${task.targetFile}`,
-      );
-    }
-    await readFile(path.join(repo, 'evals/rubrics', `${task.rubric}.md`), 'utf8');
-    return task;
-  }
-  const fixture = await realpath(path.join(repo, 'evals/fixtures', task.fixture));
-  const fixtureRoot = await realpath(path.join(repo, 'evals/fixtures'));
-  if (!fixture.startsWith(fixtureRoot + path.sep))
-    throw new Error('Fixture must stay inside evals/fixtures');
-  const target = await realpath(path.join(fixture, task.targetFile));
-  if (
-    !target.startsWith(fixture + path.sep) ||
-    target !== path.resolve(fixture, task.targetFile) ||
-    !(await stat(target)).isFile()
-  ) {
+  const revision = task.repository!.revision;
+  try {
+    const kind = execFileSync('git', ['cat-file', '-t', `${revision}:${task.targetFile}`], {
+      cwd: repo,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+    if (kind !== 'blob') throw new Error('Target is not a file');
+    const entry = execFileSync('git', ['ls-tree', revision, '--', task.targetFile], {
+      cwd: repo,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    if (!/^100(?:644|755) blob /.test(entry)) throw new Error('Target must be a regular file');
+  } catch {
     throw new Error(
-      `Task target must be a regular file inside its fixture, without symlinks: ${task.targetFile}`,
+      `Repository target must be a regular file at the pinned revision: ${task.targetFile}`,
     );
   }
-  await readFile(path.join(repo, 'evals/rubrics', `${task.rubric}.md`), 'utf8');
   return task;
 }
 
-export async function loadProfile(
-  repo: string,
-  name = 'smoke',
-  overrides: ProfileOverrides = {},
-): Promise<EvaluationProfile> {
+export async function loadProfile(repo: string, name = 'smoke'): Promise<EvaluationProfile> {
   const file = await catalogFile(repo, 'profiles', name);
-  const profile = parseConfiguration(profileSchema, await readJson(file), file);
-  if (overrides.budgetUsd !== undefined)
-    profile.estimatedApiBudgetUsd = Number(overrides.budgetUsd);
-  const hasInputPrice = overrides.graderInputPrice !== undefined;
-  const hasOutputPrice = overrides.graderOutputPrice !== undefined;
-  if (hasInputPrice !== hasOutputPrice)
-    throw new Error('Provide both --grader-input-price and --grader-output-price.');
-  if ((hasInputPrice || hasOutputPrice) && !overrides.graderModel)
-    throw new Error('Price overrides require --grader-model.');
-  if (overrides.graderModel) {
-    if (overrides.graderModel !== profile.grader.model && !hasInputPrice) {
-      throw new Error(
-        'A different grader model requires --grader-input-price and --grader-output-price per million tokens. No fallback is automatic.',
-      );
-    }
-    profile.grader.model = overrides.graderModel;
-    if (hasInputPrice && hasOutputPrice) {
-      profile.grader.inputPerMillion = Number(overrides.graderInputPrice);
-      profile.grader.outputPerMillion = Number(overrides.graderOutputPrice);
-      profile.grader.pricingSource = 'Explicit CLI price estimate';
-      profile.grader.pricingCheckedOn = new Date().toISOString().slice(0, 10);
-    }
-  }
-  return parseConfiguration(profileSchema, profile, file);
+  return parseConfiguration(profileSchema, await readJson(file), file);
 }
 
 export function hashText(value: string): string {

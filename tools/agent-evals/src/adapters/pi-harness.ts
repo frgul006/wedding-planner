@@ -1,4 +1,21 @@
-import type { HarnessFactory } from './harnesses.ts';
+import type { AgentRunner, TrialEnvironment } from '../domain/types.ts';
+import type { EvaluationProfile, TaskDefinition } from './evaluation-config.ts';
+
+export interface HarnessOptions {
+  sourceRepo: string;
+  agentSource: string;
+  task: TaskDefinition;
+  profile: EvaluationProfile;
+  signal?: AbortSignal;
+}
+export interface PreparedHarness {
+  agent: AgentRunner;
+  environment: TrialEnvironment;
+  expectedModel: { provider: string; id: string; thinkingLevel: string };
+  inspection: unknown;
+  manifest: Record<string, unknown>;
+}
+export type HarnessFactory = (options: HarnessOptions) => Promise<PreparedHarness>;
 import { inspectPi } from './pi-inspection.ts';
 import { piModelArguments, selectPiModel } from './pi-model-selection.ts';
 import { selectPiEndpoint, checkPiEndpointReadiness } from './pi-endpoint-selection.ts';
@@ -30,7 +47,6 @@ export const preparePiHarness: HarnessFactory = async (options) => {
     options.task,
     options.profile,
     pi,
-    options.rubric,
     settings,
     endpointSelection,
   );
@@ -51,16 +67,14 @@ export const preparePiHarness: HarnessFactory = async (options) => {
         }),
     },
     environment: {
-      prepare: (task, variant, id) =>
+      prepare: (task, id) =>
         prepareTrialEnvironment({
           sourceRepo: options.sourceRepo,
           task,
-          variant,
           id,
           signal: options.signal,
           pi: { ...pi, defaults: settings, endpointSelection },
           runtimeMs: options.profile.runtimeMs,
-          piRuntime: options.profile.pi.runtime,
         }),
     },
     expectedModel: {
@@ -70,6 +84,5 @@ export const preparePiHarness: HarnessFactory = async (options) => {
     },
     inspection: { ...pi, evaluationModel: settings, endpointSelection },
     manifest,
-    description: `Pi profile: ${options.agentSource} · project ${pi.resources.projectTrusted ? 'trusted' : 'untrusted'} · ${pi.resources.skills.length} skills\nModel: ${settings.provider}/${settings.model} · ${settings.thinkingLevel} · runtime ${options.profile.pi.runtime} · endpoint ${endpointSelection.policy} (${endpointSelection.effective.origin})`,
   };
 };

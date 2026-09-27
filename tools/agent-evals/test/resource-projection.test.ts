@@ -13,12 +13,10 @@ import {
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import test from 'node:test';
-import { compareTrials } from '../src/domain/comparison.ts';
 import {
   prepareResources,
   sha256,
   validateResourceSelection,
-  VALIDATION_INSTRUCTION,
 } from '../src/adapters/isolation/resources.ts';
 import type {
   PiContextSource,
@@ -27,6 +25,7 @@ import type {
 } from '../src/adapters/pi-inspection.ts';
 
 type NativeResources = Awaited<ReturnType<typeof inspectPiResources>>;
+const projectInstruction = '# Project\n\nPreserve this complete instruction text.\n';
 
 async function selectedFile(path: string, content: string) {
   await mkdir(dirname(path), { recursive: true });
@@ -37,15 +36,10 @@ async function selectedFile(path: string, content: string) {
 async function fixture() {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'eval-resource-projection-')));
   const sourceRepo = join(root, 'source');
-  const fixtureDirectory = join(root, 'fixture');
   const project: PiContextSource = {
-    ...(await selectedFile(
-      join(sourceRepo, 'AGENTS.md'),
-      `# Project\n\n${VALIDATION_INSTRUCTION}\n`,
-    )),
+    ...(await selectedFile(join(sourceRepo, 'AGENTS.md'), projectInstruction)),
     scope: 'project',
   };
-  await selectedFile(join(fixtureDirectory, 'index.html'), '<h1>Synthetic fixture</h1>');
   const paths = {
     workspace: join(root, 'trial/workspace'),
     piDirectory: join(root, 'trial/control/pi'),
@@ -67,7 +61,7 @@ async function fixture() {
     duplicateInstructionSources: [],
     metadataSource: 'Authored offline selection',
   };
-  return { root, sourceRepo, fixtureDirectory, paths, native, variant: 'enabled' as const };
+  return { root, sourceRepo, paths, native };
 }
 
 test('only native selected skills are copied and their scope never depends on path prefixes', async () => {
@@ -130,15 +124,15 @@ test('historical contexts retain original and effective instructions and referen
     await selectedFile(join(dirname(skill.path), 'guide.md'), 'Predict a falsifiable result.');
     await writeFile(join(dirname(skill.path), 'binary.dat'), Buffer.from([0xff, 0x00]));
     setup.native.skills = [skill];
-    const prepared = await prepareResources({ ...setup, variant: 'disabled' });
+    const prepared = await prepareResources(setup);
     const original = prepared.recordedContexts.find(
       (context) => context.kind === 'original-instruction',
     );
     const effective = prepared.recordedContexts.find(
       (context) => context.kind === 'effective-instruction',
     );
-    assert.ok(original?.content.includes(VALIDATION_INSTRUCTION));
-    assert.equal(effective?.content.includes(VALIDATION_INSTRUCTION), false);
+    assert.equal(original?.content, projectInstruction);
+    assert.equal(effective?.content, projectInstruction);
     assert.ok(
       prepared.recordedContexts.some(
         (context) =>
@@ -209,7 +203,7 @@ test('winning global override and system prompt filenames survive with project p
   }
 });
 
-test('ancestor contexts preserve native order and the disabled variant changes only the selected pilot paragraph', async () => {
+test('ancestor contexts preserve native order and all instruction bytes', async () => {
   const setup = await fixture();
   try {
     const outer: PiContextSource = {
@@ -226,7 +220,7 @@ test('ancestor contexts preserve native order and the disabled variant changes o
       join(setup.root, 'trial/context-1/context-2'),
     ];
     setup.paths.workspace = join(setup.paths.instructionAncestors[1]!, 'workspace');
-    const prepared = await prepareResources({ ...setup, variant: 'disabled' });
+    const prepared = await prepareResources(setup);
     assert.equal(
       await readFile(join(setup.paths.instructionAncestors[0]!, 'AGENTS.override.md'), 'utf8'),
       '# Outer context',
@@ -237,19 +231,19 @@ test('ancestor contexts preserve native order and the disabled variant changes o
     );
     assert.equal(
       await readFile(join(setup.paths.workspace, 'AGENTS.md'), 'utf8'),
-      '# Project\n\n\n',
+      projectInstruction,
     );
     assert.equal(
       prepared.sourceProfile.mappings.filter((item) => item.destinationSha256 !== item.sourceSha256)
         .length,
-      1,
+      0,
     );
   } finally {
     await rm(setup.root, { recursive: true, force: true });
   }
 });
 
-test('untrusted source skills stay unavailable even when the synthetic fixture is trusted', async () => {
+test('untrusted source skills stay unavailable even when the isolated workspace is trusted', async () => {
   const setup = await fixture();
   try {
     setup.native.projectTrusted = false;
@@ -269,7 +263,7 @@ test('untrusted source skills stay unavailable even when the synthetic fixture i
   }
 });
 
-test('a different inspected checkout or shadowed pilot rule fails before projection', async () => {
+test('a different inspected checkout fails while native project override winners are preserved', async () => {
   const setup = await fixture();
   try {
     assert.throws(
@@ -280,32 +274,33 @@ test('a different inspected checkout or shadowed pilot rule fails before project
       {
         ...(await selectedFile(
           join(setup.sourceRepo, 'AGENTS.override.md'),
-          VALIDATION_INSTRUCTION,
+          '# Native override without a pilot paragraph',
         )),
         scope: 'project',
       },
     ];
-    await assert.rejects(prepareResources(setup), /shadowed or unavailable/);
-    await assert.rejects(access(setup.paths.workspace));
+    await prepareResources(setup);
+    assert.equal(
+      await readFile(join(setup.paths.workspace, 'AGENTS.override.md'), 'utf8'),
+      '# Native override without a pilot paragraph',
+    );
+    await assert.rejects(access(join(setup.paths.workspace, 'AGENTS.md')));
   } finally {
     await rm(setup.root, { recursive: true, force: true });
   }
 });
 
-test('resource drift and fixture-authored instructions cannot silently change the inspected profile', async () => {
+test('resource drift cannot silently change the inspected profile', async () => {
   const setup = await fixture();
   try {
     await writeFile(join(setup.sourceRepo, 'AGENTS.md'), '# Changed after inspection');
     await assert.rejects(prepareResources(setup), /changed after inspection/);
-    await selectedFile(join(setup.fixtureDirectory, 'AGENTS.override.md'), '# Fixture injection');
-    await rm(setup.paths.workspace, { recursive: true, force: true });
-    await assert.rejects(prepareResources(setup), /competing agent resources/);
   } finally {
     await rm(setup.root, { recursive: true, force: true });
   }
 });
 
-test('controlled pairs fingerprint copied skill helpers while ignoring omitted files and trial roots', async () => {
+test('skill fingerprints track copied helpers while ignoring omitted files and trial roots', async () => {
   const setup = await fixture();
   try {
     const sourceDirectory = join(setup.root, 'global-package/skill');
@@ -324,10 +319,9 @@ test('controlled pairs fingerprint copied skill helpers while ignoring omitted f
     const symlinkTarget = join(setup.root, 'outside-reference.md');
     await selectedFile(symlinkTarget, 'Outside approved root');
     await symlink(symlinkTarget, join(sourceDirectory, 'linked-reference.md'));
-    const prepare = (name: string, variant: 'enabled' | 'disabled') =>
+    const prepare = (name: string) =>
       prepareResources({
         ...setup,
-        variant,
         paths: {
           workspace: join(setup.root, name, 'workspace'),
           piDirectory: join(setup.root, name, 'pi'),
@@ -335,44 +329,32 @@ test('controlled pairs fingerprint copied skill helpers while ignoring omitted f
         },
       });
 
-    const enabled = await prepare('first-trial', 'enabled');
+    const first = await prepare('first-trial');
     for (const file of excluded) await writeFile(join(sourceDirectory, file), 'Excluded v2');
     await writeFile(symlinkTarget, 'Changed outside approved root');
-    const disabled = await prepare('second-trial', 'disabled');
-    const comparable = (variant: string, skillTreeFingerprint: string) => ({
-      variant,
-      comparisonEligible: true,
-      invariants: { skillTreeFingerprint },
-    });
+    const second = await prepare('second-trial');
     assert.deepEqual(
-      enabled.sourceProfile.skillTrees[0]!.files.map((file) => file.path),
+      first.sourceProfile.skillTrees[0]!.files.map((file) => file.path),
       ['SKILL.md', 'references/check.md'],
       'the fingerprint includes only the exact files made available to the agent',
     );
-    assert.notEqual(enabled.effectiveInstructionSha256, disabled.effectiveInstructionSha256);
     assert.equal(
-      compareTrials(
-        comparable('enabled', enabled.skillTreeFingerprint),
-        comparable('disabled', disabled.skillTreeFingerprint),
-      ).eligible,
-      true,
-      'temporary relocation and the intended paragraph change do not break a matched pair',
+      first.skillTreeFingerprint,
+      second.skillTreeFingerprint,
+      'temporary relocation and excluded files do not affect available skill content',
     );
 
     await writeFile(helper, 'Changed helper with unchanged SKILL.md');
-    const changed = await prepare('changed-helper-trial', 'disabled');
+    const changed = await prepare('changed-helper-trial');
     assert.equal(changed.sourceProfile.mappings[1]!.sourceSha256, skill.sha256);
-    assert.equal(
-      compareTrials(
-        comparable('enabled', enabled.skillTreeFingerprint),
-        comparable('disabled', changed.skillTreeFingerprint),
-      ).eligible,
-      false,
-      'a global package helper change must prevent a controlled comparison',
+    assert.notEqual(
+      first.skillTreeFingerprint,
+      changed.skillTreeFingerprint,
+      'a global package helper change must change the fingerprint',
     );
 
     await chmod(helper, 0o755);
-    const executable = await prepare('changed-mode-trial', 'disabled');
+    const executable = await prepare('changed-mode-trial');
     assert.notEqual(changed.skillTreeFingerprint, executable.skillTreeFingerprint);
   } finally {
     await rm(setup.root, { recursive: true, force: true });

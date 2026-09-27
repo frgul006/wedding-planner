@@ -1,57 +1,61 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import test from 'node:test';
 import { piRunner } from '../src/adapters/pi-runner.ts';
 import { hash } from '../src/adapters/file-run-store.ts';
-import type { HarnessFactory } from '../src/adapters/harnesses.ts';
+import type { HarnessFactory, HarnessOptions } from '../src/adapters/pi-harness.ts';
 import type { TrialLimits } from '../src/index.ts';
 
-const task = { id: 'sample', version: '1', prompt: 'Repair this synthetic file.' };
+const task = { id: 'sample', version: '1', prompt: 'Repair this local file.' };
 const profile = {
   id: 'test',
-  harness: 'pi',
   pi: { runtime: 'native', model: 'gpt-6-luna' },
-  concurrency: 1,
   runtimeMs: 900000,
   maxAgentTokens: 1500000,
   agentBilling: 'subscription',
   maxAgentEstimatedCostUsd: null,
-  estimatedApiBudgetUsd: 1,
-  agentRetries: 0,
-  grader: {
-    model: 'unused',
-    reasoningEffort: 'none',
-    maxOutputTokens: 800,
-    maxInputChars: 18000,
-    timeoutMs: 20000,
-    maxRetries: 0,
-    inputPerMillion: 0,
-    outputPerMillion: 0,
-    pricingSource: 'unused',
-    pricingCheckedOn: '2026-09-27',
-  },
 };
 async function setup() {
   const root = await mkdtemp(join(tmpdir(), 'pi-library-runner-'));
-  for (const directory of ['tasks', 'profiles', 'rubrics', 'fixtures/wedding-copy'])
+  for (const directory of ['tasks', 'profiles'])
     await mkdir(join(root, 'evals', directory), { recursive: true });
+  await writeFile(join(root, 'index.html'), 'Original');
+  const git = (args: string[]) =>
+    execFileSync('git', ['-c', 'core.hooksPath=/dev/null', ...args], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+  git(['init', '-q']);
+  git(['add', 'index.html']);
+  git([
+    '-c',
+    'user.name=Offline Test',
+    '-c',
+    'user.email=test@example.invalid',
+    '-c',
+    'commit.gpgsign=false',
+    'commit',
+    '-qm',
+    'Pinned test source',
+  ]);
+  const revision = git(['rev-parse', 'HEAD']);
   await writeFile(
     join(root, 'evals/tasks/sample.json'),
     JSON.stringify({
       ...task,
-      kind: 'ui',
       targetFile: 'index.html',
       expectedText: 'Repaired',
       flowPath: '/',
-      fixture: 'wedding-copy',
-      rubric: 'test',
+      environment: 'repository',
+      repository: { revision },
+      acceptance: 'admin-login-retry',
     }),
   );
   await writeFile(join(root, 'evals/profiles/smoke.json'), JSON.stringify(profile));
-  await writeFile(join(root, 'evals/rubrics/test.md'), 'Unused semantic rubric');
-  await writeFile(join(root, 'evals/fixtures/wedding-copy/index.html'), 'Original');
   return root;
 }
 
@@ -66,7 +70,6 @@ test('each Pi trial resolves independent limits before environment preparation a
       maxTokens: profile.maxAgentTokens,
     });
     return {
-      description: 'Offline budget trial',
       expectedModel: { provider: 'openai-codex', id: 'gpt-6-luna', thinkingLevel: 'xhigh' },
       inspection: {},
       manifest: {},
@@ -181,7 +184,7 @@ test('Pi bridge saves incremental redacted evidence and applies no graders or ta
   const root = await setup();
   let calls = 0;
   const fakeSecret = 'sk-offline-fixture-secret-value';
-  const prepareHarness: HarnessFactory = async (options) => {
+  const prepareHarness: HarnessFactory = async (options: HarnessOptions) => {
     assert.equal(options.profile.pi.model, 'gpt-6-luna');
     assert.equal(options.profile.runtimeMs, 4000);
     assert.equal(options.profile.maxAgentTokens, 1000);
@@ -190,7 +193,6 @@ test('Pi bridge saves incremental redacted evidence and applies no graders or ta
       inspection: { defaults: { model: 'saved-model' }, evaluationModel: { model: 'gpt-6-luna' } },
       manifest: { invariants: { model: { id: 'gpt-6-luna' } } },
       expectedModel: { provider: 'openai-codex', id: 'gpt-6-luna', thinkingLevel: 'xhigh' },
-      description: 'Offline fake',
       environment: {
         async prepare() {
           return {
@@ -273,10 +275,9 @@ test('Pi bridge saves incremental redacted evidence and applies no graders or ta
     const transcript = await readFile(join(directory, 'transcript.jsonl'), 'utf8');
     assert.equal(transcript.includes(fakeSecret), false);
     assert.match(transcript, /agent_settled/);
-    assert.deepEqual(
-      JSON.parse(await readFile(join(directory, 'grading-results.json'), 'utf8')),
-      [],
-    );
+    assert.equal(trial.metadata.recordingDirectory, directory);
+    for (const file of ['grades.json', 'grading-results.json'])
+      await assert.rejects(readFile(join(directory, file), 'utf8'), { code: 'ENOENT' });
     assert.ok(
       (await readFile(join(directory, 'integrity.json'), 'utf8')).includes('transcript.jsonl'),
     );

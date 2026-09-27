@@ -13,9 +13,7 @@
     "check": "pnpm typecheck && pnpm lint && pnpm format:check"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^4.0.60",
     "@typesafe-ai/sdk": "0.6.0",
-    "ai": "^7.0.93",
     "zod": "^4.5.4"
   },
   "devDependencies": {

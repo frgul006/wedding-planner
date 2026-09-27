@@ -1,20 +1,13 @@
-import { readFile } from 'node:fs/promises';
-import { parseEnv } from 'node:util';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
-/** Worktrees resolve the original checkout; never copy the grader env into a trial. */
-export function defaultEnvFile(repo: string): string {
+/** Resolve the original checkout when native resources come from a worktree. */
+export function resolveSourceRepo(repo: string): string {
   const common = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
     cwd: repo,
     encoding: 'utf8',
   }).trim();
-  return path.join(path.dirname(common), '.env.evals.local');
-}
-export async function loadGraderKey(file: string): Promise<string> {
-  const parsed = parseEnv(await readFile(file, 'utf8'));
-  if (!parsed.OPENAI_API_KEY?.trim()) throw new Error(`OPENAI_API_KEY missing in ${file}`);
-  return parsed.OPENAI_API_KEY.trim();
+  return path.dirname(common);
 }
 export function redact(text: string, secrets: readonly string[] = []): string {
   let result = text;

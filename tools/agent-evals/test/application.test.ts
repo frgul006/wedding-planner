@@ -1,40 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { runTrial } from '../src/application/run-trial.ts';
-import { compareTrials } from '../src/domain/report.ts';
 import type {
   AgentResult,
   AgentRunner,
-  Grade,
-  Grader,
-  TrialEvidence,
   Artifact,
+  CommandCheck,
   PreparedEnvironment,
   Task,
 } from '../src/domain/types.ts';
-import { gradeOutcome, gradeTrial } from '../src/domain/deterministic-graders.ts';
-
-function testGrader(implementation: {
-  grade(evidence: TrialEvidence, signal?: AbortSignal): Promise<Grade[]>;
-}): Grader {
-  return {
-    id: 'test',
-    version: '1',
-    async grade(evidence, signal) {
-      return {
-        grader: 'test',
-        version: '1',
-        status: 'completed',
-        grades: await implementation.grade(evidence, signal),
-      };
-    },
-  };
-}
 
 const task: Task = {
   id: 'docs',
   version: '1',
-  kind: 'docs',
   prompt: 'Update docs',
   targetFile: 'README.md',
   expectedText: 'pnpm dev',
@@ -43,7 +21,6 @@ const task: Task = {
 const options = {
   id: 'failure',
   task,
-  variant: 'enabled' as const,
   runtimeMs: 100,
   maxTokens: 10,
   maxEstimatedCostUsd: 0.1,
@@ -66,13 +43,6 @@ test('setup failure persists failed attempt and never dispatches agent', async (
       },
     },
     agent,
-    graders: [
-      testGrader({
-        async grade() {
-          return [];
-        },
-      }),
-    ],
     store: {
       async save(n, v) {
         saved.set(n, v);
@@ -86,15 +56,6 @@ test('setup failure persists failed attempt and never dispatches agent', async (
   assert.ok(saved.has('evidence.json'));
   assert.equal(result.manifest.attempts[0].error, 'fixture missing');
 });
-test('controlled comparisons reject mismatched budgets and duplicate instructions', () => {
-  const a = { variant: 'enabled', invariants: { budget: 1 }, comparisonEligible: true };
-  const b = { ...a, variant: 'disabled' };
-  assert.equal(compareTrials(a, b).eligible, true);
-  assert.equal(compareTrials(a, { ...b, invariants: { budget: 2 } }).eligible, false);
-  assert.equal(compareTrials(a, { ...b, comparisonEligible: false }).eligible, false);
-  assert.equal(compareTrials(a, a).eligible, false);
-});
-
 function completed(): AgentResult {
   return {
     status: 'completed',
@@ -165,7 +126,6 @@ test('resolved per-trial limits reach the agent and remain in evidence and manif
           return { ...completed(), status: 'budget_exceeded', limits, limitUsage, limitHit };
         },
       },
-      graders: [],
       store: {
         async save(name, value) {
           saved.set(name, value);
@@ -182,7 +142,7 @@ test('resolved per-trial limits reach the agent and remain in evidence and manif
   assert.equal(saved.get('evidence.json'), result.evidence);
 });
 
-test('saved comparison invariants include the prepared resource fingerprint and runtime', async () => {
+test('saved execution invariants include the prepared resource fingerprint and runtime', async () => {
   const saved = new Map<string, unknown>();
   const runtime = { node: { version: '24.15.0' } };
   const skillTreeFingerprint = 'a'.repeat(64);
@@ -199,13 +159,6 @@ test('saved comparison invariants include the prepared resource fingerprint and 
           return completed();
         },
       },
-      graders: [
-        testGrader({
-          async grade() {
-            return [];
-          },
-        }),
-      ],
       store: {
         async save(name, value) {
           saved.set(name, value);
@@ -242,13 +195,6 @@ test('cleanup failure preserves completed task evidence and reports infrastructu
         return completed();
       },
     },
-    graders: [
-      testGrader({
-        async grade(evidence) {
-          return gradeTrial(evidence);
-        },
-      }),
-    ],
     store: {
       async save(name, value) {
         saved.set(name, value);
@@ -260,13 +206,15 @@ test('cleanup failure preserves completed task evidence and reports infrastructu
   assert.equal(result.evidence.agent.status, 'infrastructure_error');
   assert.equal(result.manifest.statusBeforeCleanupFailure, 'completed');
   assert.equal(result.manifest.cleanupError, 'Browser process did not stop');
-  assert.equal(
-    gradeOutcome(result.evidence).verdict,
-    'pass',
-    'known task outcome survives cleanup failure',
+  assert.deepEqual(
+    result.evidence.artifacts,
+    [target],
+    'captured outcome survives cleanup failure',
   );
   assert.equal(result.evidence.agent.usage.inputTokens, 100);
-  assert.ok(saved.has('grades.json'));
+  assert.ok(saved.has('evidence.json'));
+  assert.equal(saved.has('grades.json'), false);
+  assert.equal(saved.has('grading-results.json'), false);
   assert.ok(
     result.evidence.events.some(
       (event) => event.actor === 'evaluator' && event.data.type === 'cleanup_error',
@@ -297,19 +245,11 @@ test('final artifact collection failure still cleans up and leaves missing outco
         return completed();
       },
     },
-    graders: [
-      testGrader({
-        async grade(evidence) {
-          return gradeTrial(evidence);
-        },
-      }),
-    ],
     store: { async save() {}, append() {} },
   });
   assert.equal(cleaned, true);
   assert.equal(result.evidence.agent.status, 'infrastructure_error');
   assert.deepEqual(result.evidence.artifacts, []);
-  assert.equal(gradeOutcome(result.evidence).verdict, 'unknown');
   const observation = result.evidence.events.find(
     (event) => event.data.type === 'trial_observation',
   );
@@ -334,17 +274,18 @@ test('an agent adapter exception still captures artifacts, cleans up, and saves 
       },
     },
     agent: {
-      async run() {
+      async run(request) {
+        request.onEvent?.({
+          id: 'partial-event',
+          sequence: 1,
+          timestamp: '2026-09-27T00:00:00Z',
+          actor: 'agent',
+          kind: 'pi',
+          data: { type: 'turn_start' },
+        });
         throw new Error('RPC transport disconnected');
       },
     },
-    graders: [
-      testGrader({
-        async grade(evidence) {
-          return gradeTrial(evidence);
-        },
-      }),
-    ],
     store: {
       async save(name) {
         saved.add(name);
@@ -356,17 +297,40 @@ test('an agent adapter exception still captures artifacts, cleans up, and saves 
   assert.equal(result.evidence.agent.status, 'infrastructure_error');
   assert.equal(result.manifest.attempts[0].error, 'RPC transport disconnected');
   assert.deepEqual(result.evidence.artifacts, [target]);
-  assert.ok(saved.has('manifest.json') && saved.has('evidence.json') && saved.has('grades.json'));
+  assert.equal(result.evidence.agent.events.length, 1);
+  assert.equal(result.evidence.agent.events[0].data.type, 'turn_start');
+  assert.ok(saved.has('manifest.json') && saved.has('evidence.json'));
 });
 
-test('trial evidence is persisted before a failing grader runs and its failure is recorded separately', async () => {
+test('finalized independent checks are saved with the attempt without producing grading records', async () => {
   const saved = new Map<string, unknown>();
-  const observations: string[] = [];
+  const stages: string[] = [];
   let evidenceWrites = 0;
+  const checks: CommandCheck[] = [
+    {
+      id: 'acceptance',
+      actor: 'evaluator',
+      command: ['trusted-acceptance'],
+      exitCode: 1,
+      stdout: 'Retry still fails',
+      stderr: '',
+      status: 'fail',
+    },
+  ];
   const result = await runTrial(options, {
     environment: {
-      async prepare() {
-        return prepared();
+      async prepare(actualTask, id) {
+        assert.equal(actualTask, task);
+        assert.equal(id, options.id);
+        return prepared({
+          async finalize() {
+            stages.push('finalize');
+            return { artifacts: [target], checks, changedFiles: [task.targetFile] };
+          },
+          async cleanup() {
+            stages.push('cleanup');
+          },
+        });
       },
     },
     agent: {
@@ -374,38 +338,26 @@ test('trial evidence is persisted before a failing grader runs and its failure i
         return completed();
       },
     },
-    graders: [
-      testGrader({
-        async grade(evidence) {
-          assert.ok(saved.has('evidence.json'), 'paid trial already saved before grading');
-          // Even a misbehaving grader cannot mutate the original observation.
-          evidence.events.length = 0;
-          throw new Error('Invalid rubric');
-        },
-      }),
-    ],
     store: {
+      append() {},
       async save(name, value) {
         saved.set(name, value);
         if (name === 'evidence.json') {
+          stages.push('saved');
           evidenceWrites++;
-          observations.push(JSON.stringify(value));
         }
       },
-      append() {},
     },
   });
-  assert.equal(result.evidence.agent.status, 'completed');
-  assert.equal(result.grades[0].verdict, 'unknown');
-  assert.equal(
-    result.evidence.events.some((event) => event.data.type === 'grader_error'),
-    false,
-  );
-  assert.deepEqual(result.grades[0].evidenceRefs, []);
-  assert.equal(result.gradingResults[0].status, 'grader_error');
+  assert.deepEqual(stages, ['finalize', 'cleanup', 'saved']);
   assert.equal(evidenceWrites, 1);
-  assert.equal(observations[0], JSON.stringify(result.evidence));
-  assert.ok(saved.has('grades.json') && saved.has('manifest.json'));
+  assert.equal(result.evidence.agent.status, 'completed');
+  assert.deepEqual(result.evidence.checks, checks);
+  assert.deepEqual(result.evidence.changedFiles, [task.targetFile]);
+  assert.equal(saved.get('evidence.json'), result.evidence);
+  assert.equal(saved.has('grades.json'), false);
+  assert.equal(saved.has('grading-results.json'), false);
+  assert.equal(result.evidence.variant, undefined);
 });
 
 test('callback tool events are sequenced with environment observations and keep their actor', async () => {
@@ -428,13 +380,6 @@ test('callback tool events are sequenced with environment observations and keep 
         return completed();
       },
     },
-    graders: [
-      testGrader({
-        async grade() {
-          return [];
-        },
-      }),
-    ],
     store: { async save() {}, append() {} },
   });
   assert.deepEqual(
@@ -470,7 +415,6 @@ for (const streamed of [false, true]) {
           return { ...completed(), events: [event] };
         },
       },
-      graders: [],
       store: { async save() {}, append() {} },
     });
     assert.equal(result.evidence.agent.events.length, 1);
@@ -506,13 +450,6 @@ test('final artifacts are observed after tool descendants stop', async () => {
         return completed();
       },
     },
-    graders: [
-      testGrader({
-        async grade(evidence) {
-          return gradeTrial(evidence);
-        },
-      }),
-    ],
     store: { async save() {}, append() {} },
   });
   assert.equal(collections, 2);
@@ -540,13 +477,6 @@ test('cancellation during preparation skips Pi, cleans up, and saves a cancelled
           assert.fail('Cancelled preparation must not start Pi');
         },
       },
-      graders: [
-        testGrader({
-          async grade(evidence) {
-            return gradeTrial(evidence);
-          },
-        }),
-      ],
       store: {
         async save(name, value) {
           saved.set(name, value);
@@ -559,7 +489,7 @@ test('cancellation during preparation skips Pi, cleans up, and saves a cancelled
   assert.equal(result.evidence.agent.status, 'cancelled');
   assert.equal(result.manifest.status, 'cancelled');
   assert.deepEqual(result.evidence.artifacts, [target]);
-  assert.ok(saved.has('evidence.json') && saved.has('grades.json') && saved.has('manifest.json'));
+  assert.ok(saved.has('evidence.json') && saved.has('manifest.json'));
 });
 
 test('cancelled Pi usage and artifacts survive cleanup and remain ready for sealing', async () => {
@@ -585,15 +515,6 @@ test('cancelled Pi usage and artifacts survive cleanup and remain ready for seal
           return { ...completed(), status: 'cancelled', error: 'Evaluation cancelled by user.' };
         },
       },
-      graders: [
-        testGrader({
-          async grade(evidence, signal) {
-            assert.equal(cleaned, true);
-            assert.equal(signal, controller.signal);
-            return gradeTrial(evidence);
-          },
-        }),
-      ],
       store: {
         async save(name, value) {
           saved.set(name, value);
@@ -607,48 +528,6 @@ test('cancelled Pi usage and artifacts survive cleanup and remain ready for seal
   assert.deepEqual(result.evidence.artifacts, [target]);
   assert.equal(saved.get('evidence.json'), result.evidence);
   assert.equal(saved.get('manifest.json'), result.manifest);
-  assert.equal(saved.get('grades.json'), result.grades);
-});
-
-test('cancelling grading preserves the completed Pi result and saved usage', async () => {
-  const controller = new AbortController();
-  const saved = new Map<string, unknown>();
-  const result = await runTrial(
-    { ...options, signal: controller.signal },
-    {
-      environment: {
-        async prepare() {
-          return prepared();
-        },
-      },
-      agent: {
-        async run() {
-          return completed();
-        },
-      },
-      graders: [
-        testGrader({
-          async grade(_evidence, signal) {
-            assert.ok(saved.has('evidence.json'));
-            controller.abort();
-            signal?.throwIfAborted();
-            return [];
-          },
-        }),
-      ],
-      store: {
-        async save(name, value) {
-          saved.set(name, value);
-        },
-        append() {},
-      },
-    },
-  );
-  assert.equal(result.evidence.agent.status, 'completed');
-  assert.equal(result.evidence.agent.usage.estimatedCostUsd, 0.01);
-  assert.equal(result.grades[0].verdict, 'unknown');
-  assert.match(result.grades[0].reason, /cancelled/);
-  assert.equal(result.evidence.events.at(-1)?.data.type, 'trial_observation');
-  assert.equal(result.gradingResults[0].status, 'cancelled');
-  assert.equal(saved.get('manifest.json'), result.manifest);
+  assert.equal(cleaned, true);
+  assert.equal(saved.has('grades.json'), false);
 });

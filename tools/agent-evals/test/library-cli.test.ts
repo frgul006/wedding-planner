@@ -16,27 +16,53 @@ const command = new URL('../src/cli/library-command.ts', import.meta.url).href;
 
 async function setup() {
   const repo = await mkdtemp(path.join(tmpdir(), 'eval-library-cli-'));
-  const profile = JSON.parse(
-    await readFile(new URL('../../../evals/profiles/smoke.json', import.meta.url), 'utf8'),
-  );
-  profile.pi.model = 'explicit-test-model';
-  profile.runtimeMs = 4_000;
-  profile.maxAgentTokens = 1_000;
-  for (const folder of ['tasks', 'profiles', 'rubrics', 'fixtures/wedding-copy'])
+  const profile: {
+    id: string;
+    pi: { runtime: 'native'; model?: string; endpoint?: 'native' | 'catalog' };
+    runtimeMs: number;
+    maxAgentTokens: number;
+    maxAgentTurns: number;
+    agentBilling: 'subscription';
+    maxAgentEstimatedCostUsd: null;
+  } = {
+    id: 'offline-native',
+    pi: { runtime: 'native', model: 'explicit-test-model' },
+    runtimeMs: 4_000,
+    maxAgentTokens: 1_000,
+    maxAgentTurns: 100,
+    agentBilling: 'subscription',
+    maxAgentEstimatedCostUsd: null,
+  };
+  for (const folder of ['tasks', 'profiles'])
     await mkdir(path.join(repo, 'evals', folder), { recursive: true });
-  await mkdir(path.join(repo, 'empty-bin'));
   await writeFile(path.join(repo, 'evals/profiles/smoke.json'), JSON.stringify(profile));
-  await writeFile(path.join(repo, 'evals/rubrics/test.md'), 'Observe the repair.');
-  await writeFile(path.join(repo, 'evals/fixtures/wedding-copy/index.html'), '<p>Repaired</p>');
+  await writeFile(path.join(repo, 'index.html'), '<p>Repaired</p>');
+  await execute('git', ['init', '--quiet', repo]);
+  await execute('git', ['add', 'index.html'], { cwd: repo });
+  await execute(
+    'git',
+    [
+      '-c',
+      'user.name=Offline test',
+      '-c',
+      'user.email=test@example.invalid',
+      'commit',
+      '--quiet',
+      '-m',
+      'Authored fixture',
+    ],
+    { cwd: repo },
+  );
+  const revision = (await execute('git', ['rev-parse', 'HEAD'], { cwd: repo })).stdout.trim();
   await writeFile(
     path.join(repo, 'evals/tasks/repository-login-retry.json'),
     JSON.stringify({
       id: 'repository-login-retry',
       version: '1',
-      kind: 'ui',
       prompt: 'Repair retry behavior.',
-      fixture: 'wedding-copy',
-      rubric: 'test',
+      environment: 'repository',
+      repository: { revision },
+      acceptance: 'admin-login-retry',
       targetFile: 'index.html',
       expectedText: 'Repaired',
       flowPath: '/',
@@ -44,7 +70,7 @@ async function setup() {
   );
   const store = fileStore(path.join(repo, 'saved'));
   async function invoke(args: string[]) {
-    // Empty PATH and HOME prevent Pi discovery and access to developer credentials.
+    // Isolated HOME and system-only PATH prevent developer Pi/credential discovery.
     // Network is disabled inside this process even if a regression tries to dispatch.
     const code = `
       import { libraryCommand } from ${JSON.stringify(command)};
@@ -60,7 +86,7 @@ async function setup() {
         ['--import', loader, '--input-type=module', '--eval', code],
         {
           cwd: repo,
-          env: { PATH: path.join(repo, 'empty-bin'), HOME: repo, NO_COLOR: '1' },
+          env: { PATH: '/usr/bin:/bin', HOME: repo, NO_COLOR: '1' },
         },
       );
       return { code: 0, ...output };

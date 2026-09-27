@@ -32,9 +32,8 @@ test('the profile selects Luna without changing native provider, reasoning or sa
   ]);
 });
 
-test('omitting the model override retains native selection in either conversation profile', () => {
-  for (const runtime of ['native', 'controlled'] as const)
-    assert.deepEqual(selectPiModel(inspection, { runtime }), defaults);
+test('omitting the model override retains native selection', () => {
+  assert.deepEqual(selectPiModel(inspection, { runtime: 'native' }), defaults);
 });
 
 test('an unavailable model cannot silently fall back or change the authenticated provider', () => {

@@ -1,5 +1,5 @@
 import { appendFileSync } from 'node:fs';
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { redact } from './secrets.ts';
@@ -11,9 +11,6 @@ export class FileRunStore implements RunStore {
     readonly directory: string,
     private readonly secrets: readonly string[] = [],
   ) {}
-  async initialize() {
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
-  }
   async save(name: string, value: unknown) {
     if (!/^[\w.-]+$/.test(name)) throw new Error('Invalid evidence filename');
     const body = typeof value === 'string' ? value : JSON.stringify(value, null, 2) + '\n';

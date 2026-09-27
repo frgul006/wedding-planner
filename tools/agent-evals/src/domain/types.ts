@@ -1,6 +1,5 @@
 /** Agent Evaluation bounded context. These contracts have no runtime dependencies. */
 import type { TrialLimits } from './trial-limits.ts';
-export type Verdict = 'pass' | 'fail' | 'unknown' | 'not-applicable';
 export type Actor = 'agent' | 'environment' | 'evaluator';
 export type TrialStatus =
   | 'completed'
@@ -76,16 +75,13 @@ export interface Artifact {
 export interface Task {
   id: string;
   version: string;
-  kind: 'ui' | 'docs';
   prompt: string;
   targetFile: string;
   expectedText: string;
   flowPath: string;
-  environment?: 'synthetic' | 'repository';
+  environment?: 'repository';
   repository?: { revision: string };
   acceptance?: string;
-  allowedChangedPaths?: string[];
-  graders?: string[];
   limits?: Partial<TrialLimits>;
 }
 export interface Usage {
@@ -121,24 +117,6 @@ export interface AgentResult {
     observed: number;
   };
 }
-export interface Grade {
-  grader: string;
-  version: string;
-  verdict: Verdict;
-  reason: string;
-  evidenceRefs: string[];
-}
-export interface GradingResult {
-  grader: string;
-  version: string;
-  status: 'completed' | 'grader_error' | 'cancelled';
-  metering?: 'none' | 'semantic-api';
-  grades: Grade[];
-  usage?: Usage;
-  /** Stable judgment inputs, excluding response IDs, timestamps and observed usage. */
-  criteria?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
-}
 export interface CommandCheck {
   id: string;
   actor: 'evaluator';
@@ -157,7 +135,8 @@ export interface FinalObservation {
 }
 export interface TrialEvidence {
   task: Task;
-  variant: 'enabled' | 'disabled';
+  /** Present only in historical native recordings; new trials retain native instructions. */
+  variant?: 'enabled' | 'disabled';
   localUrl: string;
   agent: AgentResult;
   artifacts: Artifact[];
@@ -185,14 +164,6 @@ export interface AgentRunRequest {
 export interface AgentRunner {
   run(request: AgentRunRequest): Promise<AgentResult>;
 }
-export interface Grader {
-  id: string;
-  version: string;
-  metering?: 'none' | 'semantic-api';
-  /** Known configuration, retained even if cancellation prevents grading. */
-  criteria?: Record<string, unknown>;
-  grade(evidence: TrialEvidence, signal?: AbortSignal): Promise<GradingResult>;
-}
 export interface RunStore {
   save(name: string, value: unknown): Promise<void>;
   append(event: EvidenceEvent): void;
@@ -212,5 +183,5 @@ export interface PreparedEnvironment {
   cleanup(): Promise<void>;
 }
 export interface TrialEnvironment {
-  prepare(task: Task, variant: 'enabled' | 'disabled', id: string): Promise<PreparedEnvironment>;
+  prepare(task: Task, id: string): Promise<PreparedEnvironment>;
 }

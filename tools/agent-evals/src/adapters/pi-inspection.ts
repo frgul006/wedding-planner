@@ -210,7 +210,6 @@ export async function inspectPiResources(options: {
     (loadProjectContextFiles(options) as { path: string; content: string }[]).map(async (item) => ({
       ...(await source(item.path, {
         injectedAtStartup: true,
-        pilotRuleOccurrences: (item.content.match(/playwright-cli snapshot/g) ?? []).length,
       })),
       scope:
         (await realpath(dirname(item.path))) === agentDirectory
@@ -270,9 +269,6 @@ export async function inspectPiResources(options: {
       systemPrompts.push({
         ...(await source(selected, {
           injectedAtStartup: true,
-          pilotRuleOccurrences: (
-            (await readFile(selected, 'utf8')).match(/playwright-cli snapshot/g) ?? []
-          ).length,
         })),
         scope: selected === local ? 'project' : 'user',
       });

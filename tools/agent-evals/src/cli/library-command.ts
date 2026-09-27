@@ -5,7 +5,7 @@ import { createEvaluator } from '../index.ts';
 import type { Grader, GradingRecord, Suite } from '../index.ts';
 import { fileStore } from '../adapters/library-file-store.ts';
 import { loadProfile, loadTask } from '../adapters/evaluation-config.ts';
-import { defaultEnvFile } from '../adapters/secrets.ts';
+import { resolveSourceRepo } from '../adapters/secrets.ts';
 import {
   CACHED_TOKEN_WEIGHT,
   resolveTrialLimits,
@@ -53,8 +53,9 @@ the trial. Runtime covers Pi startup/execution, excluding environment setup and 
 No automatic agent retries. Jev uses its
 separate key, version jev-1.13.0, concurrency 1 and no retries. These estimates are
 application limits, not provider-enforced caps. Limits can overshoot in flight.
-Exit 2 means execution, preparation or grading failed. A completed behavioral
-fail or unknown verdict is reported separately and does not change the exit code.
+Exit 1 means command setup or storage failed, such as invalid configuration or a
+missing key. Exit 2 means a recorded trial's execution, preparation or grading
+failed. A completed behavioral fail or unknown verdict does not change the exit code.
 `;
 
 const gradingFailed = (record: GradingRecord) =>
@@ -237,7 +238,7 @@ export async function libraryCommand(
       sourceRepo: context.repo,
       agentSource: parsed.values['agent-source']
         ? path.resolve(context.callerCwd, parsed.values['agent-source'])
-        : path.dirname(defaultEnvFile(context.repo)),
+        : resolveSourceRepo(context.repo),
       profile: parsed.values.profile,
     });
   }
