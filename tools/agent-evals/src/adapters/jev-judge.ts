@@ -11,9 +11,9 @@ import {
 import { canonicalJson, contentHash } from '../application/serialization.ts';
 import {
   JudgePreparationError,
-  JudgeResponseError,
+  JudgeExecutionError,
   validObservedUsage,
-} from '../application/judge-response-error.ts';
+} from '../application/judge-errors.ts';
 import type {
   Judge,
   JudgeRequest,
@@ -44,15 +44,8 @@ export interface JevJudgeOptions {
   fetch?: Fetch;
 }
 
-class JevJudgeError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'JevJudgeError';
-  }
-}
-
 function fail(message: string): never {
-  throw new JevJudgeError(message);
+  throw new JudgeExecutionError(message);
 }
 
 function positiveInteger(value: number | undefined, fallback: number): number {
@@ -313,7 +306,7 @@ export function jevJudge(options: JevJudgeOptions): Judge {
         return requests;
       } catch (error) {
         throw new JudgePreparationError(
-          error instanceof JevJudgeError ? error.message : 'Jev preparation failed.',
+          error instanceof JudgeExecutionError ? error.message : 'Jev preparation failed.',
         );
       }
     },
@@ -345,17 +338,18 @@ export function jevJudge(options: JevJudgeOptions): Judge {
           } catch {
             fail('Jev response validation failed and its payload was not JSON-safe.');
           }
-          throw new JudgeResponseError(
-            error instanceof JevJudgeError ? error.message : 'Jev response validation failed.',
+          throw new JudgeExecutionError(
+            error instanceof JudgeExecutionError
+              ? error.message
+              : 'Jev response validation failed.',
             retained,
             observedUsage(raw),
           );
         }
       } catch (error) {
-        // Only our credential-free validation payload may cross the adapter boundary.
+        // Only our explicitly credential-free errors may cross the adapter boundary.
         // Never attach SDK transport/auth bodies, headers, messages, or nested causes.
-        if (error instanceof JudgeResponseError) throw error;
-        if (error instanceof JevJudgeError) throw error;
+        if (error instanceof JudgeExecutionError) throw error;
         if (signal?.aborted || error instanceof APIUserAbortError) {
           const cancellation = new Error('Jev request cancelled.');
           cancellation.name = 'AbortError';

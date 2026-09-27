@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileStore } from '../src/adapters/library-file-store.ts';
-import { JudgeResponseError } from '../src/application/judge-response-error.ts';
+import { JudgeExecutionError } from '../src/application/judge-errors.ts';
 import { createEvaluator, modelGrader } from '../src/index.ts';
 import type { Judge } from '../src/index.ts';
 
@@ -49,8 +49,8 @@ async function setup() {
   return { directory, store };
 }
 
-for (const malformed of [false, true]) {
-  test(`observed cost above reservation prevents subsequent dispatch after ${malformed ? 'invalid' : 'valid'} answers`, async (context) => {
+for (const responseKind of ['valid', 'invalid', 'non-JSON'] as const) {
+  test(`observed cost above reservation prevents subsequent dispatch after ${responseKind} answers`, async (context) => {
     const { directory, store } = await setup();
     context.after(() => rm(directory, { recursive: true, force: true }));
     let calls = 0;
@@ -68,8 +68,12 @@ for (const malformed of [false, true]) {
       },
       async execute(request) {
         calls++;
-        if (malformed)
-          throw new JudgeResponseError('Invalid authored response', { answers: {} }, usage);
+        if (responseKind !== 'valid')
+          throw new JudgeExecutionError(
+            'Invalid authored response',
+            responseKind === 'non-JSON' ? { unserializable: 1n } : { answers: {} },
+            usage,
+          );
         return {
           answers: request.jobIds.map((jobId) => ({ jobId, verdict: 'pass' as const })),
           raw: { observed: true },
@@ -84,15 +88,21 @@ for (const malformed of [false, true]) {
     assert.equal(calls, 1, 'Known observed overspend must stop the next already-reserved batch.');
     assert.equal(record.requests[0].dispatched, true);
     assert.deepEqual(record.requests[0].response?.usage ?? record.requests[0].observedUsage, usage);
-    if (!malformed) {
+    if (responseKind === 'valid') {
       assert.equal(record.requests[0].receivedResponse, undefined);
       assert.equal(record.requests[0].observedUsage, undefined);
     }
+    if (responseKind === 'non-JSON') {
+      assert.equal(record.requests[0].receivedResponse, undefined);
+      assert.equal(record.requests[0].error, 'Invalid authored response');
+    }
     assert.equal(record.requests[1].dispatched, false);
     assert.match(record.requests[1].error!, /budget exceeded/i);
-    assert.equal(record.grades[0].verdict, malformed ? 'unknown' : 'pass');
+    assert.equal(record.grades[0].verdict, responseKind === 'valid' ? 'pass' : 'unknown');
     assert.equal(record.grades[1].verdict, 'unknown');
-    assert.equal((await store.listGradings('trial')).length, 1);
+    const retained = await store.listGradings('trial');
+    assert.equal(retained.length, 1);
+    assert.deepEqual(retained[0].requests, record.requests);
   });
 }
 

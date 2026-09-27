@@ -100,7 +100,6 @@ export interface AgentResult {
   usage: Usage;
   model: Record<string, unknown> | null;
   thinkingLevel: string | null;
-  events: EvidenceEvent[];
   error?: string;
   limits?: TrialLimits;
   limitUsage?: {
@@ -137,7 +136,7 @@ export interface TrialEvidence {
   /** Present only in historical native recordings; new trials retain native instructions. */
   variant?: 'enabled' | 'disabled';
   localUrl: string;
-  agent: Omit<AgentResult, 'events'>;
+  agent: AgentResult;
   artifacts: Artifact[];
   events: EvidenceEvent[];
   beforeArtifacts?: Artifact[];
@@ -156,7 +155,8 @@ export interface AgentRunRequest {
   executable?: string;
   expectedModel?: { provider: string; id: string; thinkingLevel: string };
   args?: string[];
-  onEvent?: (event: EvidenceEvent) => void;
+  /** Deliver every observation as it occurs; the trial recorder owns event retention. */
+  onEvent: (event: EvidenceEvent) => void;
 }
 export interface AgentRunner {
   run(request: AgentRunRequest): Promise<AgentResult>;
@@ -175,7 +175,7 @@ export interface PreparedEnvironment {
   /** Startup facts the agent needs, without embedding task answers or grading controls. */
   agentContext?: string;
   collectArtifacts(): Promise<Artifact[]>;
-  /** Stop agent descendants, run trusted acceptance checks, then capture final evidence. */
+  /** Stop registered tool groups, run independent acceptance checks, then capture evidence. */
   finalize?(): Promise<FinalObservation>;
   cleanup(): Promise<void>;
 }

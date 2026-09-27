@@ -6,4 +6,4 @@ export {
   resolveTrialLimits,
   weightedTokens,
 } from './domain/trial-limits.ts';
-export { JudgePreparationError, JudgeResponseError } from './application/judge-response-error.ts';
+export { JudgePreparationError, JudgeExecutionError } from './application/judge-errors.ts';

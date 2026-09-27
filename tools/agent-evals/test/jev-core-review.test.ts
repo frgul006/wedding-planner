@@ -114,4 +114,33 @@ test('Jev invalid answers preserve redacted received data and billed usage throu
   assert.match(report, /\[REDACTED\]/);
   assert.ok(!report.includes(key));
   assert.ok(!JSON.stringify(retained).includes(key));
+  assert.equal(retained.requests[0].error, 'Jev response has missing or unexpected answer IDs.');
 });
+
+for (const status of [401, 429, 503]) {
+  test(`Jev HTTP ${status} diagnostics survive grading without provider error bodies`, async (context) => {
+    const { directory, store } = await setup();
+    context.after(() => rm(directory, { recursive: true, force: true }));
+    const privateBody = `${key} private provider response`;
+    const judge = jevJudge({
+      apiKey: key,
+      fetch: async () =>
+        new Response(JSON.stringify({ message: privateBody }), {
+          status,
+          headers: { 'content-type': 'application/json' },
+        }),
+    });
+    const record = await createEvaluator({ store, judge }).grade('authored-trial', { graders });
+    const reason = `Jev request failed with HTTP ${status}.`;
+    assert.equal(record.requests[0].error, reason);
+    assert.equal(record.requests[0].receivedResponse, undefined);
+    assert.equal(record.grades[0].status, 'grader_error');
+    assert.equal(record.grades[0].reason, reason);
+    const [retained] = await store.listGradings('authored-trial');
+    const report = await readFile(path.join(directory, 'gradings', record.id, 'report.md'), 'utf8');
+    assert.equal(retained.requests[0].error, reason);
+    assert.ok(report.includes(reason));
+    assert.ok(!report.includes(privateBody));
+    assert.ok(!JSON.stringify(retained).includes(key));
+  });
+}

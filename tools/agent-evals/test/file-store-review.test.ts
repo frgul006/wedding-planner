@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileStore } from '../src/adapters/library-file-store.ts';
 import { contentHash } from '../src/application/serialization.ts';
+import { createEvaluator } from '../src/index.ts';
 import type { GradingRecord, JudgeRequest, RecordedTrial, SuiteRun } from '../src/index.ts';
 
 function trial(): RecordedTrial {
@@ -122,24 +123,52 @@ test('file store grading JSON and report share the call-time snapshot despite co
   assert.doesNotMatch(report, /mutated-grader|Mutated aggregation rule/);
 });
 
-test('an empty interrupted grading directory does not block trial histories', async (context) => {
+test('interrupted regrade journals do not hide completed history and remain unchanged', async (context) => {
   const directory = await mkdtemp(path.join(tmpdir(), 'eval-empty-grading-'));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const store = fileStore(directory);
   await store.saveTrial(trial());
+  const evaluator = createEvaluator({ store });
+  const first = await evaluator.grade(trial().id, { graders: [] });
+  await store.saveRun({
+    id: 'recorded-run',
+    suiteId: 'fixture',
+    trialIds: [trial().id],
+    gradingIds: [first.id],
+  });
   await mkdir(path.join(directory, 'gradings/empty-interrupted-grading'), { recursive: true });
-  assert.deepEqual(await store.listGradings(trial().id), []);
 
   await store.saveRequest('journaled-interrupted-grading', {
     id: 'request',
     jobIds: ['job'],
     body: {},
-    metadata: { trialId: trial().id },
+    metadata: { trialId: trial().id, gradingId: 'journaled-interrupted-grading' },
     reservedCostUsd: 0,
   });
-  await assert.rejects(
-    store.listGradings(trial().id),
-    /Incomplete grading journaled-interrupted-grading/,
+  const journal = path.join(
+    directory,
+    'gradings/journaled-interrupted-grading/requests/request.json',
   );
+  const originalRequest = await readFile(journal, 'utf8');
+  assert.deepEqual(await store.listGradings(trial().id), [first]);
+  const [regraded] = await evaluator.regrade('recorded-run', { graders: [] });
+  assert.deepEqual(
+    (await store.listGradings(trial().id)).map(({ id }) => id).sort(),
+    [first.id, regraded.id].sort(),
+  );
+  assert.equal(await readFile(journal, 'utf8'), originalRequest);
   assert.deepEqual(await store.listGradings('unrelated-trial'), []);
+});
+
+test('completed grading records still fail integrity checks after damage', async (context) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'eval-damaged-grading-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const store = fileStore(directory);
+  await store.saveTrial(trial());
+  const record = await createEvaluator({ store }).grade(trial().id, { graders: [] });
+  const file = path.join(directory, 'gradings', record.id, 'grading.json');
+  const envelope = JSON.parse(await readFile(file, 'utf8'));
+  envelope.value.createdAt = 'changed-after-save';
+  await writeFile(file, JSON.stringify(envelope));
+  await assert.rejects(store.listGradings(trial().id), /integrity check failed/);
 });

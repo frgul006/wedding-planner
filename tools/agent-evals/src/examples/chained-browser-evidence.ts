@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { normalizePiEvent } from '../adapters/pi-evidence.ts';
+import { matchesPiTool, normalizePiEvent, portablePiTool } from '../adapters/pi-evidence.ts';
 import { parsePlaywrightOutput } from '../adapters/playwright-evidence.ts';
 import { canonicalJson } from '../application/serialization.ts';
 import type { RecordedTrial, TraceEvent } from '../domain/library.ts';
@@ -69,23 +69,8 @@ export function extractChainedBrowserSnapshot(
     completed?.type !== 'tool_completed' ||
     completed.success === 'unknown' ||
     (rawResult.toolName !== undefined && rawResult.toolName !== 'bash') ||
-    !same({ callId: started.callId, name: started.name, args: started.args }, call.data) ||
-    !same(
-      {
-        callId: completed.callId,
-        success: completed.success,
-        text: completed.text,
-        truncated: completed.truncated,
-        receipt: completed.receipt,
-      },
-      {
-        callId: result.data.callId,
-        success: result.data.success,
-        text: result.data.text,
-        truncated: result.data.truncated,
-        receipt: result.data.receipt,
-      },
-    ) ||
+    !matchesPiTool(call, portablePiTool(started)) ||
+    !matchesPiTool(result, portablePiTool(completed)) ||
     completed.receipt.kind !== 'bash'
   )
     return unknown('The browser chain differs from its native command/result attestation.');

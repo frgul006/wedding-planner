@@ -104,6 +104,14 @@ type Fixture = ReturnType<typeof fixture>;
 const extract = ({ trial, call, result }: Fixture) =>
   extractChainedBrowserSnapshot(trial, call, result);
 
+test('native audits allow retained result metadata while requiring exact call fields', () => {
+  const value = fixture();
+  value.result.data.retainedNote = 'Additional recording metadata';
+  assert.equal(extract(value)?.snapshot?.content, snapshot);
+  value.call.data.retainedNote = 'Not part of the native call';
+  assert.match(extract(value)?.unknown ?? '', /native command\/result attestation/);
+});
+
 test('native chain derives explicit snapshot from full output with its exact artifact source', () => {
   const data = fixture();
   const before = JSON.stringify(data.trial);

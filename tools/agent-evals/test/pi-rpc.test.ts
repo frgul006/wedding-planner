@@ -9,7 +9,7 @@ import {
   PiRpcRunner,
   UsageAccumulator,
 } from '../src/adapters/pi-rpc.js';
-import type { AgentRunRequest } from '../src/domain/types.js';
+import type { AgentRunRequest, EvidenceEvent } from '../src/domain/types.js';
 import { endpointHash } from '../src/adapters/pi-endpoint-selection.ts';
 import { DEFAULT_TRIAL_LIMITS, type TrialLimits } from '../src/domain/trial-limits.ts';
 
@@ -131,7 +131,8 @@ async function trial(
   const executable = join(directory, 'pi-test.cjs');
   await writeFile(executable, fakeRpc, { mode: 0o700 });
   try {
-    return await new PiRpcRunner(runnerOptions).run({
+    const events: EvidenceEvent[] = [];
+    const result = await new PiRpcRunner(runnerOptions).run({
       cwd: directory,
       env: { PATH: process.env.PATH ?? '', EVAL_RPC_SCENARIO: scenario },
       executable: executable,
@@ -140,7 +141,13 @@ async function trial(
       expectedModel: { provider: 'openai-codex', id: 'test-model', thinkingLevel: 'xhigh' },
       ...overrides,
       limits: { ...DEFAULT_TRIAL_LIMITS, runtimeMs: 3000, maxTokens: 1000, ...overrides.limits },
+      onEvent(event) {
+        events.push(event);
+        overrides.onEvent?.(event);
+      },
     });
+    assert.equal('events' in result, false, 'the recorder owns the only retained event list');
+    return { ...result, events };
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -469,7 +476,11 @@ test('evidence writer failure stops the process while retaining in-memory eviden
   });
   assert.equal(result.status, 'infrastructure_error');
   assert.match(result.error ?? '', /Evidence writer failed: disk full/);
-  assert.ok(result.events.length > 0);
+  assert.equal(result.events.filter((event) => event.data.type === 'stop_requested').length, 1);
+  assert.deepEqual(
+    result.events.map((event) => event.sequence),
+    result.events.map((_, index) => index + 1),
+  );
   assert.ok(!result.events.some((event) => event.data.command === 'prompt'));
 });
 

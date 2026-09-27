@@ -92,7 +92,6 @@ test('each Pi trial resolves independent limits before environment preparation a
             endedAt: '',
             exitCode: 0,
             signal: null,
-            events: [],
             model: null,
             thinkingLevel: null,
             usage: {
@@ -223,14 +222,13 @@ test('Pi bridge saves incremental redacted evidence and applies no graders or ta
             timestamp: '',
             data: { type: 'agent_settled', text: fakeSecret },
           };
-          request.onEvent?.(event);
+          request.onEvent(event);
           return {
             status: 'completed' as const,
             startedAt: '',
             endedAt: '',
             exitCode: 0,
             signal: null,
-            events: [event],
             model: { id: 'gpt-6-luna' },
             thinkingLevel: 'xhigh',
             usage: {

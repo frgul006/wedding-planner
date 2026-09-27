@@ -247,6 +247,7 @@ export async function prepareTrialEnvironment(
           runtime:
             'Next.js dev --webpack and pnpm build --webpack; pnpm lint; private preinstalled dependencies; no external network',
           limitations: [
+            'Cleanup stops registered process groups; arbitrary detached tool descendants may survive and continue writing the trial workspace.',
             'Offline Google font responses use system font fallbacks.',
             'Default Turbopack build requires process/port access outside the isolated boundary; development and production checks use webpack.',
             'PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false prevents copied-path dependency reinstallation; the evaluator independently verifies pinned and installed application lockfiles before copying dependencies.',

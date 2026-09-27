@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { codeGrader, createEvaluator, modelGrader, JudgeResponseError } from '../src/index.ts';
+import { codeGrader, createEvaluator, modelGrader, JudgeExecutionError } from '../src/index.ts';
 import type { CheckResult, Judge, PreparedItem, RecordedTrial } from '../src/index.ts';
 import { fileStore } from '../src/adapters/library-file-store.ts';
 import { canonicalJson, contentHash } from '../src/application/serialization.ts';
@@ -516,13 +516,59 @@ for (const failure of [
         assert.ok(record.requests[0].receivedResponse);
         assert.equal(record.requests[0].observedUsage?.inputTokens, 1);
       }
-      assert.match(record.requests[0].error!, /Judge (request failed|response could not be used)/);
+      assert.equal(
+        record.requests[0].error,
+        failure === 'missing-answers' || failure === 'missing-raw'
+          ? 'Invalid judge response membership'
+          : 'Judge request failed; no safe provider response was available',
+      );
       assert.equal((await context.store.listGradings('trial-example')).length, 1);
     } finally {
       await context.dispose();
     }
   });
 }
+
+test('ordinary judge errors stay generic even when their name impersonates a safe error', async () => {
+  const context = await setup();
+  try {
+    const privateMessage = 'Private judge failure contains a synthetic credential';
+    const judge: Judge = {
+      id: 'untrusted-errors',
+      async prepare(jobs) {
+        return [
+          {
+            id: 'batch',
+            jobIds: jobs.map(({ id }) => id),
+            body: {},
+            metadata: {},
+            reservedCostUsd: 0,
+          },
+        ];
+      },
+      async execute() {
+        const error = new Error(privateMessage);
+        error.name = 'JudgeExecutionError';
+        throw error;
+      },
+    };
+    const view = { id: 'validation', version: 1, prepare: () => [item()] } satisfies View;
+    const record = await createEvaluator({ store: context.store, judge }).grade('trial-example', {
+      graders: [modelGrader({ id: 'check', version: 1, view, question: 'Prediction?', rubric })],
+    });
+    assert.equal(
+      record.requests[0].error,
+      'Judge request failed; no safe provider response was available',
+    );
+    assert.equal(record.grades[0].status, 'grader_error');
+    assert.ok(!JSON.stringify(record).includes(privateMessage));
+    assert.ok(
+      !JSON.stringify(await context.store.listGradings('trial-example')).includes(privateMessage),
+    );
+  } finally {
+    await context.dispose();
+  }
+});
 
 test('request recording failure prevents dispatch and is explicit in retained inspection records', async () => {
   const context = await setup();
@@ -592,7 +638,7 @@ for (const adapterRejects of [false, true]) {
         },
         async execute() {
           if (adapterRejects)
-            throw new JudgeResponseError('Invalid answers', received, received.usage);
+            throw new JudgeExecutionError('Invalid answers', received, received.usage);
           return received;
         },
       };

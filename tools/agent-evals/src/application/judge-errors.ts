@@ -8,15 +8,15 @@ export class JudgePreparationError extends Error {
   }
 }
 
-/** Adapters may retain credential-free provider data that failed semantic validation. */
-export class JudgeResponseError extends Error {
+/** Only explicitly credential-free messages and optional provider data may cross this boundary. */
+export class JudgeExecutionError extends Error {
   constructor(
     message: string,
-    readonly receivedResponse: unknown,
+    readonly receivedResponse?: unknown,
     readonly observedUsage?: JudgeResponse['usage'],
   ) {
     super(message);
-    this.name = 'JudgeResponseError';
+    this.name = 'JudgeExecutionError';
   }
 }
 

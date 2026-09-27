@@ -58,7 +58,6 @@ test('application records adapter-discovered skills without decoding a provider 
     },
     model: null,
     thinkingLevel: null,
-    events: [],
   };
   const result = await runTrial(
     {
@@ -88,7 +87,7 @@ test('application records adapter-discovered skills without decoding a provider 
       },
       agent: {
         async run(request) {
-          request.onEvent?.({
+          request.onEvent({
             id: 'discovery',
             sequence: 1,
             timestamp: '2026-09-07T12:00:00Z',

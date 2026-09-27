@@ -174,26 +174,8 @@ export function fileStore(directory: string): Store & { directory: string } {
         try {
           record = await load<GradingRecord>(file);
         } catch (error) {
-          if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-            const pending = await readdir(path.join(root, 'gradings', name, 'requests')).catch(
-              (readError: NodeJS.ErrnoException) => {
-                // A crash can leave only the directory created before the first write.
-                // With no journaled request there is no dispatch to associate with a trial.
-                if (readError.code === 'ENOENT') return [];
-                throw readError;
-              },
-            );
-            const requests = await Promise.all(
-              pending.map((file) =>
-                load<JudgeRequest>(path.join(root, 'gradings', name, 'requests', file)),
-              ),
-            );
-            if (requests.some((request) => request.metadata.trialId === trialId))
-              throw new Error(
-                `Incomplete grading ${name}; saved requests are retained for inspection`,
-              );
-            continue;
-          }
+          // Interrupted grading journals remain on disk; history lists final records only.
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
           throw error;
         }
         if (record.trialId === trialId) records.push(record);

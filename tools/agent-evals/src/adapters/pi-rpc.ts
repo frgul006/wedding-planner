@@ -286,7 +286,7 @@ export class PiRpcRunner implements AgentRunner {
       throw new Error('maxEstimatedCostUsd must be finite and greater than zero');
     const startedAt = new Date().toISOString();
     const startedClock = performance.now();
-    const events: EvidenceEvent[] = [];
+    let eventSequence = 0;
     const usage = new UsageAccumulator();
     let model: JsonObject | null = null;
     let thinkingLevel: string | null = null;
@@ -317,19 +317,21 @@ export class PiRpcRunner implements AgentRunner {
       resolveDone = resolve;
     });
     const emit = (actor: EvidenceEvent['actor'], kind: EvidenceEvent['kind'], data: JsonObject) => {
+      const sequence = ++eventSequence;
       const event = normalizePiEvent({
-        id: `agent-e${events.length + 1}`,
-        sequence: events.length + 1,
+        id: `agent-e${sequence}`,
+        sequence,
         timestamp: new Date().toISOString(),
         actor,
         kind,
         data,
       });
-      events.push(event);
-      if (!callbackFailed) {
-        try {
-          request.onEvent?.(event);
-        } catch (failure) {
+      // The recorder retains observations before attempting disk writes. Keep
+      // delivering shutdown evidence after a writer failure, but stop only once.
+      try {
+        request.onEvent(event);
+      } catch (failure) {
+        if (!callbackFailed) {
           callbackFailed = true;
           stop(
             'infrastructure_error',
@@ -382,7 +384,6 @@ export class PiRpcRunner implements AgentRunner {
         limitUsage: limitUsage(),
         model,
         thinkingLevel,
-        events,
         error: 'Evaluation cancelled before Pi started.',
       };
     }
@@ -561,7 +562,6 @@ export class PiRpcRunner implements AgentRunner {
       ...(limitHit ? { limitHit } : {}),
       model,
       thinkingLevel,
-      events,
       ...(error ? { error } : {}),
     };
   }

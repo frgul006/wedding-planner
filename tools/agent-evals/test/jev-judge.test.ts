@@ -3,10 +3,7 @@ import test from 'node:test';
 import type { Fetch } from '@typesafe-ai/sdk';
 import { JEV_MODEL, jevJudge } from '../src/adapters/jev-judge.ts';
 import { canonicalJson } from '../src/application/serialization.ts';
-import {
-  JudgePreparationError,
-  JudgeResponseError,
-} from '../src/application/judge-response-error.ts';
+import { JudgePreparationError, JudgeExecutionError } from '../src/application/judge-errors.ts';
 import type { JudgmentJob, JudgeRequest } from '../src/domain/library.ts';
 
 const API_KEY = 'synthetic-typesafe-test-credential';
@@ -309,7 +306,7 @@ test('Jev retains its original credential guard when caller options change', asy
   await assert.rejects(judge.prepare([job(API_KEY)]), /content containing its API credential/);
   const [request] = await judge.prepare([job()]);
   await assert.rejects(judge.execute(request), (error: unknown) => {
-    assert.ok(error instanceof JudgeResponseError);
+    assert.ok(error instanceof JudgeExecutionError);
     assert.equal(error.message, 'Jev refused content containing its API credential.');
     assert.deepEqual(error.receivedResponse, { ...result(), echo: { '[REDACTED]': '[REDACTED]' } });
     assert.ok(!JSON.stringify(error).includes(API_KEY));
@@ -359,8 +356,8 @@ for (const status of [401, 429, 500]) {
       assert.equal(error.message, `Jev request failed with HTTP ${status}.`);
       assert.equal(error.cause, undefined);
       assert.ok(!error.stack?.includes(API_KEY));
-      assert.equal(error instanceof JudgeResponseError, false);
-      assert.equal('receivedResponse' in error, false);
+      assert.ok(error instanceof JudgeExecutionError);
+      assert.equal(error.receivedResponse, undefined);
       return true;
     });
     assert.equal(calls, 1);
@@ -377,8 +374,8 @@ test('Jev connection failures redact SDK error details and are not retried', asy
     assert.ok(error instanceof Error);
     assert.equal(error.message, 'Jev connection failed.');
     assert.equal(error.cause, undefined);
-    assert.equal(error instanceof JudgeResponseError, false);
-    assert.equal('receivedResponse' in error, false);
+    assert.ok(error instanceof JudgeExecutionError);
+    assert.equal(error.receivedResponse, undefined);
     return true;
   });
   assert.equal(calls, 1);
@@ -488,7 +485,7 @@ for (const [name, malformed] of malformedCases) {
     const received = malformed(result());
     const { judge, request } = await prepared(async () => response(received));
     await assert.rejects(judge.execute(request), (error: unknown) => {
-      assert.ok(error instanceof JudgeResponseError);
+      assert.ok(error instanceof JudgeExecutionError);
       assert.deepEqual(error.receivedResponse, received);
       assert.equal(error.cause, undefined);
       if (['invalid usage', 'missing usage'].includes(name)) {
@@ -508,7 +505,7 @@ for (const [name, malformed] of malformedCases) {
 test('Jev retains malformed response text only after removing its credential', async () => {
   const { judge, request } = await prepared(async () => new Response(`{ invalid ${API_KEY}`));
   await assert.rejects(judge.execute(request), (error: unknown) => {
-    assert.ok(error instanceof JudgeResponseError);
+    assert.ok(error instanceof JudgeExecutionError);
     assert.equal(error.message, 'Jev request failed or returned malformed data.');
     assert.equal(error.receivedResponse, '{ invalid [REDACTED]');
     assert.equal(error.observedUsage, undefined);
@@ -525,7 +522,7 @@ test('Jev redacts credential echoes from retained invalid responses including ne
   };
   const { judge, request } = await prepared(async () => response(raw));
   await assert.rejects(judge.execute(request), (error: unknown) => {
-    assert.ok(error instanceof JudgeResponseError);
+    assert.ok(error instanceof JudgeExecutionError);
     assert.equal(error.message, 'Jev response has missing or unexpected answer IDs.');
     assert.deepEqual(error.receivedResponse, {
       ...result(),
@@ -551,7 +548,7 @@ test('Jev rejects and redacts credential echoes even when JSON serialization esc
   });
   const [request] = await judge.prepare([job()]);
   await assert.rejects(judge.execute(request), (error: unknown) => {
-    assert.ok(error instanceof JudgeResponseError);
+    assert.ok(error instanceof JudgeExecutionError);
     assert.equal(error.message, 'Jev refused content containing its API credential.');
     assert.deepEqual(error.receivedResponse, { ...result(), echo: '[REDACTED]' });
     return true;

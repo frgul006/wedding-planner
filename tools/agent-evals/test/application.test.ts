@@ -6,6 +6,7 @@ import type {
   AgentRunner,
   Artifact,
   CommandCheck,
+  EvidenceEvent,
   PreparedEnvironment,
   Task,
 } from '../src/domain/types.ts';
@@ -64,7 +65,6 @@ function completed(): AgentResult {
     signal: null,
     model: { id: 'test' },
     thinkingLevel: 'low',
-    events: [],
     usage: {
       inputTokens: 100,
       outputTokens: 50,
@@ -262,7 +262,7 @@ test('an agent adapter exception still captures artifacts, cleans up, and saves 
     },
     agent: {
       async run(request) {
-        request.onEvent?.({
+        request.onEvent({
           id: 'partial-event',
           sequence: 1,
           timestamp: '2026-09-27T00:00:00Z',
@@ -349,6 +349,7 @@ test('finalized independent checks are saved with the attempt without producing 
 });
 
 test('callback tool events are sequenced with environment observations and keep their actor', async () => {
+  const appended: EvidenceEvent[] = [];
   const result = await runTrial(options, {
     environment: {
       async prepare() {
@@ -357,7 +358,7 @@ test('callback tool events are sequenced with environment observations and keep 
     },
     agent: {
       async run(request) {
-        request.onEvent?.({
+        request.onEvent({
           id: 'pi-event-1',
           sequence: 1,
           timestamp: '2026-09-07T12:00:00Z',
@@ -365,10 +366,15 @@ test('callback tool events are sequenced with environment observations and keep 
           kind: 'pi',
           data: { type: 'agent_start' },
         });
+        assert.equal(
+          appended.at(-1)?.data.type,
+          'agent_start',
+          'recorded before the agent returns',
+        );
         return completed();
       },
     },
-    store: { async save() {}, append() {} },
+    store: { async save() {}, append: (event) => appended.push(event) },
   });
   assert.deepEqual(
     result.evidence.events.map((event) => event.sequence),
@@ -382,39 +388,8 @@ test('callback tool events are sequenced with environment observations and keep 
     [toolEvent],
   );
   assert.equal('events' in result.evidence.agent, false);
+  assert.deepEqual(appended, result.evidence.events);
 });
-
-for (const streamed of [false, true]) {
-  test(`returned agent events survive ${streamed ? 'without duplicating streamed events' : 'without an onEvent callback'}`, async () => {
-    const event = {
-      id: 'native-event',
-      sequence: 1,
-      timestamp: '2026-09-07T12:00:00Z',
-      actor: 'agent' as const,
-      kind: 'command' as const,
-      data: { type: 'returned-tool-event' },
-    };
-    const result = await runTrial(options, {
-      environment: {
-        async prepare() {
-          return prepared();
-        },
-      },
-      agent: {
-        async run(request) {
-          if (streamed) request.onEvent?.(event);
-          return { ...completed(), events: [event] };
-        },
-      },
-      store: { async save() {}, append() {} },
-    });
-    const captured = result.evidence.events.filter(
-      (item) => item.data.type === 'returned-tool-event',
-    );
-    assert.equal(captured.length, 1);
-    assert.equal(captured[0].actor, 'agent');
-  });
-}
 
 test('final artifacts are observed after tool descendants stop', async () => {
   let stopped = false;

@@ -19,11 +19,7 @@ import type {
 } from '../domain/library.ts';
 import { canonicalJson, contentHash, immutableCopy } from './serialization.ts';
 import { resolveTrialLimits } from '../domain/trial-limits.ts';
-import {
-  JudgePreparationError,
-  JudgeResponseError,
-  validObservedUsage,
-} from './judge-response-error.ts';
+import { JudgePreparationError, JudgeExecutionError, validObservedUsage } from './judge-errors.ts';
 
 export const codeGrader = <T>(definition: Omit<CodeGrader<T>, 'kind'>): CodeGrader<T> => ({
   ...definition,
@@ -340,7 +336,7 @@ export function createEvaluator(options: {
                 response.raw === undefined ||
                 !validObservedUsage(response.usage)
               )
-                throw new JudgeResponseError(
+                throw new JudgeExecutionError(
                   'Invalid judge response membership',
                   response,
                   validObservedUsage(response?.usage) ? response.usage : undefined,
@@ -354,19 +350,22 @@ export function createEvaluator(options: {
                   model: response.model,
                 });
             } catch (error) {
-              if (error instanceof JudgeResponseError) {
+              if (error instanceof JudgeExecutionError) {
+                if (validObservedUsage(error.observedUsage)) {
+                  const { inputTokens, outputTokens, estimatedCostUsd } = error.observedUsage;
+                  entry.observedUsage = { inputTokens, outputTokens, estimatedCostUsd };
+                }
                 try {
-                  entry.receivedResponse = immutableCopy(error.receivedResponse);
-                  if (validObservedUsage(error.observedUsage))
-                    entry.observedUsage = immutableCopy(error.observedUsage);
+                  if (error.receivedResponse !== undefined)
+                    entry.receivedResponse = immutableCopy(error.receivedResponse);
                 } catch {
-                  // Non-JSON payloads cannot be persisted safely; keep the stable failure below.
+                  // Keep the safe message and observed usage even when payload storage fails.
                 }
               }
               entry.error = signal?.aborted
                 ? 'Judge request cancelled'
-                : entry.receivedResponse !== undefined
-                  ? 'Judge response could not be used for grades; received data retained'
+                : error instanceof JudgeExecutionError
+                  ? error.message
                   : 'Judge request failed; no safe provider response was available';
             }
           }

@@ -9,11 +9,8 @@ export function resolveSourceRepo(repo: string): string {
   }).trim();
   return path.dirname(common);
 }
-export function redact(text: string, secrets: readonly string[] = []): string {
-  let result = text;
-  for (const secret of secrets.filter((s) => s.length > 6))
-    result = result.split(secret).join('[REDACTED]');
-  return result
+export function redact(text: string): string {
+  return text
     .replace(/\bsk-[A-Za-z0-9_-]{12,}/g, '[REDACTED_API_KEY]')
     .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[REDACTED_JWT]')
     .replace(/(Bearer\s+)[A-Za-z0-9._~-]+/gi, '$1[REDACTED]');

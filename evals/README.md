@@ -61,7 +61,7 @@ Private records live under ignored `evals/runs/`. The default library store is `
 
 The Pi adapter also retains its incremental native recording under `evals/runs/TRIAL_ID/`. Full command outputs are retained separately. Historical context comes from that recording, never today's files. Source references point into saved events, artifacts, and contexts; they do not give Jev access to content omitted from its request. Hashes detect accidental changes, not malicious rewriting. Stores refuse overwrites, and regrading preserves the trial and earlier grading records.
 
-A request journal proves preparation, not successful dispatch. The completed grading record records dispatch attempts and their responses; incomplete journals remain inspectable. Records may contain private paths and instruction text and should be reviewed before sharing.
+A request journal proves preparation, not successful dispatch. The completed grading record records dispatch attempts and their responses. `show` and `listGradings` list completed grading records; interrupted attempts retain their request journals under `gradings/GRADING_ID/requests/` for direct inspection without hiding earlier grades. Records may contain private paths and instruction text and should be reviewed before sharing.
 
 ## Views and verdicts
 
@@ -166,6 +166,6 @@ The current Pi adapter loads repository task definitions from `evals/tasks/`; ta
 
 The repository fixture exercises the real Next.js login UI against an unavailable loopback authentication endpoint. It does not test successful authentication, database behavior, Supabase integration, or broader wedding workflows. Offline font responses and webpack builds are explicit environment differences. Both `playwright-cli` and the installed `@playwright/test` can use the selected browser. The production-linked Pi sandbox is not used.
 
-The evaluator stops agent descendants, runs its own acceptance checks, captures source changes and artifacts, and cleans up the workspace. Generated caches and immutable dependencies are excluded from source capture. Agent actions, environment setup, and evaluator checks keep separate attribution.
+The evaluator stops registered process groups, runs its own acceptance checks, captures source changes and artifacts, and cleans up private configuration and the local server. Cleanup cannot guarantee termination of a tool-created child that detaches into a new process group; it may continue writing the trial workspace. Source-stability checks detect changes between the captured snapshots, but do not prove that no writes occurred between them. Generated caches and immutable dependencies are excluded from source capture. Agent actions, environment setup, and evaluator checks keep separate attribution.
 
 One recorded trace demonstrates integration, not judge accuracy, natural skill-selection quality, or instruction benefit. Those require contrasting hand-reviewed examples and fresh matched trials. Removing instructions from an existing recording is not an ablation. Skill availability, discovery, loading, adherence, and task outcome must remain separate observations. Broad experiment matrices are deferred.

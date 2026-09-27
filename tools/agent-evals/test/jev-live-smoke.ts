@@ -11,7 +11,7 @@ import { parseArgs, parseEnv } from 'node:util';
 import { fileStore } from '../src/adapters/library-file-store.ts';
 import { JEV_MODEL, jevJudge } from '../src/adapters/jev-judge.ts';
 import { createEvaluator, modelGrader } from '../src/index.ts';
-import type { GradingRecord, Judge, RecordedTrial, TraceEvent } from '../src/index.ts';
+import type { GradingRecord, RecordedTrial, TraceEvent } from '../src/index.ts';
 
 const root = path.resolve(import.meta.dirname, '../../..');
 const directory = path.join(root, 'evals/runs/library-jev-smoke');
@@ -135,12 +135,12 @@ function summary(record: GradingRecord) {
     trialId: record.trialId,
     trialHash: record.trialHash,
     report: path.join(directory, 'gradings', record.id, 'report.md'),
-    requests: record.requests.map(({ request, response, error, dispatched }) => ({
+    requests: record.requests.map(({ request, response, observedUsage, error, dispatched }) => ({
       requestId: request.id,
       questions: request.jobIds.length,
       dispatched,
       model: response?.model ?? null,
-      usage: response?.usage ?? null,
+      usage: response?.usage ?? observedUsage ?? null,
       reservedCostUsd: request.reservedCostUsd,
       error: error ?? null,
     })),
@@ -164,34 +164,7 @@ async function main() {
   ).TYPESAFE_API_KEY?.trim();
   if (!apiKey) throw new Error('TYPESAFE_API_KEY is missing or empty in the worktree .env.local.');
   const store = fileStore(directory);
-  const delegate = jevJudge({ apiKey, maxRequests: 1, timeoutMs: 30_000 });
-  const providerErrors: string[] = [];
-  const judge: Judge = {
-    id: delegate.id,
-    async prepare(jobs) {
-      const requests = await delegate.prepare(jobs);
-      assert.equal(
-        requests.length,
-        1,
-        'Calibration must prepare exactly one shared-state request.',
-      );
-      assert.equal(requests[0].jobIds.length, 2, 'Calibration must batch exactly two questions.');
-      return requests;
-    },
-    async execute(request, signal) {
-      try {
-        return await delegate.execute(request, signal);
-      } catch (error) {
-        // jevJudge has already removed SDK bodies, credentials, headers, and nested causes.
-        providerErrors.push(
-          error instanceof Error && ['JevJudgeError', 'AbortError'].includes(error.name)
-            ? error.message
-            : 'The judge failed without a safe diagnostic.',
-        );
-        throw error;
-      }
-    },
-  };
+  const judge = jevJudge({ apiKey, maxRequests: 1, timeoutMs: 30_000 });
   const evaluator = createEvaluator({ store, judge, budgetUsd: 0.005 });
   await store.saveTrial(authoredTrial());
   const trialPath = path.join(directory, 'trials', `${trialId}.json`);
@@ -203,9 +176,7 @@ async function main() {
     trialIds: [trialId],
     gradingIds: [first.id],
   });
-  console.log(
-    JSON.stringify({ fixtureLabel, runId, initial: summary(first), providerErrors }, null, 2),
-  );
+  console.log(JSON.stringify({ fixtureLabel, runId, initial: summary(first) }, null, 2));
   if (!first.requests[0]?.response || first.grades.some(({ status }) => status !== 'completed')) {
     process.exitCode = 1;
     return;
@@ -227,12 +198,15 @@ async function main() {
         fixtureLabel,
         runId,
         revised: summary(revised),
-        providerErrors,
         unchangedTrial: true,
         nativeAgentExecuted: false,
         totalEstimatedCostUsd: [first, revised]
           .flatMap(({ requests }) => requests)
-          .reduce((sum, { response }) => sum + (response?.usage.estimatedCostUsd ?? 0), 0),
+          .reduce(
+            (sum, { response, observedUsage }) =>
+              sum + ((response?.usage ?? observedUsage)?.estimatedCostUsd ?? 0),
+            0,
+          ),
       },
       null,
       2,
@@ -247,6 +221,14 @@ async function main() {
   }
   assert.equal(first.requests[0].response.model, JEV_MODEL);
   assert.equal(revised.requests[0].response.model, JEV_MODEL);
+  for (const record of [first, revised]) {
+    assert.equal(record.requests.length, 1, 'Calibration must prepare one shared-state request.');
+    assert.equal(
+      record.requests[0].request.jobIds.length,
+      2,
+      'Calibration must batch exactly two questions.',
+    );
+  }
 }
 
 main().catch(() => {

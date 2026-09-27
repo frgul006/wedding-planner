@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { RecordedTrial, TraceArtifact, TraceEvent } from '../domain/library.ts';
 import type { Artifact, EvidenceEvent, TrialEvidence } from '../domain/types.ts';
-import { normalizePiEvent } from './pi-evidence.ts';
+import { normalizePiEvent, portablePiTool, visiblePiMessageText } from './pi-evidence.ts';
 
 const object = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -22,16 +22,6 @@ export function observableNativePayload(value: unknown): unknown {
   return Object.fromEntries(
     Object.entries(record).map(([key, field]) => [key, observableNativePayload(field)]),
   );
-}
-
-function visibleText(message: Record<string, unknown>): string {
-  if (typeof message.content === 'string') return message.content;
-  return (Array.isArray(message.content) ? message.content : [])
-    .flatMap((block) => {
-      const value = object(block);
-      return value.type === 'text' && typeof value.text === 'string' ? [value.text] : [];
-    })
-    .join('\n');
 }
 
 function isFinalVisibleUpdate(
@@ -144,19 +134,15 @@ export function recordedTrialFromEvidence(
       actor: event.actor,
       source,
     };
-    const observation = event.observation;
-    if (observation?.type === 'tool_started') {
-      const key = `${event.actor}:${observation.callId}`;
+    const tool = portablePiTool(event.observation);
+    if (tool?.type === 'tool-call') {
+      const key = `${event.actor}:${tool.data.callId}`;
       if (started.has(key)) gaps.push(`Duplicate tool call identifier: ${key}.`);
       started.add(key);
-      return {
-        ...base,
-        type: 'tool-call',
-        data: { callId: observation.callId, name: observation.name, args: observation.args },
-      };
+      return { ...base, ...tool };
     }
-    if (observation?.type === 'tool_completed') {
-      const key = `${event.actor}:${observation.callId}`;
+    if (tool?.type === 'tool-result') {
+      const key = `${event.actor}:${tool.data.callId}`;
       if (finished.has(key)) gaps.push(`Duplicate tool result identifier: ${key}.`);
       finished.add(key);
       if (!started.has(key))
@@ -172,7 +158,7 @@ export function recordedTrialFromEvidence(
         gaps.push(
           `${event.id}: The full native output attachment is missing or has a mismatched hash.`,
         );
-      if (observation.truncated && (!fullOutput || outputCapture.kind !== 'command-output'))
+      if (tool.data.truncated && (!fullOutput || outputCapture.kind !== 'command-output'))
         gaps.push(
           `${event.id}: Native tool output was truncated;${fullOutput ? ' the full source file is retained, but the exact omitted tool output is unavailable.' : ' the full output was not captured.'}`,
         );
@@ -182,13 +168,9 @@ export function recordedTrialFromEvidence(
         );
       return {
         ...base,
-        type: 'tool-result',
+        ...tool,
         data: {
-          callId: observation.callId,
-          success: observation.success,
-          text: observation.text,
-          truncated: observation.truncated,
-          receipt: observation.receipt,
+          ...tool.data,
           ...(fullOutput ? { fullOutputRef: fullOutput.id, outputCapture } : {}),
         },
       };
@@ -196,7 +178,7 @@ export function recordedTrialFromEvidence(
     const partial = isFinalVisibleUpdate(event, index, evidence.events);
     if (event.data.type === 'message_end' || partial) {
       const message = object(event.data.message);
-      const text = visibleText(message);
+      const text = visiblePiMessageText(message);
       if ((message.role === 'assistant' || message.role === 'user') && text) {
         if (partial) gaps.push(`${event.id}: Only a partial observable message was captured.`);
         return {

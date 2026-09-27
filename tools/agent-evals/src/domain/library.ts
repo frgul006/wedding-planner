@@ -164,5 +164,6 @@ export interface Store {
   saveGrading(record: GradingRecord): Promise<void>;
   /** Append a credential-free request before any provider dispatch. */
   saveRequest(gradingId: string, request: JudgeRequest): Promise<void>;
+  /** Final grading records only; interrupted request journals are retained separately. */
   listGradings(trialId: string): Promise<GradingRecord[]>;
 }

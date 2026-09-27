@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto';
-import { normalizePiEvent } from '../adapters/pi-evidence.ts';
+import {
+  matchesPiTool,
+  normalizePiEvent,
+  portablePiTool,
+  visiblePiMessageText,
+} from '../adapters/pi-evidence.ts';
 import { canonicalJson } from '../application/serialization.ts';
 import { extractChainedBrowserSnapshot } from './chained-browser-evidence.ts';
 import { classifyVerificationCommand } from './browser-command-chain.ts';
@@ -325,26 +330,16 @@ function completedPrefixGaps(
       continue;
     }
     const nativeObservation = normalizePiEvent({ ...event, kind: 'pi', data: raw }).observation;
+    const tool = portablePiTool(nativeObservation);
     const nativeMessage = object(raw.message);
-    const nativeVisibleText =
-      typeof nativeMessage.content === 'string'
-        ? nativeMessage.content
-        : (Array.isArray(nativeMessage.content) ? nativeMessage.content : [])
-            .flatMap((block) => {
-              const value = object(block);
-              return value.type === 'text' && typeof value.text === 'string' ? [value.text] : [];
-            })
-            .join('\n');
+    const nativeVisibleText = visiblePiMessageText(nativeMessage);
     const expectedType =
-      nativeObservation?.type === 'tool_started'
-        ? 'tool-call'
-        : nativeObservation?.type === 'tool_completed'
-          ? 'tool-result'
-          : raw.type === 'message_end' &&
-              ['user', 'assistant'].includes(text(nativeMessage.role)) &&
-              nativeVisibleText
-            ? 'message'
-            : undefined;
+      tool?.type ??
+      (raw.type === 'message_end' &&
+      ['user', 'assistant'].includes(text(nativeMessage.role)) &&
+      nativeVisibleText
+        ? 'message'
+        : undefined);
     if (expectedType && event.type !== expectedType)
       gaps.push(`Observable native event was not represented at ${event.id}.`);
     if (event.type === 'lifecycle' && canonicalJson(raw) !== canonicalJson(event.data))
@@ -360,42 +355,20 @@ function completedPrefixGaps(
         gaps.push(`Visible message coverage differs at ${event.id}.`);
     }
     if (!['tool-call', 'tool-result'].includes(event.type)) continue;
-    const observation = nativeObservation;
     const key = `${event.actor}:${text(event.data.callId)}`;
     if (event.source.kind !== 'pi') gaps.push(`Tool source is not native at ${event.id}.`);
     if (event.type === 'tool-call') {
       if (calls.has(key)) gaps.push(`Duplicate prefix call ${key}.`);
       calls.set(key, event);
-      if (
-        observation?.type !== 'tool_started' ||
-        canonicalJson({
-          callId: observation.callId,
-          name: observation.name,
-          args: observation.args,
-        }) !== canonicalJson(event.data)
-      )
-        gaps.push(`Native call differs at ${event.id}.`);
+      if (!matchesPiTool(event, tool)) gaps.push(`Native call differs at ${event.id}.`);
     } else {
       if (!calls.has(key) || results.has(key))
         gaps.push(`Unmatched or duplicate prefix result ${key}.`);
       results.add(key);
       if (
-        observation?.type !== 'tool_completed' ||
-        observation.success === 'unknown' ||
-        canonicalJson({
-          callId: observation.callId,
-          success: observation.success,
-          text: observation.text,
-          truncated: observation.truncated,
-          receipt: observation.receipt,
-        }) !==
-          canonicalJson({
-            callId: event.data.callId,
-            success: event.data.success,
-            text: event.data.text,
-            truncated: event.data.truncated,
-            receipt: event.data.receipt,
-          })
+        tool?.type !== 'tool-result' ||
+        tool.data.success === 'unknown' ||
+        !matchesPiTool(event, tool)
       )
         gaps.push(`Native result differs or has unknown status at ${event.id}.`);
       const capture = object(object(object(raw.result).details).evaluation).outputCapture;

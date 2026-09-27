@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { canonicalJson } from '../application/serialization.ts';
+import type { TraceEvent } from '../domain/library.ts';
 import type {
   EvaluationObservation,
   EvidenceEvent,
@@ -17,6 +19,46 @@ const isHash = (value: unknown): value is string =>
   typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const isPath = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0 && !value.includes('\0');
+
+/** The portable tool shape used both when recording and when auditing native sources. */
+export function portablePiTool(observation: EvaluationObservation | undefined) {
+  if (observation?.type === 'tool_started')
+    return {
+      type: 'tool-call' as const,
+      data: { callId: observation.callId, name: observation.name, args: observation.args },
+    };
+  if (observation?.type === 'tool_completed')
+    return {
+      type: 'tool-result' as const,
+      data: {
+        callId: observation.callId,
+        success: observation.success,
+        text: observation.text,
+        truncated: observation.truncated,
+        receipt: observation.receipt,
+      },
+    };
+}
+
+/** Results may add retained-output references; calls must match their whole native shape. */
+export function matchesPiTool(event: TraceEvent, tool: ReturnType<typeof portablePiTool>): boolean {
+  if (!tool || event.type !== tool.type) return false;
+  const data =
+    tool.type === 'tool-call'
+      ? event.data
+      : Object.fromEntries(Object.keys(tool.data).map((key) => [key, event.data[key]]));
+  return canonicalJson(tool.data) === canonicalJson(data);
+}
+
+export function visiblePiMessageText(message: Record<string, unknown>): string {
+  if (typeof message.content === 'string') return message.content;
+  return (Array.isArray(message.content) ? message.content : [])
+    .flatMap((block) => {
+      const value = object(block);
+      return value.type === 'text' && typeof value.text === 'string' ? [value.text] : [];
+    })
+    .join('\n');
+}
 
 function targetFingerprint(receipt: Record<string, unknown>): TargetFingerprint | undefined {
   const result: TargetFingerprint = {};

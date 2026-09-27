@@ -28,7 +28,6 @@ export async function runTrial(
   const { limits } = options;
   const startedAt = new Date().toISOString();
   const events: EvidenceEvent[] = [];
-  const recordedAgentEventIds = new Set<string>();
   let preparedSkills: InventorySkill[] = [];
   let recordedDiscovery = false;
   const record = (event: Omit<EvidenceEvent, 'id' | 'sequence'>): EvidenceEvent => {
@@ -75,7 +74,6 @@ export async function runTrial(
     signal: null,
     model: null,
     thinkingLevel: null,
-    events: [],
     usage: {
       inputTokens: 0,
       outputTokens: 0,
@@ -126,19 +124,8 @@ export async function runTrial(
       expectedModel: options.expectedModel,
       limits,
       maxEstimatedCostUsd: options.maxEstimatedCostUsd,
-      onEvent: (event) => {
-        if (recordedAgentEventIds.has(event.id)) return;
-        recordedAgentEventIds.add(event.id);
-        record(event);
-      },
+      onEvent: record,
     });
-    // Runners may return a complete recording without streaming. Preserve both
-    // delivery modes while avoiding duplicated events from streaming runners.
-    for (const event of agent.events) {
-      if (recordedAgentEventIds.has(event.id)) continue;
-      recordedAgentEventIds.add(event.id);
-      record(event);
-    }
   } catch (error) {
     // Never persist adapter error objects or cause chains (may contain credentials).
     const cancelled =
@@ -178,8 +165,7 @@ export async function runTrial(
           });
         }
       }
-      // Stop tool descendants before observing final files; background commands
-      // must not be able to mutate an artifact while the evaluator collects it.
+      // Stop registered tool groups before fallback artifact capture.
       try {
         await environment.cleanup();
       } catch (error) {
@@ -205,11 +191,10 @@ export async function runTrial(
       statusBeforeCleanupFailure,
     });
   agent = { ...agent, limits: agent.limits ?? limits };
-  const { events: _transportEvents, ...agentSummary } = agent;
   const evidence: TrialEvidence = {
     task: options.task,
     localUrl: environment?.url ?? 'http://127.0.0.1:0',
-    agent: agentSummary,
+    agent,
     artifacts,
     beforeArtifacts,
     ...(finalObservation?.patch ? { patch: finalObservation.patch } : {}),
