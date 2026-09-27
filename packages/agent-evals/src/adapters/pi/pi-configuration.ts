@@ -1,0 +1,97 @@
+import { readFile, writeFile } from 'node:fs/promises';
+import { basename, join } from 'node:path';
+import { exists } from './resources.ts';
+import { preparePrivatePiAuthentication, type PrivateAuthentication } from './native-auth.ts';
+import type { inspectPiResources } from './pi-inspection.ts';
+import { projectPiModelsConfiguration, type PiEndpointSelection } from './pi-endpoint-selection.ts';
+
+export interface InspectedPi {
+  packageRoot: string;
+  executable: string;
+  agentDir: string;
+  defaults?: { provider: unknown; model: unknown; thinkingLevel: unknown };
+  conversationSettings?: Record<string, unknown>;
+  resources: Awaited<ReturnType<typeof inspectPiResources>>;
+  endpointSelection?: PiEndpointSelection;
+}
+
+/** Only public behavior settings: never persist arbitrary settings or provider headers. */
+export function piConversationSettings(original: Record<string, unknown>): Record<string, unknown> {
+  const keys = [
+    'modelThinkingLevels',
+    'thinkingBudgets',
+    'compaction',
+    'retry',
+    'steeringMode',
+    'followUpMode',
+    'transport',
+  ];
+  return Object.fromEntries(
+    keys.filter((key) => key in original).map((key) => [key, original[key]]),
+  );
+}
+
+/** Preserve native conversation settings inside the isolated trial workspace. */
+export function isolatedPiSettings(original: Record<string, unknown>): Record<string, unknown> {
+  const nativeKeys = ['defaultProvider', 'defaultModel', 'defaultThinkingLevel'];
+  return {
+    ...piConversationSettings(original),
+    ...Object.fromEntries(
+      nativeKeys.filter((key) => key in original).map((key) => [key, original[key]]),
+    ),
+    packages: [],
+    extensions: [],
+    defaultProjectTrust: 'always',
+    enableInstallTelemetry: false,
+    enableAnalytics: false,
+  };
+}
+
+/** Authentication stays private and is never exposed to agent tools. */
+export async function preparePiConfiguration(
+  pi: InspectedPi,
+  paths: { piDirectory: string; privateFiles: string[] },
+  runtimeMs: number,
+): Promise<PrivateAuthentication> {
+  const original = JSON.parse(await readFile(join(pi.agentDir, 'settings.json'), 'utf8')) as Record<
+    string,
+    unknown
+  >;
+  const provider = pi.defaults?.provider ?? original.defaultProvider;
+  if (
+    pi.conversationSettings &&
+    JSON.stringify(piConversationSettings(original)) !== JSON.stringify(pi.conversationSettings)
+  )
+    throw new Error(
+      'Native Pi conversation settings changed after inspection. Start a new trial to freeze the new configuration.',
+    );
+  if (typeof provider !== 'string' || !provider)
+    throw new Error('Select a provider in native Pi before preparing a trial.');
+  const authentication = await preparePrivatePiAuthentication({
+    packageRoot: pi.packageRoot,
+    agentDirectory: pi.agentDir,
+    destination: join(paths.piDirectory, 'auth.json'),
+    provider,
+    runtimeMs,
+  });
+  for (const destination of paths.privateFiles) {
+    const name = basename(destination);
+    if (name === 'auth.json') continue;
+    const source = join(pi.agentDir, name);
+    if (await exists(source)) {
+      const content = await readFile(source);
+      const projected =
+        name === 'models.json' && pi.endpointSelection
+          ? projectPiModelsConfiguration(
+              content.toString('utf8'),
+              provider,
+              pi.endpointSelection.policy,
+            )
+          : content;
+      await writeFile(destination, projected, { mode: 0o600 });
+    }
+  }
+  const settings = isolatedPiSettings(original);
+  await writeFile(join(paths.piDirectory, 'settings.json'), JSON.stringify(settings, null, 2));
+  return authentication;
+}

@@ -49,3 +49,7 @@ supabase/.temp/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Built evaluation package and generic local records
+/packages/agent-evals/dist/
+.agent-evals/

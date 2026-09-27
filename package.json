@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint && pnpm lint:oxlint",
-    "lint:oxlint": "oxlint --type-aware --quiet --ignore-pattern 'tools/agent-evals/**' --ignore-pattern 'evals/**' .",
+    "lint:oxlint": "oxlint --type-aware --quiet --ignore-pattern 'packages/agent-evals/**' --ignore-pattern 'evals/**' .",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
@@ -21,10 +21,11 @@
     "bootstrap:production": "node scripts/bootstrap-production.mjs",
     "guest:reset-invite": "node scripts/reset-production-guest-invite-state.mjs",
     "sms:test": "node scripts/send-elk46-test.mjs",
-    "evals": "pnpm --silent --filter @wedding-planner/agent-evals cli",
-    "test:evals": "pnpm --filter @wedding-planner/agent-evals test",
-    "check:evals": "pnpm --filter @wedding-planner/agent-evals check",
-    "format:evals": "pnpm --filter @wedding-planner/agent-evals format"
+    "evals": "agent-evals",
+    "test:evals": "pnpm build:evals && pnpm --filter agent-evals test && tsx --test evals/test/*.test.ts",
+    "check:evals": "pnpm build:evals && pnpm --filter agent-evals check && tsc -p evals/tsconfig.json && oxlint --config packages/agent-evals/.oxlintrc.json --deny-warnings evals && pnpm --filter agent-evals exec prettier --check ../../evals --config .prettierrc.json --ignore-path ../../evals/.prettierignore",
+    "format:evals": "pnpm --filter agent-evals format && pnpm --filter agent-evals exec prettier --write ../../evals --config .prettierrc.json --ignore-path ../../evals/.prettierignore",
+    "build:evals": "pnpm --filter agent-evals build"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.6",
@@ -46,7 +47,9 @@
     "oxlint": "1.81.0",
     "oxlint-tsgolint": "7.0.2001",
     "tailwindcss": "^4.3.3",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "agent-evals": "workspace:*",
+    "tsx": "^4.23.13"
   },
   "packageManager": "pnpm@12.3.4+sha512.961aa41fb077da3a04a441d9f8e15ebc0c96da8ef710b2eb67bf9ee7cb0610eabd48f1fd85f51cffe73846785fa0f87c56a3a872a1d893f8446741b5cce45457"
 }

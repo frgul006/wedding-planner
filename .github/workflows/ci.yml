@@ -42,10 +42,10 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Check evaluation package
+      - name: Check evaluation library and example
         run: pnpm check:evals
 
-      - name: Test evaluation package (offline)
+      - name: Test evaluation library and example (offline)
         run: pnpm test:evals
 
       - name: Build

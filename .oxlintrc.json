@@ -21,7 +21,7 @@
     "next-env.d.ts",
     "playwright-report/**",
     "test-results/**",
-    "tools/agent-evals/**",
+    "packages/agent-evals/**",
     "evals/**"
   ]
 }

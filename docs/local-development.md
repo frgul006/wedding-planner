@@ -307,4 +307,4 @@ pnpm supabase:status
 
 ## Coding-agent evaluations
 
-The independent TypeScript package under `tools/agent-evals` runs native Pi against a pinned, isolated checkout of this application. Start with `pnpm evals library run --dry-run`. See [Agent Evaluation](../evals/README.md) for prerequisites, independent acceptance checks, separate Pi/grader budgets and recorded configuration differences. Trials use local-only settings rather than the production-linked Pi sandbox or this checkout's application credentials.
+The shareable TypeScript library and CLI live under `packages/agent-evals`. This repository consumes its public exports from `evals/config.ts`, which composes Wedding tasks, graders, and a local Pi environment. Start with `pnpm build:evals` and `pnpm evals run --config evals/config.ts --dry-run`. See [Agent Evaluation](../evals/README.md) for prerequisites, independent acceptance checks, and separate trial/grader budgets. Trials use local-only settings rather than this checkout's application credentials.

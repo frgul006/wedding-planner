@@ -1,6 +1,6 @@
 packages:
   - .
-  - tools/agent-evals
+  - packages/agent-evals
 
 # pnpm 12 requires explicit decisions for dependency lifecycle scripts.
 allowBuilds:
