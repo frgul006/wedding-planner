@@ -7,7 +7,7 @@ import { SEEDED_WEDDING_ID } from "./support/test-data";
 import { updateWeddingSettings } from "./support/wedding-settings";
 
 const PREFIX = "e2e-hub-viewer-";
-const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=", "base64");
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR4AWLa7KXzH4SZGKAAAAAA//93sH6uAAAABklEQVQDADm6BFWM5cf8AAAAAElFTkSuQmCC", "base64");
 const file = (name: string) => ({ name: `${PREFIX}${name}.png`, mimeType: "image/png", buffer: PNG });
 const modal = (page: Page) => page.getByRole("dialog", { name: "Våra bilder" });
 const photoButton = (page: Page, id: string) => page.locator(`button[data-photo-id="${id}"]`);
@@ -36,7 +36,7 @@ async function choose(page: Page, name: string) {
 
 // Real sign/Storage/finalize for the seed; only the loaded browse collection is
 // mocked so one/zero/reordered collections never require deleting others' photos.
-async function browseCollection(page: Page, length = 3) {
+async function browseCollection(page: Page, length = 3, nextCursor: string | null = null) {
   let collection: HubPhotoData;
   await page.route("**/api/wedding-hub/photos", async route => {
     if (!collection) {
@@ -45,9 +45,10 @@ async function browseCollection(page: Page, length = 3) {
       expect(seed).toBeTruthy();
       const photos = Array.from({ length }, (_, index) => ({
         ...seed!, id: `viewer-${index}`, photoUrl: `${seed!.photoUrl}&viewer=${index}`, who: ["Maja", "Erik", "Linnea"][index % 3],
+        uploadedAt: new Date(Date.UTC(2026, 8, 27, 12) - index * 1_000).toISOString(),
         note: index === 0 ? "Vilken härlig kväll!" : index === 1 ? "Tack för dansen. ".repeat(32) : null,
       }));
-      collection = { photos: { totalPhotoCount: 99, photos }, feed: photos.map(photo => ({ ...photo, when: "Nyss", caption: photo.note })) };
+      collection = { photos: { totalPhotoCount: 99, photos, nextCursor }, feed: photos.map(photo => ({ ...photo, when: "Nyss", caption: photo.note })) };
     }
     await route.fulfill({ json: collection });
   });
@@ -58,8 +59,9 @@ async function browseCollection(page: Page, length = 3) {
   await expect(photoButton(page, "viewer-0")).toBeVisible();
   return {
     replacePhotos: (photos: HubPhotoData["photos"]["photos"]) => {
-      collection = { photos: { totalPhotoCount: photos.length, photos }, feed: photos.map(photo => ({ ...photo, when: "Nyss", caption: photo.note })) };
+      collection = { photos: { totalPhotoCount: photos.length, photos, nextCursor: null }, feed: photos.map(photo => ({ ...photo, when: "Nyss", caption: photo.note })) };
     },
+    replaceCollection: (next: HubPhotoData) => { collection = next; },
     photos: () => collection.photos.photos,
   };
 }
@@ -107,6 +109,78 @@ test.describe("Wedding hub photo viewer", () => {
     const db = createE2eSupabaseAdminClient();
     if (paths.size) expect((await db.storage.from(PHOTO_UPLOAD_BUCKET).remove([...paths])).error).toBeNull();
     if (rows.length) expect((await db.from("photo_uploads").delete().in("id", rows.map(row => row.id))).error).toBeNull();
+  });
+
+  test("refresh bridges more than sixty new photos without losing loaded older photos", async ({ page }) => {
+    const collection = await browseCollection(page, 60, "older-page");
+    const previous = collection.photos();
+    const oldest = { ...previous[59], id: "oldest-loaded", uploadedAt: new Date(Date.parse(previous[59].uploadedAt) - 1_000).toISOString(), note: "An early guest's photo" };
+    const payload = (photos: HubPhotoData["photos"]["photos"], totalPhotoCount: number, nextCursor: string | null): HubPhotoData => ({
+      photos: { photos, totalPhotoCount, nextCursor },
+      feed: photos.map(photo => ({ ...photo, when: "Nyss", caption: photo.note })),
+    });
+    const newcomers = Array.from({ length: 61 }, (_, index) => ({ ...previous[0], id: `newcomer-${index}`, uploadedAt: new Date(Date.parse(previous[0].uploadedAt) + (61 - index) * 1_000).toISOString(), note: `New photo ${index}` }));
+    const requestedCursors: string[] = [];
+    await page.route("**/api/wedding-hub/photos?*", async route => {
+      const cursor = new URL(route.request().url()).searchParams.get("cursor")!;
+      requestedCursors.push(cursor);
+      if (cursor === "older-page") {
+        await route.fulfill({ json: payload([oldest], 61, null) });
+      } else if (cursor === "refresh-bridge") {
+        await route.fulfill({ json: payload([newcomers[60], ...previous.slice(0, 59)], 122, "remaining-older") });
+      } else if (cursor === "remaining-older") {
+        await route.fulfill({ json: payload([previous[59], oldest], 122, null) });
+      } else {
+        throw new Error(`Unexpected cursor ${cursor}`);
+      }
+    });
+    await page.getByRole("button", { name: "Galleriet", exact: true }).click();
+    await page.getByRole("button", { name: "Ladda fler bilder", exact: true }).click();
+    await expect(photoButton(page, oldest.id)).toBeVisible();
+    await expect(page.getByText("Visar 61 av 61 bilder", { exact: true })).toBeVisible();
+
+    collection.replaceCollection(payload(newcomers.slice(0, 60), 122, "refresh-bridge"));
+    await choose(page, "trigger-paginated-refresh");
+    await page.getByRole("button", { name: /^Ladda upp \d/ }).click();
+    await expect(page.getByText("Valda filer", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Visar 122 av 122 bilder", { exact: true })).toBeVisible();
+    await expect(page.locator("button[data-photo-id]")).toHaveCount(122);
+    await expect(photoButton(page, oldest.id)).toHaveCount(1);
+    await expect(photoButton(page, "newcomer-60")).toHaveCount(1);
+    expect(requestedCursors).toEqual(["older-page", "refresh-bridge", "remaining-older"]);
+    await expect(page.getByRole("button", { name: "Ladda fler bilder", exact: true })).toHaveCount(0);
+    await photoButton(page, oldest.id).click();
+    await expect(modal(page).getByLabel("Bildtext")).toContainText(oldest.note);
+  });
+
+  test("refresh rechecks loaded older photos after moderation changes", async ({ page }) => {
+    const collection = await browseCollection(page, 60, "older-page");
+    const head = collection.photos();
+    const older = Array.from({ length: 60 }, (_, index) => ({
+      ...head[0], id: `older-${index}`, uploadedAt: new Date(Date.parse(head[59].uploadedAt) - (index + 1) * 1_000).toISOString(),
+    }));
+    const approved = { ...older[30], id: "newly-approved-older", uploadedAt: new Date(Date.parse(older[30].uploadedAt) - 500).toISOString() };
+    const revisedOlder = [...older.slice(0, 30), approved, ...older.slice(31)];
+    const payload = (photos: typeof head, nextCursor: string | null): HubPhotoData => ({
+      photos: { photos, totalPhotoCount: 120, nextCursor },
+      feed: photos.map(photo => ({ ...photo, when: "Nyss", caption: photo.note })),
+    });
+    await page.route("**/api/wedding-hub/photos?*", async route => {
+      const cursor = new URL(route.request().url()).searchParams.get("cursor");
+      await route.fulfill({ json: payload(cursor === "older-page" ? older : revisedOlder, null) });
+    });
+    await page.getByRole("button", { name: "Galleriet", exact: true }).click();
+    await page.getByRole("button", { name: "Ladda fler bilder", exact: true }).click();
+    await expect(photoButton(page, older[30].id)).toHaveCount(1);
+    await expect(page.locator("button[data-photo-id]")).toHaveCount(120);
+    collection.replaceCollection(payload(head, "recheck-older"));
+    await choose(page, "trigger-moderation-refresh");
+    await page.getByRole("button", { name: /^Ladda upp \d/ }).click();
+    await expect(photoButton(page, approved.id)).toHaveCount(1);
+    await expect(photoButton(page, older[30].id)).toHaveCount(0);
+    await expect(photoButton(page, older[59].id)).toHaveCount(1);
+    await expect(page.locator("button[data-photo-id]")).toHaveCount(120);
+    await expect(page.getByText("Visar 120 av 120 bilder", { exact: true })).toBeVisible();
   });
 
   for (const tab of ["Flöde", "Galleriet"]) {
@@ -362,7 +436,7 @@ test.describe("Wedding hub photo viewer", () => {
         await expect(modal(page).getByRole("status")).toContainText("Bilden kan inte visas här");
       } else {
         await expect(modal(page).getByRole("status")).toHaveCount(0);
-        await expect.poll(() => modal(page).getByRole("img").evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(1);
+        await expect.poll(() => modal(page).getByRole("img").evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(2);
       }
     });
   }
@@ -382,7 +456,7 @@ test.describe("Wedding hub photo viewer", () => {
     await modal(page).getByRole("button", { name: "Nästa bild" }).click();
     await count(page, 2);
     await expect(modal(page).getByRole("img")).toBeVisible();
-    await expect.poll(() => modal(page).getByRole("img").evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(1);
+    await expect.poll(() => modal(page).getByRole("img").evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(2);
   });
 
   test("viewer upload opens chooser synchronously, cancel stays usable, selection reveals note queue then real upload succeeds", async ({ page }) => {
