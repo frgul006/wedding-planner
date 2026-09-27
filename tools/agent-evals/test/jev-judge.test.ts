@@ -45,12 +45,10 @@ function answer() {
   };
 }
 
-function result(count = 1) {
+function result(ids = ['diagnosis']) {
   return {
     model: JEV_MODEL,
-    answers: Object.fromEntries(
-      Array.from({ length: count }, (_, index) => [`q${index}`, answer()]),
-    ),
+    answers: Object.fromEntries(ids.map((id) => [id, answer()])),
     usage: { input_tokens: 500, output_tokens: 20 },
   };
 }
@@ -80,7 +78,7 @@ test('Jev batches questions with identical canonical state and preserves exact c
       assert.equal(init?.method, 'POST');
       assert.equal(init?.body, canonicalJson(saved.body));
       assert.ok(init?.signal);
-      return response(result(2));
+      return response(result(['diagnosis', 'cause']));
     },
   });
   const other = job('cause');
@@ -91,9 +89,10 @@ test('Jev batches questions with identical canonical state and preserves exact c
   saved = request;
   assert.equal(calls, 0, 'preparation performs no provider calls');
   assert.deepEqual(request.jobIds, ['diagnosis', 'cause']);
-  assert.deepEqual(request.metadata.questionJobs, { q0: 'diagnosis', q1: 'cause' });
+  assert.deepEqual(Object.keys(request.body.questions as object), ['cause', 'diagnosis']);
+  assert.equal('questionJobs' in request.metadata, false);
+  assert.equal('evidenceIds' in request.metadata, false);
   assert.deepEqual((request.metadata.jobDescriptors as unknown[])[0], {
-    questionId: 'q0',
     jobId: 'diagnosis',
     grader: { id: 'diagnosis', version: '1' },
     evidenceId: 'diagnosis/attempt',
@@ -111,10 +110,10 @@ test('Jev batches questions with identical canonical state and preserves exact c
   assert.deepEqual(body.state.coverage, { complete: true, gaps: [] });
   assert.deepEqual(body.state.sourceRefs, ['event:4']);
   assert.deepEqual(body.state.view, { id: 'diagnosis', version: '1' });
-  assert.match(JSON.stringify(body.questions.q0), /untrusted evidence/);
+  assert.match(JSON.stringify(body.questions.diagnosis), /untrusted evidence/);
   const completed = await judge.execute(request);
   assert.equal(calls, 1);
-  assert.deepEqual(completed.raw, result(2));
+  assert.deepEqual(completed.raw, result(['diagnosis', 'cause']));
   assert.equal(completed.model, JEV_MODEL);
   assert.deepEqual(
     completed.answers.map(({ jobId, verdict }) => [jobId, verdict]),
@@ -124,7 +123,6 @@ test('Jev batches questions with identical canonical state and preserves exact c
     ],
   );
   assert.deepEqual(completed.answers[0].metadata, {
-    questionId: 'q0',
     probabilities: { pass: 0.8, fail: 0.15, unknown: 0.05 },
     confidence: 0.7,
   });
@@ -146,6 +144,24 @@ test('Jev batches by canonical contents rather than property insertion order', a
   const requests = await judge.prepare([first, second]);
   assert.equal(requests.length, 1);
   assert.deepEqual(await judge.prepare([first, second]), requests);
+});
+
+test('Jev uses literal portable job IDs as question and answer keys through the SDK', async () => {
+  const ids = ['j2', 'j1', '__proto__', 'constructor', 'episode/λ:"quoted"'];
+  const judge = jevJudge({
+    apiKey: API_KEY,
+    fetch: async (_, init) => {
+      const body = JSON.parse(String(init?.body));
+      assert.deepEqual(new Set(Object.keys(body.questions)), new Set(ids));
+      return response(result([...ids].reverse()));
+    },
+  });
+  const [request] = await judge.prepare(ids.map((id) => job(id)));
+  const completed = await judge.execute(request);
+  assert.deepEqual(
+    completed.answers.map(({ jobId }) => jobId),
+    ids,
+  );
 });
 
 for (const dimension of [
@@ -280,6 +296,27 @@ test('Jev blocks accidental credential capture in evidence, questions and valid 
   );
 });
 
+test('Jev retains its original credential guard when caller options change', async () => {
+  const options = {
+    apiKey: API_KEY,
+    fetch: async (_: unknown, init?: RequestInit) => {
+      assert.equal(new Headers(init?.headers).get('authorization'), `Bearer ${API_KEY}`);
+      return response({ ...result(), echo: { [API_KEY]: API_KEY } });
+    },
+  };
+  const judge = jevJudge(options);
+  options.apiKey = 'synthetic-replacement-credential';
+  await assert.rejects(judge.prepare([job(API_KEY)]), /content containing its API credential/);
+  const [request] = await judge.prepare([job()]);
+  await assert.rejects(judge.execute(request), (error: unknown) => {
+    assert.ok(error instanceof JudgeResponseError);
+    assert.equal(error.message, 'Jev refused content containing its API credential.');
+    assert.deepEqual(error.receivedResponse, { ...result(), echo: { '[REDACTED]': '[REDACTED]' } });
+    assert.ok(!JSON.stringify(error).includes(API_KEY));
+    return true;
+  });
+});
+
 test('Jev pinned model, endpoint and disabled logging override ambient SDK settings', async (context) => {
   context.mock.method(console, 'debug', () => assert.fail('SDK logged debug output'));
   context.mock.method(console, 'info', () => assert.fail('SDK logged info output'));
@@ -394,44 +431,54 @@ test('Jev enforces the SDK request timeout without retries', async () => {
 const malformedCases: Array<[string, (value: ReturnType<typeof result>) => unknown]> = [
   ['model mismatch', (value) => ({ ...value, model: 'jev-latest' })],
   ['missing answer', (value) => ({ ...value, answers: {} })],
-  ['extra answer', (value) => ({ ...value, answers: { ...value.answers, q1: answer() } })],
-  ['wrong primitive', (value) => ({ ...value, answers: { q0: { type: 'noul', noul: 0.8 } } })],
-  ['invalid choice', (value) => ({ ...value, answers: { q0: { ...answer(), choice: 'maybe' } } })],
+  ['extra answer', (value) => ({ ...value, answers: { ...value.answers, unexpected: answer() } })],
+  [
+    'wrong primitive',
+    (value) => ({ ...value, answers: { diagnosis: { type: 'noul', noul: 0.8 } } }),
+  ],
+  [
+    'invalid choice',
+    (value) => ({ ...value, answers: { diagnosis: { ...answer(), choice: 'maybe' } } }),
+  ],
   [
     'invalid confidence',
-    (value) => ({ ...value, answers: { q0: { ...answer(), confidence: 1.01 } } }),
+    (value) => ({ ...value, answers: { diagnosis: { ...answer(), confidence: 1.01 } } }),
   ],
   [
     'invalid probability',
     (value) => ({
       ...value,
-      answers: { q0: { ...answer(), probabilities: { pass: 1.1, fail: -0.1, unknown: 0 } } },
+      answers: { diagnosis: { ...answer(), probabilities: { pass: 1.1, fail: -0.1, unknown: 0 } } },
     }),
   ],
   [
     'unnormalized distribution',
     (value) => ({
       ...value,
-      answers: { q0: { ...answer(), probabilities: { pass: 0.8, fail: 0.8, unknown: 0.1 } } },
+      answers: {
+        diagnosis: { ...answer(), probabilities: { pass: 0.8, fail: 0.8, unknown: 0.1 } },
+      },
     }),
   ],
   [
     'missing distribution key',
     (value) => ({
       ...value,
-      answers: { q0: { ...answer(), probabilities: { pass: 0.8, fail: 0.2 } } },
+      answers: { diagnosis: { ...answer(), probabilities: { pass: 0.8, fail: 0.2 } } },
     }),
   ],
   [
     'extra distribution key',
     (value) => ({
       ...value,
-      answers: { q0: { ...answer(), probabilities: { ...answer().probabilities, extra: 0 } } },
+      answers: {
+        diagnosis: { ...answer(), probabilities: { ...answer().probabilities, extra: 0 } },
+      },
     }),
   ],
   [
     'nonmaximal selected choice',
-    (value) => ({ ...value, answers: { q0: { ...answer(), choice: 'fail' } } }),
+    (value) => ({ ...value, answers: { diagnosis: { ...answer(), choice: 'fail' } } }),
   ],
   ['invalid usage', (value) => ({ ...value, usage: { input_tokens: -1, output_tokens: 0 } })],
   ['missing usage', (value) => ({ ...value, usage: null })],
@@ -525,5 +572,7 @@ test('Jev refuses a mutated request or reduced cost reservation before dispatch'
     judge.execute({ ...request, reservedCostUsd: 0 }),
     /reservation is insufficient/,
   );
+  for (const jobIds of [[], ['diagnosis', 'diagnosis'], ['other']])
+    await assert.rejects(judge.execute({ ...request, jobIds }), /integrity check/);
   assert.equal(calls, 0);
 });

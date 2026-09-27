@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { RecordedTrial, TraceArtifact, TraceEvent } from '../domain/library.ts';
 import type { Artifact, EvidenceEvent, TrialEvidence } from '../domain/types.ts';
-import { normalizeLegacyEvidence } from './pi-evidence.ts';
+import { normalizePiEvent } from './pi-evidence.ts';
 
 const object = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -53,7 +53,7 @@ export function recordedTrialFromEvidence(
   original: TrialEvidence,
   environment: Record<string, unknown> = {},
 ): RecordedTrial {
-  const evidence = normalizeLegacyEvidence(original);
+  const evidence = { ...original, events: original.events.map(normalizePiEvent) };
   const gaps: string[] = [];
   if (evidence.agent.status !== 'completed')
     gaps.push(`Agent execution ended with ${evidence.agent.status}; later behavior is unobserved.`);

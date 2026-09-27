@@ -1,3 +1,4 @@
+import type { View } from '../src/index.ts';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -5,14 +6,14 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileStore } from '../src/adapters/library-file-store.ts';
 import { JudgeResponseError } from '../src/application/judge-response-error.ts';
-import { createEvaluator, defineView, modelGrader } from '../src/index.ts';
+import { createEvaluator, modelGrader } from '../src/index.ts';
 import type { Judge } from '../src/index.ts';
 
 function grader(items: number) {
   return modelGrader({
     id: 'budget-review',
     version: 1,
-    view: defineView({
+    view: {
       id: 'budget-review',
       version: 1,
       prepare: () =>
@@ -25,7 +26,7 @@ function grader(items: number) {
           omissions: [],
           applicability: 'applicable' as const,
         })),
-    }),
+    } satisfies View,
     question: 'Does the evidence support the stated observation?',
     rubric: {
       pass: 'Observation supported',
@@ -82,7 +83,11 @@ for (const malformed of [false, true]) {
     });
     assert.equal(calls, 1, 'Known observed overspend must stop the next already-reserved batch.');
     assert.equal(record.requests[0].dispatched, true);
-    assert.deepEqual(record.requests[0].observedUsage, usage);
+    assert.deepEqual(record.requests[0].response?.usage ?? record.requests[0].observedUsage, usage);
+    if (!malformed) {
+      assert.equal(record.requests[0].receivedResponse, undefined);
+      assert.equal(record.requests[0].observedUsage, undefined);
+    }
     assert.equal(record.requests[1].dispatched, false);
     assert.match(record.requests[1].error!, /budget exceeded/i);
     assert.equal(record.grades[0].verdict, malformed ? 'unknown' : 'pass');

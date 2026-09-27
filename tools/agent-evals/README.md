@@ -8,19 +8,19 @@ A TypeScript library for recording coding-agent trials, preparing versioned evid
 
 Domain contracts and application orchestration depend on the `Runner`, `Judge`, and `Store` interfaces. Adapters own Pi execution, Jev calls, and filesystem persistence. Graders define checks; the Judge supplies model judgments. A code-only suite needs no Judge, and regrading needs no Runner.
 
-| Entry point                                       | Responsibility                                                                       |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `@wedding-planner/agent-evals`                    | `defineView`, `codeGrader`, `modelGrader`, `createEvaluator`, and portable contracts |
-| `@wedding-planner/agent-evals/pi`                 | Native `piRunner` and isolated recording                                             |
-| `@wedding-planner/agent-evals/jev`                | `jevJudge` using the official TypeSafe SDK                                           |
-| `@wedding-planner/agent-evals/files`              | Append-only `fileStore`, request journals, and readable reports                      |
-| `@wedding-planner/agent-evals/examples/diagnosis` | Repository diagnostic Views and Graders                                              |
+| Entry point                                       | Responsibility                                                         |
+| ------------------------------------------------- | ---------------------------------------------------------------------- |
+| `@wedding-planner/agent-evals`                    | `codeGrader`, `modelGrader`, `createEvaluator`, and portable contracts |
+| `@wedding-planner/agent-evals/pi`                 | Native `piRunner` and isolated recording                               |
+| `@wedding-planner/agent-evals/jev`                | `jevJudge` using the official TypeSafe SDK                             |
+| `@wedding-planner/agent-evals/files`              | Append-only `fileStore`, request journals, and readable reports        |
+| `@wedding-planner/agent-evals/examples/diagnosis` | Repository diagnostic Views and Graders                                |
 
 Core imports do not load vendor SDKs, filesystem, or subprocess code. The application saves a trial before grading, prepares each shared View once, checks coverage, journals exact requests before dispatch, and appends results. Source references, versions, and content hashes connect every grade to the saved evidence.
 
 | Change                                        | Location                                                                                                         |
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Portable contracts and authoring helpers      | [domain/library.ts](src/domain/library.ts), [index.ts](src/index.ts)                                             |
+| Portable contracts and grader helpers         | [domain/library.ts](src/domain/library.ts), [index.ts](src/index.ts)                                             |
 | Run, grade, regrade, and budget orchestration | [application/evaluator.ts](src/application/evaluator.ts)                                                         |
 | Canonical identity and immutable snapshots    | [application/serialization.ts](src/application/serialization.ts)                                                 |
 | Diagnostic preparation and validation         | [examples/diagnosis.ts](src/examples/diagnosis.ts)                                                               |

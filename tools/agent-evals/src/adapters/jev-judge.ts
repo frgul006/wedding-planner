@@ -82,6 +82,7 @@ function verdict(value: unknown): value is Verdict {
 function validateJob(job: JudgmentJob): void {
   const labels = Object.keys(job.rubric);
   if (
+    typeof job.id !== 'string' ||
     !job.id ||
     !job.question.trim() ||
     !['pass', 'fail', 'unknown'].every((label) => Object.hasOwn(job.rubric, label)) ||
@@ -94,35 +95,13 @@ function validateJob(job: JudgmentJob): void {
   }
 }
 
-function stateFor(job: JudgmentJob): Record<string, unknown> {
-  const {
-    data,
-    scope,
-    sourceRefs,
-    coverage,
-    omissions,
-    applicability,
-    view,
-    serializationVersion,
-  } = job.evidence;
-  return {
-    data,
-    scope,
-    sourceRefs,
-    coverage,
-    omissions,
-    applicability,
-    view,
-    serializationVersion,
-  };
-}
-
 /**
  * Categorical Jev adapter. prepare is pure/local and returns the exact body for durable recording.
  * All questions within a request share the identical submitted evidence envelope and model.
  */
 export function jevJudge(options: JevJudgeOptions): Judge {
-  if (typeof options.apiKey !== 'string' || !options.apiKey.trim()) {
+  const apiKey = options.apiKey;
+  if (typeof apiKey !== 'string' || !apiKey.trim()) {
     fail('Jev requires a nonempty explicit API key.');
   }
   const timeoutMs = positiveInteger(options.timeoutMs, 20_000);
@@ -131,7 +110,7 @@ export function jevJudge(options: JevJudgeOptions): Judge {
   const maxRequests = positiveInteger(options.maxRequests, 20);
   const maxQuestionsPerRequest = positiveInteger(options.maxQuestionsPerRequest, 24);
   const client = new TypeSafeClient({
-    apiKey: options.apiKey,
+    apiKey,
     baseURL: 'https://api.typesafe.ai',
     defaultModel: JEV_MODEL,
     logLevel: 'off',
@@ -147,12 +126,12 @@ export function jevJudge(options: JevJudgeOptions): Judge {
     } catch {
       fail('Jev requires JSON-serializable inputs.');
     }
-    if (serialized.includes(JSON.stringify(options.apiKey).slice(1, -1)))
+    if (serialized.includes(JSON.stringify(apiKey).slice(1, -1)))
       fail('Jev refused content containing its API credential.');
     return serialized;
   }
 
-  function requestSize(body: SystemOneRequestPayload): number {
+  function validateAndReserveInputTokens(body: SystemOneRequestPayload): number {
     const state = safeJson(body.state);
     const serialized = safeJson(body);
     if (state.length > maxStateChars || serialized.length > maxRequestChars) {
@@ -191,12 +170,12 @@ export function jevJudge(options: JevJudgeOptions): Judge {
     // all other JSON-safe content while removing known secret bytes, even in keys.
     const copied: unknown = JSON.parse(canonicalJson(raw));
     const redact = (value: unknown): unknown => {
-      if (typeof value === 'string') return value.replaceAll(options.apiKey, '[REDACTED]');
+      if (typeof value === 'string') return value.replaceAll(apiKey, '[REDACTED]');
       if (Array.isArray(value)) return value.map(redact);
       if (record(value))
         return Object.fromEntries(
           Object.entries(value).map(([key, entry]) => [
-            key.replaceAll(options.apiKey, '[REDACTED]'),
+            key.replaceAll(apiKey, '[REDACTED]'),
             redact(entry),
           ]),
         );
@@ -208,16 +187,14 @@ export function jevJudge(options: JevJudgeOptions): Judge {
   function validateResponse(raw: unknown, request: JudgeRequest): JudgeResponse {
     if (!record(raw)) fail('Jev request failed or returned malformed data.');
     if (raw.model !== JEV_MODEL) fail('Jev response model does not match the pinned model.');
-    const questionJobs = request.metadata.questionJobs as Record<string, string>;
     const questions = request.body.questions as SystemOneRequestPayload['questions'];
-    const questionIds = Object.keys(questionJobs);
-    if (!record(raw.answers) || !sameKeys(raw.answers, questionIds)) {
+    if (!record(raw.answers) || !sameKeys(raw.answers, request.jobIds)) {
       fail('Jev response has missing or unexpected answer IDs.');
     }
     const rawAnswers = raw.answers;
-    const answers = questionIds.map((questionId) => {
-      const answer = rawAnswers[questionId];
-      const labels = Object.keys(questions[questionId].criteria ?? {});
+    const answers = request.jobIds.map((jobId) => {
+      const answer = rawAnswers[jobId];
+      const labels = Object.keys(questions[jobId].criteria ?? {});
       if (
         !record(answer) ||
         answer.type !== 'choice' ||
@@ -237,9 +214,9 @@ export function jevJudge(options: JevJudgeOptions): Judge {
         fail('Jev selected an answer inconsistent with its probability distribution.');
       }
       return {
-        jobId: questionJobs[questionId],
+        jobId,
         verdict: answer.choice,
-        metadata: { questionId, probabilities, confidence: answer.confidence },
+        metadata: { probabilities, confidence: answer.confidence },
       };
     });
     const usage = observedUsage(raw);
@@ -264,7 +241,28 @@ export function jevJudge(options: JevJudgeOptions): Judge {
           validateJob(job);
           if (ids.has(job.id)) fail('Jev jobs must have unique IDs.');
           ids.add(job.id);
-          const serialized = safeJson(stateFor(job));
+          // Storage IDs/hashes do not change the evidence the model sees. Exclude
+          // only those bookkeeping fields when grouping identical submitted states.
+          const {
+            data,
+            scope,
+            sourceRefs,
+            coverage,
+            omissions,
+            applicability,
+            view,
+            serializationVersion,
+          } = job.evidence;
+          const serialized = safeJson({
+            data,
+            scope,
+            sourceRefs,
+            coverage,
+            omissions,
+            applicability,
+            view,
+            serializationVersion,
+          });
           const group = groups.get(serialized) ?? [];
           group.push(job);
           groups.set(serialized, group);
@@ -276,8 +274,8 @@ export function jevJudge(options: JevJudgeOptions): Judge {
               fail('Jev preparation exceeds the configured request limit.');
             const batch = group.slice(offset, offset + maxQuestionsPerRequest);
             const questions = Object.fromEntries(
-              batch.map((job, index) => [
-                `q${index}`,
+              batch.map((job) => [
+                job.id,
                 choice({ task: job.question, evidencePolicy: INSTRUCTIONS }, job.rubric),
               ]),
             );
@@ -285,7 +283,7 @@ export function jevJudge(options: JevJudgeOptions): Judge {
             const body: SystemOneRequestPayload = JSON.parse(
               safeJson({ model: JEV_MODEL, state: JSON.parse(state), questions }),
             );
-            const reservedInputTokens = requestSize(body);
+            const reservedInputTokens = validateAndReserveInputTokens(body);
             const bodyHash = await contentHash(body);
             requests.push({
               id: `jev-${bodyHash.slice(0, 16)}-${requests.length}`,
@@ -296,15 +294,13 @@ export function jevJudge(options: JevJudgeOptions): Judge {
                 model: JEV_MODEL,
                 serializationVersion: SERIALIZATION_VERSION,
                 bodyHash,
-                questionJobs: Object.fromEntries(batch.map((job, index) => [`q${index}`, job.id])),
-                jobDescriptors: batch.map((job, index) => ({
-                  questionId: `q${index}`,
+                // Keep each orphan request journal traceable before grading.json exists.
+                jobDescriptors: batch.map((job) => ({
                   jobId: job.id,
                   grader: { ...job.grader },
                   evidenceId: job.evidence.id,
                   evidenceHash: job.evidence.contentHash,
                 })),
-                evidenceIds: batch.map((job) => job.evidence.id),
                 reservedInputTokens,
                 reservationRule: 'UTF-8 body bytes + 2048 framing + 256 per question',
                 inputUsdPerMillion: INPUT_USD_PER_MILLION,
@@ -327,21 +323,17 @@ export function jevJudge(options: JevJudgeOptions): Judge {
       try {
         if (signal?.aborted) throw new APIUserAbortError();
         const body = request.body as unknown as SystemOneRequestPayload;
-        const questionJobs = request.metadata.questionJobs;
         if (
           body.model !== JEV_MODEL ||
           !record(body.questions) ||
-          !record(questionJobs) ||
-          !sameKeys(questionJobs, Object.keys(body.questions)) ||
-          !sameKeys(
-            Object.fromEntries(request.jobIds.map((id) => [id, true])),
-            Object.values(questionJobs) as string[],
-          ) ||
+          !request.jobIds.length ||
+          new Set(request.jobIds).size !== request.jobIds.length ||
+          !sameKeys(body.questions, request.jobIds) ||
           (await contentHash(body)) !== request.metadata.bodyHash
         ) {
           fail('Jev prepared request integrity check failed.');
         }
-        const reservedInputTokens = requestSize(body);
+        const reservedInputTokens = validateAndReserveInputTokens(body);
         if (request.reservedCostUsd < (reservedInputTokens * INPUT_USD_PER_MILLION) / 1_000_000) {
           fail('Jev request cost reservation is insufficient.');
         }

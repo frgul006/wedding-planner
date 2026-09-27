@@ -5,7 +5,6 @@ import type {
   SnapshotReceipt,
   TargetFingerprint,
   ToolReceipt,
-  TrialEvidence,
 } from '../domain/types.ts';
 import { parsePlaywrightOutput } from './playwright-evidence.ts';
 
@@ -162,16 +161,4 @@ export function normalizePiEvent(event: EvidenceEvent): EvidenceEvent {
   // Ignore serialized observations for native messages: derive from their source.
   const { observation: _previous, ...raw } = event;
   return observation ? { ...raw, observation } : raw;
-}
-
-/**
- * Upgrade saved evidence in memory. IDs, order and raw data stay unchanged, so
- * original seals and references still identify the original recording on disk.
- */
-export function normalizeLegacyEvidence(evidence: TrialEvidence): TrialEvidence {
-  return {
-    ...evidence,
-    agent: { ...evidence.agent, events: evidence.agent.events.map(normalizePiEvent) },
-    events: evidence.events.map(normalizePiEvent),
-  };
 }

@@ -18,7 +18,7 @@ export interface PreparedHarness {
 export type HarnessFactory = (options: HarnessOptions) => Promise<PreparedHarness>;
 import { inspectPi } from './pi-inspection.ts';
 import { piModelArguments, selectPiModel } from './pi-model-selection.ts';
-import { selectPiEndpoint, checkPiEndpointReadiness } from './pi-endpoint-selection.ts';
+import { selectPiEndpoint } from './pi-endpoint-selection.ts';
 import { PiRpcRunner } from './pi-rpc.ts';
 import { prepareTrialEnvironment } from './trial-environment.ts';
 import { trialInvariants } from './trial-manifest.ts';
@@ -34,7 +34,6 @@ export const preparePiHarness: HarnessFactory = async (options) => {
     model: settings.model,
     policy: options.profile.pi.endpoint,
   });
-  await checkPiEndpointReadiness(endpointSelection);
   if (
     options.profile.agentBilling === 'subscription' &&
     (settings.provider !== 'openai-codex' || pi.authentication.type !== 'oauth')

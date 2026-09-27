@@ -202,3 +202,32 @@ test('the full CLI shows and regrades saved records without rewriting the trial'
     await context.dispose();
   }
 });
+
+test('the CLI rejects options that have no effect for the selected operation', async () => {
+  const context = await offlineCli();
+  try {
+    for (const args of [
+      ['regrade', 'saved-run', '--agent-source', '/unused'],
+      ['show', 'saved-run', '--agent-source', '/unused'],
+      ['show', 'saved-run', '--revision', '2'],
+      ['show', 'saved-run', '--budget-usd', '0.01'],
+      ['show', 'saved-run', '--key-file', 'unused.env'],
+      ['show', 'saved-run', '--no-judge'],
+      ['show', 'saved-run', '--dry-run'],
+      ['run', '--no-judge', '--revision', '2'],
+      ['run', '--no-judge', '--key-file', 'unused.env'],
+      ['run', '--no-judge', '--budget-usd', '0.01'],
+      ['regrade', 'saved-run', '--no-judge', '--diagnosis-scope', 'completed-attempt'],
+    ]) {
+      await assert.rejects(context.invoke(['library', ...args, '--json']), (error) => {
+        const failure = error as { code: number; stdout: string; stderr: string };
+        assert.equal(failure.code, 1);
+        assert.equal(failure.stdout, '');
+        assert.match(JSON.parse(failure.stderr).error, /only applies|cannot be combined/);
+        return true;
+      });
+    }
+  } finally {
+    await context.dispose();
+  }
+});

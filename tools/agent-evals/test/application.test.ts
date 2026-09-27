@@ -54,7 +54,7 @@ test('setup failure persists failed attempt and never dispatches agent', async (
   assert.equal(result.evidence.agent.status, 'infrastructure_error');
   assert.ok(saved.has('manifest.json'));
   assert.ok(saved.has('evidence.json'));
-  assert.equal(result.manifest.attempts[0].error, 'fixture missing');
+  assert.equal(result.manifest.error, 'fixture missing');
 });
 function completed(): AgentResult {
   return {
@@ -250,13 +250,8 @@ test('final artifact collection failure still cleans up and leaves missing outco
   assert.equal(cleaned, true);
   assert.equal(result.evidence.agent.status, 'infrastructure_error');
   assert.deepEqual(result.evidence.artifacts, []);
-  const observation = result.evidence.events.find(
-    (event) => event.data.type === 'trial_observation',
-  );
-  assert.equal(
-    observation?.data.targetAfterContent,
-    undefined,
-    'missing capture is not an observed empty file',
+  assert.ok(
+    result.evidence.events.some((event) => event.data.type === 'artifact_collection_error'),
   );
 });
 
@@ -295,10 +290,11 @@ test('an agent adapter exception still captures artifacts, cleans up, and saves 
   });
   assert.equal(cleaned, true);
   assert.equal(result.evidence.agent.status, 'infrastructure_error');
-  assert.equal(result.manifest.attempts[0].error, 'RPC transport disconnected');
+  assert.equal(result.manifest.error, 'RPC transport disconnected');
   assert.deepEqual(result.evidence.artifacts, [target]);
-  assert.equal(result.evidence.agent.events.length, 1);
-  assert.equal(result.evidence.agent.events[0].data.type, 'turn_start');
+  const agentEvents = result.evidence.events.filter((event) => event.actor === 'agent');
+  assert.equal(agentEvents.length, 1);
+  assert.equal(agentEvents[0].data.type, 'turn_start');
   assert.ok(saved.has('manifest.json') && saved.has('evidence.json'));
 });
 
@@ -389,8 +385,11 @@ test('callback tool events are sequenced with environment observations and keep 
   const toolEvent = result.evidence.events.find((event) => event.data.type === 'agent_start');
   assert.equal(toolEvent?.actor, 'agent');
   assert.equal(result.evidence.events[0].actor, 'environment');
-  assert.equal(result.evidence.events.at(-1)?.actor, 'evaluator');
-  assert.deepEqual(result.evidence.agent.events, [toolEvent]);
+  assert.deepEqual(
+    result.evidence.events.filter((event) => event.actor === 'agent'),
+    [toolEvent],
+  );
+  assert.equal('events' in result.evidence.agent, false);
 });
 
 for (const streamed of [false, true]) {
@@ -417,12 +416,11 @@ for (const streamed of [false, true]) {
       },
       store: { async save() {}, append() {} },
     });
-    assert.equal(result.evidence.agent.events.length, 1);
-    assert.equal(
-      result.evidence.events.filter((item) => item.data.type === 'returned-tool-event').length,
-      1,
+    const captured = result.evidence.events.filter(
+      (item) => item.data.type === 'returned-tool-event',
     );
-    assert.equal(result.evidence.agent.events[0].actor, 'agent');
+    assert.equal(captured.length, 1);
+    assert.equal(captured[0].actor, 'agent');
   });
 }
 

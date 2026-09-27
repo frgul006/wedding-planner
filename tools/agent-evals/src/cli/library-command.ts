@@ -33,7 +33,7 @@ show reads local records without model calls. Core/adapter APIs are separately e
   --store PATH        Saved library records (default: evals/runs/library)
   --key-file PATH     Reads only TYPESAFE_API_KEY (default: worktree .env.local)
   --budget-usd N      Aggregate Jev admission estimate (default: 0.01, maximum: 1)
-  --agent-source PATH Native Pi resource checkout (default: original checkout)
+  --agent-source PATH Native Pi resource checkout for run (default: original checkout)
   --profile NAME      Runtime profile for run (default: smoke)
   --max-runtime-ms N  Per-trial agent deadline in milliseconds
   --max-turns N       Per-trial completed assistant turns (including tool results)
@@ -43,13 +43,14 @@ show reads local records without model calls. Core/adapter APIs are separately e
                       Regrade the whole saved diagnosis (default), or only its
                       initial statement through the first completed test attempt
   --no-judge          Run only the deterministic validation grader
-  --dry-run           Preview the example without credentials, Pi or Jev
+  --dry-run           Preview run/regrade without credentials, Pi or Jev
   --json              Machine-readable output
 
 Pi uses its existing subscription and saved reasoning, with the smoke profile's
 model (currently Luna). Defaults are 30 minutes, 100 turns and 1,000,000 weighted
-tokens per trial. Profile < task limits < explicit run flags; any limit hit stops
+tokens per trial. Trials execute sequentially. Profile < task limits < explicit run flags; any limit hit stops
 the trial. Runtime covers Pi startup/execution, excluding environment setup and grading.
+Inapplicable options are rejected; judge options cannot accompany --no-judge.
 No automatic agent retries. Jev uses its
 separate key, version jev-1.13.0, concurrency 1 and no retries. These estimates are
 application limits, not provider-enforced caps. Limits can overshoot in flight.
@@ -119,6 +120,22 @@ export async function libraryCommand(
     (action !== 'run' && !reference)
   )
     throw new Error('Use library run, library regrade RUN_ID, or library show RUN_ID');
+  for (const flag of [
+    'agent-source',
+    'profile',
+    'max-runtime-ms',
+    'max-turns',
+    'max-tokens',
+  ] as const)
+    if (parsed.values[flag] !== undefined && action !== 'run')
+      throw new Error(`--${flag} only applies to library run`);
+  for (const flag of ['key-file', 'budget-usd', 'revision', 'no-judge', 'dry-run'] as const)
+    if (parsed.values[flag] !== undefined && action === 'show')
+      throw new Error(`--${flag} only applies to library run or regrade`);
+  if (parsed.values['no-judge'])
+    for (const flag of ['key-file', 'budget-usd', 'revision', 'diagnosis-scope'] as const)
+      if (parsed.values[flag] !== undefined)
+        throw new Error(`--${flag} cannot be combined with --no-judge`);
   const limitOverrides: Partial<TrialLimits> = {};
   for (const [flag, key] of [
     ['max-runtime-ms', 'runtimeMs'],
@@ -127,13 +144,10 @@ export async function libraryCommand(
   ] as const) {
     const value = parsed.values[flag];
     if (value === undefined) continue;
-    if (action !== 'run') throw new Error(`--${flag} only applies to library run`);
     if (!/^[1-9]\d*$/.test(value)) throw new Error(`--${flag} must be a positive integer`);
     limitOverrides[key] = Number(value);
   }
   resolveTrialLimits(limitOverrides);
-  if (parsed.values.profile !== undefined && action !== 'run')
-    throw new Error('--profile only applies to library run');
   const revision = Number(parsed.values.revision ?? 1);
   const diagnosisScope = parsed.values['diagnosis-scope'] ?? 'entire';
   if (
@@ -277,7 +291,6 @@ export async function libraryCommand(
         graders,
       };
       const run = await evaluator.run(suite, {
-        concurrency: 1,
         repetitions: 1,
         signal: context.signal,
         limits,

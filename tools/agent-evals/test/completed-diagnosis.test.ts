@@ -135,7 +135,6 @@ function recording(
       signal: null,
       model: { id: 'offline-model' },
       thinkingLevel: 'medium',
-      events,
       usage: {
         inputTokens: 10,
         outputTokens: 2,

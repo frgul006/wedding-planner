@@ -21,7 +21,7 @@ pnpm evals library regrade RUN_ID --revision 2
 
 `run` makes one isolated native Luna attempt at `repository-login-retry`, saves the recording, and applies two diagnostic Jev questions plus a deterministic validation-order check. The natural task asks Pi to investigate and repair a login form that remains stuck after an unsuccessful submission, without naming a skill or giving away the cause. Independent acceptance exercises two actual local Server Actions, required-input validation, pending state, and error feedback.
 
-`show` reads local records. `regrade` appends results for the same saved trial without starting Pi; revision 2 sharpens the hypothesis question to require a refutable prediction before the probe. `--no-judge` selects only the deterministic grader. `--dry-run` previews configuration without credentials or calls, and `--json` produces machine-readable output. `--store PATH` changes the library store. Use the returned run ID with `show` and `regrade`; see `pnpm evals library --help` for all options.
+`show` reads local records. `regrade` appends results for the same saved trial without starting Pi; revision 2 sharpens the hypothesis question to require a refutable prediction before the probe. `--no-judge` selects only the deterministic grader. `--dry-run` previews configuration without credentials or calls, and `--json` produces machine-readable output. `--store PATH` changes the library store. Options that do not apply to the selected command are rejected. Judge options (`--key-file`, `--budget-usd`, `--revision`, `--diagnosis-scope`) cannot be combined with `--no-judge`. Use the returned run ID with `show` and `regrade`; see `pnpm evals library --help` for all options.
 
 Trial execution status and behavioral verdicts are separate. CLI exit code 1 means command setup or storage failed, such as invalid configuration, a missing key, or an unreadable saved record. Exit code 2 means a recorded trial's execution, preparation, or grading failed. A completed `fail` or `unknown` judgment is reported separately and does not change the exit code. Interrupted attempts remain saved. There is no automatic trial retry.
 
@@ -98,10 +98,10 @@ Use ordinary TypeScript functions; adding a Grader requires no registry or adapt
 
 ```ts
 import {
-  defineView,
   modelGrader,
   codeGrader,
   createEvaluator,
+  type View,
 } from "@wedding-planner/agent-evals";
 import { piRunner } from "@wedding-planner/agent-evals/pi";
 import { jevJudge } from "@wedding-planner/agent-evals/jev";
@@ -112,11 +112,11 @@ import {
   checkValidationOrder,
 } from "@wedding-planner/agent-evals/examples/diagnosis";
 
-const diagnosis = defineView({
+const diagnosis = {
   id: "diagnosis",
   version: 1,
   prepare: prepareDiagnosticEpisodes,
-});
+} satisfies View;
 const hypothesis = modelGrader({
   id: "hypothesis",
   version: 1,
@@ -156,9 +156,9 @@ await evals.regrade(run.id, {
 });
 ```
 
-The runnable composition is [library-command.ts](../tools/agent-evals/src/cli/library-command.ts). Its task metadata declares `diagnosis: "required"` and `validation: { required: true, targetFile, requiredChecks: ["lint", "build", "browser_snapshot"], flowPath, expectedText }`. Views decide applicability from that metadata; it is not inserted into the evaluated agent's prompt. Code-grader evidence types are inferred from their View. Bump View and Grader versions when their meaning changes.
+The runnable composition is [library-command.ts](../tools/agent-evals/src/cli/library-command.ts). Its task metadata declares `diagnosis: "required"` and `validation: { required: true, targetFile, requiredChecks: ["lint", "build", "browser_snapshot"], flowPath, expectedText }`. Views decide applicability from that metadata; it is not inserted into the evaluated agent's prompt. Views are ordinary objects checked with `satisfies View`; `codeGrader` and `modelGrader` add the grader kind and infer evidence types from their View. Bump View and Grader versions when their meaning changes.
 
-`evals.run(suite, { repetitions, concurrency, limits })` supports per-run limit overrides for each trial. `piRunner({ limits })` supplies runner defaults, and a direct `runner.run(task, { trialId, limits })` supplies per-trial overrides. `evals.grade(trialId, { graders })` grades one saved trial; `evals.regrade(runId, { graders })` regrades all trials in a saved suite run. A code-only suite needs no Judge, and saved-evidence grading needs no Runner. Implement the small `Runner`, `Judge`, or `Store` interface to replace an adapter.
+`evals.run(suite, { repetitions, limits })` runs trials sequentially and supports per-run limit overrides for each trial. `piRunner({ limits })` supplies runner defaults, and a direct `runner.run(task, { trialId, limits })` supplies per-trial overrides. `evals.grade(trialId, { graders })` grades one saved trial; `evals.regrade(runId, { graders })` regrades all trials in a saved suite run. A code-only suite needs no Judge, and saved-evidence grading needs no Runner. Implement the small `Runner`, `Judge`, or `Store` interface to replace an adapter.
 
 The current Pi adapter loads repository task definitions from `evals/tasks/`; task ID, version, and prompt must match the selected definition. Pin a full repository commit and keep the prompt natural when measuring skill activation. Starting defects and independent acceptance belong to the environment adapter, outside the agent's writable controls. Add a new local acceptance case only when its assertions match the intended task, and verify both the defective and repaired behavior. New Views can be tested entirely against saved evidence.
 

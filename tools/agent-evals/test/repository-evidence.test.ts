@@ -28,9 +28,6 @@ test('retained source and patch include ignored additions, deletions, nested gen
       ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'baseline'],
       env,
     );
-    const baselineCommit = (
-      await repositoryGit(workspace, ['rev-parse', 'HEAD'], env)
-    ).stdout.trim();
     const baseline = await snapshotRepository(workspace);
     await writeFile(join(workspace, 'target.tsx'), 'export const label = "After";\n');
     await rm(join(workspace, 'removed.txt'));
@@ -55,7 +52,6 @@ test('retained source and patch include ignored additions, deletions, nested gen
     const result = await collectRepositoryEvidence({
       workspace,
       baseline,
-      baselineCommit,
       env,
       checks: [],
       artifacts: [],

@@ -1,10 +1,11 @@
+import type { View } from '../src/index.ts';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileStore } from '../src/adapters/library-file-store.ts';
-import { createEvaluator, defineView, modelGrader } from '../src/index.ts';
+import { createEvaluator, modelGrader } from '../src/index.ts';
 import type { EvaluationTask, Judge, RecordedTrial, Suite } from '../src/index.ts';
 
 const originalTask = (): EvaluationTask => ({
@@ -23,7 +24,7 @@ const recorded = (id: string, task = originalTask()): RecordedTrial => ({
 });
 function definitions() {
   let preparations = 0;
-  const view = defineView({
+  const view = {
     id: 'original-view',
     version: 1,
     prepare: () => {
@@ -40,7 +41,7 @@ function definitions() {
         },
       ];
     },
-  });
+  } satisfies View;
   const grader = modelGrader({
     id: 'original-grader',
     version: 1,

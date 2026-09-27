@@ -1,11 +1,9 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import {
-  checkPiEndpointReadiness,
   endpointHash,
   projectPiModelsConfiguration,
   selectPiEndpoint,
@@ -132,35 +130,5 @@ test('an explicit native endpoint works without a catalog cache, while catalog m
     );
   } finally {
     await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('the stale local static-server endpoint is diagnosed with HEAD only and no credentials', async () => {
-  const requests: Array<{ method?: string; authorization?: string }> = [];
-  const server = createServer((request, response) => {
-    requests.push({ method: request.method, authorization: request.headers.authorization });
-    response.setHeader('server', 'SimpleHTTP/0.6 Python/3.11.6');
-    response.writeHead(404);
-    response.end();
-  });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  try {
-    const address = server.address();
-    assert.ok(address && typeof address !== 'string');
-    await assert.rejects(
-      checkPiEndpointReadiness({
-        policy: 'native',
-        provider,
-        model,
-        savedOverride: null,
-        effective: { origin: `http://127.0.0.1:${address.port}`, sha256: endpointHash(native) },
-      }),
-      /static HTTP file server.*pi.endpoint="catalog"/,
-    );
-    assert.deepEqual(requests, [{ method: 'HEAD', authorization: undefined }]);
-  } finally {
-    await new Promise<void>((resolve, reject) =>
-      server.close((error) => (error ? reject(error) : resolve())),
-    );
   }
 });

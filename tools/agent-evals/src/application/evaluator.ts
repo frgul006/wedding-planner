@@ -25,7 +25,6 @@ import {
   validObservedUsage,
 } from './judge-response-error.ts';
 
-export const defineView = <T>(view: View<T>): View<T> => view;
 export const codeGrader = <T>(definition: Omit<CodeGrader<T>, 'kind'>): CodeGrader<T> => ({
   ...definition,
   kind: 'code',
@@ -142,7 +141,6 @@ export function createEvaluator(options: {
     budget: { used: number },
     signal?: AbortSignal,
   ): Promise<GradingRecord> {
-    validateGraders(graders);
     const trial = immutableCopy(await options.store.loadTrial(trialId));
     const record: GradingRecord = {
       id: identity('grading'),
@@ -332,9 +330,9 @@ export function createEvaluator(options: {
             try {
               entry.dispatched = true;
               const response = immutableCopy(await options.judge.execute(entry.request, signal));
-              entry.receivedResponse = response;
-              if (validObservedUsage(response.usage)) entry.observedUsage = response.usage;
-              const returned = response.answers.map((answer) => answer.jobId);
+              const returned = Array.isArray(response?.answers)
+                ? response.answers.map((answer) => answer?.jobId)
+                : [];
               if (
                 returned.length !== entry.request.jobIds.length ||
                 new Set(returned).size !== returned.length ||
@@ -344,7 +342,11 @@ export function createEvaluator(options: {
                 response.raw === undefined ||
                 !validObservedUsage(response.usage)
               )
-                throw new Error('Invalid judge response membership');
+                throw new JudgeResponseError(
+                  'Invalid judge response membership',
+                  response,
+                  validObservedUsage(response?.usage) ? response.usage : undefined,
+                );
               entry.response = response;
               for (const answer of response.answers)
                 modelGrade(answer.jobId, { verdict: answer.verdict }, 'completed', {
@@ -421,7 +423,6 @@ export function createEvaluator(options: {
       suite: Suite,
       input: {
         repetitions?: number;
-        concurrency?: number;
         signal?: AbortSignal;
         limits?: Partial<TrialLimits>;
       } = {},
@@ -438,13 +439,8 @@ export function createEvaluator(options: {
       resolveTrialLimits(runLimits);
       for (const task of suite.tasks) resolveTrialLimits(task.limits, runLimits);
       const repetitions = input.repetitions ?? 1;
-      if (
-        !Number.isInteger(repetitions) ||
-        repetitions < 1 ||
-        repetitions > 10 ||
-        (input.concurrency ?? 1) !== 1
-      )
-        throw new Error('Use concurrency 1 and between 1 and 10 repetitions');
+      if (!Number.isInteger(repetitions) || repetitions < 1 || repetitions > 10)
+        throw new Error('Use between 1 and 10 repetitions');
       const run: SuiteRun = {
         id: identity('run'),
         suiteId: suite.id,

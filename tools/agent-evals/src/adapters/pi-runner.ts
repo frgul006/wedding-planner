@@ -8,7 +8,7 @@ import {
   type TrialLimits,
 } from '../domain/trial-limits.ts';
 import { runTrial } from '../application/run-trial.ts';
-import { loadProfile, loadTask, profileSchema } from './evaluation-config.ts';
+import { loadProfile, loadTask } from './evaluation-config.ts';
 import { FileRunStore } from './file-run-store.ts';
 import { preparePiHarness } from './pi-harness.ts';
 import { recordedTrialFromEvidence } from './recorded-trial.ts';
@@ -18,9 +18,6 @@ export interface PiRunnerOptions {
   sourceRepo: string;
   agentSource: string;
   profile?: string;
-  runtimeMs?: number;
-  maxTurns?: number;
-  maxTokens?: number;
   limits?: Partial<TrialLimits>;
 }
 
@@ -39,7 +36,6 @@ export function piRunner(
         ...request,
         ...(request.limits === undefined ? {} : { limits: immutableCopy(request.limits) }),
       };
-      resolveTrialLimits(task.limits, request.limits);
       if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,179}$/.test(request.trialId))
         throw new Error('Use a filesystem-safe trial ID.');
       const definition = await loadTask(sourceRepo, task.id);
@@ -52,18 +48,17 @@ export function piRunner(
           maxTurns: originalProfile.maxAgentTurns,
           maxTokens: originalProfile.maxAgentTokens,
         },
-        { runtimeMs: options.runtimeMs, maxTurns: options.maxTurns, maxTokens: options.maxTokens },
         options.limits,
         definition.limits,
         task.limits,
         request.limits,
       );
-      const profile = profileSchema.parse({
+      const profile = {
         ...originalProfile,
         runtimeMs: limits.runtimeMs,
         maxAgentTurns: limits.maxTurns,
         maxAgentTokens: limits.maxTokens,
-      });
+      };
       const directory = join(sourceRepo, 'evals/runs', request.trialId);
       await mkdir(join(sourceRepo, 'evals/runs'), { recursive: true, mode: 0o700 });
       // An explicit ID must never replace an earlier attempt.

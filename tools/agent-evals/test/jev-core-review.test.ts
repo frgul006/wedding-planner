@@ -1,3 +1,4 @@
+import type { View } from '../src/index.ts';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -5,10 +6,10 @@ import path from 'node:path';
 import test from 'node:test';
 import { JEV_MODEL, jevJudge } from '../src/adapters/jev-judge.ts';
 import { fileStore } from '../src/adapters/library-file-store.ts';
-import { createEvaluator, defineView, modelGrader } from '../src/index.ts';
+import { createEvaluator, modelGrader } from '../src/index.ts';
 
 const key = 'offline-jev-journal-review-credential';
-const view = defineView({
+const view = {
   id: 'authored-diagnosis',
   version: 1,
   prepare: () => [
@@ -22,7 +23,7 @@ const view = defineView({
       applicability: 'applicable' as const,
     },
   ],
-});
+} satisfies View;
 const graders = [
   modelGrader({
     id: 'diagnostic-check',

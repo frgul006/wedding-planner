@@ -70,7 +70,6 @@ function artifact(id: string, path: string, content: string): Artifact {
 export async function collectRepositoryEvidence(options: {
   workspace: string;
   baseline: Map<string, RepositoryFile>;
-  baselineCommit: string;
   env: Record<string, string>;
   checks: CommandCheck[];
   artifacts: Artifact[];

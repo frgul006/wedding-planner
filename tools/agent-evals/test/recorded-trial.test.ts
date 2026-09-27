@@ -45,7 +45,6 @@ function recording(
       endedAt: '',
       exitCode: 0,
       signal: null,
-      events,
       model: { id: 'gpt-6-luna' },
       thinkingLevel: 'xhigh',
       usage: {
@@ -75,6 +74,20 @@ const end = {
   },
 };
 const settled = { type: 'agent_settled' };
+
+test('historical duplicate agent events do not change the authoritative saved trace', () => {
+  const evidence = recording([start, end, settled]);
+  const historical = {
+    ...evidence,
+    agent: { ...evidence.agent, events: evidence.events },
+  };
+  const serialized = JSON.stringify(historical);
+  assert.deepEqual(
+    recordedTrialFromEvidence('same-trial', historical, environment),
+    recordedTrialFromEvidence('same-trial', evidence, environment),
+  );
+  assert.equal(JSON.stringify(historical), serialized);
+});
 
 test('portable trace preserves native sources, attribution and observable text without hidden reasoning', () => {
   const evidence = recording([

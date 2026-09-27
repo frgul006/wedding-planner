@@ -128,25 +128,3 @@ export async function selectPiEndpoint(options: {
     effective: endpointIdentity(catalogEndpoint),
   };
 }
-
-/** A credential-free HEAD probe diagnoses the known static-server failure without generating tokens. */
-export async function checkPiEndpointReadiness(selection: PiEndpointSelection): Promise<void> {
-  const endpoint = new URL(selection.effective.origin);
-  if (!['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname)) return;
-  let response: Response;
-  try {
-    response = await fetch(endpoint, {
-      method: 'HEAD',
-      redirect: 'manual',
-      signal: AbortSignal.timeout(3000),
-    });
-  } catch {
-    throw new Error(
-      'Configured local Pi endpoint is unreachable. Start its intended proxy or explicitly select pi.endpoint="catalog" for the evaluation.',
-    );
-  }
-  if (/SimpleHTTP\//i.test(response.headers.get('server') ?? ''))
-    throw new Error(
-      'Configured local Pi endpoint is a static HTTP file server and cannot handle model POST requests. Start its intended proxy or explicitly select pi.endpoint="catalog" for the evaluation.',
-    );
-}

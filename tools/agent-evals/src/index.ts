@@ -1,10 +1,4 @@
-export {
-  defineView,
-  codeGrader,
-  modelGrader,
-  createEvaluator,
-  rollupGrades,
-} from './application/evaluator.ts';
+export { codeGrader, modelGrader, createEvaluator, rollupGrades } from './application/evaluator.ts';
 export type * from './domain/library.ts';
 export {
   DEFAULT_TRIAL_LIMITS,

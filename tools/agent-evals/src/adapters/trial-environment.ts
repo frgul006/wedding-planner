@@ -359,7 +359,6 @@ export async function prepareTrialEnvironment(
         return collectRepositoryEvidence({
           workspace: paths.workspace,
           baseline: repositoryBaseline,
-          baselineCommit,
           env: boundary!.toolEnv,
           checks,
           artifacts,

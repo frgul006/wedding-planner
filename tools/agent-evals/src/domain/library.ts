@@ -117,8 +117,9 @@ export interface GradingRecord {
     request: JudgeRequest;
     dispatched: boolean;
     response?: JudgeResponse;
-    /** Credential-free received data, retained even when no valid grades can be derived. */
+    /** Credential-free fallback data when the response could not produce valid grades. */
     receivedResponse?: unknown;
+    /** Usage from an invalid response; valid responses carry their own usage. */
     observedUsage?: JudgeResponse['usage'];
     error?: string;
   }>;

@@ -1,3 +1,4 @@
+import type { View } from '../src/index.ts';
 /**
  * Explicit paid calibration smoke, excluded from the automatic *.test.ts suite.
  * pnpm --filter @wedding-planner/agent-evals exec tsx test/jev-live-smoke.ts --live
@@ -9,7 +10,7 @@ import path from 'node:path';
 import { parseArgs, parseEnv } from 'node:util';
 import { fileStore } from '../src/adapters/library-file-store.ts';
 import { JEV_MODEL, jevJudge } from '../src/adapters/jev-judge.ts';
-import { createEvaluator, defineView, modelGrader } from '../src/index.ts';
+import { createEvaluator, modelGrader } from '../src/index.ts';
 import type { GradingRecord, Judge, RecordedTrial, TraceEvent } from '../src/index.ts';
 
 const root = path.resolve(import.meta.dirname, '../../..');
@@ -68,7 +69,7 @@ function authoredTrial(): RecordedTrial {
   };
 }
 
-const view = defineView({
+const view = {
   id: 'authored-diagnostic-episode',
   version: 1,
   prepare: (trial: RecordedTrial) => [
@@ -93,7 +94,7 @@ const view = defineView({
       applicability: 'applicable' as const,
     },
   ],
-});
+} satisfies View;
 
 function graders(version: 1 | 2) {
   return [

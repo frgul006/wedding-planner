@@ -67,7 +67,6 @@ test('application records adapter-discovered skills without decoding a provider 
       runtimeMs: 10,
       maxTokens: 100,
       maxEstimatedCostUsd: 1,
-      executable: '/verified/pi',
       expectedModel: { provider: 'test', id: 'test', thinkingLevel: 'low' },
       manifest: {},
     },
@@ -90,7 +89,6 @@ test('application records adapter-discovered skills without decoding a provider 
       },
       agent: {
         async run(request) {
-          assert.equal(request.executable, '/verified/pi');
           request.onEvent?.({
             id: 'discovery',
             sequence: 1,

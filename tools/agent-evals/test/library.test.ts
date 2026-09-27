@@ -1,15 +1,10 @@
+import type { View } from '../src/index.ts';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import {
-  codeGrader,
-  createEvaluator,
-  defineView,
-  modelGrader,
-  JudgeResponseError,
-} from '../src/index.ts';
+import { codeGrader, createEvaluator, modelGrader, JudgeResponseError } from '../src/index.ts';
 import type { CheckResult, Judge, PreparedItem, RecordedTrial } from '../src/index.ts';
 import { fileStore } from '../src/adapters/library-file-store.ts';
 import { canonicalJson, contentHash } from '../src/application/serialization.ts';
@@ -114,14 +109,14 @@ test('two graders share one prepared view; exact requests precede dispatch and r
   try {
     let preparations = 0;
     let calls = 0;
-    const view = defineView({
+    const view = {
       id: 'diagnosis',
       version: 1,
       prepare: () => {
         preparations++;
         return [item()];
       },
-    });
+    } satisfies View;
     const graders = ['prediction', 'probe'].map((id) =>
       modelGrader({ id, version: 1, view, question: id, rubric }),
     );
@@ -181,7 +176,7 @@ test('code grader infers data from view, regrading changes the question/view wit
   const context = await setup();
   try {
     let runs = 0;
-    const view = defineView({ id: 'validation', version: 1, prepare: () => [item()] });
+    const view = { id: 'validation', version: 1, prepare: () => [item()] } satisfies View;
     const first = codeGrader({
       id: 'validation',
       version: 1,
@@ -207,11 +202,11 @@ test('code grader infers data from view, regrading changes the question/view wit
     const revised = codeGrader({
       id: 'validation',
       version: 2,
-      view: defineView({
+      view: {
         ...view,
         version: 2,
         prepare: () => [{ ...item(), data: { prediction: 'No test observed' } }],
-      }),
+      } satisfies View,
       check: () => ({ verdict: 'fail' }),
     });
     const [regrade] = await evaluator.regrade(run.id, { graders: [revised] });
@@ -240,7 +235,7 @@ test('complete omission fails, incomplete recording stays unknown, and empty vie
       codeGrader({
         id,
         version: 1,
-        view: defineView({ id, version: 1, prepare: () => items }),
+        view: { id, version: 1, prepare: () => items } satisfies View,
         check: () => {
           checks++;
           return { verdict: 'fail' };
@@ -269,7 +264,7 @@ test('aggregate admission rejects all batches before any request is dispatched',
   const context = await setup();
   try {
     let calls = 0;
-    const view = defineView({ id: 'view', version: 1, prepare: () => [item('a'), item('b')] });
+    const view = { id: 'view', version: 1, prepare: () => [item('a'), item('b')] } satisfies View;
     const judge: Judge = {
       id: 'fake',
       async prepare(jobs) {
@@ -305,7 +300,7 @@ test('aggregate admission rejects all batches before any request is dispatched',
 test('malformed provider answers, unresolved refs and mutation attempts become retained errors', async () => {
   const context = await setup();
   try {
-    const view = defineView({ id: 'good', version: 1, prepare: () => [item()] });
+    const view = { id: 'good', version: 1, prepare: () => [item()] } satisfies View;
     const judge: Judge = {
       id: 'bad',
       async prepare(jobs) {
@@ -334,11 +329,11 @@ test('malformed provider answers, unresolved refs and mutation attempts become r
         codeGrader({
           id: 'bad-ref',
           version: 1,
-          view: defineView({
+          view: {
             id: 'bad-ref',
             version: 1,
             prepare: () => [{ ...item(), sourceRefs: ['not-recorded'] }],
-          }),
+          } satisfies View,
           check: () => ({ verdict: 'pass' }),
         }),
         codeGrader({
@@ -391,11 +386,11 @@ test('different versions of a view retain distinct evidence identities and exact
       codeGrader({
         id: `validation-v${version}`,
         version: 1,
-        view: defineView({
+        view: {
           id: 'validation',
           version,
           prepare: () => [{ ...item(), data: { prediction: `Version ${version} observation` } }],
-        }),
+        } satisfies View,
         check: () => ({ verdict: 'pass' }),
       }),
     );
@@ -431,7 +426,7 @@ test('later graders cannot mutate an earlier result through shared return object
       reason: 'Original result',
       supportingRefs: ['e1'],
     };
-    const view = defineView({ id: 'validation', version: 1, prepare: () => [item()] });
+    const view = { id: 'validation', version: 1, prepare: () => [item()] } satisfies View;
     const record = await createEvaluator({ store: context.store }).grade('trial-example', {
       graders: [
         codeGrader({ id: 'first', version: 1, view, check: () => shared }),
@@ -457,11 +452,16 @@ test('later graders cannot mutate an earlier result through shared return object
   }
 });
 
-for (const failure of ['missing-raw', 'nan-usage', 'non-json-metadata'] as const) {
+for (const failure of [
+  'missing-raw',
+  'missing-answers',
+  'nan-usage',
+  'non-json-metadata',
+] as const) {
   test(`invalid generic judge ${failure} retains an error grading record`, async () => {
     const context = await setup();
     try {
-      const view = defineView({ id: 'validation', version: 1, prepare: () => [item()] });
+      const view = { id: 'validation', version: 1, prepare: () => [item()] } satisfies View;
       const judge: Judge = {
         id: 'malformed',
         async prepare(jobs) {
@@ -477,11 +477,16 @@ for (const failure of ['missing-raw', 'nan-usage', 'non-json-metadata'] as const
         },
         async execute(request) {
           return {
-            answers: request.jobIds.map((jobId) => ({
-              jobId,
-              verdict: 'pass' as const,
-              ...(failure === 'non-json-metadata' ? { metadata: { created: new Date() } } : {}),
-            })),
+            answers:
+              failure === 'missing-answers'
+                ? undefined!
+                : request.jobIds.map((jobId) => ({
+                    jobId,
+                    verdict: 'pass' as const,
+                    ...(failure === 'non-json-metadata'
+                      ? { metadata: { created: new Date() } }
+                      : {}),
+                  })),
             raw: failure === 'missing-raw' ? undefined : {},
             model: 'malformed-v1',
             usage: {
@@ -499,6 +504,10 @@ for (const failure of ['missing-raw', 'nan-usage', 'non-json-metadata'] as const
       assert.equal(record.grades[0].verdict, 'unknown');
       assert.equal(record.grades[0].status, 'grader_error');
       assert.equal(record.requests[0].response, undefined);
+      if (failure === 'missing-answers') {
+        assert.ok(record.requests[0].receivedResponse);
+        assert.equal(record.requests[0].observedUsage?.inputTokens, 1);
+      }
       assert.match(record.requests[0].error!, /Judge (request failed|response could not be used)/);
       assert.equal((await context.store.listGradings('trial-example')).length, 1);
     } finally {
@@ -535,7 +544,7 @@ test('request recording failure prevents dispatch and is explicit in retained in
         throw new Error('Must not dispatch');
       },
     };
-    const view = defineView({ id: 'validation', version: 1, prepare: () => [item()] });
+    const view = { id: 'validation', version: 1, prepare: () => [item()] } satisfies View;
     const record = await createEvaluator({ store, judge }).grade('trial-example', {
       graders: [modelGrader({ id: 'check', version: 1, view, question: 'Prediction?', rubric })],
     });
@@ -579,7 +588,7 @@ for (const adapterRejects of [false, true]) {
           return received;
         },
       };
-      const view = defineView({ id: 'diagnosis', version: 1, prepare: () => [item()] });
+      const view = { id: 'diagnosis', version: 1, prepare: () => [item()] } satisfies View;
       const result = await createEvaluator({ store: context.store, judge }).grade('trial-example', {
         graders: [
           modelGrader({ id: 'hypothesis', version: 1, view, question: 'Prediction?', rubric }),
@@ -610,7 +619,7 @@ test('runner exceptions retain a failed trial and unknown grading without secret
   let checks = 0;
   try {
     const failure = 'Private runner transport request contained sk-private-runner-fixture-secret';
-    const view = defineView({
+    const view = {
       id: 'recorded-behavior',
       version: 1,
       prepare: (recording) => [
@@ -624,7 +633,7 @@ test('runner exceptions retain a failed trial and unknown grading without secret
           applicability: 'applicable' as const,
         },
       ],
-    });
+    } satisfies View;
     const grader = codeGrader({
       id: 'behavior',
       version: 1,
@@ -685,7 +694,7 @@ test('run and regrade share one conservative judge allowance across repeated tri
   let runnerCalls = 0;
   let judgeCalls = 0;
   try {
-    const view = defineView({ id: 'shared-budget', version: 1, prepare: () => [item()] });
+    const view = { id: 'shared-budget', version: 1, prepare: () => [item()] } satisfies View;
     const grader = modelGrader({
       id: 'budgeted',
       version: 1,
@@ -758,11 +767,11 @@ test('cancellation after one judge response retains that response and prevents r
   const controller = new AbortController();
   let calls = 0;
   try {
-    const view = defineView({
+    const view = {
       id: 'cancellation',
       version: 1,
       prepare: () => [item('first'), item('second')],
-    });
+    } satisfies View;
     const judge: Judge = {
       id: 'cancel-fixture',
       async prepare(jobs) {

@@ -1,10 +1,11 @@
+import type { View } from '../src/index.ts';
 import assert from 'node:assert/strict';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileStore } from '../src/adapters/library-file-store.ts';
-import { codeGrader, createEvaluator, defineView, modelGrader } from '../src/index.ts';
+import { codeGrader, createEvaluator, modelGrader } from '../src/index.ts';
 import type { Grader } from '../src/index.ts';
 
 test('invalid grader definitions fail before starting or recording a native attempt', async (context) => {
@@ -20,7 +21,7 @@ test('invalid grader definitions fail before starting or recording a native atte
       },
     },
   });
-  const view = defineView({ id: 'same-view', version: 1, prepare: () => [] });
+  const view = { id: 'same-view', version: 1, prepare: () => [] } satisfies View;
   const grader = codeGrader({
     id: 'check',
     version: 1,

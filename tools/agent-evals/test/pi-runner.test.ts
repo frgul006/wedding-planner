@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import test from 'node:test';
@@ -147,6 +147,7 @@ test('each Pi trial resolves independent limits before environment preparation a
       /positive safe integer/,
     );
     assert.equal(prepared.length, 2);
+    await assert.rejects(stat(join(root, 'evals/runs/invalid')), { code: 'ENOENT' });
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -257,7 +258,7 @@ test('Pi bridge saves incremental redacted evidence and applies no graders or ta
   };
   try {
     const runner = piRunner(
-      { sourceRepo: root, agentSource: root, runtimeMs: 4000, maxTokens: 1000 },
+      { sourceRepo: root, agentSource: root, limits: { runtimeMs: 4000, maxTokens: 1000 } },
       { prepareHarness },
     );
     const metadata = {

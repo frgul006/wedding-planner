@@ -138,7 +138,7 @@ export interface TrialEvidence {
   /** Present only in historical native recordings; new trials retain native instructions. */
   variant?: 'enabled' | 'disabled';
   localUrl: string;
-  agent: AgentResult;
+  agent: Omit<AgentResult, 'events'>;
   artifacts: Artifact[];
   events: EvidenceEvent[];
   beforeArtifacts?: Artifact[];

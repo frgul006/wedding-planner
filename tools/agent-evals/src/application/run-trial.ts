@@ -21,7 +21,6 @@ export interface RunTrialOptions {
   maxTurns?: number;
   maxEstimatedCostUsd: number | null;
   expectedModel: { provider: string; id: string; thinkingLevel: string };
-  executable?: string;
   manifest: Record<string, unknown>;
 }
 export async function runTrial(
@@ -35,7 +34,6 @@ export async function runTrial(
   });
   const startedAt = new Date().toISOString();
   const events: EvidenceEvent[] = [];
-  const agentEvents: EvidenceEvent[] = [];
   const recordedAgentEventIds = new Set<string>();
   let preparedSkills: InventorySkill[] = [];
   let recordedDiscovery = false;
@@ -71,7 +69,6 @@ export async function runTrial(
   const lifecycle = (actor: 'environment' | 'evaluator', data: Record<string, unknown>) =>
     record({ timestamp: new Date().toISOString(), actor, kind: 'lifecycle', data });
   let environment: PreparedEnvironment | undefined;
-  let before = '';
   let beforeArtifacts: TrialEvidence['artifacts'] = [];
   let finalObservation: FinalObservation | undefined;
   let cleanupError: string | undefined;
@@ -137,14 +134,12 @@ export async function runTrial(
       ...artifact,
       id: `before-${artifact.id}`,
     }));
-    before = beforeArtifacts.find((a) => a.path === options.task.targetFile)?.content ?? '';
     options.signal?.throwIfAborted();
     agent = await ports.agent.run({
       signal: options.signal,
       cwd: environment.workspace,
       env: environment.env,
       args: environment.agentArgs,
-      executable: options.executable,
       prompt: [options.task.prompt, environment.agentContext].filter(Boolean).join('\n\n'),
       expectedModel: options.expectedModel,
       ...limits,
@@ -152,7 +147,7 @@ export async function runTrial(
       onEvent: (event) => {
         if (recordedAgentEventIds.has(event.id)) return;
         recordedAgentEventIds.add(event.id);
-        agentEvents.push(record(event));
+        record(event);
       },
     });
     // Runners may return a complete recording without streaming. Preserve both
@@ -160,7 +155,7 @@ export async function runTrial(
     for (const event of agent.events) {
       if (recordedAgentEventIds.has(event.id)) continue;
       recordedAgentEventIds.add(event.id);
-      agentEvents.push(record(event));
+      record(event);
     }
   } catch (error) {
     // Never persist adapter error objects or cause chains (may contain credentials).
@@ -221,24 +216,18 @@ export async function runTrial(
       }
     }
   }
-  lifecycle('evaluator', {
-    type: 'trial_observation',
-    targetFile: options.task.targetFile,
-    targetBeforeContent: before,
-    targetAfterContent: artifacts.find((a) => a.path === options.task.targetFile)?.content,
-  });
   if (cleanupError)
     lifecycle('evaluator', {
       type: 'cleanup_error',
       message: cleanupError,
       statusBeforeCleanupFailure,
     });
-  agent.events = agentEvents;
   agent = { ...agent, limits: agent.limits ?? limits };
+  const { events: _transportEvents, ...agentSummary } = agent;
   const evidence: TrialEvidence = {
     task: options.task,
     localUrl: environment?.url ?? 'http://127.0.0.1:0',
-    agent,
+    agent: agentSummary,
     artifacts,
     beforeArtifacts,
     ...(finalObservation?.patch ? { patch: finalObservation.patch } : {}),
@@ -257,7 +246,7 @@ export async function runTrial(
     workspace: environment?.workspace,
     cleanupError,
     statusBeforeCleanupFailure,
-    attempts: [{ attempt: 1, status: agent.status, error: agent.error, retries: 0 }],
+    error: agent.error,
     agentUsage: agent.usage,
     limits: agent.limits,
     limitUsage: agent.limitUsage,
