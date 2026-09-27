@@ -114,7 +114,6 @@ test('native chain derives explicit snapshot from full output with its exact art
     sha256: hash(snapshot),
     sourceRef: 'full-output',
   });
-  assert.equal(actual.output?.id, 'full-output');
   assert.deepEqual(actual.browser?.pageUrls, [
     'http://127.0.0.1:3456/admin/login',
     'http://127.0.0.1:3456/admin/login',

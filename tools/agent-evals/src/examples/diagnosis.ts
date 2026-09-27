@@ -778,7 +778,6 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
         else browser = { valid: false, unknown: 'The explicit chained snapshot is unavailable.' };
       }
       if (browser?.artifact) refs.push(browser.artifact.id);
-      if (chained?.output) refs.push(chained.output.id);
       actions.push({
         ...base,
         kind,

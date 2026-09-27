@@ -112,7 +112,6 @@ export function jevJudge(options: JevJudgeOptions): Judge {
   const client = new TypeSafeClient({
     apiKey,
     baseURL: 'https://api.typesafe.ai',
-    defaultModel: JEV_MODEL,
     logLevel: 'off',
     timeout: timeoutMs,
     retry: { maxRetries: 0 },
@@ -291,7 +290,6 @@ export function jevJudge(options: JevJudgeOptions): Judge {
               body: body as unknown as Record<string, unknown>,
               reservedCostUsd: (reservedInputTokens * INPUT_USD_PER_MILLION) / 1_000_000,
               metadata: {
-                model: JEV_MODEL,
                 serializationVersion: SERIALIZATION_VERSION,
                 bodyHash,
                 // Keep each orphan request journal traceable before grading.json exists.

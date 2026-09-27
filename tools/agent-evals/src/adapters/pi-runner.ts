@@ -68,7 +68,7 @@ export function piRunner(
           id: request.trialId,
           signal: request.signal,
           task: definition,
-          ...limits,
+          limits,
           maxEstimatedCostUsd: profile.maxAgentEstimatedCostUsd,
           expectedModel: harness.expectedModel,
           manifest: { ...harness.manifest, profile, runner: 'pi-library-v1' },

@@ -68,14 +68,13 @@ function artifact(id: string, path: string, content: string): Artifact {
 }
 
 export async function collectRepositoryEvidence(options: {
-  workspace: string;
   baseline: Map<string, RepositoryFile>;
   env: Record<string, string>;
   checks: CommandCheck[];
   artifacts: Artifact[];
-  final?: Map<string, RepositoryFile>;
+  final: Map<string, RepositoryFile>;
 }): Promise<FinalObservation> {
-  const final = options.final ?? (await snapshotRepository(options.workspace));
+  const { final } = options;
   const changedFiles = [...new Set([...options.baseline.keys(), ...final.keys()])]
     .filter((path) => {
       const before = options.baseline.get(path),

@@ -31,7 +31,6 @@ const relativeFile = z
 export const taskSchema = z
   .object({
     id: identifier,
-    title: z.string().min(1).optional(),
     version: z.string().min(1),
     repository: z
       .object({ revision: z.string().regex(/^[a-f0-9]{40}$/, 'Pin a complete Git revision') })

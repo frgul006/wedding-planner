@@ -21,8 +21,7 @@ const task: Task = {
 const options = {
   id: 'failure',
   task,
-  runtimeMs: 100,
-  maxTokens: 10,
+  limits: { runtimeMs: 100, maxTokens: 10, maxTurns: 100 },
   maxEstimatedCostUsd: 0.1,
   expectedModel: { provider: 'test', id: 'test', thinkingLevel: 'low' },
   manifest: {},
@@ -111,7 +110,7 @@ test('resolved per-trial limits reach the agent and remain in evidence and manif
   const limitHit = { kind: 'maxTurns' as const, threshold: 3, observed: 3 };
   const saved = new Map<string, unknown>();
   const result = await runTrial(
-    { ...options, task: { ...task, limits: { maxTurns: 7 } }, maxTurns: 3 },
+    { ...options, task: { ...task, limits: { maxTurns: 7 } }, limits },
     {
       environment: {
         async prepare() {
@@ -120,9 +119,7 @@ test('resolved per-trial limits reach the agent and remain in evidence and manif
       },
       agent: {
         async run(request) {
-          assert.equal(request.runtimeMs, limits.runtimeMs);
-          assert.equal(request.maxTokens, limits.maxTokens);
-          assert.equal(request.maxTurns, limits.maxTurns);
+          assert.deepEqual(request.limits, limits);
           return { ...completed(), status: 'budget_exceeded', limits, limitUsage, limitHit };
         },
       },

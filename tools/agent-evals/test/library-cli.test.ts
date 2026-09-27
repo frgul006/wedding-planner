@@ -148,6 +148,13 @@ test('library preview reads the selected profile and per-trial limits without na
     assert.equal(plan.runtimeMs, 4_000);
     assert.equal(plan.maxTokens, 1_000);
     assert.equal(plan.noCalls, true);
+    const codeOnly = await context.invoke(['run', '--no-judge', '--dry-run', '--json']);
+    assert.equal(codeOnly.code, 0, codeOnly.stderr);
+    const codePlan = JSON.parse(codeOnly.stdout);
+    assert.equal(codePlan.judge, null);
+    assert.deepEqual(codePlan.graders, ['validation-after-final-edit']);
+    for (const field of ['revision', 'diagnosisScope', 'budgetUsd'])
+      assert.equal(Object.hasOwn(codePlan, field), false, field);
 
     delete context.profile.pi.model;
     delete context.profile.pi.endpoint;
@@ -219,6 +226,11 @@ test('library run retains a preparation failure and returns a nonzero execution 
     assert.equal(trial.trace.complete, false);
     const gradings = await context.store.listGradings(trial.id);
     assert.equal(gradings[0]!.rollups[0]!.verdict, 'unknown');
+    assert.equal(summary.trials[0].gradings[0].trialId, trial.id);
+    assert.deepEqual(summary.trials[0].gradings[0].usage, []);
+    const shown = await context.invoke(['show', summary.id, '--json', '--store', 'saved']);
+    assert.equal(shown.code, 0, shown.stderr);
+    assert.deepEqual(JSON.parse(shown.stdout).trials[0].gradings, summary.trials[0].gradings);
   } finally {
     await context.dispose();
   }
@@ -284,6 +296,9 @@ test('library regrade distinguishes behavioral failure from preparation errors',
       const summary = JSON.parse(result.stdout);
       assert.equal(summary[0].executionFailed, executionFailed);
       assert.equal(summary[0].rollups[0].verdict, verdict);
+      const shown = await context.invoke(['show', 'saved-run', '--json', '--store', 'saved']);
+      assert.equal(shown.code, 0, shown.stderr);
+      assert.deepEqual(JSON.parse(shown.stdout).trials[0].gradings, summary);
       assert.equal((await context.store.listGradings('saved-trial')).length, 1);
       assert.equal(await readFile(trialPath, 'utf8'), original);
     } finally {

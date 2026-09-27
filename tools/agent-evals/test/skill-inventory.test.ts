@@ -64,8 +64,7 @@ test('application records adapter-discovered skills without decoding a provider 
     {
       id: 'inventory',
       task,
-      runtimeMs: 10,
-      maxTokens: 100,
+      limits: { runtimeMs: 10, maxTokens: 100, maxTurns: 100 },
       maxEstimatedCostUsd: 1,
       expectedModel: { provider: 'test', id: 'test', thinkingLevel: 'low' },
       manifest: {},

@@ -98,6 +98,7 @@ test('catalog tasks require repository pins and the supported acceptance path, w
     { ...task, fixture: 'wedding-copy' },
     { ...task, rubric: 'task-clarity' },
     { ...task, graders: ['browser-behavior'] },
+    { ...task, title: 'Unused catalog label' },
   ])
     assert.equal(taskSchema.safeParse(invalid).success, false);
 });

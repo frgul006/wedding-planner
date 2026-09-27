@@ -11,7 +11,7 @@ import {
 } from '../src/adapters/pi-rpc.js';
 import type { AgentRunRequest } from '../src/domain/types.js';
 import { endpointHash } from '../src/adapters/pi-endpoint-selection.ts';
-import { DEFAULT_TRIAL_LIMITS } from '../src/domain/trial-limits.ts';
+import { DEFAULT_TRIAL_LIMITS, type TrialLimits } from '../src/domain/trial-limits.ts';
 
 test('strict LF framing preserves Unicode separators, CRLF, and split UTF-8', () => {
   const received: Record<string, unknown>[] = [];
@@ -124,7 +124,7 @@ if (scenario === 'startup-hang') { process.on('SIGTERM', () => {}); setInterval(
 
 async function trial(
   scenario: string,
-  overrides: Partial<AgentRunRequest> = {},
+  overrides: Omit<Partial<AgentRunRequest>, 'limits'> & { limits?: Partial<TrialLimits> } = {},
   runnerOptions: { requiredExtensionCommand?: string; expectedEndpointHash?: string } = {},
 ) {
   const directory = await mkdtemp(join(tmpdir(), 'pi-rpc-test-'));
@@ -135,12 +135,11 @@ async function trial(
       cwd: directory,
       env: { PATH: process.env.PATH ?? '', EVAL_RPC_SCENARIO: scenario },
       executable: executable,
-      runtimeMs: 3000,
-      maxTokens: 1000,
       maxEstimatedCostUsd: 1,
       prompt: 'Change a heading',
       expectedModel: { provider: 'openai-codex', id: 'test-model', thinkingLevel: 'xhigh' },
       ...overrides,
+      limits: { ...DEFAULT_TRIAL_LIMITS, runtimeMs: 3000, maxTokens: 1000, ...overrides.limits },
     });
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -237,7 +236,7 @@ test('observed token budget and runtime exhaustion remain distinct', async () =>
     budget.events.find((event) => event.data.type === 'stop_requested')?.actor,
     'evaluator',
   );
-  const timeout = await trial('hang', { runtimeMs: 100 });
+  const timeout = await trial('hang', { limits: { runtimeMs: 100 } });
   assert.equal(timeout.status, 'timeout');
   assert.equal(timeout.usage.estimatedCostUsd, null);
 });
@@ -259,12 +258,12 @@ test('subscription dollar exemption preserves token limits and runtime deadlines
   const budget = await trial('budget', { maxEstimatedCostUsd: null });
   assert.equal(budget.status, 'budget_exceeded');
   assert.match(budget.error ?? '', /token budget/);
-  const timeout = await trial('hang', { maxEstimatedCostUsd: null, runtimeMs: 100 });
+  const timeout = await trial('hang', { maxEstimatedCostUsd: null, limits: { runtimeMs: 100 } });
   assert.equal(timeout.status, 'timeout');
 });
 
 test('cached reads and writes count at one tenth while raw usage is retained', async () => {
-  const allowed = await trial('cached', { maxTokens: 118, maxEstimatedCostUsd: null });
+  const allowed = await trial('cached', { limits: { maxTokens: 118 }, maxEstimatedCostUsd: null });
   assert.equal(allowed.status, 'completed');
   assert.equal(allowed.usage.inputTokens, 10);
   assert.equal(allowed.usage.outputTokens, 5);
@@ -272,7 +271,7 @@ test('cached reads and writes count at one tenth while raw usage is retained', a
   assert.equal(allowed.usage.cacheWriteTokens, 20);
   assert.equal(allowed.limitUsage?.weightedTokens, 117);
   assert.equal(allowed.limitUsage?.cachedTokenWeight, 0.1);
-  const capped = await trial('cached', { maxTokens: 117, maxEstimatedCostUsd: null });
+  const capped = await trial('cached', { limits: { maxTokens: 117 }, maxEstimatedCostUsd: null });
   assert.equal(capped.status, 'budget_exceeded');
   assert.deepEqual(capped.limitHit, { kind: 'maxTokens', threshold: 117, observed: 117 });
   assert.equal(capped.usage.cacheReadTokens, 1000);
@@ -280,8 +279,7 @@ test('cached reads and writes count at one tenth while raw usage is retained', a
 
 test('a completed native turn includes multiple tools and deltas; the first cap hit remains stable', async () => {
   const result = await trial('multi-turn', {
-    maxTurns: 1,
-    maxTokens: 30,
+    limits: { maxTurns: 1, maxTokens: 30 },
     maxEstimatedCostUsd: null,
   });
   assert.equal(result.status, 'budget_exceeded');
@@ -297,25 +295,34 @@ test('a completed native turn includes multiple tools and deltas; the first cap 
 });
 
 test('hitting the completed-turn boundary stops even when that response would naturally finish', async () => {
-  const capped = await trial('pass', { maxTurns: 1, maxEstimatedCostUsd: null });
+  const capped = await trial('pass', { limits: { maxTurns: 1 }, maxEstimatedCostUsd: null });
   assert.equal(capped.status, 'budget_exceeded');
   assert.equal(capped.limitHit?.kind, 'maxTurns');
   assert.equal(capped.limitUsage?.turns, 1);
-  const below = await trial('pass', { maxTurns: 2, maxEstimatedCostUsd: null });
+  const below = await trial('pass', { limits: { maxTurns: 2 }, maxEstimatedCostUsd: null });
   assert.equal(below.status, 'completed');
   assert.equal(below.limitUsage?.turns, 1);
   assert.equal(below.limitUsage?.turnsStarted, 1);
   assert.equal(below.limitHit, undefined);
-  const retried = await trial('recovered-retry', { maxTurns: 3, maxEstimatedCostUsd: null });
+  const retried = await trial('recovered-retry', {
+    limits: { maxTurns: 3 },
+    maxEstimatedCostUsd: null,
+  });
   assert.equal(retried.status, 'completed');
   assert.equal(retried.limitUsage?.turns, 2);
-  const tokenFirst = await trial('pass', { maxTokens: 15, maxTurns: 1, maxEstimatedCostUsd: null });
+  const tokenFirst = await trial('pass', {
+    limits: { maxTokens: 15, maxTurns: 1 },
+    maxEstimatedCostUsd: null,
+  });
   assert.equal(tokenFirst.limitHit?.kind, 'maxTokens');
   assert.equal(tokenFirst.events.filter((event) => event.data.type === 'stop_requested').length, 1);
 });
 
 test('late authoritative session usage exceeding a token cap cannot silently pass after settlement', async () => {
-  const result = await trial('late-totals', { maxTokens: 1900, maxEstimatedCostUsd: null });
+  const result = await trial('late-totals', {
+    limits: { maxTokens: 1900 },
+    maxEstimatedCostUsd: null,
+  });
   assert.equal(result.status, 'budget_exceeded');
   assert.equal(result.limitUsage?.weightedTokens, 1910);
   assert.deepEqual(result.limitHit, { kind: 'maxTokens', threshold: 1900, observed: 1910 });
@@ -336,8 +343,7 @@ test('late authoritative session usage exceeding a token cap cannot silently pas
 test('settled execution runtime excludes delayed accounting and shutdown wall time', async () => {
   for (const scenario of ['delayed-stats', 'delayed-totals']) {
     const result = await trial(scenario, {
-      runtimeMs: 1000,
-      maxTokens: 1900,
+      limits: { runtimeMs: 1000, maxTokens: 1900 },
       maxEstimatedCostUsd: null,
     });
     assert.ok(result.limitUsage!.runtimeMs < 1000);
@@ -368,8 +374,7 @@ test('settled execution runtime excludes delayed accounting and shutdown wall ti
 test('runtime stop is observable even if synchronous evidence handling delays its timer', async () => {
   let blocked = false;
   const result = await trial('synchronous-settle', {
-    runtimeMs: 1000,
-    maxTurns: 1,
+    limits: { runtimeMs: 1000, maxTurns: 1 },
     maxEstimatedCostUsd: null,
     onEvent(event) {
       if (event.data.type === 'message_end') {
@@ -388,9 +393,7 @@ test('runtime stop is observable even if synchronous evidence handling delays it
   assert.equal(result.events.filter((event) => event.data.type === 'stop_requested').length, 1);
 });
 
-test('omitted turn caps inherit the high default and invalid caps fail before starting Pi', async () => {
-  const result = await trial('pass');
-  assert.equal(result.limits?.maxTurns, DEFAULT_TRIAL_LIMITS.maxTurns);
+test('invalid resolved caps fail before starting Pi', async () => {
   for (const override of [
     { maxTurns: 0 },
     { maxTurns: 1.5 },
@@ -401,7 +404,7 @@ test('omitted turn caps inherit the high default and invalid caps fail before st
     let events = 0;
     await assert.rejects(() =>
       trial('pass', {
-        ...override,
+        limits: override,
         onEvent() {
           events++;
         },
@@ -422,7 +425,7 @@ test('non-null dollar limits must remain finite and positive', async () => {
 
 test('runtime deadline also terminates a hung startup process that ignores SIGTERM', async () => {
   const started = Date.now();
-  const result = await trial('startup-hang', { runtimeMs: 50 });
+  const result = await trial('startup-hang', { limits: { runtimeMs: 50 } });
   assert.equal(result.status, 'timeout');
   assert.ok(Date.now() - started < 2500);
   assert.equal(result.signal, 'SIGKILL');

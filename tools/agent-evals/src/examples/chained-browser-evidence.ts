@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { normalizePiEvent } from '../adapters/pi-evidence.ts';
 import { parsePlaywrightOutput } from '../adapters/playwright-evidence.ts';
 import { canonicalJson } from '../application/serialization.ts';
-import type { RecordedTrial, TraceArtifact, TraceEvent } from '../domain/library.ts';
+import type { RecordedTrial, TraceEvent } from '../domain/library.ts';
 import type { BrowserOutput } from '../domain/types.ts';
 import { isBrowserSnapshotChain } from './browser-command-chain.ts';
 
@@ -17,7 +17,6 @@ const same = (left: unknown, right: unknown) =>
 
 export interface ChainedBrowserSnapshot {
   unknown?: string;
-  output?: TraceArtifact;
   browser?: BrowserOutput;
   /** Derived from retained native output, not an invented saved snapshot artifact. */
   snapshot?: { content: string; sha256: string; sourceRef: string };
@@ -124,11 +123,9 @@ export function extractChainedBrowserSnapshot(
   );
   if (!content || !paired || paired[2] !== content || browser.pageUrls.at(-1) !== paired[1])
     return {
-      output,
       unknown: 'The retained output lacks a final explicit snapshot paired with its own Page URL.',
     };
   return {
-    output,
     browser,
     snapshot: { content, sha256: hash(content), sourceRef: output.id },
   };

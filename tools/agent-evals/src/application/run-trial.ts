@@ -10,15 +10,13 @@ import type {
   TrialEvidence,
 } from '../domain/types.ts';
 import { availableSkills, discoveredSkills, type InventorySkill } from './skill-inventory.ts';
-import { resolveTrialLimits } from '../domain/trial-limits.ts';
+import type { TrialLimits } from '../domain/trial-limits.ts';
 
 export interface RunTrialOptions {
   signal?: AbortSignal;
   id: string;
   task: Task;
-  runtimeMs: number;
-  maxTokens: number;
-  maxTurns?: number;
+  limits: TrialLimits;
   maxEstimatedCostUsd: number | null;
   expectedModel: { provider: string; id: string; thinkingLevel: string };
   manifest: Record<string, unknown>;
@@ -27,11 +25,7 @@ export async function runTrial(
   options: RunTrialOptions,
   ports: { environment: TrialEnvironment; agent: AgentRunner; store: RunStore },
 ) {
-  const limits = resolveTrialLimits(options.task.limits, {
-    runtimeMs: options.runtimeMs,
-    maxTokens: options.maxTokens,
-    maxTurns: options.maxTurns,
-  });
+  const { limits } = options;
   const startedAt = new Date().toISOString();
   const events: EvidenceEvent[] = [];
   const recordedAgentEventIds = new Set<string>();
@@ -130,7 +124,7 @@ export async function runTrial(
       args: environment.agentArgs,
       prompt: [options.task.prompt, environment.agentContext].filter(Boolean).join('\n\n'),
       expectedModel: options.expectedModel,
-      ...limits,
+      limits,
       maxEstimatedCostUsd: options.maxEstimatedCostUsd,
       onEvent: (event) => {
         if (recordedAgentEventIds.has(event.id)) return;

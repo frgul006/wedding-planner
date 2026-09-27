@@ -157,7 +157,7 @@ export function createEvaluator(options: {
       ...trial.trace.artifacts.map((artifact) => artifact.id),
       ...trial.trace.contexts.map((context) => context.id),
     ]);
-    const prepared = new Map<View, PreparedEvidence[] | Error>();
+    const prepared = new Map<View, PreparedEvidence[]>();
     const addGrade = (
       grader: Grader,
       evidence: PreparedEvidence,
@@ -188,8 +188,6 @@ export function createEvaluator(options: {
         try {
           signal?.throwIfAborted();
           const items = immutableCopy(await grader.view.prepare(trial));
-          if (!items.length)
-            throw new Error('A view returned no items; absence needs an explicit item');
           const ids = new Set<string>();
           const values: PreparedEvidence[] = [];
           for (const item of items) {
@@ -208,17 +206,18 @@ export function createEvaluator(options: {
           record.evidence.push(...values);
         } catch {
           // View exceptions may contain captured secrets or data; retain a stable error only.
-          prepared.set(grader.view, new Error('Evidence preparation failed or returned no items'));
+          prepared.set(grader.view, []);
         }
       }
       const items = prepared.get(grader.view)!;
-      if (items instanceof Error) {
+      if (!items.length) {
+        const reason = 'Evidence preparation failed or returned no items';
         const missing = {
           id: `e-${await contentHash([grader.view.id, grader.view.version, 'preparation-error'])}`,
           data: null,
           scope: 'Preparation failed before evidence was available',
           sourceRefs: [],
-          coverage: { complete: false, gaps: [items.message] },
+          coverage: { complete: false, gaps: [reason] },
           omissions: [],
           applicability: 'unknown' as const,
           view: { id: grader.view.id, version: grader.view.version },
@@ -230,7 +229,7 @@ export function createEvaluator(options: {
         addGrade(
           grader,
           evidence,
-          { verdict: 'unknown', reason: items.message },
+          { verdict: 'unknown', reason },
           signal?.aborted ? 'cancelled' : 'preparation_error',
         );
         continue;

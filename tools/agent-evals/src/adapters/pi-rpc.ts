@@ -278,11 +278,7 @@ export class PiRpcRunner implements AgentRunner {
   async run(request: AgentRunRequest): Promise<AgentResult> {
     if (request.env.OPENAI_API_KEY)
       throw new Error('Grader OPENAI_API_KEY must not enter the Pi process environment');
-    const limits = resolveTrialLimits({
-      runtimeMs: request.runtimeMs,
-      maxTokens: request.maxTokens,
-      maxTurns: request.maxTurns,
-    });
+    const limits = resolveTrialLimits(request.limits);
     if (
       request.maxEstimatedCostUsd !== null &&
       (!Number.isFinite(request.maxEstimatedCostUsd) || request.maxEstimatedCostUsd <= 0)
@@ -487,7 +483,6 @@ export class PiRpcRunner implements AgentRunner {
         type: 'pi_started',
         executable: request.executable ?? 'pi',
         args: ['--mode', 'rpc', '--no-session', ...(request.args ?? [])],
-        ...limits,
         limits,
         cachedTokenWeight: CACHED_TOKEN_WEIGHT,
         turnDefinition:

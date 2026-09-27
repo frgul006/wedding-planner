@@ -49,8 +49,11 @@ test('retained source and patch include ignored additions, deletions, nested gen
       ],
       env,
     );
+    const final = await snapshotRepository(workspace);
+    // Acceptance or later cleanup must not change the already captured outcome.
+    await writeFile(join(workspace, 'target.tsx'), 'later filesystem mutation\n');
     const result = await collectRepositoryEvidence({
-      workspace,
+      final,
       baseline,
       env,
       checks: [],
@@ -64,6 +67,11 @@ test('retained source and patch include ignored additions, deletions, nested gen
       'target.tsx',
     ]);
     assert.match(result.patch!.content, /After/);
+    assert.doesNotMatch(result.patch!.content, /later filesystem mutation/);
+    assert.equal(
+      result.artifacts.find((item) => item.path === 'target.tsx')!.content,
+      'export const label = "After";\n',
+    );
     assert.match(result.patch!.content, /retain deleted content/);
     assert.match(result.patch!.content, /unrelated = true/);
     assert.match(result.patch!.content, /nested source/);

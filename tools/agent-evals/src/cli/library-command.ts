@@ -163,6 +163,14 @@ export async function libraryCommand(
   const directory = parsed.values.store
     ? path.resolve(context.callerCwd, parsed.values.store)
     : path.join(context.repo, 'evals/runs/library');
+  const gradingSummary = (record: GradingRecord) => ({
+    id: record.id,
+    trialId: record.trialId,
+    executionFailed: gradingFailed(record),
+    rollups: record.rollups,
+    report: path.join(directory, 'gradings', record.id, 'report.md'),
+    usage: record.requests.map((entry) => entry.response?.usage ?? entry.observedUsage ?? null),
+  });
   const store = fileStore(directory);
   if (action === 'show') {
     const run = await store.loadRun(reference!);
@@ -176,14 +184,7 @@ export async function libraryCommand(
       id: trial.id,
       status: trial.status,
       outcome: trial.outcome,
-      gradings: gradings.map((grading) => ({
-        id: grading.id,
-        rollups: grading.rollups,
-        report: path.join(directory, 'gradings', grading.id, 'report.md'),
-        usage: grading.requests.map(
-          (entry) => entry.response?.usage ?? entry.observedUsage ?? null,
-        ),
-      })),
+      gradings: gradings.map(gradingSummary),
     }));
     print({ run, trials: summaries });
     return 0;
@@ -214,9 +215,7 @@ export async function libraryCommand(
           }
         : {}),
       judge: parsed.values['no-judge'] ? null : 'jev-1.13.0',
-      revision,
-      diagnosisScope,
-      budgetUsd,
+      ...(parsed.values['no-judge'] ? {} : { revision, diagnosisScope, budgetUsd }),
       graders: graders.map((grader) => grader.id),
       store: directory,
       noCalls: true,
@@ -302,12 +301,7 @@ export async function libraryCommand(
       const summaries = trials.map(({ id, status, gradings }) => ({
         id,
         status,
-        gradings: gradings.map((record) => ({
-          id: record.id,
-          executionFailed: gradingFailed(record),
-          rollups: record.rollups,
-          report: path.join(directory, 'gradings', record.id, 'report.md'),
-        })),
+        gradings: gradings.map(gradingSummary),
       }));
       print(
         { ...run, executionFailed: failed, trials: summaries },
@@ -316,15 +310,7 @@ export async function libraryCommand(
       return failed ? 2 : 0;
     } else {
       const records = await evaluator.regrade(reference!, { graders, signal: context.signal });
-      const summary = records.map((record) => ({
-        id: record.id,
-        trialId: record.trialId,
-        executionFailed: gradingFailed(record),
-        rollups: record.rollups,
-        report: path.join(directory, 'gradings', record.id, 'report.md'),
-        usage: record.requests.map((entry) => entry.response?.usage ?? entry.observedUsage ?? null),
-      }));
-      print(summary);
+      print(records.map(gradingSummary));
       return records.some(gradingFailed) ? 2 : 0;
     }
   } finally {

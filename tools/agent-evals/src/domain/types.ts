@@ -150,9 +150,7 @@ export interface AgentRunRequest {
   cwd: string;
   env: Record<string, string>;
   prompt: string;
-  runtimeMs: number;
-  maxTokens: number;
-  maxTurns?: number;
+  limits: TrialLimits;
   /** Null disables dollar admission/abort controls for subscription-funded agents. */
   maxEstimatedCostUsd: number | null;
   executable?: string;

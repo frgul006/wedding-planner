@@ -85,11 +85,7 @@ test('each Pi trial resolves independent limits before environment preparation a
       },
       agent: {
         async run(request) {
-          dispatched.push({
-            runtimeMs: request.runtimeMs,
-            maxTurns: request.maxTurns!,
-            maxTokens: request.maxTokens,
-          });
+          dispatched.push(request.limits);
           return {
             status: 'completed',
             startedAt: '',
