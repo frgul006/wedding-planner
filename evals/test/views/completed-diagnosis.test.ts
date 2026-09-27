@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
+import type { JudgmentJob } from 'agent-evals';
 import type { EvidenceEvent, TrialEvidence } from 'agent-evals/pi';
 import { recordedTrialFromEvidence } from 'agent-evals/pi';
+import { jevJudge } from 'agent-evals/jev';
+import { falsifiableHypothesis, relevantProbe } from '../../views/diagnosis/index.ts';
 import {
   completedDiagnosis,
   prepareCompletedDiagnosis,
@@ -10,6 +13,7 @@ import {
 
 function recording(
   testOutput = 'Expected pending, received idle. Test failed before retry assertion.',
+  intermediateOutputs: string[] = [],
 ) {
   const eventData: Array<{
     actor?: EvidenceEvent['actor'];
@@ -120,6 +124,28 @@ function recording(
       },
     },
   ];
+  eventData.splice(
+    9,
+    0,
+    ...intermediateOutputs.flatMap((output, index) => [
+      {
+        data: {
+          type: 'tool_execution_start',
+          toolCallId: `read-${index}`,
+          toolName: 'read',
+          args: { path: `src/inspection-${index}.tsx` },
+        },
+      },
+      {
+        data: {
+          type: 'tool_execution_end',
+          toolCallId: `read-${index}`,
+          isError: false,
+          result: { content: [{ type: 'text', text: output }] },
+        },
+      },
+    ]),
+  );
   const events: EvidenceEvent[] = eventData.map((value, index) => ({
     id: `e${index + 1}`,
     sequence: index + 1,
@@ -178,11 +204,16 @@ test('completed-attempt view preserves first failed probe and test source while 
   const trial = recording();
   const original = JSON.stringify(trial);
   const [item] = prepareCompletedDiagnosis(trial);
-  assert.equal(completedDiagnosis.version, 1);
+  assert.equal(completedDiagnosis.version, 2);
   assert.equal(item.coverage.complete, true, item.coverage.gaps.join('\n'));
   assert.equal(item.data.probes.length, 2);
   assert.equal(item.data.probes[0].args.content, 'assert(retry.enabled)');
+  assert.equal(item.data.probes[0].result?.outputOmitted, true);
+  assert.ok(
+    item.data.probes[0].resultRef && item.sourceRefs.includes(item.data.probes[0].resultRef),
+  );
   assert.equal(item.data.probes[1].result?.success, false);
+  assert.equal(item.data.selectedTestCallRef, item.data.probes[1].callRef);
   assert.equal(item.data.probes[1].result?.textLines, undefined);
   assert.match(item.data.probes[1].result!.text, /before retry assertion/);
   assert.equal(item.data.conversation.length, 1);
@@ -284,5 +315,62 @@ test('line dictionaries preserve repeated failed output byte-for-byte including 
   assert.equal(Buffer.byteLength(reconstructed), Buffer.byteLength(output));
   assert.match(result.text, /join textLines.dictionary entries/);
   assert.match(item.omissions.join(' '), /No selected output is dropped/);
+  assert.equal(JSON.stringify(trial), original);
+});
+
+test('large intermediate reads retain action provenance while a failed test prepares for Jev', async () => {
+  const failedOutput = 'Expected retry enabled, received disabled.\n'.repeat(100);
+  const trial = recording(
+    failedOutput,
+    Array.from({ length: 5 }, (_, index) => `Source inspection ${index}: ${'x'.repeat(12_000)}`),
+  );
+  const original = JSON.stringify(trial);
+  const [item] = prepareCompletedDiagnosis(trial);
+  assert.equal(item.coverage.complete, true, item.coverage.gaps.join('\n'));
+  assert.equal(item.data.probes.length, 7);
+  assert.equal(item.data.probes[0].args.content, 'assert(retry.enabled)');
+  for (const intermediate of item.data.probes.slice(1, -1)) {
+    assert.equal(intermediate.result?.outputOmitted, true);
+    assert.equal(intermediate.result?.success, true);
+    assert.ok(intermediate.resultRef && item.sourceRefs.includes(intermediate.resultRef));
+  }
+  const final = item.data.probes.at(-1)!;
+  assert.equal(item.data.selectedTestCallRef, final.callRef);
+  assert.equal(final.result?.success, false);
+  const restored = final.result?.textLines
+    ? final.result.textLines.order
+        .map((index) => final.result!.textLines!.dictionary[index])
+        .join('\n')
+    : final.result?.text;
+  assert.equal(restored, failedOutput);
+  assert.equal(
+    final.result?.textLines?.sha256,
+    createHash('sha256').update(failedOutput).digest('hex'),
+  );
+  assert.match(item.omissions.join(' '), /intermediate tool result text.*omitted/i);
+
+  const evidence = {
+    ...item,
+    id: 'synthetic-first-completed-attempt',
+    view: { id: completedDiagnosis.id, version: completedDiagnosis.version },
+    serializationVersion: 'canonical-json-v1' as const,
+    contentHash: 'offline-test-evidence',
+  };
+  const jobs: JudgmentJob[] = [falsifiableHypothesis, relevantProbe].map((grader, index) => ({
+    id: `job-${index}`,
+    grader: { id: grader.id, version: grader.version },
+    evidence,
+    question: grader.question,
+    rubric: grader.rubric,
+  }));
+  const requests = await jevJudge({
+    apiKey: 'offline-test-credential-completed-attempt',
+    maxStateChars: 30_000,
+    fetch: async () => {
+      throw new Error('Preparation must not dispatch a provider call');
+    },
+  }).prepare(jobs);
+  assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].jobIds, ['job-0', 'job-1']);
   assert.equal(JSON.stringify(trial), original);
 });

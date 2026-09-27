@@ -107,6 +107,36 @@ test('a recorded literal browser chain proves validation and cites its exact out
   );
 });
 
+test('a literal reload followed by a snapshot uses the retained native output', () => {
+  const recording = browserChainRecording({
+    command: 'playwright-cli -s=eval reload && playwright-cli -s=eval snapshot',
+  });
+  const prepared = prepareValidationHistory(recording)[0];
+  assert.equal(prepared.data.unsupportedCommands.length, 0);
+  assert.equal(checkValidationOrder(prepared).verdict, 'pass');
+  assert.equal(prepared.data.actions.at(-1)?.inlineSnapshot?.sourceRef, 'captured-browser-output');
+});
+
+test('a browser eval after a snapshot stays unknown but cannot mask unrelated checks', () => {
+  const recording = browserChainRecording({
+    command:
+      'playwright-cli -s=eval fill e26 value && playwright-cli -s=eval snapshot && playwright-cli -s=eval eval "document.title"',
+  });
+  const prepared = prepareValidationHistory(recording)[0];
+  assert.equal(
+    prepared.data.actions.filter((action) => action.kind === 'browser_snapshot').length,
+    0,
+  );
+  assert.deepEqual(prepared.data.unsupportedCommands[0]?.checkKinds, ['browser_snapshot']);
+  assert.equal(checkValidationOrder(prepared).verdict, 'unknown');
+  recording.task.metadata!.validation = {
+    ...(recording.task.metadata!.validation as Record<string, unknown>),
+    requiredChecks: ['build'],
+  };
+  recording.trace.events.push(...verify(5, 'pnpm build'));
+  assert.equal(grade(recording).verdict, 'pass');
+});
+
 test('chained verification preserves failed results, flow mismatches, final-edit ordering and gaps', () => {
   for (const options of [
     { exitCode: 1 },

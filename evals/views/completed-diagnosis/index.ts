@@ -264,7 +264,7 @@ export function prepareCompletedDiagnosis(
         object(event.source.payload).type === 'turn_end',
     );
   const prefix = boundary ? events.filter((event) => event.sequence <= boundary.sequence) : [];
-  const probes = hypothesis
+  const observedProbes = hypothesis
     ? prefix
         .filter(
           (event) =>
@@ -273,17 +273,33 @@ export function prepareCompletedDiagnosis(
             event.type === 'tool-call',
         )
         .map((call) => probe(trial, prefix, call))
-        .map((item) => {
-          // Keep the actual tool text once. Full raw attachments remain saved; only
-          // truncated excerpts require the attachment content in this narrow state.
-          if (!item.result || item.result.truncated) {
-            return item;
-          }
-          const { fullOutput: _attachment, ...result } = item.result;
-          return { ...item, result };
-        })
-        .map(compactProbeText)
     : [];
+  const probes = observedProbes.map((item) => {
+    if (!item.result) {
+      return item;
+    }
+    if (item.callRef !== attempt?.id) {
+      // The complete recording and references retain these outputs for audit. The
+      // scoped semantic input keeps every action and status. Relevance that depends
+      // on omitted output remains uncertain rather than being inferred from a ref.
+      return {
+        ...item,
+        result: {
+          success: item.result.success,
+          text: '',
+          truncated: item.result.truncated,
+          outputOmitted: true,
+        },
+      };
+    }
+    // Keep the selected test output exactly once. Truncated excerpts require the
+    // saved full attachment; other attachments duplicate the visible result text.
+    if (item.result.truncated) {
+      return compactProbeText(item);
+    }
+    const { fullOutput: _attachment, ...result } = item.result;
+    return compactProbeText({ ...item, result });
+  });
   const conversation = prefix
     .filter(
       (event) =>
@@ -322,21 +338,23 @@ export function prepareCompletedDiagnosis(
           : trial.task.prompt,
         extraction: 'explicit_episode',
         hypothesis: observedHypothesis,
+        selectedTestCallRef: boundary ? (attempt?.id ?? null) : null,
         conversation,
         priorResult: null,
         probes,
       },
-      scope: `Initial hypothesis and every tool through first literal test's native turn-end (${boundary?.id ?? 'unavailable'}); continuity audited from native start. This is not a judgment of the whole trial or eventual repair.`,
+      scope: `Initial hypothesis, every tool call's arguments/status, and selected literal test output through native turn-end (${boundary?.id ?? 'unavailable'}); selected test call ${boundary ? attempt?.id : 'unavailable'}. Continuity audited from native start. This is not a judgment of the whole trial or eventual repair.`,
       sourceRefs: unique([
         ...(hypothesis ? [hypothesis.id] : []),
         ...conversation.map((item) => item.sourceRef),
-        ...probes.flatMap(probeRefs),
+        ...observedProbes.flatMap(probeRefs),
         ...earlier.map((event) => event.id),
         ...(boundary ? [boundary.id] : []),
       ]),
       coverage: { complete: gaps.length === 0, gaps },
       omissions: [
         `${earlier.length} earlier tool event refs are in sourceRefs; text omitted, relevance unassessed.`,
+        `Intermediate tool result text is omitted from semantic input for ${observedProbes.filter((item) => item.callRef !== attempt?.id && item.result).length} results; their call arguments, status, result refs and any full-output attachment refs remain auditable in the recording. Their relevance is unassessed where output matters; use unknown when omissions prevent a decision. Selected test output is retained exactly.`,
         `Later activity is excluded, including any later contradictions or repairs; excluded visible/tool refs: ${excluded.map((event) => event.id).join(', ') || '(none)'}.`,
         `The parent trial remains ${trial.status}, complete=${trial.trace.complete}; parent gaps retained: ${JSON.stringify(trial.trace.gaps)}.`,
         `${trial.trace.contexts.length} contexts audited for coverage only; text omitted from semantic grading, identities in trial.trace.contexts.`,
@@ -349,6 +367,6 @@ export function prepareCompletedDiagnosis(
 
 export const completedDiagnosis: View<DiagnosticEvidence> = {
   id: 'completedDiagnosis',
-  version: 1,
+  version: 2,
   prepare: prepareCompletedDiagnosis,
 };

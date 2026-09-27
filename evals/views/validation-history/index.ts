@@ -341,7 +341,7 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
 
 export const validationHistory: View<ValidationEvidence> = {
   id: 'validationHistory',
-  version: 5,
+  version: 6,
   prepare: prepareValidationHistory,
 };
 
@@ -435,7 +435,7 @@ export function checkValidationOrder(item: PreparedItem<ValidationEvidence>): Ch
 export const finalValidation: CodeGrader<ValidationEvidence> = {
   kind: 'code',
   id: 'validation-after-final-edit',
-  version: 4,
+  version: 5,
   view: validationHistory,
   check: checkValidationOrder,
 };

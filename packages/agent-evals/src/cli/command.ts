@@ -132,6 +132,14 @@ export async function command(
     id: record.id,
     trialId: record.trialId,
     executionFailed: gradingFailed(record),
+    failures: record.grades
+      .filter((grade) => grade.status !== 'completed')
+      .map((grade) => ({
+        graderId: grade.grader.id,
+        evidenceId: grade.evidenceId,
+        status: grade.status,
+        reason: grade.reason,
+      })),
     rollups: record.rollups,
     report: path.join(directory, 'gradings', record.id, 'report.md'),
     usage: record.requests.map((entry) => entry.response?.usage ?? entry.observedUsage ?? null),

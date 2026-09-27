@@ -17,6 +17,10 @@ test('literal navigation and interactions end in one explicit snapshot', () => {
     isBrowserSnapshotChain('playwright-cli goto https://example.test&&playwright-cli snapshot'),
     true,
   );
+  assert.equal(
+    isBrowserSnapshotChain('playwright-cli -s=trial reload && playwright-cli -s=trial snapshot'),
+    true,
+  );
 });
 
 test('all session option forms can identify the same session across commands', () => {
@@ -159,6 +163,9 @@ test('browser actions have exact arity, literal targets, consistent sessions and
     'playwright-cli click e1 e2 && playwright-cli snapshot',
     'playwright-cli click e1 --force && playwright-cli snapshot',
     'playwright-cli evaluate code && playwright-cli snapshot',
+    'playwright-cli snapshot && playwright-cli eval "document.title"',
+    'playwright-cli reload extra && playwright-cli snapshot',
+    'playwright-cli reload --help && playwright-cli snapshot',
     'playwright-cli -s=one click e1 && playwright-cli -s=two snapshot',
     'playwright-cli -s=one click e1 && playwright-cli snapshot',
     'playwright-cli click e1 && playwright-cli -s=one snapshot',
@@ -265,6 +272,12 @@ test('literal verification categories preserve assignment prefixes and union mix
     classifyVerificationCommand('playwright-cli click e1 && sleep 1 && playwright-cli snapshot'),
     { checkKinds: ['browser_snapshot'] },
   );
+  assert.deepEqual(
+    classifyVerificationCommand(
+      'playwright-cli -s=trial fill e1 value && playwright-cli -s=trial snapshot && playwright-cli -s=trial eval "document.title"',
+    ),
+    { checkKinds: ['browser_snapshot'] },
+  );
   assert.equal(
     classifyVerificationCommand('echo "pnpm test && playwright-cli snapshot"'),
     undefined,
@@ -283,6 +296,8 @@ test('ambiguous grammar or an arbitrary executable cannot be narrowed to one ver
     'pnpm --filter app test',
     'playwright-cli run-code "arbitrary code"',
     'playwright-cli snapshot --config=custom.js',
+    'playwright-cli snapshot && bash -c "pnpm test"',
+    'playwright-cli snapshot && playwright-cli eval "$(pnpm test)"',
     'pnpm test || pnpm build',
   ]) {
     assert.equal(classifyVerificationCommand(command)?.checkKinds, undefined, command);

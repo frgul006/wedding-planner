@@ -168,6 +168,7 @@ test('run preserves limits and skipped graders; show ignores config and regrade 
     assert.equal(run.trialIds.length, 2);
     assert.deepEqual(run.skippedModelGraders, ['semantic']);
     assert.equal(run.trials[0].gradings[0].rollups[0].verdict, 'fail');
+    assert.deepEqual(run.trials[0].gradings[0].failures, []);
     const originalPath = path.join(context.cwd, 'saved/trials', run.trialIds[0] + '.json');
     const original = await readFile(originalPath, 'utf8');
     const saved = JSON.parse(original).value;
@@ -222,6 +223,57 @@ test('setup errors and recorded execution errors have distinct exit codes', asyn
       assert.equal(result.trials[0].status, 'budget_exceeded');
       return true;
     });
+  } finally {
+    await context.dispose();
+  }
+});
+
+test('judge preparation failures are actionable in run and show JSON', async () => {
+  const context = await setup();
+  try {
+    const index = new URL('../../src/index.ts', import.meta.url).href;
+    await context.config(
+      `import { JudgePreparationError } from ${JSON.stringify(index)};\n` +
+        config.replace(
+          "createJudge() { throw new Error('Judge factory must not run'); },",
+          `createJudge() { return {
+            id: 'offline-judge',
+            async prepare() { throw new JudgePreparationError('judge preparation unavailable'); },
+            async execute() { throw new Error('execute must not run'); },
+          }; },`,
+        ),
+    );
+
+    let failure: { code: number; stdout: string; stderr: string } | undefined;
+    try {
+      await context.invoke(['run', '--json', '--store', 'saved']);
+    } catch (error) {
+      failure = error as { code: number; stdout: string; stderr: string };
+    }
+    assert.ok(failure, 'run should exit with a grading failure');
+    assert.equal(failure.code, 2);
+    assert.equal(failure.stderr, '');
+    const run = JSON.parse(failure.stdout);
+    assert.equal(run.executionFailed, true);
+    assert.equal(run.trials[0].gradings[0].executionFailed, true);
+    assert.deepEqual(run.trials[0].gradings[0].usage, []);
+    const failures = run.trials[0].gradings[0].failures;
+    assert.ok(Array.isArray(failures));
+    assert.equal(failures.length, 1);
+    assert.match(failures[0].evidenceId, /^e-/);
+    assert.deepEqual(
+      (({ graderId, status, reason }) => ({ graderId, status, reason }))(failures[0]),
+      {
+        graderId: 'semantic',
+        status: 'preparation_error',
+        reason: 'judge preparation unavailable',
+      },
+    );
+
+    const shown = JSON.parse(
+      (await context.invoke(['show', run.id, '--store', 'saved', '--json'])).stdout,
+    );
+    assert.deepEqual(shown.trials[0].gradings[0].failures, run.trials[0].gradings[0].failures);
   } finally {
     await context.dispose();
   }

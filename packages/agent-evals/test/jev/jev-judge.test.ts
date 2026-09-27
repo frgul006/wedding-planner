@@ -251,12 +251,15 @@ test('Jev rejects oversize evidence and requests before dispatch rather than tru
 });
 
 test('Jev preparation exposes a portable safe reason for oversize evidence', async () => {
+  const [reference] = await jevJudge({ apiKey: API_KEY }).prepare([job()]);
   const judge = jevJudge({ apiKey: API_KEY, maxStateChars: 20 });
   await assert.rejects(judge.prepare([job()]), (error: unknown) => {
     assert.ok(error instanceof JudgePreparationError);
     assert.equal(
       error.message,
-      'Jev evidence or request exceeds configured character limits; no content was truncated.',
+      'Jev evidence or request exceeds configured character limits; no content was truncated. ' +
+        `State: ${canonicalJson(reference.body.state).length}/20 characters; ` +
+        `request: ${canonicalJson(reference.body).length}/48000 characters.`,
     );
     assert.equal(error.cause, undefined);
     assert.ok(!JSON.stringify(error).includes(API_KEY));

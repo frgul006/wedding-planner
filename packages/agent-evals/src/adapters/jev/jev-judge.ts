@@ -125,7 +125,9 @@ export function jevJudge(options: JevJudgeOptions): Judge {
     const serialized = safeJson(body);
     if (state.length > maxStateChars || serialized.length > maxRequestChars) {
       fail(
-        'Jev evidence or request exceeds configured character limits; no content was truncated.',
+        'Jev evidence or request exceeds configured character limits; no content was truncated. ' +
+          `State: ${state.length}/${maxStateChars} characters; ` +
+          `request: ${serialized.length}/${maxRequestChars} characters.`,
       );
     }
     const questions = Object.values(body.questions);

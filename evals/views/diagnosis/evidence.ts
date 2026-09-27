@@ -16,6 +16,7 @@ export interface ObservedProbe {
     success: boolean | 'unknown';
     text: string;
     truncated: boolean;
+    outputOmitted?: boolean;
     fullOutput?: TraceArtifact;
     textLines?: {
       format: 'line-dictionary-v1';
@@ -30,6 +31,7 @@ export interface DiagnosticEvidence {
   task: string;
   extraction: 'explicit_episode' | 'unparsed_recording';
   hypothesis: ObservedMessage | null;
+  selectedTestCallRef?: string | null;
   conversation: ObservedMessage[];
   priorResult: ObservedProbe['result'];
   probes: ObservedProbe[];

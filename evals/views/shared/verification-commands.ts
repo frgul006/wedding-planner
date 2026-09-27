@@ -243,7 +243,7 @@ export function classifyVerificationCommand(
   if (!commands) {
     return {};
   }
-  if (browserSnapshotChain(commands)) {
+  if (browserCommandChain(commands, 'classify')) {
     return { checkKinds: ['browser_snapshot'] };
   }
   const kinds = new Set<VerificationKind>();
@@ -321,20 +321,22 @@ function isHttpUrl(value: string): boolean {
 
 export function isBrowserSnapshotChain(command: string): boolean {
   const commands = literalCommands(command);
-  return commands !== undefined && browserSnapshotChain(commands);
+  return commands !== undefined && browserCommandChain(commands, 'credit');
 }
 
-function browserSnapshotChain(commands: string[][]): boolean {
-  if (commands.length < 2) {
+/** Credit requires a final snapshot; classification only bounds what a literal chain could affect. */
+function browserCommandChain(commands: string[][], mode: 'credit' | 'classify'): boolean {
+  if (mode === 'credit' && commands.length < 2) {
     return false;
   }
   let session: string | null | undefined;
+  let sawSnapshot = false;
   for (const [index, words] of commands.entries()) {
     const [executable, ...tokens] = words;
     if (executable === 'sleep') {
       const seconds = tokens[0];
       if (
-        index === commands.length - 1 ||
+        (mode === 'credit' && index === commands.length - 1) ||
         tokens.length !== 1 ||
         !/^\+?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(seconds!) ||
         !Number.isFinite(Number(seconds))
@@ -362,10 +364,11 @@ function browserSnapshotChain(commands: string[][]): boolean {
     session = commandSession;
     const action = tokens.shift();
     if (action === 'snapshot') {
-      if (index !== commands.length - 1 || tokens.length !== 0) {
+      if ((mode === 'credit' && index !== commands.length - 1) || tokens.length !== 0) {
         return false;
       }
-    } else if (index === commands.length - 1) {
+      sawSnapshot = true;
+    } else if (mode === 'credit' && index === commands.length - 1) {
       return false;
     } else if (action === 'open' || action === 'goto') {
       if (tokens.length !== 1 || !isHttpUrl(tokens[0]!)) {
@@ -385,9 +388,17 @@ function browserSnapshotChain(commands: string[][]): boolean {
       if (tokens.length !== 1 || !/^e\d+$/.test(tokens[0]!)) {
         return false;
       }
+    } else if (action === 'reload') {
+      if (tokens.length !== 0) {
+        return false;
+      }
+    } else if (mode === 'classify' && action === 'eval') {
+      if (tokens.length !== 1) {
+        return false;
+      }
     } else {
       return false;
     }
   }
-  return true;
+  return sawSnapshot;
 }
