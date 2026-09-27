@@ -8,7 +8,7 @@ Requires Node 24. The package includes compiled JavaScript, TypeScript declarati
 | ------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `agent-evals`       | Runner, View, Grader, Judge, Store contracts; evaluator; grading helpers; trial limits and evidence hashes |
 | `agent-evals/pi`    | Native Pi execution, recording, normalization, and resource/configuration helpers                          |
-| `agent-evals/jev`   | Jev categorical judgments through the TypeSafe SDK                                                         |
+| `agent-evals/jev`   | Jev Choice and Noul judgments through the TypeSafe SDK                                                     |
 | `agent-evals/files` | Append-only local records, request journals, and readable reports                                          |
 
 Core imports do not load Pi, Jev, the CLI, or consumer configuration. Adapters depend on core; the package never imports this repository's application or `evals/` files. Pi and Playwright executables are not bundled.
@@ -45,6 +45,8 @@ export default {
 
 The example imports are consumer implementations. In a checkout of this repository, see Wedding's `evals/config.ts` for a complete composition with tasks, Views, graders, and a Pi environment.
 
+A grader may provide `aggregate: { rule, combine(items) }` to combine its item grades into one trial verdict. Each item pairs a grade with the exact prepared evidence it used. The rule appears in the saved report; the default when omitted is any fail, then unknown, then pass. A callback error produces an explicit aggregation error and an unknown rollup. This lets consumers define checks such as “any passing chunk within each episode, then every episode must pass” without adding episode concepts to the library.
+
 ```bash
 agent-evals run --config ./evals/config.ts --dry-run
 agent-evals run --config ./evals/config.ts
@@ -66,7 +68,7 @@ Defaults are **30 minutes, 100 completed turns, and 1,000,000 weighted tokens pe
 
 Trials retain observable events, native source payloads, historical context, artifacts, outcomes, and capture gaps. Views declare scope, source references, omissions, applicability, and coverage. Grading records retain exact prepared evidence and versions, hashes, questions, requests, responses, errors, and usage. The filesystem store refuses overwrites; regrading appends records without changing the trial or earlier grades.
 
-The evaluator journals credential-free request bodies through the Store before dispatch. The Jev adapter batches only identical submitted evidence envelopes. It uses categorical answers with explicit criteria, without invented explanations or citations. Oversized evidence fails preparation rather than being silently truncated. Budget estimates limit admission, not provider billing. Consumers load credentials explicitly.
+The evaluator journals credential-free request bodies through the Store before dispatch. The Jev adapter batches only identical submitted evidence envelopes. `jevJudge` uses Choice for categorical answers. For a yes/no proposition, `jevNoulJudge({ apiKey, thresholds: { pass: 0.8, fail: 0.2 } })` sends a Noul question: its `pass` and `fail` rubric entries become true and false criteria, and its `unknown` entry remains uncertainty guidance. These thresholds are examples chosen by the consumer; values between them yield `unknown`. The saved answer metadata retains the raw Noul probability and thresholds. Noul supplies no separate confidence value. Applicability is resolved before dispatch, so Noul rejects a `not_applicable` criterion. Both adapters use the same transport, request journal, batching, cost guards, and response validation; neither invents explanations or citations. Oversized evidence fails preparation rather than being silently truncated. Budget estimates limit admission, not provider billing. Consumers load credentials explicitly.
 
 Execution status, grader errors, and behavioral verdicts are separate. Missing evidence can produce `unknown`; it does not prove failure. Reports retain considered references separately from explicitly supporting references. A successful recording or transport check does not establish judge accuracy.
 

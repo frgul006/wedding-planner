@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
 import config from '../config.ts';
-import completedAttempt from '../completed-attempt.config.ts';
+import revisedQuestion from '../revised-question.config.ts';
 import { loginRetry } from '../tasks/login-retry.ts';
 import { resolveSourceRepo } from '../environment/repository/source-repo.ts';
 
@@ -14,7 +14,7 @@ const repo = resolve(import.meta.dirname, '../..');
 test('Wedding authors the pinned task and grading expectations in ordinary config', () => {
   assert.deepEqual(config.suite.tasks, [loginRetry]);
   assert.equal(config.suite.id, 'login-retry-diagnosis');
-  assert.equal(config.budgetUsd, 0.01);
+  assert.equal(config.budgetUsd, 0.05);
   assert.equal(loginRetry.version, '2');
   assert.equal(loginRetry.metadata.acceptance, 'admin-login-retry');
   assert.deepEqual(loginRetry.metadata.validation.requiredChecks, [
@@ -33,21 +33,27 @@ test('Wedding authors the pinned task and grading expectations in ordinary confi
   assert.deepEqual(
     config.suite.graders.map(({ id, version, view }) => [id, version, view.id, view.version]),
     [
-      ['falsifiable-hypothesis', 1, 'diagnosis', 1],
-      ['relevant-probe', 1, 'diagnosis', 1],
+      ['falsifiable-hypothesis', 2, 'diagnosis', 2],
+      ['relevant-probe', 2, 'diagnosis', 2],
       ['validation-after-final-edit', 5, 'validationHistory', 6],
     ],
   );
 });
 
-test('the alternate config changes authored grading, sharing the same task and runner', () => {
-  assert.equal(completedAttempt.createRunner, config.createRunner);
-  assert.deepEqual(completedAttempt.suite.tasks, config.suite.tasks);
-  assert.equal(completedAttempt.suite.graders[0].version, 2);
-  assert.equal(completedAttempt.suite.graders[0].view.id, 'completedDiagnosis');
-  assert.equal(completedAttempt.suite.graders[1].view.id, 'completedDiagnosis');
-  assert.equal(completedAttempt.suite.graders[2], config.suite.graders[2]);
-  assert.equal(config.suite.graders[0].version, 1);
+test('the alternate config changes only the hypothesis question over the default evidence', () => {
+  assert.equal(revisedQuestion.createRunner, config.createRunner);
+  assert.equal(revisedQuestion.createJudge, config.createJudge);
+  assert.deepEqual(revisedQuestion.suite.tasks, config.suite.tasks);
+  assert.equal(revisedQuestion.suite.graders[0].version, 3);
+  assert.equal(revisedQuestion.suite.graders[0].view, config.suite.graders[0].view);
+  const revised = revisedQuestion.suite.graders[0];
+  const original = config.suite.graders[0];
+  assert.ok(revised.kind === 'model');
+  assert.ok(original.kind === 'model');
+  assert.notEqual(revised.question, original.question);
+  assert.equal(revisedQuestion.suite.graders[1], config.suite.graders[1]);
+  assert.equal(revisedQuestion.suite.graders[2], config.suite.graders[2]);
+  assert.equal(config.suite.graders[0].version, 2);
 });
 
 test('importing consumer config needs no Pi installation, environment file, or source checkout', async () => {

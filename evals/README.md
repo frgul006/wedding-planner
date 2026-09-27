@@ -2,19 +2,20 @@
 
 This directory consumes the shareable [`agent-evals` library and CLI](../packages/agent-evals/README.md). It owns Wedding's task, local environment, acceptance checks, evidence Views, and graders. It imports only public package entry points. The library provides execution/recording helpers, grading orchestration, provider adapters, and persistence.
 
-| Consumer file                                                            | Responsibility                                                                   |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| [config.ts](config.ts)                                                   | Compose the suite; lazily create the Pi runner and Jev judge                     |
-| [tasks/login-retry.ts](tasks/login-retry.ts)                             | Natural task prompt, pinned revision, starting defect, and acceptance metadata   |
-| [environment/prepare.ts](environment/prepare.ts)                         | Isolated local checkout, services, Pi resources, final observations, and cleanup |
-| [environment/isolation/](environment/isolation/)                         | Tool boundary, sandbox, and preflight checks                                     |
-| [environment/repository/](environment/repository/)                       | Source checkout, repository evidence, and acceptance checks                      |
-| [environment/runtime/](environment/runtime/)                             | Local runtime discovery, process management, and cleanup                         |
-| [views/diagnosis/index.ts](views/diagnosis/index.ts)                     | Explicit diagnostic episodes and semantic questions                              |
-| [views/completed-diagnosis/index.ts](views/completed-diagnosis/index.ts) | First completed diagnostic test attempt and prefix audit                         |
-| [views/validation-history/index.ts](views/validation-history/index.ts)   | Agent edit and validation history with final-revision grading                    |
-| [views/shared/](views/shared/)                                           | Evidence helpers and verification command parsing shared by views                |
-| [completed-attempt.config.ts](completed-attempt.config.ts)               | Scoped regrading with a revised hypothesis question                              |
+For a smaller starting point, the [greeting and file-comment examples](examples/README.md) show a Jev Noul grader and a deterministic grader without running the Wedding application.
+
+| Consumer file                                                          | Responsibility                                                                   |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| [config.ts](config.ts)                                                 | Compose the suite; lazily create the Pi runner and Jev judge                     |
+| [tasks/login-retry.ts](tasks/login-retry.ts)                           | Natural task prompt, pinned revision, starting defect, and acceptance metadata   |
+| [environment/prepare.ts](environment/prepare.ts)                       | Isolated local checkout, services, Pi resources, final observations, and cleanup |
+| [environment/isolation/](environment/isolation/)                       | Tool boundary, sandbox, and preflight checks                                     |
+| [environment/repository/](environment/repository/)                     | Source checkout, repository evidence, and acceptance checks                      |
+| [environment/runtime/](environment/runtime/)                           | Local runtime discovery, process management, and cleanup                         |
+| [views/diagnosis/index.ts](views/diagnosis/index.ts)                   | Explicit diagnostic episodes and semantic questions                              |
+| [views/validation-history/index.ts](views/validation-history/index.ts) | Agent edit and validation history with final-revision grading                    |
+| [views/shared/](views/shared/)                                         | Evidence helpers and verification command parsing shared by views                |
+| [revised-question.config.ts](revised-question.config.ts)               | Regrade with a stricter hypothesis question over the default evidence            |
 
 ## Run the example
 
@@ -54,7 +55,7 @@ The consumer selects Luna and the native catalog endpoint while preserving suppo
 
 Resource discovery uses the original checkout's actual trust decision. `EVAL_AGENT_SOURCE` selects another resource checkout. Instructions, skills, selected resources, and effective configuration are recorded with hashes; copied resources are resolved through native Pi before prompting. Trusted project-specific runtime overrides in `.pi/settings.json` are rejected rather than silently ignored. The tool surface is `read`, `bash`, `edit`, and `write`; optional extensions/packages and subagents are excluded, including automatic caveman injection. This differs from a full interactive Pi session.
 
-Jev uses pinned `jev-1.13.0`, concurrency one, a 20-second request timeout, and no SDK retries. The consumer config sets a $0.01 aggregate admission allowance per command; `--budget-usd` overrides it. Estimates are application controls, not provider-enforced spending caps. Pi subscription usage is separate.
+Jev uses pinned `jev-1.13.0`, concurrency one, a 20-second request timeout, no SDK retries, and a consumer request limit of 256. The consumer sets a $0.05 aggregate judge admission allowance per command; `--budget-usd` overrides it. This allowance is separate from trial execution limits, and its estimate is an application control, not a provider-enforced spending cap. Pi subscription usage is separate. The diagnostic View divides longer episodes into bounded evidence segments; individual evidence that cannot fit is recorded as incomplete, not dispatched as an oversized request. Request-count and aggregate admission limits still apply across a run's trials and repetitions.
 
 ## Inspect and revise evidence
 
@@ -68,23 +69,21 @@ Jev uses pinned `jev-1.13.0`, concurrency one, a 20-second request timeout, and 
 
 Historical context comes from the recording, never today's files. Source references identify audit material; they do not give Jev access to omitted content. A request journal proves preparation, not successful dispatch. Interrupted grading attempts retain their journals; completed grading records track dispatch and responses. Stores refuse overwrites and regrading preserves earlier records. Hashes detect accidental changes, not malicious rewriting. Recordings can contain private paths and instruction text.
 
-The diagnostic View selects visible hypothesis windows using a lexical heuristic, retaining subsequent conversation/tools, failed attempts, contradictions, and the preceding tool result. If no hypothesis matches, it supplies broader observable conversation rather than asserting diagnosis was absent. It does not submit hidden reasoning or all captured instruction/skill text. Complete recording coverage does not guarantee that an episode answers the question.
+The diagnostic View builds bounded episodes from the complete observable trial, retaining relevant conversation, tool actions, results, failures, and contradictions. If no hypothesis matches, it supplies broader observable conversation rather than asserting diagnosis was absent. When that unparsed conversation spans segments, lack of a local passing witness remains unknown: a statement and its test may be separated. Oversized indivisible evidence is marked incomplete and must yield unknown when it prevents a decision. The lossless recording and source references remain available for audit; hidden reasoning is not observable.
 
-Two model graders ask whether a hypothesis is falsifiable and whether an actual probe tests it. Failed tests can be relevant probes. Jev batches questions only when their full submitted evidence envelopes match, including scope, references, and coverage. Reports retain categorical answers, probabilities, confidence, and usage without invented explanations or supporting quotations. Rollup is any fail, otherwise unknown, otherwise pass, otherwise not applicable. Episodes from one trial are not independent attempts.
+Two model graders ask whether a hypothesis is falsifiable and whether an actual probe tests it. Failed tests can be relevant probes. Jev batches questions only when their full submitted evidence envelopes match, including scope, references, and coverage. Reports retain categorical answers, probabilities, confidence, and usage without invented explanations or supporting quotations. Rollup accepts any passing judgment within an evidence group and requires every group to pass for a passing trial result; unresolved groups remain unknown. Episodes from one trial are not independent attempts.
 
 The deterministic validation View requires agent-attributed validation after the final observed edit and checks the target's final fingerprint. Evaluator acceptance and agent claims cannot earn validation credit. Supported receipts include literal lint/build/test commands, direct `playwright-cli snapshot`, and literal browser chains joined with `&&` ending in an explicit snapshot. Supported chain actions are `open`, `goto`, `reload`, `fill`, `click`, and numeric `sleep`, using one session. A snapshot followed by arbitrary `eval` remains unsupported; a provably browser-only chain limits that uncertainty to the browser check. Native calls/results and retained output hashes must agree. Unsupported syntax remains visible. A later successful check on the final revision supersedes earlier completed uncertain attempts; overlapping or later uncertainty still blocks the affected check. Missing tool status remains unknown rather than a behavioral failure. A successful arbitrary shell command does not establish validation.
 
-### Regrade a scoped attempt
+### Regrade with a revised question
 
-Oversized evidence is rejected without silent truncation, with actual and configured character counts in the error. Default Jev state is limited to 18,000 characters with additional conservative byte-based context checks. The alternative consumer config demonstrates changing scope and a question through ordinary TypeScript:
+Default Jev state is limited to 18,000 characters with additional conservative byte-based context checks. The diagnostic View reserves room for its evidence envelope and questions, packing whole messages and paired tool calls/results under 17,500 characters and 24,000 UTF-8 bytes. Duplicate output is represented once. Oversized indivisible items retain source references and explicit coverage gaps; the evaluator records their grades as unknown without calling Jev. A complete segment can still establish an observable witness for the same episode. The alternate config demonstrates changing only the authored hypothesis question over the same default episode evidence:
 
 ```bash
-pnpm evals regrade RUN_ID --config evals/completed-attempt.config.ts
+pnpm evals regrade RUN_ID --config evals/revised-question.config.ts
 ```
 
-It selects the first visible hypothesis, every intervening tool call’s arguments and result status through the first literal test attempt’s completed native turn, and the selected test’s exact output. The selected call is identified explicitly. It then asks the sharper version-2 hypothesis question. The View audits continuity from native start, source payloads, paired calls/results, and recorded context fingerprints. For interrupted trials, only terminal gaps proven to occur after that boundary are waived. The parent trial's status stays unchanged, and trial-wide validation still sees its original incomplete recording.
-
-Earlier tool contents, intermediate result text, later activity including contradictions/repairs, and context text are explicitly omitted from this semantic input. The full recording and source references preserve them for inspection, but Jev cannot see that omitted content. If it is needed to interpret the selected attempt, the judgment must remain unknown. Duplicate text is removed; repeated lines can use `line-dictionary-v1`, whose ordered references reconstruct exact text including line endings. This is deterministic encoding, not a generated summary. The scoped config allows 30,000 state characters under the same context checks. It grades the selected attempt, not eventual repair. Human calibration remains outstanding.
+The alternate keeps the default task, runner, judge factory, View, and other graders. Its hypothesis grader has version 3 so the new question remains distinct in saved records. Existing grading records remain readable; regrading appends new grades without changing prior results. Human calibration remains outstanding.
 
 To revise grading, edit the consumer View/question/rubric, bump its version, and regrade the saved run. No library or adapter change is needed. New tasks similarly provide their own environment metadata and acceptance checks; the Pi adapter does not load a Wedding catalog.
 

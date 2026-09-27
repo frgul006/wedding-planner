@@ -35,8 +35,15 @@ export function renderGradingRecord(record: GradingRecord): string {
         `| ${rollup.grader} | ${rollup.verdict} | ${rollup.counts.pass} | ${rollup.counts.fail} | ${rollup.counts.unknown} | ${rollup.counts.not_applicable} |`,
     ),
     '',
-    record.rollups[0]?.rule ?? 'No graders selected.',
-    '',
+    ...(record.rollups.length
+      ? record.rollups.flatMap((rollup) => [
+          `${rollup.grader}: ${rollup.rule}`,
+          ...(rollup.status
+            ? [`Aggregation execution: ${rollup.status}. ${rollup.reason ?? ''}`]
+            : []),
+          '',
+        ])
+      : ['No graders selected.', '']),
     'These item counts describe one trial; they are not independent agent attempts.',
     '',
   ];

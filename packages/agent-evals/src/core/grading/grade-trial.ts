@@ -344,7 +344,7 @@ export function createTrialGrader(options: { store: Store; judge?: Judge }, allo
       }
     }
 
-    record.rollups = rollupGrades(record.grades);
+    record.rollups = rollupGrades(record.grades, graders, record.evidence);
     await options.store.saveGrading(record);
 
     return record;

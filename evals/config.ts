@@ -1,27 +1,15 @@
-import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { parseEnv } from 'node:util';
 import type { EvalConfig } from 'agent-evals';
-import type { JevJudgeOptions } from 'agent-evals/jev';
+import { readJevKey } from './judge-key.ts';
 import { loginRetry } from './tasks/login-retry.ts';
 import { falsifiableHypothesis, relevantProbe } from './views/diagnosis/index.ts';
 import { finalValidation } from './views/validation-history/index.ts';
 
 const sourceRepo = path.resolve(import.meta.dirname, '..');
 
-export async function createJudge(options: Pick<JevJudgeOptions, 'maxStateChars'> = {}) {
-  // Read only this credential, only when grading is requested. Never export the env file to Pi.
-  let apiKey: string | undefined;
-  try {
-    apiKey = parseEnv(await readFile(path.join(sourceRepo, '.env.local'), 'utf8')).TYPESAFE_API_KEY;
-  } catch {
-    throw new Error('Cannot read the Wedding .env.local judge credential.');
-  }
-  if (!apiKey?.trim()) {
-    throw new Error('TYPESAFE_API_KEY is missing from the Wedding .env.local.');
-  }
+export async function createJudge() {
   const { jevJudge } = await import('agent-evals/jev');
-  return jevJudge({ ...options, apiKey });
+  return jevJudge({ apiKey: await readJevKey(), maxRequests: 256 });
 }
 
 export default {
@@ -30,7 +18,7 @@ export default {
     tasks: [loginRetry],
     graders: [falsifiableHypothesis, relevantProbe, finalValidation],
   },
-  budgetUsd: 0.01,
+  budgetUsd: 0.05,
   async createRunner({ recordingsDirectory }) {
     const [{ piRunner }, { prepareTrialEnvironment }, { resolveSourceRepo }] = await Promise.all([
       import('agent-evals/pi'),

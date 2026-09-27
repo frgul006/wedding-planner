@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { RecordedTrial } from 'agent-evals';
+import { canonicalJson, type Grade, type PreparedEvidence, type RecordedTrial } from 'agent-evals';
+import { jevJudge } from 'agent-evals/jev';
 import {
   diagnosis,
+  diagnosisAggregation,
   falsifiableHypothesis,
   prepareDiagnosticEpisodes,
   relevantProbe,
@@ -32,12 +34,12 @@ test('diagnosis preserves failed probes and contradictory observations with exac
   assert.equal(items[0].data.hypothesis?.text, prediction);
   assert.equal(items[0].data.probes.length, 2);
   assert.equal(items[0].data.probes[0].result?.success, false);
-  assert.match(items[0].data.conversation[1].text, /contradicts/);
+  assert.match(items[0].data.conversation[0].text, /contradicts/);
   assert.deepEqual(items[0].sourceRefs, [
     'message-1',
-    'message-4',
     'call-2',
     'result-2',
+    'message-4',
     'call-5',
     'result-5',
   ]);
@@ -140,4 +142,215 @@ test('retained full command output resolves native excerpts without inventing mi
   result.data.outputCapture = { encoding: 'base64', kind: 'command-output' };
   assert.equal(prepareDiagnosticEpisodes(recording)[0].coverage.complete, false);
   assert.equal(grade(recording).verdict, 'unknown');
+});
+
+test('a long diagnostic episode keeps every event in bounded ordered segments', () => {
+  const events = [say(1, 'Hypothesis: if retry state is stale, then the second request fails.')];
+  for (let index = 0; index < 100; index += 1) {
+    events.push(
+      ...tool(
+        index * 2 + 2,
+        'bash',
+        { command: `test probe-${index}` },
+        { kind: 'bash', exitCode: 0 },
+        true,
+        `${index}: ${'observed '.repeat(90)}`,
+      ),
+    );
+  }
+  events.push(say(202, 'The later result contradicted the initial explanation.'));
+  const items = prepareDiagnosticEpisodes(trial(events));
+  assert.ok(items.length > 1);
+  assert.ok(items.length < 20);
+  assert.equal(
+    items.every((item) => item.coverage.complete),
+    true,
+  );
+  assert.deepEqual(
+    items.flatMap((item) => item.data.probes.map((probe) => probe.callRef)),
+    Array.from({ length: 100 }, (_, index) => `call-${index * 2 + 2}`),
+  );
+  assert.ok(
+    items.flatMap((item) => item.data.conversation).some((item) => /contradicted/.test(item.text)),
+  );
+  for (const item of items) {
+    const state = canonicalJson({
+      data: item.data,
+      scope: item.scope,
+      sourceRefs: item.sourceRefs,
+      coverage: item.coverage,
+      omissions: item.omissions,
+      applicability: item.applicability,
+      view: { id: diagnosis.id, version: diagnosis.version },
+      serializationVersion: 'canonical-json-v1',
+    });
+    assert.ok(state.length <= 17_500);
+    assert.ok(Buffer.byteLength(state) <= 24_000);
+  }
+});
+
+test('one oversized result becomes explicit unknown without discarding later complete probes', () => {
+  const events = [
+    say(1, 'Hypothesis: if retry state is stale, then the second request fails.'),
+    ...tool(2, 'bash', { command: 'read large log' }, { kind: 'bash' }, true, 'x'.repeat(25_000)),
+    ...tool(
+      4,
+      'bash',
+      { command: 'pnpm test' },
+      { kind: 'bash', exitCode: 0 },
+      true,
+      'Tests passed',
+    ),
+  ];
+  const items = prepareDiagnosticEpisodes(trial(events));
+  assert.equal(items.length, 2);
+  assert.equal(items[0].coverage.complete, false);
+  assert.match(items[0].coverage.gaps.join(' '), /exceeds the submitted evidence limit/);
+  assert.equal(items[0].data.probes[0].args.command, 'read large log');
+  assert.deepEqual(items[0].sourceRefs, ['message-1', 'call-2', 'result-2']);
+  assert.equal(items[1].coverage.complete, true);
+  assert.equal(items[1].data.probes[0].result?.text, 'Tests passed');
+});
+
+test('diagnostic aggregation seeks a witness per episode without losing errors', () => {
+  const recording = trial([
+    say(1, 'Hypothesis: if state is stale, then retry fails.'),
+    ...verify(2),
+    say(4, 'Hypothesis: if state resets, then retry succeeds.'),
+    ...verify(5),
+  ]);
+  const items = prepareDiagnosticEpisodes(recording);
+  const evidence = items.map((item): PreparedEvidence<typeof item.data> => ({
+    ...item,
+    view: { id: diagnosis.id, version: diagnosis.version },
+    serializationVersion: 'canonical-json-v1',
+    contentHash: 'test',
+  }));
+  const entry = (
+    index: number,
+    verdict: Grade['verdict'],
+    status: Grade['status'] = 'completed',
+  ) => ({
+    evidence: evidence[index],
+    grade: {
+      grader: { id: 'relevant-probe', version: 2 },
+      evidenceId: evidence[index].id,
+      consideredRefs: evidence[index].sourceRefs,
+      verdict,
+      status,
+    } as Grade,
+  });
+  assert.equal(diagnosisAggregation.combine([entry(0, 'pass'), entry(1, 'fail')]), 'fail');
+  assert.equal(diagnosisAggregation.combine([entry(0, 'pass'), entry(1, 'pass')]), 'pass');
+  assert.equal(
+    diagnosisAggregation.combine([entry(0, 'pass'), entry(1, 'unknown', 'grader_error')]),
+    'unknown',
+  );
+});
+
+test('one hundred short hypotheses remain separate and fit the consumer request allowance', async () => {
+  const events = [];
+  for (let index = 0; index < 100; index += 1) {
+    const sequence = index * 3 + 1;
+    events.push(
+      say(sequence, `Hypothesis: if retry attempt ${index} repeats, then its request is observed.`),
+      ...tool(
+        sequence + 1,
+        'bash',
+        { command: `check-retry ${index}` },
+        { kind: 'bash', exitCode: 0 },
+        true,
+        `Request ${index} observed`,
+      ),
+    );
+  }
+  const items = prepareDiagnosticEpisodes(trial(events));
+  assert.equal(items.length, 100);
+  assert.equal(new Set(items.map((item) => item.data.episodeId)).size, 100);
+  assert.equal(
+    items.every((item) => item.coverage.complete),
+    true,
+  );
+  assert.equal(items.flatMap((item) => item.data.probes).length, 100);
+  const judge = jevJudge({ apiKey: 'offline-test-placeholder', maxRequests: 256 });
+  const jobs = items.flatMap((item, index) =>
+    [falsifiableHypothesis, relevantProbe].map((grader, questionIndex) => ({
+      id: `j${index * 2 + questionIndex}`,
+      grader: { id: grader.id, version: grader.version },
+      evidence: {
+        ...item,
+        id: item.id,
+        view: { id: diagnosis.id, version: diagnosis.version },
+        serializationVersion: 'canonical-json-v1' as const,
+        contentHash: 'offline-test',
+      },
+      question: grader.question,
+      rubric: grader.rubric,
+    })),
+  );
+  const requests = await judge.prepare(jobs);
+  assert.equal(requests.length, 100);
+  assert.ok(requests.reduce((sum, request) => sum + request.reservedCostUsd, 0) < 0.05);
+});
+
+test('a preceding call that completes after the hypothesis is not labeled a prior result', () => {
+  const [call, lateResult] = tool(1, 'bash', { command: 'read state' }, { kind: 'bash' });
+  lateResult.sequence = 4;
+  const item = prepareDiagnosticEpisodes(
+    trial([
+      call,
+      say(3, 'Hypothesis: if state is stale, then retry fails.'),
+      lateResult,
+      ...verify(5),
+    ]),
+  )[0];
+  assert.equal(item.data.priorResult, null);
+  assert.equal(item.coverage.complete, false);
+  assert.match(item.coverage.gaps.join(' '), /lacks a result before hypothesis/);
+  assert.ok(item.sourceRefs.includes(call.id));
+  assert.ok(item.sourceRefs.includes(lateResult.id));
+});
+
+test('split unparsed evidence cannot produce a false whole-recording absence failure', () => {
+  const events = [
+    say(1, 'The stale state explains this. Removing its dependency should allow retry.'),
+  ];
+  for (let index = 0; index < 40; index += 1) {
+    events.push(
+      ...tool(
+        index * 2 + 2,
+        'bash',
+        { command: `inspect ${index}` },
+        { kind: 'bash' },
+        true,
+        'Observed result '.repeat(45),
+      ),
+    );
+  }
+  const items = prepareDiagnosticEpisodes(trial(events));
+  assert.ok(items.length > 1);
+  assert.equal(
+    items.every((item) => item.data.extraction === 'unparsed_recording'),
+    true,
+  );
+  assert.equal(
+    diagnosisAggregation.combine(
+      items.map((item) => ({
+        evidence: {
+          ...item,
+          view: { id: diagnosis.id, version: diagnosis.version },
+          serializationVersion: 'canonical-json-v1' as const,
+          contentHash: 'offline-test',
+        },
+        grade: {
+          grader: { id: relevantProbe.id, version: relevantProbe.version },
+          evidenceId: item.id,
+          consideredRefs: item.sourceRefs,
+          verdict: 'fail' as const,
+          status: 'completed' as const,
+        },
+      })),
+    ),
+    'unknown',
+  );
 });

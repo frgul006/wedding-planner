@@ -278,3 +278,42 @@ test('judge preparation failures are actionable in run and show JSON', async () 
     await context.dispose();
   }
 });
+
+test('aggregation failure appears in run and show summaries without an evidence ID', async () => {
+  const context = await setup();
+  try {
+    await context.config(
+      config.replace(
+        "check: () => ({verdict: 'fail'})",
+        "check: () => ({verdict: 'pass'}), aggregate: {rule: 'Authored rule', combine() { throw new Error('private content'); }}",
+      ),
+    );
+    let failure: { code: number; stdout: string; stderr: string } | undefined;
+    try {
+      await context.invoke(['run', '--code-only', '--json', '--store', 'saved']);
+    } catch (error) {
+      failure = error as { code: number; stdout: string; stderr: string };
+    }
+    assert.ok(failure);
+    assert.equal(failure.code, 2);
+    assert.equal(failure.stderr, '');
+    const run = JSON.parse(failure.stdout);
+    assert.equal(run.executionFailed, true);
+    assert.equal(run.trials[0].gradings[0].executionFailed, true);
+    assert.deepEqual(run.trials[0].gradings[0].failures, [
+      {
+        graderId: 'literal',
+        status: 'aggregation_error',
+        reason: 'Aggregation callback failed or returned an invalid verdict',
+      },
+    ]);
+    assert.equal(run.trials[0].gradings[0].rollups[0].verdict, 'unknown');
+    const shown = JSON.parse(
+      (await context.invoke(['show', run.id, '--store', 'saved', '--json'])).stdout,
+    );
+    assert.deepEqual(shown.trials[0].gradings[0].failures, run.trials[0].gradings[0].failures);
+    assert.doesNotMatch(JSON.stringify(shown), /private content/);
+  } finally {
+    await context.dispose();
+  }
+});

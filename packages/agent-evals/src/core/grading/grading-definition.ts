@@ -4,6 +4,7 @@ import type {
   Grader,
   GradingRecord,
   ModelGrader,
+  PreparedEvidence,
   Verdict,
   View,
 } from '../types.ts';
@@ -15,6 +16,7 @@ export const codeGrader = <T>(definition: Omit<CodeGrader<T>, 'kind'>): CodeGrad
   view: definition.view,
   kind: 'code',
   check: definition.check.bind(definition),
+  ...(definition.aggregate ? { aggregate: captureAggregation(definition.aggregate) } : {}),
 });
 
 export const modelGrader = <T>(definition: Omit<ModelGrader<T>, 'kind'>): ModelGrader<T> => ({
@@ -24,8 +26,30 @@ export const modelGrader = <T>(definition: Omit<ModelGrader<T>, 'kind'>): ModelG
 
 export const gradingVerdicts: readonly Verdict[] = ['pass', 'fail', 'unknown', 'not_applicable'];
 
+function captureAggregation<T>(aggregate: NonNullable<Grader<T>['aggregate']>) {
+  validateAggregation(aggregate);
+  return Object.freeze({
+    rule: aggregate.rule,
+    combine: aggregate.combine.bind(aggregate),
+  });
+}
+
+function validateAggregation(aggregate: NonNullable<Grader['aggregate']>) {
+  if (
+    typeof aggregate.rule !== 'string' ||
+    !aggregate.rule.trim() ||
+    typeof aggregate.combine !== 'function'
+  ) {
+    throw new Error('Aggregation requires a nonempty rule and combine function');
+  }
+}
+
 /** Episodes are counted within each trial; they are never treated as independent trials. */
-export function rollupGrades(grades: readonly Grade[]): GradingRecord['rollups'] {
+export function rollupGrades(
+  grades: readonly Grade[],
+  graders: readonly Grader[] = [],
+  evidence: readonly PreparedEvidence[] = [],
+): GradingRecord['rollups'] {
   return [...new Set(grades.map((grade) => grade.grader.id))].map((grader) => {
     const selected = grades.filter((grade) => grade.grader.id === grader);
     const counts = Object.fromEntries(
@@ -35,16 +59,41 @@ export function rollupGrades(grades: readonly Grade[]): GradingRecord['rollups']
       ]),
     ) as Record<Verdict, number>;
 
-    let verdict: Verdict;
-    if (counts.fail) {
-      verdict = 'fail';
-    } else if (counts.unknown) {
-      verdict = 'unknown';
-    } else if (counts.pass) {
-      verdict = 'pass';
-    } else {
-      verdict = 'not_applicable';
+    const aggregation = graders.find((entry) => entry.id === grader)?.aggregate;
+    if (aggregation) {
+      try {
+        const items = selected.map((grade) => {
+          const item = evidence.find((entry) => entry.id === grade.evidenceId);
+          if (!item) {
+            throw new Error('Missing prepared evidence');
+          }
+          return { grade, evidence: item };
+        });
+        const verdict = aggregation.combine(immutableCopy(items));
+        if (!gradingVerdicts.includes(verdict)) {
+          throw new Error('Invalid aggregation verdict');
+        }
+        return { grader, verdict, counts, rule: aggregation.rule };
+      } catch {
+        // Aggregator exceptions may contain captured secrets; report a stable execution error.
+        return {
+          grader,
+          verdict: 'unknown',
+          counts,
+          rule: aggregation.rule,
+          status: 'aggregation_error',
+          reason: 'Aggregation callback failed or returned an invalid verdict',
+        };
+      }
     }
+
+    const verdict: Verdict = counts.fail
+      ? 'fail'
+      : counts.unknown
+        ? 'unknown'
+        : counts.pass
+          ? 'pass'
+          : 'not_applicable';
 
     return {
       grader,
@@ -78,6 +127,9 @@ function validateGraders(graders: readonly Grader[]) {
     ) {
       throw new Error('Model graders require a question and pass/fail/unknown criteria');
     }
+    if (grader.aggregate) {
+      validateAggregation(grader.aggregate);
+    }
   }
 }
 
@@ -97,7 +149,12 @@ export function snapshotGraders(graders: readonly Grader[]): Grader[] {
       views.set(grader.view, view);
     }
 
-    const identity = { id: grader.id, version: grader.version, view };
+    const identity = {
+      id: grader.id,
+      version: grader.version,
+      view,
+      ...(grader.aggregate ? { aggregate: captureAggregation(grader.aggregate) } : {}),
+    };
 
     return grader.kind === 'code'
       ? Object.freeze({ ...identity, kind: 'code' as const, check: grader.check.bind(grader) })

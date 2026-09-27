@@ -5,11 +5,15 @@ export interface ObservedMessage {
   sourceRef: string;
   role: string;
   text: string;
+  sequence?: number;
+  textOmitted?: boolean;
 }
 
 export interface ObservedProbe {
   callRef: string;
   resultRef?: string;
+  sequence?: number;
+  resultSequence?: number;
   name: string;
   args: ObjectValue;
   result: {
@@ -18,27 +22,29 @@ export interface ObservedProbe {
     truncated: boolean;
     outputOmitted?: boolean;
     fullOutput?: TraceArtifact;
-    textLines?: {
-      format: 'line-dictionary-v1';
-      dictionary: string[];
-      order: number[];
-      sha256: string;
-    };
+    textParts?: { prefix: string; suffix: string; fullOutputRef: string };
   } | null;
 }
 
 export interface DiagnosticEvidence {
   task: string;
+  episodeId: string;
+  chunkIndex: number;
+  chunkCount: number;
   extraction: 'explicit_episode' | 'unparsed_recording';
   hypothesis: ObservedMessage | null;
-  selectedTestCallRef?: string | null;
   conversation: ObservedMessage[];
   priorResult: ObservedProbe['result'];
   probes: ObservedProbe[];
 }
 
 export function message(event: TraceEvent): ObservedMessage {
-  return { sourceRef: event.id, role: text(event.data.role), text: text(event.data.text) };
+  return {
+    sourceRef: event.id,
+    role: text(event.data.role),
+    text: text(event.data.text),
+    sequence: event.sequence,
+  };
 }
 
 export function probe(trial: RecordedTrial, events: TraceEvent[], call: TraceEvent): ObservedProbe {
@@ -47,6 +53,8 @@ export function probe(trial: RecordedTrial, events: TraceEvent[], call: TraceEve
   return {
     callRef: call.id,
     ...(result ? { resultRef: result.id } : {}),
+    sequence: call.sequence,
+    ...(result ? { resultSequence: result.sequence } : {}),
     name: text(call.data.name),
     args: object(call.data.args),
     result: result
@@ -67,6 +75,9 @@ export function probeGaps(probes: ObservedProbe[]): string[] {
       ? [`Truncated result for ${item.callRef}.`]
       : []),
     ...(item.result?.success === 'unknown' ? [`Unknown tool status for ${item.callRef}.`] : []),
+    ...(item.result?.outputOmitted
+      ? [`Tool output for ${item.callRef} exceeds the submitted evidence limit.`]
+      : []),
   ]);
 }
 

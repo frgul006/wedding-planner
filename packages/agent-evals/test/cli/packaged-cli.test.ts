@@ -293,11 +293,12 @@ test(
 import { createEvaluator, type EvalConfig } from 'agent-evals';
 import { fileStore } from 'agent-evals/files';
 import { piRunner } from 'agent-evals/pi';
-import { jevJudge } from 'agent-evals/jev';
+import { jevJudge, jevNoulJudge } from 'agent-evals/jev';
 
 export type Config = EvalConfig;
 export type PiOptions = Parameters<typeof piRunner>[0];
 export type JevOptions = Parameters<typeof jevJudge>[0];
+export type JevNoulOptions = Parameters<typeof jevNoulJudge>[0];
 export const evaluator = createEvaluator({ store: fileStore('.records') });
 `,
         ),
@@ -356,7 +357,7 @@ import * as pi from 'agent-evals/pi';
 import * as jev from 'agent-evals/jev';
 import * as files from 'agent-evals/files';
 
-if (!core.createEvaluator || !pi.piRunner || !jev.jevJudge || !files.fileStore) {
+if (!core.createEvaluator || !pi.piRunner || !jev.jevJudge || !jev.jevNoulJudge || !files.fileStore) {
   throw new Error('Missing public export');
 }
 `;

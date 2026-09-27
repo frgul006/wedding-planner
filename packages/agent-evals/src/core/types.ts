@@ -67,6 +67,10 @@ interface GraderBase<T> {
   id: string;
   version: Version;
   view: View<T>;
+  aggregate?: {
+    rule: string;
+    combine(items: readonly { grade: Grade; evidence: PreparedEvidence<T> }[]): Verdict;
+  };
 }
 
 export interface CodeGrader<T = unknown> extends GraderBase<T> {
@@ -82,7 +86,7 @@ export interface ModelGrader<T = unknown> extends GraderBase<T> {
 
 export type Grader<T = unknown> = CodeGrader<T> | ModelGrader<T>;
 
-export interface PreparedEvidence extends PreparedItem {
+export interface PreparedEvidence<T = unknown> extends PreparedItem<T> {
   view: { id: string; version: Version };
   serializationVersion: 'canonical-json-v1';
   contentHash: string;
@@ -149,6 +153,9 @@ export interface GradingRecord {
     verdict: Verdict;
     counts: Record<Verdict, number>;
     rule: string;
+    /** Present when the consumer's aggregation callback failed. */
+    status?: 'aggregation_error';
+    reason?: string;
   }>;
 }
 

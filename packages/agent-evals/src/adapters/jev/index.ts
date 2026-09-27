@@ -1,1 +1,7 @@
-export { JEV_MODEL, jevJudge, type JevJudgeOptions } from './jev-judge.ts';
+export {
+  JEV_MODEL,
+  jevJudge,
+  jevNoulJudge,
+  type JevJudgeOptions,
+  type JevNoulJudgeOptions,
+} from './jev-judge.ts';
