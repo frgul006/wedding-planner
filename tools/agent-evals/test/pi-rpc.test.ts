@@ -113,7 +113,8 @@ process.stdin.on('data', chunk => {
       send({ type: 'agent_end', willRetry: false });
       if(scenario==='synchronous-settle') send({type:'agent_settled'});
       else setTimeout(() => { send({ type: 'test_event_after_agent_end' }); send({ type: 'agent_settled' }); }, 30);
-    } else if(command.type==='get_session_stats' && scenario==='late-totals') send({type:'response',id:command.id,command:command.type,success:true,data:{tokens:{input:1000,output:10,cacheRead:9000,cacheWrite:0},cost:0.1}});
+    } else if(command.type==='get_session_stats' && ['delayed-stats','delayed-totals'].includes(scenario)) setTimeout(() => send({type:'response',id:command.id,command:command.type,success:true,data:scenario==='delayed-totals'?{tokens:{input:1000,output:10,cacheRead:9000,cacheWrite:0},cost:0.1}:{}}), 1100);
+    else if(command.type==='get_session_stats' && scenario==='late-totals') send({type:'response',id:command.id,command:command.type,success:true,data:{tokens:{input:1000,output:10,cacheRead:9000,cacheWrite:0},cost:0.1}});
     else send({ type: 'response', id: command.id, command: command.type, success: true, data: {} });
   }
 });
@@ -322,6 +323,46 @@ test('late authoritative session usage exceeding a token cap cannot silently pas
     result.events.find((event) => event.data.type === 'agent_settled')!.sequence <
       result.events.find((event) => event.data.type === 'stop_requested')!.sequence,
   );
+  assert.equal(
+    result.limitUsage?.runtimeMs,
+    (
+      result.events.find((event) => event.data.type === 'stop_requested')!.data.limitUsage as {
+        runtimeMs: number;
+      }
+    ).runtimeMs,
+  );
+});
+
+test('settled execution runtime excludes delayed accounting and shutdown wall time', async () => {
+  for (const scenario of ['delayed-stats', 'delayed-totals']) {
+    const result = await trial(scenario, {
+      runtimeMs: 1000,
+      maxTokens: 1900,
+      maxEstimatedCostUsd: null,
+    });
+    assert.ok(result.limitUsage!.runtimeMs < 1000);
+    const wallTime = Date.parse(result.endedAt) - Date.parse(result.startedAt);
+    assert.ok(wallTime > 1000);
+    assert.ok(wallTime - result.limitUsage!.runtimeMs >= 1000);
+    assert.ok(result.events.some((event) => event.data.command === 'get_session_stats'));
+    if (scenario === 'delayed-stats') {
+      assert.equal(result.status, 'completed');
+      assert.equal(result.limitHit, undefined);
+      assert.equal(
+        result.events.some((event) => event.data.type === 'stop_requested'),
+        false,
+      );
+    } else {
+      assert.equal(result.status, 'budget_exceeded');
+      assert.equal(result.limitUsage!.weightedTokens, 1910);
+      assert.deepEqual(result.limitHit, { kind: 'maxTokens', threshold: 1900, observed: 1910 });
+      const stop = result.events.find((event) => event.data.type === 'stop_requested')!;
+      assert.equal(
+        (stop.data.limitUsage as { runtimeMs: number }).runtimeMs,
+        result.limitUsage!.runtimeMs,
+      );
+    }
+  }
 });
 
 test('runtime stop is observable even if synchronous evidence handling delays its timer', async () => {
@@ -385,6 +426,17 @@ test('runtime deadline also terminates a hung startup process that ignores SIGTE
   assert.equal(result.status, 'timeout');
   assert.ok(Date.now() - started < 2500);
   assert.equal(result.signal, 'SIGKILL');
+  assert.equal(
+    result.limitUsage?.runtimeMs,
+    (
+      result.events.find((event) => event.data.type === 'stop_requested')!.data.limitUsage as {
+        runtimeMs: number;
+      }
+    ).runtimeMs,
+  );
+  assert.ok(
+    Date.parse(result.endedAt) - Date.parse(result.startedAt) > result.limitUsage!.runtimeMs,
+  );
 });
 
 test('configuration mismatch prevents prompting and grader key cannot enter Pi', async () => {

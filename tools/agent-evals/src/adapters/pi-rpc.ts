@@ -303,8 +303,13 @@ export class PiRpcRunner implements AgentRunner {
     let turns = 0;
     let turnsStarted = 0;
     let limitHit: AgentResult['limitHit'];
+    let executionRuntimeMs: number | undefined;
+    const finishRuntime = () => {
+      executionRuntimeMs ??= performance.now() - startedClock;
+    };
     const limitUsage = (): NonNullable<AgentResult['limitUsage']> => ({
-      runtimeMs: performance.now() - startedClock,
+      // Session accounting and process shutdown happen after the execution bound.
+      runtimeMs: executionRuntimeMs ?? performance.now() - startedClock,
       turns,
       turnsStarted,
       weightedTokens: weightedTokens(usage.value()),
@@ -342,6 +347,7 @@ export class PiRpcRunner implements AgentRunner {
       // Record that observed token/cost breach, but never replace an earlier stop.
       if (stopping || (settled && hit?.kind !== 'maxTokens' && hit?.kind !== 'maxEstimatedCostUsd'))
         return;
+      finishRuntime();
       stopping = true;
       status = next;
       error = message;
@@ -363,6 +369,7 @@ export class PiRpcRunner implements AgentRunner {
           .then(() => rpc.close());
     };
     if (request.signal?.aborted) {
+      finishRuntime();
       emit('evaluator', 'lifecycle', {
         type: 'stop_requested',
         reason: 'cancelled',
@@ -451,6 +458,7 @@ export class PiRpcRunner implements AgentRunner {
             observed: measured.estimatedCostUsd,
           });
         if (event.type === 'agent_settled') {
+          finishRuntime();
           settled = true;
           resolveDone();
         }
@@ -536,6 +544,7 @@ export class PiRpcRunner implements AgentRunner {
       if (settled) await rpc.request('get_session_stats', {}, 1500).catch(() => undefined);
     } catch (failure) {
       if (!stopping) {
+        finishRuntime();
         stopping = true;
         status = 'infrastructure_error';
         error = failure instanceof Error ? failure.message : String(failure);

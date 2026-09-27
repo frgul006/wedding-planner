@@ -52,3 +52,26 @@ Repeated independent reviews found and fixed mutable definition/storage races, l
 Final local checks passed all 368 offline tests and evaluation type/lint/format checks. Application lint and the production webpack build passed. The first pushed checkpoint also passed all GitHub CI checks including the E2E shards; the final PR checks are tracked separately on the pull request.
 
 Private native recordings and grading reports remain under ignored `evals/runs/`. Public documentation reports observations and limitations without publishing the user's complete native context.
+
+## Per-trial budgets and completed native follow-up
+
+The subsequent budget revision removes the hidden library ceilings and the former profile maxima. Defaults are now one hour of agent execution, 500 completed native turns, and 5,000,000 weighted tokens per trial. Profiles, task definitions and explicit per-run overrides can configure each field. Any reached limit requests an abort; the first cause, threshold and observed counter are retained. Cached reads and writes count at 0.1, with raw usage preserved. Task and run configuration are copied before asynchronous preparation.
+
+A fresh `pnpm evals library run --no-judge --json` completed under those defaults:
+
+- Run: `run-1790523735196-5f5a2e66-3865-495a-a95c-e5ff98658fed`
+- Trial: `trial-1790523735196-ed20e63b-78c6-4dff-9a81-8c371dbf4e0d`
+- Native agent: Luna with the same saved `xhigh` reasoning and subscription authentication.
+- Agent status: `completed`, with a complete trace and no capture gaps or limit hit.
+- Agent elapsed time: approximately 10 minutes 20 seconds, from 15:42:47 to 15:53:07 UTC.
+- Turns: 38 started and completed.
+- Raw usage: 75,141 input, 16,711 output, 1,272,320 cached input, and zero cached writes; 1,364,172 tokens total.
+- Weighted usage: **219,084 tokens**, calculated as `75,141 + 16,711 + 0.1 × 1,272,320`.
+- Independent evaluator lint, build, login-retry browser acceptance and acceptance-source-stability checks: all passed.
+- The agent's saved changes affect the login form and its regression test inside the disposable trial checkout; they do not replace the seeded fixture in this branch.
+
+The deterministic `validation-after-final-edit` grader returned `unknown` in `grading-1790524414236-9e500784-5b5f-453a-a3d8-9a90ce834ee6`. Four unsupported verification command forms prevented full coverage of that behavioral check. This conservative attribution result is separate from the successful independent acceptance checks and complete agent execution. No Jev requests were made for this follow-up.
+
+Independent budget reviews and regression tests cover field precedence, raising limits beyond the former ceilings, independent counters per trial, runtime/turn/token stopping, late-reported usage, delayed timer callbacks, configuration mutation and backward-compatible saved records. A final reporting correction freezes the agent runtime counter at settlement or the first stop; final statistics retrieval and process shutdown remain part of the overall runner timestamps, not the execution budget. This changes reporting only for the successful follow-up above, whose duration is far below the configured limit.
+
+After that correction, all **389 offline tests** and evaluation type/lint/format checks pass. Independent reviewers rechecked configuration snapshots, precedence, stopping conditions and elapsed-time reporting. The first budget commit also passed all GitHub checks, including lint/build, all five E2E shards and the regression aggregation.
