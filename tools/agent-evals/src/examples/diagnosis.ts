@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 import { normalizePiEvent } from '../adapters/pi-evidence.ts';
 import { canonicalJson } from '../application/serialization.ts';
+import { extractChainedBrowserSnapshot } from './chained-browser-evidence.ts';
+import {
+  containsVerificationInvocation,
+  verificationInvocationKinds,
+} from './browser-command-chain.ts';
 import type {
   CheckResult,
   CodeGrader,
@@ -607,6 +612,8 @@ interface ValidationAction {
   resultText: string;
   receipt: ObjectValue;
   snapshotArtifact?: TraceArtifact;
+  /** An explicit terminal snapshot inside the exact retained command output. */
+  inlineSnapshot?: { content: string; sha256: string; sourceRef: string };
   fullOutput?: TraceArtifact;
 }
 export interface ValidationEvidence {
@@ -615,6 +622,14 @@ export interface ValidationEvidence {
   finalArtifact?: TraceArtifact;
   requiredChecks: ValidationCheck[];
   actions: ValidationAction[];
+  /** Parsing limitations are separate from missing or incomplete recordings. */
+  unsupportedCommands: Array<{
+    callRef: string;
+    resultRef?: string;
+    reason: string;
+    /** Omitted when the command's possible verification categories are uncertain. */
+    checkKinds?: ValidationCheck[];
+  }>;
 }
 const hash = (value: unknown): string | undefined =>
   typeof value === 'string' && /^[a-f0-9]{64}$/.test(value) ? value : undefined;
@@ -627,15 +642,19 @@ const samePath = (actual: string, expected: string) => {
 };
 const nonVerifyingArgument =
   /^(?:-[hv]|--(?:help|version|list(?:Tests)?|watch|passWithNoTests|dry-run))(?:=|$)/i;
-function commandCheck(command: string): ValidationCheck | undefined {
+function packageValidationCommand(
+  command: string,
+): { kind: ValidationCheck; verifies: boolean } | undefined {
   if (/[^A-Za-z0-9_./:=@+%\s-]/.test(command) || /[\r\n]/.test(command)) return;
   const parts = command.trim().split(/\s+/);
   if (!['pnpm', 'npm'].includes(parts.shift() ?? '')) return;
   if (parts[0] === 'run') parts.shift();
   const name = parts.shift();
   if (!['test', 'lint', 'build'].includes(name ?? '')) return;
-  if (parts.some((part) => nonVerifyingArgument.test(part))) return;
-  return name as ValidationCheck;
+  return {
+    kind: name as ValidationCheck,
+    verifies: !parts.some((part) => nonVerifyingArgument.test(part)),
+  };
 }
 function browserAction(args: unknown): string | undefined {
   if (!Array.isArray(args) || !args.every((arg) => typeof arg === 'string')) return;
@@ -659,15 +678,22 @@ function snapshotValid(
   );
   if (!artifact)
     return { valid: false, unknown: 'Snapshot content was not retained as an artifact.' };
+  return { ...snapshotFlowValid(trial, browser, artifact.content, config), artifact };
+}
+function snapshotFlowValid(
+  trial: RecordedTrial,
+  browser: { pageUrls?: unknown; hasError?: unknown },
+  snapshotContent: string,
+  config: ObjectValue,
+): { valid: boolean; unknown?: string } {
   const localUrl = text(config.localUrl) || text(trial.outcome.localUrl);
   const urls = Array.isArray(browser.pageUrls) ? browser.pageUrls : [];
   if (!localUrl || !urls.length)
     return { valid: false, unknown: 'Expected local URL or observed snapshot URL is unavailable.' };
   try {
     const expected = new URL(text(config.flowPath) || '/', localUrl);
-    const actual = new URL(String(urls[0]));
+    const actual = new URL(String(urls.at(-1)));
     return {
-      artifact,
       valid:
         ['localhost', '127.0.0.1', '[::1]'].includes(expected.hostname) &&
         actual.origin === expected.origin &&
@@ -675,7 +701,7 @@ function snapshotValid(
         !actual.username &&
         !actual.password &&
         browser.hasError === false &&
-        (!text(config.expectedText) || artifact.content.includes(text(config.expectedText))),
+        (!text(config.expectedText) || snapshotContent.includes(text(config.expectedText))),
     };
   } catch {
     return { valid: false, unknown: 'Snapshot URL coverage is invalid.' };
@@ -695,6 +721,7 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
   const requiredChecks = unique(requested as string[]) as ValidationCheck[];
   const events = ordered(trial);
   const actions: ValidationAction[] = [];
+  const unsupportedCommands: ValidationEvidence['unsupportedCommands'] = [];
   const gaps: string[] = [];
   const refs: string[] = [];
   for (const call of events.filter(
@@ -711,9 +738,14 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
       beforeHash !== undefined && afterHash !== undefined && beforeHash !== afterHash;
     const edit = (directEdit && result?.data.success === true) || changedTarget;
     let kind: ValidationCheck | undefined;
+    const chained =
+      name === 'bash' ? extractChainedBrowserSnapshot(trial, call, result) : undefined;
+    const packageCommand = packageValidationCommand(text(args.command));
     if (receipt.kind === 'playwright-cli' && browserAction(receipt.args) === 'snapshot')
       kind = 'browser_snapshot';
-    else if (name === 'bash' && receipt.kind === 'bash') kind = commandCheck(text(args.command));
+    else if (chained) kind = 'browser_snapshot';
+    else if (name === 'bash' && receipt.kind === 'bash' && packageCommand?.verifies)
+      kind = packageCommand.kind;
     if (!result)
       gaps.push(`Unfinished agent tool ${call.id} could hide a later edit or verification.`);
     if (['edit', 'write'].includes(name) && !directEdit)
@@ -721,13 +753,20 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
     if (
       !kind &&
       name === 'bash' &&
-      /^(?:pnpm|npm|npx|bash|sh|zsh|playwright-cli)\b/.test(text(args.command).trim()) &&
-      /\b(?:test|lint|build|snapshot|vitest|jest)\b/.test(text(args.command)) &&
-      !text(args.command)
-        .split(/\s+/)
-        .some((part) => nonVerifyingArgument.test(part))
-    )
-      gaps.push(`Unsupported verification command in ${call.id}; its behavior is unobserved.`);
+      (containsVerificationInvocation(text(args.command)) ||
+        (/^(?:pnpm|npm|npx|bash|sh|zsh|playwright-cli)\b/.test(text(args.command).trim()) &&
+          /\b(?:test|lint|build|snapshot|vitest|jest)\b/.test(text(args.command)))) &&
+      packageCommand?.verifies !== false
+    ) {
+      const checkKinds = verificationInvocationKinds(text(args.command));
+      unsupportedCommands.push({
+        callRef: call.id,
+        ...(result ? { resultRef: result.id } : {}),
+        reason: 'The verification command syntax is outside the supported evidence parser.',
+        ...(checkKinds?.length ? { checkKinds } : {}),
+      });
+      refs.push(call.id, ...(result ? [result.id] : []));
+    }
     if (!kind && !edit) continue;
     refs.push(
       call.id,
@@ -750,13 +789,17 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
     };
     if (edit) actions.push({ ...base, kind: 'edit' });
     if (kind) {
-      const browser =
-        kind === 'browser_snapshot'
-          ? base.success && receipt.exitCode === 0
-            ? snapshotValid(trial, receipt, config)
-            : { valid: false }
-          : undefined;
+      let browser: { valid: boolean; unknown?: string; artifact?: TraceArtifact } | undefined;
+      if (kind === 'browser_snapshot') {
+        if (chained?.unknown) browser = { valid: false, unknown: chained.unknown };
+        else if (!base.success || receipt.exitCode !== 0) browser = { valid: false };
+        else if (!chained) browser = snapshotValid(trial, receipt, config);
+        else if (chained.snapshot && chained.browser)
+          browser = snapshotFlowValid(trial, chained.browser, chained.snapshot.content, config);
+        else browser = { valid: false, unknown: 'The explicit chained snapshot is unavailable.' };
+      }
       if (browser?.artifact) refs.push(browser.artifact.id);
+      if (chained?.output) refs.push(chained.output.id);
       actions.push({
         ...base,
         kind,
@@ -766,6 +809,7 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
               browserValid: browser.valid,
               unknown: browser.unknown,
               snapshotArtifact: browser.artifact,
+              ...(chained?.snapshot ? { inlineSnapshot: chained.snapshot } : {}),
             }
           : {}),
         ...(result?.data.truncated === true && !fullOutput(trial, result)
@@ -794,13 +838,21 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
   return [
     {
       id: 'validation-history',
-      data: { targetFile, finalHash: final?.sha256, finalArtifact: final, requiredChecks, actions },
+      data: {
+        targetFile,
+        finalHash: final?.sha256,
+        finalArtifact: final,
+        requiredChecks,
+        actions,
+        unsupportedCommands,
+      },
       scope:
-        'All observed agent edits and literal pnpm/npm test, lint, build commands or attested playwright-cli snapshots; target content hashes identify the validated revision.',
+        'All observed agent edits and literal pnpm/npm test, lint, build commands, direct snapshots and supported literal browser command chains ending in snapshot; target content hashes identify the validated revision.',
       sourceRefs: unique(refs),
       coverage: coverage(trial, gaps),
       omissions: [
-        'Evaluator checks and agent self-reports do not count as agent verification. Unsupported shell wrappers are not proof of a verification command.',
+        'Evaluator checks and agent self-reports do not count as agent verification. Unsupported command syntax is retained as an interpretation limitation, separately from recording gaps.',
+        'Verification kinds outside the task requirements are retained but do not determine this verdict. Unsupported commands with uncertain kinds can affect every required check.',
       ],
       applicability:
         config.required === true
@@ -813,7 +865,7 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
 }
 export const validationHistory: View<ValidationEvidence> = {
   id: 'validationHistory',
-  version: 2,
+  version: 4,
   prepare: prepareValidationHistory,
 };
 export function checkValidationOrder(item: PreparedItem<ValidationEvidence>): CheckResult {
@@ -821,6 +873,16 @@ export function checkValidationOrder(item: PreparedItem<ValidationEvidence>): Ch
     return { verdict: 'not_applicable', reason: 'Agent validation is not required for this task.' };
   if (item.applicability === 'unknown' || !item.coverage.complete)
     return { verdict: 'unknown', reason: 'Applicability or recording coverage is incomplete.' };
+  const relevantUnsupported = item.data.unsupportedCommands.filter(
+    (command) =>
+      !command.checkKinds?.length ||
+      command.checkKinds.some((kind) => item.data.requiredChecks.includes(kind)),
+  );
+  if (relevantUnsupported.length)
+    return {
+      verdict: 'unknown',
+      reason: `The recording is complete, but required verification command syntax could not be interpreted at ${relevantUnsupported.map((command) => command.callRef).join(', ')}.`,
+    };
   const { actions, finalHash, requiredChecks } = item.data;
   if (!hash(finalHash))
     return { verdict: 'unknown', reason: 'Final target revision is unavailable.' };
@@ -846,7 +908,12 @@ export function checkValidationOrder(item: PreparedItem<ValidationEvidence>): Ch
         ? latest
         : undefined;
     if (matching) {
-      supportingRefs.push(matching.callRef, ...(matching.resultRef ? [matching.resultRef] : []));
+      supportingRefs.push(
+        matching.callRef,
+        ...(matching.resultRef ? [matching.resultRef] : []),
+        ...(matching.inlineSnapshot ? [matching.inlineSnapshot.sourceRef] : []),
+        ...(matching.snapshotArtifact ? [matching.snapshotArtifact.id] : []),
+      );
       continue;
     }
     uncertain ||= candidates.some(
@@ -859,7 +926,10 @@ export function checkValidationOrder(item: PreparedItem<ValidationEvidence>): Ch
       verdict: 'pass',
       reason:
         'Every required agent verification succeeded after the final observed edit and matches the final target revision.',
-      supportingRefs: unique(supportingRefs),
+      supportingRefs: unique([
+        ...supportingRefs,
+        ...(item.data.finalArtifact ? [item.data.finalArtifact.id] : []),
+      ]),
     };
   return {
     verdict: uncertain ? 'unknown' : 'fail',
@@ -872,7 +942,7 @@ export function checkValidationOrder(item: PreparedItem<ValidationEvidence>): Ch
 export const finalValidation: CodeGrader<ValidationEvidence> = {
   kind: 'code',
   id: 'validation-after-final-edit',
-  version: 1,
+  version: 3,
   view: validationHistory,
   check: checkValidationOrder,
 };

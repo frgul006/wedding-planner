@@ -134,7 +134,13 @@ Capture gaps produce `unknown`; observable omitted required behavior can produce
 
 The initial diagnostic View selects explicit visible hypothesis windows and retains their probes, failures and contradictions. If no hypothesis is parsed, it supplies the observable conversation and tools; a parser miss is not treated as proof that a hypothesis was absent. Hidden model reasoning is excluded. Large evidence may need a narrower, explicitly versioned View before Jev can grade it.
 
-Validation recognizes attested literal supported lint/build/test commands and explicit `playwright-cli snapshot` receipts, verifies revision/order, and preserves uncertainty for unsupported command wrappers or recording gaps. The Pi adapter retains the current isolated four-tool surface and excludes arbitrary extensions/subagents. This is a recorded environment limitation, not full interactive Pi parity.
+Validation recognizes attested literal supported lint/build/test commands, direct `playwright-cli snapshot` receipts, and literal browser command chains joined with `&&` and ending in one explicit snapshot.
+
+Supported chain actions are `open`, `goto`, `fill`, `click`, and numeric `sleep`; every browser action must use the same session. All recognized checks verify revision/order. The chained-command path additionally verifies native Pi call/result sources and the exact retained command output and content hash; direct snapshots retain their existing receipt/artifact contract. The final inline snapshot is taken from that output; an earlier automatic snapshot file cannot substitute for it. Arbitrary shell commands, substitutions, redirects, alternate operators, option-like fill values and code-evaluation commands remain unsupported.
+
+Unsupported syntax is recorded separately from recording-coverage gaps and missing or unverified evidence. Each can yield `unknown`, with distinct reasons. All unsupported invocations remain in the evidence; only those that could affect a declared required check block its verdict. When a command’s possible check kinds are uncertain, it can affect every required check. `validationHistory@4` and `validation-after-final-edit@3` record these changed rules, so regrading appends a new result without changing earlier grades.
+
+The Pi adapter retains the current isolated four-tool surface and excludes arbitrary extensions/subagents. This is a recorded environment limitation, not full interactive Pi parity.
 
 Run offline checks with `pnpm test:evals` and `pnpm check:evals`. The native zero-model red/green probe is documented in [repository preflight](examples/repository-preflight/README.md). `pnpm --filter @wedding-planner/agent-evals exec tsx test/jev-live-smoke.ts --live` explicitly opts into a tiny authored-fixture Jev batch/regrade check; without `--live` it makes no requests. An authored fixture is not a native agent trial.
 
