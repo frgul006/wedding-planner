@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import type { RecordedTrial, TraceEvent } from 'agent-evals';
-import { normalizeToolReceipt } from 'agent-evals/pi';
+import { normalizePiEvent, normalizeToolReceipt, portablePiTool } from 'agent-evals/pi';
 import {
   checkValidationOrder,
   diagnosis,
@@ -340,6 +340,58 @@ test('failed validation and wrong revisions fail; missing revision attestation r
   assert.equal(grade(missing).verdict, 'unknown');
 });
 
+test('missing or malformed native tool status remains unknown despite successful exit and hashes', () => {
+  for (const status of [undefined, 'false']) {
+    const verification = verify(3, 'pnpm build');
+    const result = verification[1];
+    const normalized = portablePiTool(
+      normalizePiEvent({
+        ...result,
+        kind: 'pi',
+        data: {
+          type: 'tool_execution_end',
+          toolCallId: result.data.callId,
+          ...(status === undefined ? {} : { isError: status }),
+          result: {
+            content: [{ type: 'text', text: result.data.text }],
+            details: { evaluation: result.data.receipt },
+          },
+        },
+      }).observation,
+    );
+    assert.equal(normalized?.type, 'tool-result');
+    result.data = normalized!.data;
+    const recording = trial([...edit(1), ...verification]);
+    recording.task.metadata!.validation = {
+      required: true,
+      targetFile: 'src/login.ts',
+      requiredChecks: ['build'],
+    };
+    const prepared = prepareValidationHistory(recording)[0];
+    assert.equal(prepared.coverage.complete, true);
+    assert.equal(prepared.data.actions.at(-1)!.success, 'unknown');
+    assert.match(prepared.data.actions.at(-1)!.unknown!, /Unknown tool status/);
+    assert.equal(checkValidationOrder(prepared).verdict, 'unknown');
+    recording.trace.events.push(...verify(5, 'pnpm build'));
+    assert.equal(grade(recording).verdict, 'pass', 'a later attested check resolves uncertainty');
+  }
+});
+
+test('an edit with unknown status stays a potential final edit until later validation', () => {
+  for (const fingerprints of [true, false]) {
+    const ambiguousEdit = edit(5, finalHash, finalHash);
+    ambiguousEdit[1].data.success = 'unknown';
+    if (!fingerprints) ambiguousEdit[1].data.receipt = { kind: 'file-edit', path: 'src/login.ts' };
+    const recording = trial([...edit(1), ...verify(3), ...ambiguousEdit]);
+    const prepared = prepareValidationHistory(recording)[0];
+    assert.equal(prepared.data.actions.at(-1)!.kind, 'edit');
+    assert.equal(prepared.data.actions.at(-1)!.success, 'unknown');
+    assert.equal(checkValidationOrder(prepared).verdict, 'unknown');
+    recording.trace.events.push(...verify(7));
+    assert.equal(grade(recording).verdict, 'pass');
+  }
+});
+
 test('help and list requests cannot earn validation credit; unsupported shell wrappers are unknown', () => {
   for (const command of [
     'pnpm test --help',
@@ -365,6 +417,83 @@ test('help and list requests cannot earn validation credit; unsupported shell wr
   assert.deepEqual(unsupported.coverage.gaps, []);
   assert.equal(unsupported.data.unsupportedCommands[0].callRef, 'call-3');
   assert.match(checkValidationOrder(unsupported).reason!, /recording is complete.*syntax/);
+});
+
+test('final supported verification supersedes earlier unsupported attempts without deleting evidence', () => {
+  for (const events of [
+    [...verify(1, 'pnpm build && echo baseline', originalHash, 1), ...edit(3)],
+    [...edit(1), ...verify(3, 'pnpm build && echo baseline', finalHash, 1)],
+    [...verify(3, 'pnpm build && echo baseline', finalHash, 1)],
+  ]) {
+    const recording = trial([...events, ...verify(5, 'pnpm build')]);
+    recording.task.metadata!.validation = {
+      required: true,
+      targetFile: 'src/login.ts',
+      requiredChecks: ['build'],
+    };
+    const prepared = prepareValidationHistory(recording)[0];
+    const [unsupported] = prepared.data.unsupportedCommands;
+    assert.deepEqual(unsupported.checkKinds, ['build']);
+    assert.ok(unsupported.sequence! < 5);
+    assert.ok(unsupported.startedSequence < unsupported.sequence!);
+    assert.ok(prepared.sourceRefs.includes(unsupported.callRef));
+    assert.ok(prepared.sourceRefs.includes(unsupported.resultRef!));
+    const result = checkValidationOrder(prepared);
+    assert.equal(result.verdict, 'pass');
+    assert.ok(result.supportingRefs!.includes('result-5'));
+  }
+});
+
+test('a baseline unsupported check cannot conceal missing validation after the final edit', () => {
+  const recording = trial([...verify(1, 'pnpm test && echo baseline'), ...edit(3)]);
+  assert.equal(grade(recording).verdict, 'fail');
+  assert.equal(prepareValidationHistory(recording)[0].data.unsupportedCommands.length, 1);
+});
+
+test('overlapping, later and unfinished unsupported attempts are not superseded', () => {
+  for (const [unsupportedEnd, supportedEnd] of [
+    [6, 8],
+    [8, 6],
+  ]) {
+    const unsupported = verify(3, 'pnpm test && echo done');
+    const supported = verify(5);
+    unsupported[1].sequence = unsupportedEnd;
+    supported[1].sequence = supportedEnd;
+    assert.equal(grade(trial([...edit(1), ...unsupported, ...supported])).verdict, 'unknown');
+  }
+  assert.equal(
+    grade(trial([...edit(1), ...verify(3), ...verify(5, 'pnpm test && echo later')])).verdict,
+    'unknown',
+  );
+  const unfinished = trial([
+    ...edit(1),
+    verify(3, 'pnpm test && echo unfinished')[0],
+    ...verify(5),
+  ]);
+  assert.equal(grade(unfinished).verdict, 'unknown');
+  assert.equal(
+    prepareValidationHistory(unfinished)[0].data.unsupportedCommands[0].sequence,
+    undefined,
+  );
+});
+
+test('unknown verification categories require later supported evidence for every requirement', () => {
+  const recording = trial([
+    ...edit(1),
+    ...verify(3, 'pnpm lint'),
+    ...verify(5, 'pnpm test; echo done'),
+    ...verify(7),
+  ]);
+  recording.task.metadata!.validation = {
+    required: true,
+    targetFile: 'src/login.ts',
+    requiredChecks: ['test', 'lint'],
+  };
+  const prepared = prepareValidationHistory(recording)[0];
+  assert.equal(prepared.data.unsupportedCommands[0].checkKinds, undefined);
+  assert.equal(checkValidationOrder(prepared).verdict, 'unknown');
+  recording.trace.events.push(...verify(9, 'pnpm lint'));
+  assert.equal(grade(recording).verdict, 'pass');
 });
 
 function browserChainRecording(
@@ -629,6 +758,12 @@ test('browser validation needs the exact saved snapshot for the changed local fl
   recording.trace.artifacts.push({ id: 'snapshot-1', ...snapshot });
   assert.equal(grade(recording).verdict, 'pass');
   assert.ok(prepareValidationHistory(recording)[0].sourceRefs.includes('snapshot-1'));
+  recording.trace.events.at(-1)!.data.success = 'unknown';
+  const unknownStatus = prepareValidationHistory(recording)[0];
+  assert.equal(checkValidationOrder(unknownStatus).verdict, 'unknown');
+  assert.equal(unknownStatus.data.actions.at(-1)!.success, 'unknown');
+  assert.equal(unknownStatus.data.actions.at(-1)!.snapshotArtifact!.id, 'snapshot-1');
+  recording.trace.events.at(-1)!.data.success = true;
   receipt.browser.pageUrls = ['http://127.0.0.1:3456/unrelated'];
   assert.equal(grade(recording).verdict, 'fail');
   receipt.browser.pageUrls = ['http://127.0.0.1:3456/admin/login'];
@@ -710,4 +845,15 @@ test('an observed failed snapshot is failed behavior, not a missing successful a
     requiredChecks: ['browser_snapshot'],
   };
   assert.equal(grade(recording).verdict, 'fail');
+});
+
+test('unknown native status for a browser chain remains uncertainty with its retained output', () => {
+  const recording = browserChainRecording();
+  const result = recording.trace.events.at(-1)!;
+  result.data.success = 'unknown';
+  delete (result.source!.payload as Record<string, unknown>).isError;
+  const prepared = prepareValidationHistory(recording)[0];
+  assert.equal(prepared.data.actions.at(-1)!.success, 'unknown');
+  assert.ok(prepared.sourceRefs.includes('captured-browser-output'));
+  assert.equal(checkValidationOrder(prepared).verdict, 'unknown');
 });

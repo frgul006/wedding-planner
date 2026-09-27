@@ -560,7 +560,7 @@ interface ValidationAction {
   sequence: number;
   startedSequence: number;
   kind: ValidationCheck | 'edit';
-  success: boolean;
+  success: boolean | 'unknown';
   beforeHash?: string;
   afterHash?: string;
   browserValid?: boolean;
@@ -584,6 +584,9 @@ export interface ValidationEvidence {
   unsupportedCommands: Array<{
     callRef: string;
     resultRef?: string;
+    startedSequence: number;
+    /** Absent when the command has no recorded completion. */
+    sequence?: number;
     reason: string;
     /** Omitted when the command's possible verification categories are uncertain. */
     checkKinds?: ValidationCheck[];
@@ -694,7 +697,8 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
     const directEdit = ['file-edit', 'file-write'].includes(text(receipt.kind));
     const changedTarget =
       beforeHash !== undefined && afterHash !== undefined && beforeHash !== afterHash;
-    const edit = (directEdit && result?.data.success === true) || changedTarget;
+    const success = typeof result?.data.success === 'boolean' ? result.data.success : 'unknown';
+    const edit = (directEdit && success !== false) || changedTarget;
     let kind: ValidationCheck | undefined;
     const chained =
       name === 'bash' ? extractChainedBrowserSnapshot(trial, call, result) : undefined;
@@ -716,7 +720,8 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
       const { checkKinds } = unsupported;
       unsupportedCommands.push({
         callRef: call.id,
-        ...(result ? { resultRef: result.id } : {}),
+        startedSequence: call.sequence,
+        ...(result ? { resultRef: result.id, sequence: result.sequence } : {}),
         reason: 'The verification command syntax is outside the supported evidence parser.',
         ...(checkKinds?.length ? { checkKinds } : {}),
       });
@@ -735,37 +740,44 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
       ...(result ? { resultRef: result.id } : {}),
       sequence: result?.sequence ?? call.sequence,
       startedSequence: call.sequence,
-      success: result?.data.success === true,
+      success,
+      ...(success === 'unknown' ? { unknown: `Unknown tool status for ${call.id}.` } : {}),
       beforeHash,
       afterHash,
-    };
+    } satisfies Omit<ValidationAction, 'kind'>;
     if (edit) actions.push({ ...base, kind: 'edit' });
     if (kind) {
       let browser: { valid: boolean; unknown?: string; artifact?: TraceArtifact } | undefined;
       if (kind === 'browser_snapshot') {
         if (chained?.unknown) browser = { valid: false, unknown: chained.unknown };
-        else if (!base.success || receipt.exitCode !== 0) browser = { valid: false };
+        else if (base.success === false || receipt.exitCode !== 0) browser = { valid: false };
         else if (!chained) browser = snapshotValid(trial, receipt, config);
         else if (chained.snapshot && chained.browser)
           browser = snapshotFlowValid(trial, chained.browser, chained.snapshot.content, config);
         else browser = { valid: false, unknown: 'The explicit chained snapshot is unavailable.' };
       }
       if (browser?.artifact) refs.push(browser.artifact.id);
+      const unknown = [
+        base.unknown,
+        browser?.unknown,
+        ...(result?.data.truncated === true && !retained
+          ? [`Truncated verification output for ${call.id}.`]
+          : []),
+      ]
+        .filter(Boolean)
+        .join(' ');
       actions.push({
         ...base,
         kind,
-        success: base.success && receipt.exitCode === 0,
+        success: base.success === 'unknown' ? 'unknown' : base.success && receipt.exitCode === 0,
         ...(browser
           ? {
               browserValid: browser.valid,
-              unknown: browser.unknown,
               snapshotArtifact: browser.artifact,
               ...(chained?.snapshot ? { inlineSnapshot: chained.snapshot } : {}),
             }
           : {}),
-        ...(result?.data.truncated === true && !retained
-          ? { unknown: `Truncated verification output for ${call.id}.` }
-          : {}),
+        ...(unknown ? { unknown } : {}),
       });
     }
   }
@@ -804,6 +816,7 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
       omissions: [
         'Evaluator checks and agent self-reports do not count as agent verification. Unsupported command syntax is retained as an interpretation limitation, separately from recording gaps.',
         'Verification kinds outside the task requirements are retained but do not determine this verdict. Unsupported commands with uncertain kinds can affect every required check.',
+        'A successful final-revision check supersedes unsupported attempts only when they completed before that check started.',
       ],
       applicability:
         config.required === true
@@ -816,7 +829,7 @@ export function prepareValidationHistory(trial: RecordedTrial): PreparedItem<Val
 }
 export const validationHistory: View<ValidationEvidence> = {
   id: 'validationHistory',
-  version: 4,
+  version: 5,
   prepare: prepareValidationHistory,
 };
 export function checkValidationOrder(item: PreparedItem<ValidationEvidence>): CheckResult {
@@ -824,16 +837,6 @@ export function checkValidationOrder(item: PreparedItem<ValidationEvidence>): Ch
     return { verdict: 'not_applicable', reason: 'Agent validation is not required for this task.' };
   if (item.applicability === 'unknown' || !item.coverage.complete)
     return { verdict: 'unknown', reason: 'Applicability or recording coverage is incomplete.' };
-  const relevantUnsupported = item.data.unsupportedCommands.filter(
-    (command) =>
-      !command.checkKinds?.length ||
-      command.checkKinds.some((kind) => item.data.requiredChecks.includes(kind)),
-  );
-  if (relevantUnsupported.length)
-    return {
-      verdict: 'unknown',
-      reason: `The recording is complete, but required verification command syntax could not be interpreted at ${relevantUnsupported.map((command) => command.callRef).join(', ')}.`,
-    };
   const { actions, finalHash, requiredChecks } = item.data;
   if (!hash(finalHash))
     return { verdict: 'unknown', reason: 'Final target revision is unavailable.' };
@@ -843,7 +846,8 @@ export function checkValidationOrder(item: PreparedItem<ValidationEvidence>): Ch
     .at(-1);
   const after = lastEdit?.sequence ?? 0;
   const supportingRefs: string[] = lastEdit?.resultRef ? [lastEdit.resultRef] : [];
-  let uncertain = false;
+  let uncertain = lastEdit?.success === 'unknown';
+  const blockingCommands: string[] = [];
   const missing: string[] = [];
   for (const required of requiredChecks) {
     const candidates = actions.filter(
@@ -851,13 +855,25 @@ export function checkValidationOrder(item: PreparedItem<ValidationEvidence>): Ch
     );
     const latest = candidates.sort((left, right) => left.sequence - right.sequence).at(-1);
     const matching =
-      latest?.success &&
+      latest?.success === true &&
       !latest.unknown &&
       latest.beforeHash === finalHash &&
       latest.afterHash === finalHash &&
       (required !== 'browser_snapshot' || latest.browserValid === true)
         ? latest
         : undefined;
+    const unsupported = item.data.unsupportedCommands.filter(
+      (command) =>
+        (!command.checkKinds?.length || command.checkKinds.includes(required)) &&
+        (command.sequence === undefined ||
+          (command.sequence > after &&
+            (!matching || command.sequence >= matching.startedSequence))),
+    );
+    if (unsupported.length) {
+      blockingCommands.push(...unsupported.map((command) => command.callRef));
+      missing.push(required);
+      continue;
+    }
     if (matching) {
       supportingRefs.push(
         matching.callRef,
@@ -868,10 +884,17 @@ export function checkValidationOrder(item: PreparedItem<ValidationEvidence>): Ch
       continue;
     }
     uncertain ||= candidates.some(
-      (action) => action.unknown || (action.success && (!action.beforeHash || !action.afterHash)),
+      (action) =>
+        action.unknown || (action.success === true && (!action.beforeHash || !action.afterHash)),
     );
     missing.push(required);
   }
+  if (blockingCommands.length)
+    return {
+      verdict: 'unknown',
+      reason: `The recording is complete, but required verification command syntax could not be interpreted at ${unique(blockingCommands).join(', ')}.`,
+      supportingRefs: unique(supportingRefs),
+    };
   if (!missing.length)
     return {
       verdict: 'pass',
@@ -893,7 +916,7 @@ export function checkValidationOrder(item: PreparedItem<ValidationEvidence>): Ch
 export const finalValidation: CodeGrader<ValidationEvidence> = {
   kind: 'code',
   id: 'validation-after-final-edit',
-  version: 3,
+  version: 4,
   view: validationHistory,
   check: checkValidationOrder,
 };

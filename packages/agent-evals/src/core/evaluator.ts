@@ -22,8 +22,11 @@ import { resolveTrialLimits } from './trial-limits.ts';
 import { JudgePreparationError, JudgeExecutionError, validObservedUsage } from './judge-errors.ts';
 
 export const codeGrader = <T>(definition: Omit<CodeGrader<T>, 'kind'>): CodeGrader<T> => ({
-  ...definition,
+  id: definition.id,
+  version: definition.version,
+  view: definition.view,
   kind: 'code',
+  check: definition.check.bind(definition),
 });
 export const modelGrader = <T>(definition: Omit<ModelGrader<T>, 'kind'>): ModelGrader<T> => ({
   ...definition,
@@ -88,13 +91,13 @@ function snapshotGraders(graders: readonly Grader[]): Grader[] {
       view = Object.freeze({
         id: grader.view.id,
         version: grader.view.version,
-        prepare: grader.view.prepare,
+        prepare: grader.view.prepare.bind(grader.view),
       });
       views.set(grader.view, view);
     }
     const identity = { id: grader.id, version: grader.version, view };
     return grader.kind === 'code'
-      ? Object.freeze({ ...identity, kind: 'code' as const, check: grader.check })
+      ? Object.freeze({ ...identity, kind: 'code' as const, check: grader.check.bind(grader) })
       : Object.freeze({
           ...identity,
           kind: 'model' as const,

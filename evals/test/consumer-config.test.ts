@@ -35,7 +35,7 @@ test('Wedding authors the pinned task and grading expectations in ordinary confi
     [
       ['falsifiable-hypothesis', 1, 'diagnosis', 1],
       ['relevant-probe', 1, 'diagnosis', 1],
-      ['validation-after-final-edit', 3, 'validationHistory', 4],
+      ['validation-after-final-edit', 4, 'validationHistory', 5],
     ],
   );
 });

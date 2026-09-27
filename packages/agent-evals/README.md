@@ -15,7 +15,7 @@ Core imports do not load Pi, Jev, the CLI, or consumer configuration. Adapters d
 
 ## Compose a consumer
 
-Write ordinary TypeScript and export an `EvalConfig`. A View prepares named evidence items; a Grader describes how to assess them. There is no registry or config wrapper.
+Write ordinary TypeScript and export an `EvalConfig`. A View prepares named evidence items; a Grader describes how to assess them. There is no registry or config wrapper. Arrow callbacks and ordinary methods are both supported: the evaluator captures each callback before asynchronous work and preserves its original receiver, including class instance fields.
 
 ```ts
 import { modelGrader, type EvalConfig, type View } from 'agent-evals';
@@ -58,7 +58,7 @@ For programmatic use, `createEvaluator({ runner?, judge?, store, budgetUsd? })` 
 
 ## Pi environments and limits
 
-`piRunner` requires `agentSource`, `recordingsDirectory`, explicit `billing`, and a `prepareEnvironment` callback. Optional `model`, `endpoint`, and `limits` control native execution. The callback receives the portable task, trial ID, cancellation signal, resolved limits, and inspected Pi configuration. It returns a workspace, environment variables, arguments, historical contexts, provenance, artifacts, final observations, and cleanup. Isolation policy and independent task acceptance belong to that callback; the adapter does not provide a default sandbox.
+`piRunner` requires `agentSource`, `recordingsDirectory`, explicit `billing`, and a `prepareEnvironment` callback. Optional `model`, `endpoint`, and `limits` control native execution. The callback receives the portable task, trial ID, cancellation signal, resolved limits, and inspected Pi configuration. It returns a workspace, environment variables, arguments, historical contexts, provenance, artifacts, final observations, and cleanup. Isolation policy and independent task acceptance belong to that callback; the adapter does not provide a default sandbox. Put captured contexts and capture gaps in `provenance.recordedContexts` and `provenance.contextCaptureGaps`. Explicit empty arrays mean discovery completed with no external instruction or skill content; missing or malformed capture remains incomplete.
 
 Defaults are **30 minutes, 100 completed turns, and 1,000,000 weighted tokens per trial**. Limits resolve field by field: shared defaults, runner limits, task limits, then explicit per-trial overrides. Any reached limit stops the trial. Weighted usage is `input + output + 0.1 × (cacheRead + cacheWrite)`; raw provider usage is retained. Runtime covers agent startup/execution, excluding environment preparation, final acceptance, and grading. A completed turn includes the assistant response and its tool results. Usage can overshoot while a response is in flight. The first stop cause remains authoritative.
 

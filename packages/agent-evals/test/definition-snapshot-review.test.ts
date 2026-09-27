@@ -5,8 +5,16 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileStore } from '../src/adapters/files.ts';
-import { createEvaluator, modelGrader } from '../src/index.ts';
-import type { EvaluationTask, Judge, RecordedTrial, Suite } from '../src/index.ts';
+import { codeGrader, createEvaluator, modelGrader } from '../src/index.ts';
+import type {
+  CheckResult,
+  CodeGrader,
+  EvaluationTask,
+  Judge,
+  PreparedItem,
+  RecordedTrial,
+  Suite,
+} from '../src/index.ts';
 
 const originalTask = (): EvaluationTask => ({
   id: 'fixture-task',
@@ -199,4 +207,96 @@ test('regrade retains one definition snapshot across all saved trials while disp
   assert.equal(records.length, 2);
   assert.equal(authored.preparations(), 2);
   records.forEach(assertOriginal);
+});
+
+test('a shared class view retains its private state and prepares once', async (context) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'eval-view-receiver-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const store = fileStore(directory);
+  await store.saveTrial(recorded('original-trial'));
+  class SharedView implements View {
+    id = 'shared-view';
+    version = 1;
+    #preparations = 0;
+
+    get preparations() {
+      return this.#preparations;
+    }
+
+    prepare(trial: RecordedTrial): PreparedItem[] {
+      this.#preparations++;
+      assert.equal(trial.task.prompt, 'Original task prompt');
+      return definitions().view.prepare();
+    }
+  }
+  const view = new SharedView();
+  const graders = ['first', 'second'].map((id) =>
+    codeGrader({ id, version: 1, view, check: () => ({ verdict: 'pass' }) }),
+  );
+  const result = await createEvaluator({ store }).grade('original-trial', { graders });
+  assert.equal(view.preparations, 1);
+  assert.equal(result.evidence.length, 1);
+  assert.deepEqual(
+    result.grades.map(({ verdict, status }) => ({ verdict, status })),
+    [
+      { verdict: 'pass', status: 'completed' },
+      { verdict: 'pass', status: 'completed' },
+    ],
+  );
+});
+
+test('a class code grader retains its receiver and snapshotted method while loading', async (context) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'eval-grader-receiver-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const base = fileStore(directory);
+  await base.saveTrial(recorded('original-trial'));
+  class StatefulGrader implements CodeGrader<{ observation: string }> {
+    id = 'stateful-grader';
+    version = 1;
+    kind = 'code' as const;
+    view = definitions().view;
+    #expected = 'Original observation';
+
+    check(item: PreparedItem<{ observation: string }>, trial: RecordedTrial): CheckResult {
+      assert.equal(trial.task.prompt, 'Original task prompt');
+      return { verdict: item.data.observation === this.#expected ? 'pass' : 'fail' };
+    }
+  }
+  const grader = new StatefulGrader();
+  const store = {
+    ...base,
+    async loadTrial(id: string) {
+      grader.check = () => ({ verdict: 'fail' });
+      return base.loadTrial(id);
+    },
+  };
+  const result = await createEvaluator({ store }).grade('original-trial', { graders: [grader] });
+  assert.equal(result.grades[0].status, 'completed');
+  assert.equal(result.grades[0].verdict, 'pass');
+});
+
+test('codeGrader captures a class definition method with its original receiver', () => {
+  class Definition implements Omit<CodeGrader<{ observation: string }>, 'kind'> {
+    version = 1;
+    view = definitions().view;
+    #expected = 'Original observation';
+
+    get id() {
+      return 'class-definition';
+    }
+
+    check(item: PreparedItem<{ observation: string }>, trial: RecordedTrial): CheckResult {
+      assert.equal(trial.task.prompt, 'Original task prompt');
+      return { verdict: item.data.observation === this.#expected ? 'pass' : 'fail' };
+    }
+  }
+  const definition = new Definition();
+  const grader = codeGrader(definition);
+  assert.equal(grader.id, definition.id);
+  assert.equal(grader.version, definition.version);
+  assert.equal(grader.view, definition.view);
+  definition.check = () => ({ verdict: 'fail' });
+  assert.deepEqual(grader.check(definition.view.prepare()[0], recorded('original-trial')), {
+    verdict: 'pass',
+  });
 });

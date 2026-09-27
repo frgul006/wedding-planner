@@ -37,7 +37,11 @@ function isFinalVisibleUpdate(
   return true;
 }
 
-/** Translate saved observations only. Never consult today's files to fill historical gaps. */
+/**
+ * Translate saved observations only. Never consult today's files to fill historical gaps.
+ * An empty recordedContexts list requires an explicit contextCaptureGaps string array
+ * to distinguish successful capture of no resources from unavailable historical capture.
+ */
 export function recordedTrialFromEvidence(
   id: string,
   original: TrialEvidence,
@@ -81,8 +85,11 @@ export function recordedTrialFromEvidence(
   const patchId = evidence.patch ? retainArtifact(evidence.patch) : undefined;
   const contexts: RecordedTrial['trace']['contexts'] = [];
   const { recordedContexts: rawContexts, ...environmentMetadata } = environment;
+  const captureGaps = environment.contextCaptureGaps;
+  const validCaptureGaps =
+    Array.isArray(captureGaps) && captureGaps.every((gap) => typeof gap === 'string');
   let contextExtractionLossy = rawContexts !== undefined && !Array.isArray(rawContexts);
-  if (!Array.isArray(rawContexts) || rawContexts.length === 0)
+  if (!Array.isArray(rawContexts) || (rawContexts.length === 0 && !validCaptureGaps))
     gaps.push(
       'Historical instruction and skill contents were not captured; current files cannot replace them.',
     );
@@ -119,10 +126,10 @@ export function recordedTrialFromEvidence(
         sha256,
       });
     }
-  if (Array.isArray(environment.contextCaptureGaps))
-    gaps.push(
-      ...environment.contextCaptureGaps.filter((gap): gap is string => typeof gap === 'string'),
-    );
+  if (captureGaps !== undefined && !validCaptureGaps)
+    gaps.push('Historical context capture gaps are malformed.');
+  if (Array.isArray(captureGaps))
+    gaps.push(...captureGaps.filter((gap): gap is string => typeof gap === 'string'));
   const started = new Set<string>();
   const finished = new Set<string>();
   const events: TraceEvent[] = evidence.events.map((event, index) => {

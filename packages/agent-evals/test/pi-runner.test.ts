@@ -6,8 +6,9 @@ import test from 'node:test';
 import { piRunner, type PiRunnerOptions } from '../src/adapters/pi/pi-runner.ts';
 import { hash } from '../src/adapters/pi/file-run-store.ts';
 import { recordedTrialFromEvidence } from '../src/adapters/pi/recorded-trial.ts';
+import { prepareResources } from '../src/adapters/pi/resources.ts';
 import type { inspectPi } from '../src/adapters/pi/pi-inspection.ts';
-import type { AgentResult, PreparedEnvironment } from '../src/adapters/pi/types.ts';
+import type { AgentResult, PreparedEnvironment, TrialEvidence } from '../src/adapters/pi/types.ts';
 import type { TrialLimits } from '../src/index.ts';
 
 const task = { id: 'toy-document', version: 1, prompt: 'Repair this local text file.' };
@@ -111,6 +112,46 @@ test('saved native conversion retains legacy task fields and current metadata', 
     fixtureRevision: 'saved-revision',
     purpose: 'saved-purpose',
   });
+});
+
+test('an explicitly empty context capture is distinct from unavailable or malformed capture', () => {
+  const evidence: TrialEvidence = {
+    task,
+    agent: completed(),
+    artifacts: [],
+    events: [
+      {
+        id: 'settled',
+        sequence: 1,
+        actor: 'agent',
+        kind: 'pi',
+        timestamp: '',
+        data: { type: 'agent_settled' },
+      },
+    ],
+  };
+  const trial = recordedTrialFromEvidence('empty-contexts', evidence, {
+    recordedContexts: [],
+    contextCaptureGaps: [],
+  });
+  assert.equal(trial.trace.complete, true);
+  assert.deepEqual(trial.trace.contexts, []);
+  assert.deepEqual(trial.trace.gaps, []);
+  for (const provenance of [
+    {},
+    { recordedContexts: [] },
+    { recordedContexts: null, contextCaptureGaps: [] },
+    { recordedContexts: {}, contextCaptureGaps: [] },
+    { recordedContexts: [{}], contextCaptureGaps: [] },
+    { recordedContexts: [], contextCaptureGaps: null },
+    { recordedContexts: [], contextCaptureGaps: [42] },
+    { recordedContexts: [], contextCaptureGaps: ['Instruction capture failed.'] },
+  ]) {
+    const incomplete = recordedTrialFromEvidence('unavailable-contexts', evidence, provenance);
+    assert.equal(incomplete.trace.complete, false, JSON.stringify(provenance));
+    assert.ok(incomplete.trace.gaps.length > 0);
+    assert.deepEqual(incomplete.trace.contexts, []);
+  }
 });
 
 test('each Pi trial resolves adapter, task and request limits before consumer setup', async () => {
@@ -226,7 +267,25 @@ test('a toy consumer records redacted native evidence without a catalog, server 
           assert.equal(context.pi.defaults.model, 'toy-model');
           assert.equal(context.limits.runtimeMs, 4000);
           assert.deepEqual(context.task.metadata, metadata);
-          return { ...environment(), agentArgs: ['--toy-setup'] };
+          const resources = await prepareResources({
+            sourceRepo: root,
+            native: context.pi.resources,
+            paths: {
+              workspace: root,
+              piDirectory: join(root, 'trial-pi'),
+              instructionAncestors: [],
+            },
+          });
+          assert.deepEqual(resources.recordedContexts, []);
+          assert.deepEqual(resources.contextCaptureGaps, []);
+          return {
+            ...environment(),
+            agentArgs: ['--toy-setup'],
+            provenance: {
+              recordedContexts: resources.recordedContexts,
+              contextCaptureGaps: resources.contextCaptureGaps,
+            },
+          };
         },
       },
       {
@@ -269,6 +328,7 @@ test('a toy consumer records redacted native evidence without a catalog, server 
     const trial = await runner.run({ ...task, metadata }, { trialId: 'attempt-1' });
     assert.equal(calls, 1);
     assert.equal(trial.trace.complete, true);
+    assert.deepEqual(trial.trace.contexts, []);
     assert.equal(trial.task.version, 1);
     assert.equal(trial.task.metadata?.purpose, 'toy-text-repair');
     assert.equal(trial.task.metadata?.expectedText, 'DO_NOT_INJECT');
