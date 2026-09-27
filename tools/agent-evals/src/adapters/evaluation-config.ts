@@ -80,7 +80,11 @@ export const profileSchema = z
     harness: identifier.default('pi'),
     concurrency: z.literal(1),
     pi: z
-      .object({ runtime: z.enum(['native', 'controlled']) })
+      .object({
+        runtime: z.enum(['native', 'controlled']),
+        model: z.string().trim().min(1).optional(),
+        endpoint: z.enum(['native', 'catalog']).optional(),
+      })
       .strict()
       .default({ runtime: 'native' }),
     runtimeMs: z.number().int().positive().max(900_000),

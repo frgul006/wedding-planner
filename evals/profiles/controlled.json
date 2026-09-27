@@ -21,6 +21,8 @@
   "agentBilling": "subscription",
   "harness": "pi",
   "pi": {
-    "runtime": "controlled"
+    "runtime": "controlled",
+    "model": "gpt-6-luna",
+    "endpoint": "catalog"
   }
 }

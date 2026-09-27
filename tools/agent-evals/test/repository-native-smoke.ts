@@ -16,9 +16,19 @@ const resources = await inspectPiResources({
   packageRoot: pi.packageRoot,
   agentDir,
 });
-for (const taskId of ['repository-ui-copy', 'repository-login-error']) {
+const taskIds = process.env.EVAL_TASKS?.split(',') ?? [
+  'repository-ui-copy',
+  'repository-login-error',
+  'repository-login-retry',
+];
+for (const taskId of taskIds) {
+  assert.ok(
+    ['repository-ui-copy', 'repository-login-error', 'repository-login-retry'].includes(taskId),
+    'Select a known repository preflight task.',
+  );
   const task = await loadTask(sourceRepo, taskId);
   const copy = taskId === 'repository-ui-copy';
+  const retry = taskId === 'repository-login-retry';
   console.log(`Preparing pinned real Wedding checkout for ${taskId} (no model prompt).`);
   const trial = await prepareTrialEnvironment({
     sourceRepo,
@@ -46,7 +56,11 @@ for (const taskId of ['repository-ui-copy', 'repository-login-error']) {
     assert.notEqual(broken.exitCode, 0, 'The unchanged authored task must fail acceptance.');
     assert.match(
       broken.stderr,
-      copy ? /requested visible submit button label/ : /visible|Timeout/,
+      copy
+        ? /requested visible submit button label/
+        : retry
+          ? /Failed sign-in must allow another attempt/
+          : /visible|Timeout/,
       'Baseline must fail for the authored defect, not infrastructure failure.',
     );
     console.log(`${taskId}: unchanged target correctly rejected.`);
@@ -54,10 +68,14 @@ for (const taskId of ['repository-ui-copy', 'repository-login-error']) {
     const original = await readFile(target, 'utf8');
     const needle = copy
       ? '{pending ? "Signing in..." : "Sign in"}'
-      : 'className="hidden rounded-lg bg-red-50';
+      : retry
+        ? 'disabled={pending || Boolean(state.error)}'
+        : 'className="hidden rounded-lg bg-red-50';
     const replacement = copy
       ? '{pending ? "Signing in..." : "Sign in to manage the wedding"}'
-      : 'className="rounded-lg bg-red-50';
+      : retry
+        ? 'disabled={pending}'
+        : 'className="rounded-lg bg-red-50';
     assert.equal(original.split(needle).length, 2, 'The intended one-line change must be unique.');
     await writeFile(target, original.replace(needle, replacement));
     const navigation = await trial.runCommand('playwright-cli', [
@@ -65,6 +83,25 @@ for (const taskId of ['repository-ui-copy', 'repository-login-error']) {
       trial.url + '/admin/login',
     ]);
     assert.equal(navigation.exitCode, 0, navigation.stderr);
+    if (retry) {
+      const interaction = await trial.runCommand('playwright-cli', [
+        'run-code',
+        `async page => {
+        for (const password of ['first-invalid-password', 'retry-invalid-password']) {
+          await page.getByLabel('Email', { exact: true }).fill('evaluation@example.invalid');
+          await page.getByLabel('Password', { exact: true }).fill(password);
+          const response = page.waitForResponse(r => r.request().method() === 'POST' && r.url().split('?')[0].endsWith('/admin/login'));
+          await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+          await response;
+          await page.getByRole('alert').filter({ hasText: 'Invalid email or password.' }).waitFor({ state: 'visible' });
+          await page.getByRole('button', { name: 'Sign in', exact: true }).waitFor();
+          await page.getByRole('button', { name: 'Sign in', exact: true }).click({ trial: true, timeout: 10000 });
+        }
+      }`,
+      ]);
+      assert.equal(interaction.exitCode, 0, interaction.stderr + interaction.stdout);
+      assert.doesNotMatch(interaction.stdout, /### Error/);
+    }
     const snapshot = await trial.runCommand('playwright-cli', ['snapshot']);
     assert.equal(snapshot.exitCode, 0, snapshot.stderr);
     const staleCache = join(trial.workspace, '.next/agent-generated-cache-marker');
@@ -74,7 +111,11 @@ for (const taskId of ['repository-ui-copy', 'repository-login-error']) {
     await assert.rejects(access(staleCache), { code: 'ENOENT' });
     const destination = join(sourceRepo, 'evals/runs/repository-native-preflight');
     await mkdir(destination, { recursive: true });
-    const filename = copy ? 'observations-ui-copy.json' : 'observations.json';
+    const filename = copy
+      ? 'observations-ui-copy.json'
+      : retry
+        ? 'observations-login-retry.json'
+        : 'observations.json';
     await writeFile(
       join(destination, filename),
       JSON.stringify(
@@ -102,7 +143,11 @@ for (const taskId of ['repository-ui-copy', 'repository-login-error']) {
     assert.deepEqual(final.changedFiles, [task.targetFile]);
     assert.match(
       final.patch!.content,
-      copy ? /Sign in to manage the wedding/ : /hidden rounded-lg/,
+      copy
+        ? /Sign in to manage the wedding/
+        : retry
+          ? /disabled=\{pending \|\| Boolean\(state.error\)\}/
+          : /hidden rounded-lg/,
     );
     console.log(
       `${taskId}: real repository red/green preflight passed. Evidence: ${destination}/${filename}`,

@@ -243,22 +243,14 @@ export async function runTrial(
   };
   // A later grader failure must not lose a completed, potentially paid trial.
   await ports.store.save('evidence.json', evidence);
-  const gradingResults = await gradeEvidence(evidence, ports.graders, options.signal);
-  for (const result of gradingResults) {
-    if (result.status === 'completed') continue;
-    const cancelled = result.status === 'cancelled';
-    const errorEvent = lifecycle('evaluator', {
-      type: cancelled ? 'grader_cancelled' : 'grader_error',
-      grader: result.grader,
-      message: cancelled
-        ? 'Grading cancelled by user; saved evidence can be regraded.'
-        : 'The grading adapter failed; saved evidence can be regraded.',
-    });
-    for (const judgment of result.grades)
-      if (!judgment.evidenceRefs.length) judgment.evidenceRefs.push(errorEvent.id);
-  }
+  // Grading belongs to a separate record. Its errors must never rewrite the
+  // completed attempt or append evaluator events to its sealed observation.
+  const gradingResults = await gradeEvidence(
+    structuredClone(evidence),
+    ports.graders,
+    options.signal,
+  );
   const grades = flattenGrades(gradingResults);
-  await ports.store.save('evidence.json', evidence);
   await ports.store.save('grades.json', grades);
   await ports.store.save('grading-results.json', gradingResults);
   const manifest = {

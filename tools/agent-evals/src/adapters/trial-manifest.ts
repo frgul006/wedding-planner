@@ -9,6 +9,7 @@ import {
 } from './evaluation-config.ts';
 import type { inspectPi } from './pi-inspection.ts';
 import { isolatedPiSettings } from './isolation/pi-configuration.ts';
+import type { PiEndpointSelection } from './pi-endpoint-selection.ts';
 
 type PiInspection = Awaited<ReturnType<typeof inspectPi>>;
 
@@ -19,6 +20,8 @@ export async function trialInvariants(
   profile: EvaluationProfile,
   pi: PiInspection,
   rubric: string,
+  effectiveModel: PiInspection['defaults'] = pi.defaults,
+  endpointSelection?: PiEndpointSelection,
 ) {
   const sources = [
     ...pi.resources.instructions,
@@ -82,6 +85,7 @@ export async function trialInvariants(
       agentConfiguration: {
         adapter: profile.harness,
         runtime: profile.pi.runtime,
+        ...(endpointSelection ? { endpointPolicy: endpointSelection.policy } : {}),
         settings: isolatedPiSettings(pi.conversationSettings, profile.pi.runtime),
         extensionPolicy: 'disabled',
         tools: ['read', 'bash', 'edit', 'write'],
@@ -106,7 +110,10 @@ export async function trialInvariants(
         })),
       },
       piVersion: pi.version,
-      model: pi.defaults,
+      model: {
+        ...effectiveModel,
+        ...(endpointSelection ? { endpoint: endpointSelection.effective } : {}),
+      },
       sourceHashes,
     },
   };

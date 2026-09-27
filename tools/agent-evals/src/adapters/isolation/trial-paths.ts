@@ -19,6 +19,7 @@ export interface TrialPaths {
   fileWorker: string;
   processRegistry: string;
   snapshotReceipts: string;
+  toolOutputs: string;
   preflight: string;
   instructionAncestors: string[];
 }
@@ -54,6 +55,7 @@ export async function createTrialPaths(ancestorCount = 0): Promise<TrialPaths> {
     fileWorker: join(control, 'file-worker.mjs'),
     processRegistry: join(control, 'process-groups.jsonl'),
     snapshotReceipts: join(control, 'snapshot-receipts'),
+    toolOutputs: join(control, 'tool-outputs'),
     preflight: join(control, 'preflight.json'),
   };
   await Promise.all(
@@ -64,6 +66,7 @@ export async function createTrialPaths(ancestorCount = 0): Promise<TrialPaths> {
       paths.piDirectory,
       paths.runtimeBin,
       paths.snapshotReceipts,
+      paths.toolOutputs,
       join(control, 'tmp'),
     ].map((directory) => mkdir(directory, { recursive: true })),
   );

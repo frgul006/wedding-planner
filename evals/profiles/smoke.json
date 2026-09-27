@@ -21,6 +21,8 @@
   "agentBilling": "subscription",
   "harness": "pi",
   "pi": {
-    "runtime": "native"
+    "runtime": "native",
+    "model": "gpt-6-luna",
+    "endpoint": "catalog"
   }
 }

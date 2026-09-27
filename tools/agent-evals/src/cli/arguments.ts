@@ -324,6 +324,8 @@ ${shared}${['run', 'experiment', 'doctor', 'regrade', 'grader-smoke'].includes(t
   return `Agent evaluations
 
 Start here
+  pnpm evals library run --dry-run         Preview the Luna → View → Jev workflow
+  pnpm evals library --help                Record once, inspect and regrade
   pnpm evals tasks                         Explore available tasks (offline)
   pnpm evals validate                      Check task/profile files (offline)
   pnpm evals doctor --no-grader             Check local Pi and browser prerequisites

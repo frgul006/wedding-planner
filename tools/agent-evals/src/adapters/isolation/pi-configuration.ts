@@ -4,6 +4,10 @@ import { exists } from './resources.ts';
 import { preparePrivatePiAuthentication, type PrivateAuthentication } from './native-auth.ts';
 import type { TrialPaths } from './trial-paths.ts';
 import type { inspectPiResources } from '../pi-inspection.ts';
+import {
+  projectPiModelsConfiguration,
+  type PiEndpointSelection,
+} from '../pi-endpoint-selection.ts';
 
 export interface InspectedPi {
   packageRoot: string;
@@ -12,6 +16,7 @@ export interface InspectedPi {
   defaults?: { provider: unknown; model: unknown; thinkingLevel: unknown };
   conversationSettings?: Record<string, unknown>;
   resources: Awaited<ReturnType<typeof inspectPiResources>>;
+  endpointSelection?: PiEndpointSelection;
 }
 
 /** Only public behavior settings: never persist arbitrary settings or provider headers. */
@@ -87,7 +92,18 @@ export async function preparePiConfiguration(
     const name = basename(destination);
     if (name === 'auth.json') continue;
     const source = join(pi.agentDir, name);
-    if (await exists(source)) await writeFile(destination, await readFile(source), { mode: 0o600 });
+    if (await exists(source)) {
+      const content = await readFile(source);
+      const projected =
+        name === 'models.json' && pi.endpointSelection
+          ? projectPiModelsConfiguration(
+              content.toString('utf8'),
+              provider,
+              pi.endpointSelection.policy,
+            )
+          : content;
+      await writeFile(destination, projected, { mode: 0o600 });
+    }
   }
   const settings = isolatedPiSettings(original, runtime);
   await writeFile(join(paths.piDirectory, 'settings.json'), JSON.stringify(settings, null, 2));

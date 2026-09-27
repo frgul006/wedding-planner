@@ -4,7 +4,12 @@ import { createRequire } from 'node:module';
 
 const [testModule, executablePath, url, acceptance, targetPath] = process.argv.slice(2);
 assert.ok(
-  ['admin-login-copy', 'local-development-docs', 'admin-login-visible-error'].includes(acceptance),
+  [
+    'admin-login-copy',
+    'local-development-docs',
+    'admin-login-visible-error',
+    'admin-login-retry',
+  ].includes(acceptance),
   'Unknown repository acceptance check',
 );
 if (acceptance === 'local-development-docs') {
@@ -62,7 +67,7 @@ if (acceptance === 'local-development-docs') {
     assert.equal(await page.locator('form').evaluate((form) => form.checkValidity()), true);
     // Delay this real Server Action request so the pending state can be observed reliably.
     let release;
-    const pending = new Promise((resolve) => {
+    let pending = new Promise((resolve) => {
       release = resolve;
     });
     await page.route('**/admin/login', async (route) => {
@@ -95,7 +100,49 @@ if (acceptance === 'local-development-docs') {
       );
     }
     assert.equal(actionRequests, 1, 'Valid submission must invoke the real login Server Action.');
-    assert.equal(await page.getByRole('button', { name: label, exact: true }).isEnabled(), true);
+    try {
+      await button.click({ trial: true, timeout: 5000 });
+    } catch (error) {
+      throw new Error('Failed sign-in must allow another attempt.', { cause: error });
+    }
+    if (acceptance === 'admin-login-retry') {
+      // A second attempt must preserve validation and perform a new real action.
+      await password.fill('');
+      await button.click();
+      await page.waitForTimeout(150);
+      assert.equal(
+        actionRequests,
+        1,
+        'Required validation must still block empty retry credentials.',
+      );
+      await email.fill('retry@example.invalid');
+      await password.fill('another-not-real-password');
+      pending = new Promise((resolve) => {
+        release = resolve;
+      });
+      const secondResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          new URL(response.url()).pathname === '/admin/login',
+      );
+      await button.click();
+      try {
+        await page.getByRole('button', { name: 'Signing in...', exact: true }).waitFor();
+        assert.equal(
+          await page.getByRole('button', { name: 'Signing in...', exact: true }).isDisabled(),
+          true,
+          'Retry must preserve pending feedback.',
+        );
+      } finally {
+        release();
+      }
+      await secondResponse;
+      await page.getByRole('button', { name: label, exact: true }).waitFor();
+      await alert.waitFor({ state: 'visible' });
+      assert.equal(actionRequests, 2, 'Retry must invoke a second real login Server Action.');
+      await button.click({ trial: true, timeout: 5000 });
+      assert.equal(await button.isEnabled(), true, 'A failed retry must permit another attempt.');
+    }
     assert.deepEqual(errors, []);
     console.log(
       JSON.stringify({
@@ -105,6 +152,9 @@ if (acceptance === 'local-development-docs') {
         requiredInputValidation: true,
         serverActionRequests: actionRequests,
         errorVisible: true,
+        ...(acceptance === 'admin-login-retry'
+          ? { retryAccepted: true, retryPendingDisabled: true, retryRequiredValidation: true }
+          : {}),
         hydratedWithoutErrors: true,
         authentication:
           'Only the unavailable local auth endpoint error path is exercised; successful authentication and Supabase are not evaluated.',

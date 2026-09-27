@@ -10,6 +10,7 @@ import {
   UsageAccumulator,
 } from '../src/adapters/pi-rpc.js';
 import type { AgentRunRequest } from '../src/domain/types.js';
+import { endpointHash } from '../src/adapters/pi-endpoint-selection.ts';
 
 test('strict LF framing preserves Unicode separators, CRLF, and split UTF-8', () => {
   const received: Record<string, unknown>[] = [];
@@ -67,7 +68,7 @@ test('model metadata excludes provider credentials and request headers', () => {
 const fakeRpc = String.raw`#!/usr/bin/env node
 const send = event => process.stdout.write(JSON.stringify(event) + '\n');
 const scenario = process.env.EVAL_RPC_SCENARIO;
-const model = { provider: 'openai-codex', id: 'test-model', headers: { Authorization: 'must-not-persist' } };
+const model = { provider: 'openai-codex', id: 'test-model', baseUrl: 'https://chatgpt.com/backend-api', headers: { Authorization: 'must-not-persist' } };
 const usage = { input: 10, output: 5, cacheRead: 0, cacheWrite: 0, cost: { total: scenario === 'high-cost' ? 25 : 0.01 } };
 let pending = '';
 process.stdin.on('data', chunk => {
@@ -102,7 +103,7 @@ if (scenario === 'startup-hang') { process.on('SIGTERM', () => {}); setInterval(
 async function trial(
   scenario: string,
   overrides: Partial<AgentRunRequest> = {},
-  runnerOptions: { requiredExtensionCommand?: string } = {},
+  runnerOptions: { requiredExtensionCommand?: string; expectedEndpointHash?: string } = {},
 ) {
   const directory = await mkdtemp(join(tmpdir(), 'pi-rpc-test-'));
   const executable = join(directory, 'pi-test.cjs');
@@ -331,4 +332,24 @@ test('already cancelled requests do not start Pi or dispatch prompts', async () 
     result.events.some((event) => event.data.type === 'pi_started'),
     false,
   );
+});
+
+test('explicit endpoint identity is checked before prompting Pi', async () => {
+  const mismatch = await trial(
+    'pass',
+    {},
+    { expectedEndpointHash: endpointHash('http://127.0.0.1:8787/v1') },
+  );
+  assert.equal(mismatch.status, 'infrastructure_error');
+  assert.match(mismatch.error ?? '', /endpoint.*no prompt was sent/);
+  assert.equal(
+    mismatch.events.some((event) => event.data.command === 'prompt'),
+    false,
+  );
+  const match = await trial(
+    'pass',
+    {},
+    { expectedEndpointHash: endpointHash('https://chatgpt.com/backend-api') },
+  );
+  assert.equal(match.status, 'completed');
 });

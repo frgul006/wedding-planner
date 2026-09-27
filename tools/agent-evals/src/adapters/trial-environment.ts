@@ -279,6 +279,8 @@ export async function prepareTrialEnvironment(
         fixtureRevision: resources.fixtureRevision,
         fixtureFiles: resources.fixtureFiles,
         resources: resources.resources,
+        recordedContexts: resources.recordedContexts,
+        contextCaptureGaps: resources.contextCaptureGaps,
         sourceProfile: resources.sourceProfile,
         skillTreeFingerprint: resources.skillTreeFingerprint,
         effectiveDiscovery,
@@ -296,6 +298,7 @@ export async function prepareTrialEnvironment(
         sourceRepo,
         agentConfiguration: {
           runtime: options.piRuntime ?? 'native',
+          ...(options.pi.endpointSelection ? { endpoint: options.pi.endpointSelection } : {}),
           extensionPolicy: 'disabled',
           tools: ['read', 'bash', 'edit', 'write'],
         },

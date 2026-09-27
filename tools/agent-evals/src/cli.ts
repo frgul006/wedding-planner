@@ -7,6 +7,12 @@ import { ConsoleOutput } from './cli/output.ts';
 
 /** Composition root: parse once, dispatch once, keep infrastructure out of the core. */
 async function main(argv: string[], signal: AbortSignal): Promise<number> {
+  if (argv[0] === 'library')
+    return (await import('./cli/library-command.ts')).libraryCommand(argv.slice(1), {
+      repo: fileURLToPath(new URL('../../../', import.meta.url)),
+      callerCwd: process.env.INIT_CWD ?? process.cwd(),
+      signal,
+    });
   const request = parseCommand(argv);
   const output = new ConsoleOutput(Boolean(request.values.json));
   const context: CommandContext = {

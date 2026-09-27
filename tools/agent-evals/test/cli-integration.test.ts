@@ -101,6 +101,8 @@ test('complete CLI task discovery, validation and dry-run return clean machine-r
     const result = JSON.parse(preview.stdout);
     assert.equal(result.dryRun, true);
     assert.equal(result.task.id, 'ui-copy');
+    assert.equal(result.profile.pi.model, 'gpt-6-luna');
+    assert.equal(result.profile.grader.model, 'gpt-5.6-luna');
     assert.equal(result.useGrader, true);
     assert.ok(result.budget.reservedEstimateUsd > 0);
     assert.equal(preview.stderr, '');

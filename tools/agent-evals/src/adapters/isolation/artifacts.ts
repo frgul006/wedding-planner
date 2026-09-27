@@ -76,5 +76,10 @@ export async function collectTrialArtifacts(options: {
   for (const file of await readdir(paths.snapshotReceipts)) {
     append(parseSnapshotReceipt(await readFile(join(paths.snapshotReceipts, file), 'utf8')));
   }
+  // These files are written by the trusted tool boundary outside the agent's
+  // filesystem access. They survive native result truncation and workspace edits.
+  for (const file of await readdir(paths.toolOutputs)) {
+    append(parseSnapshotReceipt(await readFile(join(paths.toolOutputs, file), 'utf8')));
+  }
   return artifacts;
 }

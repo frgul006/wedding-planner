@@ -9,6 +9,7 @@ import type {
   Usage,
 } from '../domain/types.js';
 import { normalizePiEvent } from './pi-evidence.ts';
+import { endpointHash } from './pi-endpoint-selection.ts';
 
 type JsonObject = Record<string, unknown>;
 export const object = (value: unknown): JsonObject =>
@@ -266,7 +267,12 @@ export class UsageAccumulator {
 }
 
 export class PiRpcRunner implements AgentRunner {
-  constructor(private readonly options: { requiredExtensionCommand?: string } = {}) {}
+  constructor(
+    private readonly options: {
+      requiredExtensionCommand?: string;
+      expectedEndpointHash?: string;
+    } = {},
+  ) {}
 
   async run(request: AgentRunRequest): Promise<AgentResult> {
     if (request.env.OPENAI_API_KEY)
@@ -438,6 +444,14 @@ export class PiRpcRunner implements AgentRunner {
       model = modelMetadata(state.model);
       thinkingLevel = typeof state.thinkingLevel === 'string' ? state.thinkingLevel : null;
       if (!model) throw new Error('Pi has no active model');
+      if (
+        this.options.expectedEndpointHash &&
+        (typeof object(state.model).baseUrl !== 'string' ||
+          endpointHash(object(state.model).baseUrl as string) !== this.options.expectedEndpointHash)
+      )
+        throw new Error(
+          'Active Pi endpoint does not match the explicit evaluation endpoint policy; no prompt was sent.',
+        );
       if (
         request.expectedModel &&
         (model.provider !== request.expectedModel.provider ||

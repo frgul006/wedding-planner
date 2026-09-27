@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { cp, lstat, mkdir, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import type { TrialPaths } from './trial-paths.ts';
+import type { TraceArtifact } from '../../domain/library.ts';
+import { redact } from '../secrets.ts';
 import {
   inspectPiResourcesInEnvironment,
   type inspectPiResources,
@@ -69,6 +71,8 @@ export interface ResourceMapping {
   name?: string;
 }
 export interface PreparedResources {
+  recordedContexts: Array<TraceArtifact & { kind: string }>;
+  contextCaptureGaps: string[];
   readableFiles: string[];
   skillsDirectory: string;
   resources: Array<{ path: string; sha256: string; kind: string }>;
@@ -158,6 +162,27 @@ export async function prepareResources(options: {
     }
   }
   const mappings: ResourceMapping[] = [];
+  const recordedContexts: PreparedResources['recordedContexts'] = [];
+  const contextCaptureGaps: string[] = [];
+  const captureContext = (path: string, bytes: Buffer | string, kind: string) => {
+    try {
+      const content = redact(
+        typeof bytes === 'string' ? bytes : new TextDecoder('utf-8', { fatal: true }).decode(bytes),
+      );
+      if (content.includes('\0')) throw new Error('Binary resource');
+      recordedContexts.push({
+        id: `context-${recordedContexts.length + 1}`,
+        path,
+        kind,
+        content,
+        sha256: sha256(content),
+      });
+    } catch {
+      contextCaptureGaps.push(
+        `Non-text resource was fingerprinted but its contents were not captured: ${path}`,
+      );
+    }
+  };
   const skillTrees: PreparedResources['sourceProfile']['skillTrees'] = [];
   const readableFiles: string[] = [];
   const copySelected = async (
@@ -170,6 +195,8 @@ export async function prepareResources(options: {
     const effective = content ?? original;
     await mkdir(dirname(destination), { recursive: true });
     await writeFile(destination, effective);
+    captureContext(source.path, original, `original-${kind}`);
+    captureContext(destination, effective, `effective-${kind}`);
     readableFiles.push(destination);
     mappings.push({
       kind,
@@ -230,11 +257,14 @@ export async function prepareResources(options: {
     // Fingerprint the copied tree, not just SKILL.md: referenced helpers affect
     // behavior too. Relative paths keep the digest stable across trial roots.
     const files = await Promise.all(
-      (await resourceFilesIn(destination)).map(async (path) => ({
-        path: relative(destination, path),
-        sha256: sha256(await readFile(path)),
-        mode: (await stat(path)).mode & 0o777,
-      })),
+      (await resourceFilesIn(destination)).map(async (path) => {
+        const content = await readFile(path);
+        const localPath = relative(destination, path);
+        const kind = localPath === 'SKILL.md' ? 'skill' : 'skill-resource';
+        captureContext(join(dirname(skill.path), localPath), content, `original-${kind}`);
+        captureContext(path, content, `effective-${kind}`);
+        return { path: localPath, sha256: sha256(content), mode: (await stat(path)).mode & 0o777 };
+      }),
     );
     skillTrees.push({ sourcePath: skill.path, name: skill.name, scope: skill.scope, files });
     mappings.push({
@@ -267,6 +297,8 @@ export async function prepareResources(options: {
     })),
   );
   return {
+    recordedContexts,
+    contextCaptureGaps,
     readableFiles,
     skillsDirectory,
     resources,

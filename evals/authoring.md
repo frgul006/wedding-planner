@@ -1,5 +1,7 @@
 # Add an evaluation
 
+For new library Views and Graders, start with the [library authoring API](library.md#author-checks-with-ordinary-functions). It uses ordinary functions without a central registry. The recipes below describe the existing repository task catalog and legacy comparison commands.
+
 [Run the CLI](README.md) · [Code map](../tools/agent-evals/README.md)
 
 ## Add a task
@@ -102,7 +104,7 @@ An environment's `finalize()` stops agent descendants, checks the final applicat
 
 ## Compare configurations
 
-Profiles set the harness, runtime/budget bounds and grader configuration. The included `smoke` and `controlled` profiles differ only in Pi conversation policy: native settings versus disabled compaction/retries. Both retain the explicitly restricted tool surface described in [the setup guide](README.md).
+Profiles set the harness, runtime/budget bounds and grader configuration. The optional `pi.model` selects an exact model ID in the saved provider's catalog without changing global Pi settings; omit it to retain the saved model. The included `smoke` and `controlled` profiles both select `gpt-6-luna` and differ only in Pi conversation policy: native settings versus disabled compaction/retries. Both retain the explicitly restricted tool surface described in [the setup guide](README.md).
 
 ```bash
 pnpm evals run repository-docs --profile smoke

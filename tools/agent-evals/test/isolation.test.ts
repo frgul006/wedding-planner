@@ -14,6 +14,9 @@ import { tmpdir } from 'node:os';
 import { test } from 'node:test';
 import { createServer } from 'node:net';
 import { cleanupPrivateTrial } from '../src/adapters/isolation/cleanup.js';
+import { createTrialPaths } from '../src/adapters/isolation/trial-paths.ts';
+import { collectTrialArtifacts } from '../src/adapters/isolation/artifacts.ts';
+import { hash } from '../src/adapters/file-run-store.ts';
 import {
   safeFile,
   sandboxProfile,
@@ -177,6 +180,107 @@ test('only unambiguous native CLI commands receive an execution receipt', async 
     'playwright-cli open --config=mutable.json',
   ])
     assert.equal(parseDirectPlaywright(command), null);
+});
+
+test('full native output is retained privately beyond excerpt limits with capture-time redaction', async () => {
+  const { captureNativeOutput } = await import(
+    new URL('../src/adapters/isolation/pi-tool-boundary.mjs', import.meta.url).href
+  );
+  const paths = await createTrialPaths();
+  try {
+    const prefix = 'long output line\n'.repeat(20000);
+    const receipt = await captureNativeOutput(
+      paths.toolOutputs,
+      'call-1',
+      Buffer.from(prefix + 'sk-offline-secret-fixture-value'),
+      'command-output',
+    );
+    assert.equal(receipt.encoding, 'utf8');
+    const artifacts = await collectTrialArtifacts({
+      paths,
+      targetFile: 'missing.txt',
+      nodeExecutable: process.execPath,
+      async run() {
+        throw new Error('No source file should be read');
+      },
+    });
+    const output = artifacts.find((artifact) => artifact.path === receipt.path);
+    assert.ok(output);
+    assert.equal(output.content, prefix + '[REDACTED_API_KEY]');
+    assert.equal(output.sha256, hash(output.content));
+    assert.equal(output.sha256, receipt.sha256);
+    assert.match(
+      (await captureNativeOutput(undefined, 'call-2', Buffer.from('data'), 'command-output')).gap,
+      /does not retain/,
+    );
+    const binary = await captureNativeOutput(
+      paths.toolOutputs,
+      'call-3',
+      Buffer.from([255, 0]),
+      'command-output',
+    );
+    assert.equal(binary.encoding, 'base64');
+  } finally {
+    await rm(paths.root, { recursive: true, force: true });
+  }
+});
+
+test('a captured native tool error before execution is not a missing-output gap', async () => {
+  const { default: installBoundary } = await import(
+    new URL('../src/adapters/isolation/pi-tool-boundary.mjs', import.meta.url).href
+  );
+  const root = await mkdtemp(join(tmpdir(), 'eval-tool-error-'));
+  const originalConfig = process.env.EVAL_ISOLATION_CONFIG;
+  try {
+    const module = join(root, 'fake-native.mjs');
+    await writeFile(
+      module,
+      `
+      export const createReadTool = () => ({ name: 'read' });
+      export const createEditTool = () => ({ name: 'edit' });
+      export const createWriteTool = () => ({ name: 'write' });
+      export const createBashTool = () => ({ name: 'bash', async execute() { throw new Error('Invalid native tool argument'); } });
+    `,
+    );
+    const configuration = join(root, 'boundary.json');
+    await writeFile(
+      configuration,
+      JSON.stringify({
+        piModule: module,
+        workspace: root,
+        targetFile: '/outside-the-trial.txt',
+        writableDirectories: [root],
+        resourceDirectories: [],
+        resourceFiles: [],
+      }),
+    );
+    process.env.EVAL_ISOLATION_CONFIG = configuration;
+    const tools = new Map<
+      string,
+      { execute: (...args: unknown[]) => Promise<Record<string, unknown>> }
+    >();
+    await installBoundary({
+      registerTool(tool: {
+        name: string;
+        execute: (...args: unknown[]) => Promise<Record<string, unknown>>;
+      }) {
+        tools.set(tool.name, tool);
+      },
+      registerCommand() {},
+      on() {},
+    });
+    const result = await tools.get('bash')!.execute('call-error', { command: 'invalid command' });
+    assert.equal(result.isError, true);
+    assert.deepEqual(result.content, [{ type: 'text', text: 'Invalid native tool argument' }]);
+    assert.equal(
+      (result.details as { evaluation: { outputCapture?: unknown } }).evaluation.outputCapture,
+      undefined,
+    );
+  } finally {
+    if (originalConfig === undefined) delete process.env.EVAL_ISOLATION_CONFIG;
+    else process.env.EVAL_ISOLATION_CONFIG = originalConfig;
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test('malformed registry cleanup cannot retain private authentication or model configuration', async () => {

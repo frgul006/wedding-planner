@@ -114,6 +114,56 @@ test('only native selected skills are copied and their scope never depends on pa
   }
 });
 
+test('historical contexts retain original and effective instructions and referenced skill text', async () => {
+  const setup = await fixture();
+  try {
+    const skill: PiSkillSource = {
+      ...(await selectedFile(
+        join(setup.sourceRepo, '.agents/skills/diagnose/SKILL.md'),
+        '# Diagnose\nSee [guide](guide.md).',
+      )),
+      name: 'diagnose',
+      scope: 'project',
+      source: 'local',
+      origin: 'top-level',
+    };
+    await selectedFile(join(dirname(skill.path), 'guide.md'), 'Predict a falsifiable result.');
+    await writeFile(join(dirname(skill.path), 'binary.dat'), Buffer.from([0xff, 0x00]));
+    setup.native.skills = [skill];
+    const prepared = await prepareResources({ ...setup, variant: 'disabled' });
+    const original = prepared.recordedContexts.find(
+      (context) => context.kind === 'original-instruction',
+    );
+    const effective = prepared.recordedContexts.find(
+      (context) => context.kind === 'effective-instruction',
+    );
+    assert.ok(original?.content.includes(VALIDATION_INSTRUCTION));
+    assert.equal(effective?.content.includes(VALIDATION_INSTRUCTION), false);
+    assert.ok(
+      prepared.recordedContexts.some(
+        (context) =>
+          context.kind === 'effective-skill-resource' &&
+          context.content === 'Predict a falsifiable result.',
+      ),
+    );
+    await writeFile(skill.path, 'Changed after capture');
+    assert.ok(
+      prepared.recordedContexts.some(
+        (context) => context.kind === 'original-skill' && context.content.includes('# Diagnose'),
+      ),
+    );
+    assert.ok(prepared.contextCaptureGaps.some((gap) => gap.includes('binary.dat')));
+    for (const context of prepared.recordedContexts)
+      assert.equal(context.sha256, sha256(context.content));
+    assert.equal(
+      new Set(prepared.recordedContexts.map((context) => context.id)).size,
+      prepared.recordedContexts.length,
+    );
+  } finally {
+    await rm(setup.root, { recursive: true, force: true });
+  }
+});
+
 test('winning global override and system prompt filenames survive with project prompt precedence', async () => {
   const setup = await fixture();
   try {

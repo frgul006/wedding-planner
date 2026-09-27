@@ -12,6 +12,7 @@ export const REPOSITORY_ACCEPTANCE_IDS = new Set([
   'admin-login-copy',
   'local-development-docs',
   'admin-login-visible-error',
+  'admin-login-retry',
 ]);
 const excludedResourceNames = [
   'AGENTS.md',
@@ -124,13 +125,17 @@ export async function prepareRepositoryCheckout(options: {
   for (const name of excludedResourceNames)
     await rm(join(paths.workspace, name), { recursive: true, force: true });
   let seededPatch: string | null = null;
-  if (options.acceptance === 'admin-login-visible-error') {
+  if (['admin-login-visible-error', 'admin-login-retry'].includes(options.acceptance)) {
     const path = join(paths.workspace, 'app/admin/login/login-form.tsx');
     const original = await readFile(path, 'utf8');
-    const needle = 'className="rounded-lg bg-red-50';
+    const retry = options.acceptance === 'admin-login-retry';
+    const needle = retry ? 'disabled={pending}' : 'className="rounded-lg bg-red-50';
+    const replacement = retry
+      ? 'disabled={pending || Boolean(state.error)}'
+      : 'className="hidden rounded-lg bg-red-50';
     if (original.split(needle).length !== 2)
       throw new Error('Pinned login error fixture no longer matches its authored defect.');
-    await writeFile(path, original.replace(needle, 'className="hidden rounded-lg bg-red-50'));
+    await writeFile(path, original.replace(needle, replacement));
     seededPatch = (
       await repositoryGit(
         paths.workspace,

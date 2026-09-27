@@ -4,6 +4,11 @@ import { checkGraderModel } from '../../adapters/ai-sdk-grader.ts';
 import { FileRunStore } from '../../adapters/file-run-store.ts';
 import { resolveLocalRuntime } from '../../adapters/isolation/runtime.ts';
 import { inspectPi } from '../../adapters/pi-inspection.ts';
+import { selectPiModel } from '../../adapters/pi-model-selection.ts';
+import {
+  selectPiEndpoint,
+  checkPiEndpointReadiness,
+} from '../../adapters/pi-endpoint-selection.ts';
 import { loadGraderKey, safeError } from '../../adapters/secrets.ts';
 import { timestampId, type CommandContext } from '../context.ts';
 import { agentSource, graderEnvFile, profileOverrides } from '../live-plan.ts';
@@ -28,7 +33,17 @@ export async function doctorCommand(context: CommandContext): Promise<number> {
     () =>
       Promise.allSettled([
         resolveLocalRuntime(repo, source),
-        inspectPi({ cwd: source }),
+        inspectPi({ cwd: source }).then(async (inspection) => {
+          const evaluationModel = selectPiModel(inspection, profile.pi);
+          const endpointSelection = await selectPiEndpoint({
+            agentDir: inspection.agentDir,
+            provider: evaluationModel.provider,
+            model: evaluationModel.model,
+            policy: profile.pi.endpoint,
+          });
+          await checkPiEndpointReadiness(endpointSelection);
+          return { ...inspection, evaluationModel, endpointSelection };
+        }),
         !useGrader
           ? Promise.resolve(null)
           : (async () => {
@@ -54,7 +69,7 @@ export async function doctorCommand(context: CommandContext): Promise<number> {
     });
   }
   if (pi.status === 'fulfilled') {
-    const settings = pi.value.defaults;
+    const settings = pi.value.evaluationModel;
     const provider = typeof settings.provider === 'string' ? settings.provider : 'unknown';
     const model = typeof settings.model === 'string' ? settings.model : 'unknown';
     const thinking =
@@ -65,7 +80,7 @@ export async function doctorCommand(context: CommandContext): Promise<number> {
     checks.push({
       name: 'Native Pi',
       status: subscriptionValid ? 'pass' : 'fail',
-      detail: `${provider}/${model} · ${thinking} · Pi ${pi.value.version}`,
+      detail: `${provider}/${model} · ${thinking} · Pi ${pi.value.version} · endpoint ${pi.value.endpointSelection.policy} (${pi.value.endpointSelection.effective.origin})`,
       ...(subscriptionValid
         ? {}
         : {
@@ -84,7 +99,7 @@ export async function doctorCommand(context: CommandContext): Promise<number> {
       status: 'fail',
       detail: safeError(pi.reason),
       remedy:
-        'Install Pi, authenticate it in your usual terminal session, and select the model you want to evaluate. Existing settings are preserved.',
+        'Install Pi, authenticate it in your usual terminal session, and make the evaluation profile model available in its catalog. Existing settings are preserved.',
     });
   }
   if (grader.status === 'fulfilled') {

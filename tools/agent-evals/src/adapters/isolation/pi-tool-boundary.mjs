@@ -26,9 +26,42 @@ const within = (root, path) => {
   return value === '' || (!value.startsWith('../') && value !== '..' && !isAbsolute(value));
 };
 
+export async function captureNativeOutput(directory, id, bytes, kind) {
+  if (!directory) return { gap: 'This boundary does not retain full native output.' };
+  try {
+    let content;
+    let encoding = 'utf8';
+    try {
+      content = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      content = content
+        .replace(/\bsk-[A-Za-z0-9_-]{12,}/g, '[REDACTED_API_KEY]')
+        .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[REDACTED_JWT]')
+        .replace(/(Bearer\s+)[A-Za-z0-9._~-]+/gi, '$1[REDACTED]');
+    } catch {
+      content = bytes.toString('base64');
+      encoding = 'base64';
+    }
+    const receipt = {
+      path: `native-output:${id}`,
+      content,
+      sha256: hash(content),
+      kind,
+      encoding,
+    };
+    await writeFile(resolve(directory, hash(id) + '.json'), JSON.stringify(receipt), {
+      mode: 0o600,
+    });
+    return { path: receipt.path, sha256: receipt.sha256, kind, encoding };
+  } catch {
+    return { gap: 'Full native output could not be persisted in the private recording.' };
+  }
+}
+
 export default async function installBoundary(pi) {
   const config = JSON.parse(await readFile(process.env.EVAL_ISOLATION_CONFIG, 'utf8'));
   const native = await import(config.piModule);
+  const captureOutput = (id, bytes, kind) =>
+    captureNativeOutput(config.toolOutputDirectory, id, bytes, kind);
   const targetHash = async () => {
     try {
       return hash(await fileOperation('read', config.targetFile));
@@ -157,9 +190,13 @@ export default async function installBoundary(pi) {
           result = { content: [{ type: 'text', text: error.message }], isError: true };
         }
         let sha256;
+        let outputCapture;
         if (tool.name === 'read') {
           try {
-            sha256 = hash(await fileOperation('read', resolve(config.workspace, params.path)));
+            const bytes = await fileOperation('read', resolve(config.workspace, params.path));
+            sha256 = hash(bytes);
+            if (result.details?.truncation?.truncated)
+              outputCapture = await captureOutput(id, bytes, 'read-source');
           } catch {}
         }
         return {
@@ -170,6 +207,7 @@ export default async function installBoundary(pi) {
               kind: `file-${tool.name}`,
               path: params.path,
               sha256,
+              outputCapture,
               targetBeforeHash: before,
               targetAfterHash: await targetHash(),
             },
@@ -214,6 +252,9 @@ export default async function installBoundary(pi) {
         exitCode: execution?.exitCode,
         targetBeforeHash: before,
         targetAfterHash: await targetHash(),
+        outputCapture: execution
+          ? await captureOutput(id, execution.output, 'command-output')
+          : undefined,
       };
       if (direct && execution) {
         const daemon = execution.output

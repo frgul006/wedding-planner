@@ -1,5 +1,9 @@
 # Coding-agent evaluations
 
+Start with the [library workflow](library.md): one saved Luna trial, reusable evidence views, batched Jev grading, and inspection and regrading of the same recording. Preview it with `pnpm evals library run --dry-run`.
+
+The commands below retain the earlier matched instruction-comparison workflow.
+
 Run native Pi on a pinned checkout of Wedding Planner, check its changes independently, and compare the browser-validation instruction enabled versus disabled.
 
 ```bash
@@ -9,7 +13,7 @@ pnpm evals experiment repository-ui-copy --dry-run
 pnpm evals experiment repository-ui-copy
 ```
 
-One command runs the two trials sequentially, keeps both results (including failures), and writes a comparison and a shareable review summary. It does not make grader API calls unless you add `--semantic`. Pi uses its existing model and authentication; subscription usage has separate token/runtime bounds.
+One command runs the two trials sequentially, keeps both results (including failures), and writes a comparison and a shareable review summary. It does not make grader API calls unless you add `--semantic`. The included profiles run Pi with `gpt-6-luna` for experimentation, using its existing provider, reasoning and authentication; subscription usage has separate token/runtime bounds.
 
 [Author a task or grader](authoring.md) · [Code map](../tools/agent-evals/README.md) · [Real-repository verification](verification-2026-09-16.md)
 
@@ -43,7 +47,11 @@ The evaluator stops agent descendants, runs its own checks, captures before/afte
 
 ## Native Pi configuration
 
-The default `smoke` profile preserves the saved provider, model, reasoning, conversation compaction and retry settings. Native Pi resolves the copied instructions and skills again before prompting. The `controlled` profile explicitly disables native compaction/retries for comparison.
+The default `smoke` profile selects `gpt-6-luna` while preserving the saved provider, reasoning, conversation compaction and retry settings. The `controlled` profile selects the same model and explicitly disables native compaction/retries for comparison. Native Pi resolves the copied instructions and skills again before prompting.
+
+The included profiles explicitly select `pi.endpoint: "catalog"`: evaluation uses the HTTPS endpoint in Pi’s native model catalog while retaining its OAuth authentication. Only an endpoint-only provider override is removed from the private trial copy; global Pi settings and other providers remain untouched. Inspection records the saved override and effective endpoint as origins plus exact identity hashes, and startup checks the effective endpoint before prompting. More complex custom provider credentials or model definitions are rejected rather than redirected. Omit the field or use `"native"` to retain the configured provider endpoint; doctor identifies a local Python static-file server before a model request. This addresses the observed stale localhost proxy override that produced a zero-token HTTP 501 trial, which remains saved.
+
+The optional `pi.model` profile field changes only the evaluated agent. Omit it to use Pi's saved model. Selection uses the exact ID in the authenticated provider's native catalog and fails before prompting when unavailable; it never falls back to a more expensive model. Trial launch arguments leave global Pi settings unchanged. Inspection retains the saved defaults separately from the effective evaluation model, which is frozen in the comparison and checked against Pi's active model/reasoning before dispatch. An incompatible saved reasoning level fails that check before prompting. The optional semantic grader remains separately configured as `gpt-5.6-luna`.
 
 Trusted project-specific runtime overrides in `.pi/settings.json` are currently rejected with an actionable error; the adapter does not silently ignore them. Supporting their effective merged settings is a remaining Pi-adapter extension.
 

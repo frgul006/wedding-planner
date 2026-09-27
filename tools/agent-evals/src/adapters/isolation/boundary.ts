@@ -137,6 +137,7 @@ export async function prepareBoundary(options: {
       browserConfigPath: paths.browserConfig,
       processRegistryPath: paths.processRegistry,
       snapshotReceiptDirectory: paths.snapshotReceipts,
+      toolOutputDirectory: paths.toolOutputs,
       workspace: paths.workspace,
       targetFile: resolve(paths.workspace, options.targetFile),
       piModule: join(options.packageRoot, 'dist/index.js'),

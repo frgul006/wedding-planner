@@ -19,6 +19,7 @@ ${plan.task.prompt}
 
 Agent profile source: ${plan.agentSource}
 Harness: ${plan.profile.harness}/${plan.profile.pi.runtime}
+Agent model: ${plan.profile.pi.model ?? 'native saved model'}
 Task source: ${plan.task.environment === 'repository' ? `repository@${plan.task.repository!.revision}` : `fixture:${plan.task.fixture}`}
 Bounds: ${plan.profile.maxAgentTokens.toLocaleString('en-US')} observed tokens · ${formatDuration(plan.profile.runtimeMs)}
 API grader: ${plan.useGrader ? plan.profile.grader.model : 'disabled (opt in with --semantic)'}

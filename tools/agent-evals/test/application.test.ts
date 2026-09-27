@@ -317,6 +317,8 @@ test('an agent adapter exception still captures artifacts, cleans up, and saves 
 
 test('trial evidence is persisted before a failing grader runs and its failure is recorded separately', async () => {
   const saved = new Map<string, unknown>();
+  const observations: string[] = [];
+  let evidenceWrites = 0;
   const result = await runTrial(options, {
     environment: {
       async prepare() {
@@ -330,8 +332,10 @@ test('trial evidence is persisted before a failing grader runs and its failure i
     },
     graders: [
       testGrader({
-        async grade() {
+        async grade(evidence) {
           assert.ok(saved.has('evidence.json'), 'paid trial already saved before grading');
+          // Even a misbehaving grader cannot mutate the original observation.
+          evidence.events.length = 0;
           throw new Error('Invalid rubric');
         },
       }),
@@ -339,15 +343,24 @@ test('trial evidence is persisted before a failing grader runs and its failure i
     store: {
       async save(name, value) {
         saved.set(name, value);
+        if (name === 'evidence.json') {
+          evidenceWrites++;
+          observations.push(JSON.stringify(value));
+        }
       },
       append() {},
     },
   });
   assert.equal(result.evidence.agent.status, 'completed');
   assert.equal(result.grades[0].verdict, 'unknown');
-  const error = result.evidence.events.find((event) => event.data.type === 'grader_error');
-  assert.ok(error);
-  assert.deepEqual(result.grades[0].evidenceRefs, [error.id]);
+  assert.equal(
+    result.evidence.events.some((event) => event.data.type === 'grader_error'),
+    false,
+  );
+  assert.deepEqual(result.grades[0].evidenceRefs, []);
+  assert.equal(result.gradingResults[0].status, 'grader_error');
+  assert.equal(evidenceWrites, 1);
+  assert.equal(observations[0], JSON.stringify(result.evidence));
   assert.ok(saved.has('grades.json') && saved.has('manifest.json'));
 });
 
@@ -591,6 +604,7 @@ test('cancelling grading preserves the completed Pi result and saved usage', asy
   assert.equal(result.evidence.agent.usage.estimatedCostUsd, 0.01);
   assert.equal(result.grades[0].verdict, 'unknown');
   assert.match(result.grades[0].reason, /cancelled/);
-  assert.equal(result.evidence.events.at(-1)?.data.type, 'grader_cancelled');
+  assert.equal(result.evidence.events.at(-1)?.data.type, 'trial_observation');
+  assert.equal(result.gradingResults[0].status, 'cancelled');
   assert.equal(saved.get('manifest.json'), result.manifest);
 });
