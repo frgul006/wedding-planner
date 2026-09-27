@@ -8,7 +8,7 @@ import { SEEDED_WEDDING_ID } from "./support/test-data";
 import { updateWeddingSettings } from "./support/wedding-settings";
 
 const PREFIX = "e2e-hub-browser-";
-const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=", "base64");
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR4AWLa7KXzH4SZGKAAAAAA//93sH6uAAAABklEQVQDADm6BFWM5cf8AAAAAElFTkSuQmCC", "base64");
 
 async function rows() {
   const result = await createE2eSupabaseAdminClient().from("photo_uploads")
@@ -60,6 +60,61 @@ test.describe("Wedding hub browser upload", () => {
     }
     if (uploaded.length) {
       expect((await db.from("photo_uploads").delete().in("id", uploaded.map(row => row.id))).error).toBeNull();
+    }
+  });
+
+  test("selects and uploads more than eight photos with sequential thumbnail preparation and transfers", async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.addInitScript(() => {
+      const bitmap = window.createImageBitmap.bind(window);
+      const counters = { active: 0, maximum: 0, total: 0 };
+      Object.assign(window, { thumbnailCounters: counters });
+      Reflect.set(window, "createImageBitmap", async (...args: Parameters<typeof createImageBitmap>) => {
+        counters.total += 1;
+        counters.active += 1;
+        counters.maximum = Math.max(counters.maximum, counters.active);
+        try {
+          return await bitmap(...args);
+        } finally {
+          counters.active -= 1;
+        }
+      });
+    });
+    const names = Array.from({ length: 12 }, (_, index) => `${PREFIX}large-batch-${index}.png`);
+    const operations: string[] = [];
+    page.on("request", request => {
+      if (request.url().endsWith("/photos/sign")) {
+        const uploads = request.postDataJSON().uploads;
+        expect(uploads).toHaveLength(1);
+        operations.push(`sign:${uploads[0].fileName}`);
+      }
+    });
+    page.on("response", response => {
+      if (response.url().endsWith("/photos/finalize") && response.ok()) {
+        operations.push(`finalize:${response.request().postDataJSON().uploads[0].originalFileName}`);
+      }
+    });
+
+    await pick(page, names.slice(0, 6));
+    await page.locator('input[type="file"]').setInputFiles(names.slice(6).map(name => ({ name, mimeType: "image/png", buffer: PNG })));
+    await expect(page.getByPlaceholder("Lägg till kommentar")).toHaveCount(12);
+    await expect(page.getByRole("button", { name: "Ladda upp 12 bilder", exact: true })).toBeEnabled();
+    expect(await page.evaluate(() => Reflect.get(window, "thumbnailCounters").total)).toBe(0);
+
+    await page.getByRole("button", { name: "Ladda upp 12 bilder", exact: true }).click();
+    await expect(page.getByText("Valda filer", { exact: true })).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.getByRole("status")).toHaveText("12 bilder uppladdade.");
+    expect(operations).toEqual(names.flatMap(name => [`sign:${name}`, `finalize:${name}`]));
+    expect(await page.evaluate(() => Reflect.get(window, "thumbnailCounters"))).toMatchObject({ total: 12, maximum: 1, active: 0 });
+    const uploaded = await rows();
+    expect(uploaded).toHaveLength(12);
+    for (const row of uploaded) {
+      expect(row).toMatchObject({ verification_status: "verified", moderation_status: "approved" });
+      expect(row.thumbnail_storage_path).toBeTruthy();
+    }
+    await page.getByRole("button", { name: "Galleriet" }).click();
+    for (const row of uploaded) {
+      await expect(page.locator(`button[data-photo-id="${row.id}"]`)).toHaveCount(1);
     }
   });
 

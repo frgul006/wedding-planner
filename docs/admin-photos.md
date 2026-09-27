@@ -84,7 +84,7 @@ Useful checks:
 Use local Supabase only; preserve wedding settings before test fixtures reset them and restore afterwards. Clean only test-owned rows and original/thumbnail paths, including uploads that never reached finalize.
 
 - Picker → upload → feed/gallery: try JPEG, PNG, WEBP, per-file notes, and multiple files. Confirm verified DB MIME/size, matching stored original bytes, attribution when an active invite cookie exists, and anonymous access rules.
-- Limits: at most 8 selected files, 50 MiB each, 512-character notes. Unsupported/empty/oversized files should fail before signing.
+- Limits: no fixed photo-selection count limit, 50 MiB each, 512-character notes. Try selecting and uploading more than 8 photos. Unsupported/empty/oversized files should fail before signing. Thumbnail preparation and transfers run one photo at a time; the server still limits each signing/finalization request to 8 entries.
 - Slow/partial batch: hold or fail a later Storage PUT. Earlier files must already be finalized; retry must not sign/upload earlier successes again. Picker, note, and remove controls stay disabled during transfer.
 - Lost finalize response: let the server commit, then drop its response. Retry should use the same claim, without another Storage PUT or duplicate row. Gallery refresh failure must not turn success into a failed upload.
 - Review on: show a receipt message but keep the verified pending photo out of public gallery/export until approved. Rejected bytes stay excluded and the stored original is removed.

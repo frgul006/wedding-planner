@@ -10,6 +10,7 @@ import {
 import { normalizePhotoGuestName } from "@/lib/photo-upload-display";
 import { isRecord } from "@/lib/type-guards";
 import { verifySignedUploadClaim } from "@/lib/wedding-hub-photo-upload";
+import { encodeHubPhotoCursor, type HubPhotoCursor } from "@/lib/wedding-hub-photo-cursor";
 import type { HubUploadAttribution } from "@/lib/wedding-hub-access";
 import type { HubWedding } from "@/lib/wedding-hub";
 
@@ -57,6 +58,7 @@ export type HubPhotoData = {
   photos: {
     totalPhotoCount: number;
     photos: HubGalleryPhoto[];
+    nextCursor: string | null;
   };
   feed: HubFeedItem[];
 };
@@ -349,35 +351,6 @@ export async function verifyStoredObject({
     mimeType: detected,
     sizeBytes: infoResult.data.size,
   } satisfies HeaderVerifyResult;
-}
-
-async function signStoragePath(supabase: SupabaseClient, path: string) {
-  const { data, error } = await supabase.storage
-    .from(PHOTO_UPLOAD_BUCKET)
-    .createSignedUrl(path, 60 * 60);
-
-  if (error || !data?.signedUrl) {
-    return "";
-  }
-
-  return data.signedUrl;
-}
-
-async function signForGalleryRow(supabase: SupabaseClient, row: {
-  storage_path: string;
-  thumbnail_storage_path: string | null;
-  thumbnail_status: string | null;
-}) {
-  const photoUrl = await signStoragePath(supabase, row.storage_path);
-
-  if (row.thumbnail_status === "ready" && row.thumbnail_storage_path) {
-    const thumb = await signStoragePath(supabase, row.thumbnail_storage_path);
-    if (thumb) {
-      return { photoUrl, thumbnailUrl: thumb };
-    }
-  }
-
-  return { photoUrl, thumbnailUrl: photoUrl };
 }
 
 export async function finalizePhotoUploads({
@@ -748,30 +721,35 @@ async function purgeUploadedObject(supabase: SupabaseClient, path: string) {
 export async function getWeddingHubPhotoData({
   supabase,
   wedding,
+  cursor = null,
 }: {
   supabase: SupabaseClient;
   wedding: HubWedding;
+  cursor?: HubPhotoCursor | null;
 }): Promise<HubPhotoData> {
-  const fallback: HubPhotoData = {
-    photos: {
-      totalPhotoCount: 0,
-      photos: [],
-    },
-    feed: [],
-  };
+  const pageSize = 60;
+  let photoQuery = supabase
+    .from("photo_uploads")
+    .select(
+      "id, storage_path, note, created_at, thumbnail_status, thumbnail_storage_path, guests(full_name)",
+    )
+    .eq("wedding_id", wedding.id)
+    .eq("verification_status", ACCEPTED_PHOTO_UPLOAD_FILTER.verification_status)
+    .eq("moderation_status", ACCEPTED_PHOTO_UPLOAD_FILTER.moderation_status)
+    .is("deleted_at", ACCEPTED_PHOTO_UPLOAD_FILTER.deleted_at)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(pageSize + 1);
+
+  if (cursor) {
+    // The route validates both fields before they enter the PostgREST expression.
+    photoQuery = photoQuery.or(
+      `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`,
+    );
+  }
 
   const [photosResult, countResult] = await Promise.all([
-    supabase
-      .from("photo_uploads")
-      .select(
-        "id, storage_path, note, created_at, thumbnail_status, thumbnail_storage_path, guests(full_name)",
-      )
-      .eq("wedding_id", wedding.id)
-      .eq("verification_status", ACCEPTED_PHOTO_UPLOAD_FILTER.verification_status)
-      .eq("moderation_status", ACCEPTED_PHOTO_UPLOAD_FILTER.moderation_status)
-      .is("deleted_at", ACCEPTED_PHOTO_UPLOAD_FILTER.deleted_at)
-      .order("created_at", { ascending: false })
-      .limit(60),
+    photoQuery,
     supabase
       .from("photo_uploads")
       .select("id", { count: "exact", head: true })
@@ -781,35 +759,63 @@ export async function getWeddingHubPhotoData({
       .is("deleted_at", ACCEPTED_PHOTO_UPLOAD_FILTER.deleted_at),
   ]);
 
-  if (photosResult.error || !photosResult.data) {
-    console.error("Failed to load hub photo feed", photosResult.error);
-    return fallback;
+  if (photosResult.error || !photosResult.data || countResult.error || countResult.count === null) {
+    throw new Error("Failed to load hub photos", { cause: photosResult.error ?? countResult.error });
   }
 
-  const rows = Array.isArray(photosResult.data)
-    ? photosResult.data.filter(isHubPhotoRow)
-    : [];
+  if (!Array.isArray(photosResult.data) || !photosResult.data.every(isHubPhotoRow)) {
+    throw new Error("Invalid hub photo data");
+  }
+  const rows = photosResult.data.slice(0, pageSize);
+  const lastRow = rows.at(-1);
+  const nextCursor = photosResult.data.length > pageSize && lastRow
+    ? encodeHubPhotoCursor({ createdAt: lastRow.created_at, id: lastRow.id })
+    : null;
+
+  const paths = new Set<string>();
+  for (const row of rows) {
+    paths.add(row.storage_path);
+    if (row.thumbnail_status === "ready" && row.thumbnail_storage_path) {
+      paths.add(row.thumbnail_storage_path);
+    }
+  }
+  const signedUrls = new Map<string, string>();
+  if (paths.size > 0) {
+    const { data, error } = await supabase.storage.from(PHOTO_UPLOAD_BUCKET)
+      .createSignedUrls([...paths], 60 * 60);
+    if (error || !data) {
+      // The API/page logs this sanitized failure and offers retry without advancing.
+      throw new Error("Failed to sign hub photos");
+    }
+    for (const signed of data) {
+      if (!signed.error && signed.path && signed.signedUrl) {
+        signedUrls.set(signed.path, signed.signedUrl);
+      }
+    }
+  }
 
   const photos: HubGalleryPhoto[] = [];
   const feed: HubFeedItem[] = [];
 
   for (const row of rows) {
-    const rowSigned = await signForGalleryRow(supabase, row);
-
+    const photoUrl = signedUrls.get(row.storage_path);
     const who = normalizePhotoGuestName(row.guests) ?? "Gäst";
-    const isSignedPhoto = rowSigned.photoUrl.length > 0;
 
-    if (!isSignedPhoto) {
+    if (!photoUrl) {
+      // A missing legacy object must not block every older gallery page.
       continue;
     }
+    const thumbnailUrl = row.thumbnail_status === "ready" && row.thumbnail_storage_path
+      ? signedUrls.get(row.thumbnail_storage_path) ?? photoUrl
+      : photoUrl;
 
     photos.push({
       id: row.id,
       uploadedAt: row.created_at,
       who,
       note: row.note,
-      photoUrl: rowSigned.photoUrl,
-      thumbnailUrl: rowSigned.thumbnailUrl,
+      photoUrl,
+      thumbnailUrl,
     });
 
     feed.push({
@@ -817,15 +823,16 @@ export async function getWeddingHubPhotoData({
       when: toGalleryTime(row.created_at),
       who,
       caption: row.note,
-      photoUrl: rowSigned.photoUrl,
-      thumbnailUrl: rowSigned.thumbnailUrl,
+      photoUrl,
+      thumbnailUrl,
     });
   }
 
   return {
     photos: {
-      totalPhotoCount: countResult.count ?? rows.length,
+      totalPhotoCount: countResult.count,
       photos,
+      nextCursor,
     },
     feed,
   };

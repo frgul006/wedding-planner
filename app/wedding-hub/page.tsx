@@ -4,7 +4,7 @@ import { connection } from "next/server";
 
 import { WeddingHubClient } from "@/app/wedding-hub/_components/wedding-hub-client";
 import { resolveWeddingHubAccess } from "@/lib/wedding-hub-access";
-import { getWeddingHubPhotoData } from "@/lib/wedding-hub-photo-verification";
+import { getWeddingHubPhotoData, type HubPhotoData } from "@/lib/wedding-hub-photo-verification";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { GUEST_NAVIGATION_COOKIE_NAME } from "@/lib/guest-navigation-session";
 
@@ -37,16 +37,25 @@ export default async function WeddingHubPage() {
     );
   }
 
-  const photoData = await getWeddingHubPhotoData({
-    supabase,
-    wedding: context.wedding,
-  });
+  let photoData: HubPhotoData;
+  let initialPhotoError = false;
+  try {
+    photoData = await getWeddingHubPhotoData({
+      supabase,
+      wedding: context.wedding,
+    });
+  } catch (error) {
+    console.error("Failed to load initial hub photos", error);
+    photoData = { photos: { totalPhotoCount: 0, photos: [], nextCursor: null }, feed: [] };
+    initialPhotoError = true;
+  }
 
   return (
     <WeddingHubClient
       context={context}
       wedding={context.wedding}
       initialPhotoData={photoData}
+      initialPhotoError={initialPhotoError}
     />
   );
 }

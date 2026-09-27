@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
-  MAX_HUB_FILES_PER_REQUEST,
   MAX_PHOTO_NOTE_LENGTH,
   PHOTO_UPLOAD_ALLOWED_MIME_TYPES,
   PHOTO_UPLOAD_MAX_FILE_SIZE_BYTES,
@@ -65,12 +64,25 @@ type WeddingHubClientProps = {
   context: HubContext | null;
   wedding: HubWedding;
   initialPhotoData: HubPhotoData;
+  initialPhotoError?: boolean;
 };
 
 const PHOTO_UPLOAD_ALLOWED_MIME_TYPE_SET = new Set<string>(PHOTO_UPLOAD_ALLOWED_MIME_TYPES);
 const PHOTO_UPLOAD_THUMBNAIL_MIME_TYPE_SET = new Set<string>(PHOTO_UPLOAD_THUMBNAIL_MIME_TYPES);
 const PHOTO_UPLOAD_ACCEPT = PHOTO_UPLOAD_ALLOWED_MIME_TYPES.join(",");
 const READABLE_ALLOWED_IMAGE_TYPES = "JPG, PNG, WEBP, HEIC eller HEIF";
+
+// Gallery timestamps are UTC. Keep all six Postgres fractional digits when
+// comparing boundaries; Date would discard microseconds and skip tied rows.
+function isPhotoAtOrBefore(photo: HubGalleryPhoto, boundary: HubGalleryPhoto) {
+  const timestampKey = (value: string) => {
+    const [seconds, fraction = ""] = value.replace(/(?:Z|\+00:00)$/, "").split(".");
+    return `${seconds}.${fraction.padEnd(6, "0")}`;
+  };
+  const timestamp = timestampKey(photo.uploadedAt);
+  const boundaryTimestamp = timestampKey(boundary.uploadedAt);
+  return timestamp < boundaryTimestamp || (timestamp === boundaryTimestamp && photo.id <= boundary.id);
+}
 
 function formatMegabytes(bytes: number) {
   return `${Math.round(bytes / (1024 * 1024))} MB`;
@@ -109,7 +121,7 @@ function uploadErrorMessage(errorCode: unknown, status: number) {
     case "invalid_file_size":
       return `Filen är tom eller för stor. Välj en bild mellan 1 byte och ${formatMegabytes(PHOTO_UPLOAD_MAX_FILE_SIZE_BYTES)}.`;
     case "invalid_file_count":
-      return `Du kan ladda upp högst ${MAX_HUB_FILES_PER_REQUEST} bilder åt gången.`;
+      return "Kunde inte förbereda bilden. Försök igen.";
     case "invalid_note_length":
       return `Kommentaren får vara högst ${MAX_PHOTO_NOTE_LENGTH} tecken.`;
     case "invalid_client_payload":
@@ -127,7 +139,7 @@ function PhotoPreview({ src, alt, sizes, fallbackLabel = "Förhandsvisning sakna
       {fallbackLabel}
     </span>
   ) : (
-    <Image alt={alt} className="object-cover" fill sizes={sizes} src={src} unoptimized onError={() => setFailedSource(src)} />
+    <Image alt={alt} className="object-cover" fill loading="lazy" sizes={sizes} src={src} unoptimized onError={() => setFailedSource(src)} />
   );
 }
 
@@ -159,11 +171,13 @@ function EmptyPhotos({ title, children }: { title: string; children: React.React
   );
 }
 
-function revokeSelectedPhotoUrls(photo: Pick<SelectedPhoto, "previewUrl" | "thumbnailBlobUrl">) {
+function revokeSelectedPhotoUrls(photo: Pick<SelectedPhoto, "previewUrl" | "thumbnailBlobUrl">, ownedUrls: Set<string>) {
   URL.revokeObjectURL(photo.previewUrl);
+  ownedUrls.delete(photo.previewUrl);
 
   if (photo.thumbnailBlobUrl) {
     URL.revokeObjectURL(photo.thumbnailBlobUrl);
+    ownedUrls.delete(photo.thumbnailBlobUrl);
   }
 }
 
@@ -256,14 +270,11 @@ export function WeddingHubClient({
   context,
   wedding,
   initialPhotoData,
+  initialPhotoError = false,
 }: WeddingHubClientProps) {
   const hubDisplay = getWeddingHubDisplay(wedding);
   const [activeTab, setActiveTab] = useState<"flow" | "gallery">("flow");
   const [photoData, setPhotoData] = useState({ initial: initialPhotoData, live: initialPhotoData });
-  // Reset on fresh server props without a cascading setState-in-effect render.
-  if (photoData.initial !== initialPhotoData) {
-    setPhotoData({ initial: initialPhotoData, live: initialPhotoData });
-  }
   const photos = photoData.live.photos.photos;
   const feed = photoData.live.feed;
   const [viewer, setViewer] = useState<{ photoId: string; opener: HTMLButtonElement } | null>(null);
@@ -273,7 +284,25 @@ export function WeddingHubClient({
   const [fileSelectionMessage, setFileSelectionMessage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const uploadInFlightRef = useRef(false);
+  const galleryDataRef = useRef({ initial: initialPhotoData, live: initialPhotoData, active: true, refreshRevision: 0 });
   const galleryRequestRef = useRef(0);
+  const loadMoreInFlightRef = useRef<{ active: boolean } | null>(null);
+  const [galleryLoadingMore, setGalleryLoadingMore] = useState(false);
+  const [galleryRefreshing, setGalleryRefreshing] = useState(false);
+  const galleryPending = galleryRefreshing ? "refresh" : galleryLoadingMore ? "more" : null;
+  const [galleryError, setGalleryError] = useState<"more" | "refresh" | null>(initialPhotoError ? "refresh" : null);
+  const [galleryUnavailable, setGalleryUnavailable] = useState(initialPhotoError);
+  // Reset on fresh server props without a cascading setState-in-effect render.
+  if (photoData.initial !== initialPhotoData) {
+    setPhotoData({ initial: initialPhotoData, live: initialPhotoData });
+    setGalleryError(initialPhotoError ? "refresh" : null);
+    setGalleryUnavailable(initialPhotoError);
+    setGalleryLoadingMore(false);
+    setGalleryRefreshing(false);
+  }
+  const ownedPhotoUrlsRef = useRef(new Set<string>());
+  const mountedRef = useRef(false);
+  const [batchProgress, setBatchProgress] = useState<{ processed: number; total: number } | null>(null);
   const [uploadSummary, setUploadSummary] = useState<string | null>(null);
 
   const parsePhotoData = (value: unknown): HubPhotoData | null => {
@@ -288,6 +317,7 @@ export function WeddingHubClient({
       !isRecord(photosBlock) ||
       !Array.isArray(photosBlock.photos) ||
       typeof photosBlock.totalPhotoCount !== "number" ||
+      (photosBlock.nextCursor !== null && typeof photosBlock.nextCursor !== "string") ||
       !Array.isArray(feedBlock)
     ) {
       return null;
@@ -349,6 +379,7 @@ export function WeddingHubClient({
     return {
       photos: {
         totalPhotoCount: photosBlock.totalPhotoCount,
+        nextCursor: photosBlock.nextCursor,
         photos: parsedPhotos,
       },
       feed: parsedFeed,
@@ -443,23 +474,108 @@ export function WeddingHubClient({
   const [isPrimaryActionsVisible, setIsPrimaryActionsVisible] = useState(true);
 
   const canUpload = Boolean(context?.uploadAllowed);
-  const refreshGallery = useCallback(async () => {
-    const requestId = ++galleryRequestRef.current;
-    const response = await fetch("/api/wedding-hub/photos");
-    if (!response.ok) {
-      return;
+  useEffect(() => {
+    const data = { initial: initialPhotoData, live: initialPhotoData, active: true, refreshRevision: 0 };
+    galleryDataRef.current = data;
+    return () => { data.active = false; };
+  }, [initialPhotoData]);
+
+  const requestGallery = useCallback(async (action: "more" | "refresh") => {
+    const data = galleryDataRef.current;
+    if (!data.active || (action === "more" && loadMoreInFlightRef.current === data)) return;
+    const requestId = action === "refresh" ? ++galleryRequestRef.current : galleryRequestRef.current;
+    const refreshRevision = data.refreshRevision;
+    const isCurrent = () => data.active && (action === "more" || requestId === galleryRequestRef.current);
+    if (action === "more") {
+      loadMoreInFlightRef.current = data;
+      setGalleryLoadingMore(true);
+    } else {
+      setGalleryRefreshing(true);
     }
+    setGalleryError(null);
+    try {
+      const fetchPage = async (cursor: string | null) => {
+        const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+        const response = await fetch(`/api/wedding-hub/photos${query}`);
+        if (!response.ok) throw new Error("Gallery request failed");
+        const page = parsePhotoData(await response.json());
+        if (!page) throw new Error("Invalid gallery response");
+        return page;
+      };
+      let next: HubPhotoData;
+      if (action === "more") {
+        let cursor = data.live.photos.nextCursor;
+        while (cursor) {
+          const page = await fetchPage(cursor);
+          if (!isCurrent()) return;
+          const current = data.live;
+          // Refresh may have extended the loaded range while this page was in
+          // flight. Follow its cursor instead of appending an obsolete page.
+          if (cursor !== current.photos.nextCursor) {
+            cursor = current.photos.nextCursor;
+            continue;
+          }
+          const existingIds = new Set(current.photos.photos.map(photo => photo.id));
+          next = {
+            photos: {
+              ...page.photos,
+              totalPhotoCount: refreshRevision === data.refreshRevision ? page.photos.totalPhotoCount : current.photos.totalPhotoCount,
+              photos: [...current.photos.photos, ...page.photos.photos.filter(photo => !existingIds.has(photo.id))],
+            },
+            feed: [...current.feed, ...page.feed.filter(photo => !existingIds.has(photo.id))],
+          };
+          data.live = next;
+          setPhotoData({ initial: data.initial, live: next });
+          setGalleryUnavailable(false);
+          return;
+        }
+        return;
+      }
 
-    const rawPayload = await response.json();
-    const nextPhotoData = parsePhotoData(rawPayload);
-
-    // A slower response from an earlier batch must not replace newer photos.
-    if (!nextPhotoData || requestId !== galleryRequestRef.current) {
-      return;
+      let page = await fetchPage(null);
+      const freshPhotos = [...page.photos.photos];
+      const freshFeed = [...page.feed];
+      const seenCursors = new Set<string>();
+      // Refresh through the oldest loaded photo, including pages loaded while
+      // this request was in flight. This retains the browsed range, reconciles
+      // moderation changes, and bridges large batches without leaving gaps.
+      while (isCurrent()) {
+        const boundary = data.live.photos.photos.at(-1);
+        const lastPhoto = page.photos.photos.at(-1);
+        if (!page.photos.nextCursor || !boundary || (lastPhoto && isPhotoAtOrBefore(lastPhoto, boundary))) break;
+        const cursor = page.photos.nextCursor;
+        if (seenCursors.has(cursor)) throw new Error("Gallery cursor did not advance");
+        seenCursors.add(cursor);
+        page = await fetchPage(cursor);
+        freshPhotos.push(...page.photos.photos);
+        freshFeed.push(...page.feed);
+      }
+      if (!isCurrent()) return;
+      next = {
+        photos: {
+          totalPhotoCount: page.photos.totalPhotoCount,
+          nextCursor: page.photos.nextCursor,
+          photos: [...new Map(freshPhotos.map(photo => [photo.id, photo])).values()],
+        },
+        feed: [...new Map(freshFeed.map(photo => [photo.id, photo])).values()],
+      };
+      data.live = next;
+      data.refreshRevision = requestId;
+      setPhotoData({ initial: data.initial, live: next });
+      setGalleryUnavailable(false);
+    } catch {
+      if (isCurrent()) setGalleryError(action);
+    } finally {
+      if (action === "more") {
+        if (loadMoreInFlightRef.current === data) loadMoreInFlightRef.current = null;
+        if (data.active) setGalleryLoadingMore(false);
+      } else if (isCurrent()) {
+        setGalleryRefreshing(false);
+      }
     }
-
-    setPhotoData(current => ({ ...current, live: nextPhotoData }));
   }, []);
+
+  const refreshGallery = useCallback(() => requestGallery("refresh"), [requestGallery]);
 
   useEffect(() => {
     if (selectedPhotos.length > selectedPhotosRef.current.length) {
@@ -490,12 +606,15 @@ export function WeddingHubClient({
     };
   }, []);
 
-  useEffect(() => () => {
-    for (const photo of selectedPhotosRef.current) {
-      revokeSelectedPhotoUrls(photo);
-    }
-
-    selectedPhotosRef.current = [];
+  useEffect(() => {
+    mountedRef.current = true;
+    const urls = ownedPhotoUrlsRef.current;
+    return () => {
+      mountedRef.current = false;
+      for (const url of urls) URL.revokeObjectURL(url);
+      urls.clear();
+      selectedPhotosRef.current = [];
+    };
   }, []);
 
   const onSelectFiles = useCallback((nextFiles: FileList | null) => {
@@ -505,27 +624,11 @@ export function WeddingHubClient({
 
     const next: SelectedPhoto[] = [];
     const rejectedMessages: string[] = [];
-    let skippedForLimit = 0;
-    const remainingSlots = Math.max(0, MAX_HUB_FILES_PER_REQUEST - selectedPhotos.length);
-
-    if (remainingSlots === 0) {
-      setFileSelectionMessage(`Du kan välja högst ${MAX_HUB_FILES_PER_REQUEST} bilder åt gången. Ta bort en bild innan du väljer fler.`);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-      return;
-    }
-
     for (const file of Array.from(nextFiles)) {
       const validationMessage = validateUploadFile(file);
 
       if (validationMessage) {
         rejectedMessages.push(validationMessage);
-        continue;
-      }
-
-      if (next.length >= remainingSlots) {
-        skippedForLimit += 1;
         continue;
       }
 
@@ -542,37 +645,7 @@ export function WeddingHubClient({
       };
 
       next.push(state);
-      void generateThumbnail(file).then((thumbnail) => {
-        if (!thumbnail) {
-          return;
-        }
-
-        setSelectedPhotos((current) => {
-          let attached = false;
-          const updated = current.map((existing) => {
-            if (existing.id !== id) {
-              return existing;
-            }
-
-            attached = true;
-            if (existing.thumbnailBlobUrl) {
-              URL.revokeObjectURL(existing.thumbnailBlobUrl);
-            }
-
-            return {
-              ...existing,
-              thumbnailBlobUrl: thumbnail.previewUrl,
-              thumbnailFile: new File([thumbnail.blob], thumbnail.fileName, { type: "image/jpeg" }),
-            };
-          });
-
-          if (!attached) {
-            URL.revokeObjectURL(thumbnail.previewUrl);
-          }
-
-          return updated;
-        });
-      }).catch(() => undefined);
+      ownedPhotoUrlsRef.current.add(state.previewUrl);
     }
 
     const messages = rejectedMessages.slice(0, 3);
@@ -582,17 +655,13 @@ export function WeddingHubClient({
       messages.push(`${hiddenRejectedCount} fil(er) till kunde inte läggas till.`);
     }
 
-    if (skippedForLimit > 0) {
-      messages.push(`Du kan välja högst ${MAX_HUB_FILES_PER_REQUEST} bilder åt gången. ${skippedForLimit} fil(er) hoppades över.`);
-    }
-
     setFileSelectionMessage(messages.length > 0 ? messages.join(" ") : null);
-    setSelectedPhotos((current) => [...current, ...next].slice(0, MAX_HUB_FILES_PER_REQUEST));
+    setSelectedPhotos((current) => [...current, ...next]);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-  }, [canUpload, selectedPhotos.length]);
+  }, [canUpload]);
 
   const onSelectFileClick = useCallback(() => {
     if (!canUpload || uploadInFlightRef.current) return;
@@ -604,7 +673,7 @@ export function WeddingHubClient({
     setSelectedPhotos((current) => {
       const entry = current.find((row) => row.id === id);
       if (entry) {
-        revokeSelectedPhotoUrls(entry);
+        revokeSelectedPhotoUrls(entry, ownedPhotoUrlsRef.current);
       }
 
       return current.filter((row) => row.id !== id);
@@ -619,13 +688,16 @@ export function WeddingHubClient({
   );
 
   const onUpload = useCallback(async () => {
-    if (!canUpload || uploadInFlightRef.current || !selectedPhotos.length || selectedPhotos.length > MAX_HUB_FILES_PER_REQUEST) return;
+    if (!canUpload || uploadInFlightRef.current || !selectedPhotos.length) return;
 
     uploadInFlightRef.current = true;
     setFileSelectionMessage(null);
     setUploadSummary(null);
     setIsUploading(true);
     let completed = 0;
+    let processed = 0;
+    const total = selectedPhotos.filter(photo => photo.status !== "done").length;
+    setBatchProgress({ processed, total });
     try {
       for (const item of selectedPhotos) {
         if (item.status === "done") continue;
@@ -633,6 +705,21 @@ export function WeddingHubClient({
           let finalizeUpload = item.finalizeUpload;
           if (!finalizeUpload) {
             updateSelected(item.id, row => ({ ...row, status: "preparing", progress: 0, message: "Skapar uppladdning" }));
+            // Decode only the file being uploaded, keeping large selections from
+            // generating every thumbnail at once. Retain it for upload retries.
+            let thumbnailFile = item.thumbnailFile;
+            if (!thumbnailFile) {
+              const thumbnail = await generateThumbnail(item.file).catch(() => null);
+              if (thumbnail) {
+                thumbnailFile = new File([thumbnail.blob], thumbnail.fileName, { type: "image/jpeg" });
+                if (mountedRef.current) {
+                  ownedPhotoUrlsRef.current.add(thumbnail.previewUrl);
+                  updateSelected(item.id, row => ({ ...row, thumbnailFile, thumbnailBlobUrl: thumbnail.previewUrl }));
+                } else {
+                  URL.revokeObjectURL(thumbnail.previewUrl);
+                }
+              }
+            }
             // Sign just before this transfer, not before waiting on earlier files.
             const signResponse = await fetch("/api/wedding-hub/photos/sign", {
               body: JSON.stringify({ uploads: [{
@@ -658,9 +745,9 @@ export function WeddingHubClient({
             });
 
             let thumbnailClaim: string | undefined;
-            if (intent.canGenerateThumbnail && item.thumbnailFile && intent.thumbnailUploadUrl) {
+            if (intent.canGenerateThumbnail && thumbnailFile && intent.thumbnailUploadUrl) {
               try {
-                await uploadToSignedUrl(intent.thumbnailUploadUrl, item.thumbnailFile, () => undefined);
+                await uploadToSignedUrl(intent.thumbnailUploadUrl, thumbnailFile, () => undefined);
                 thumbnailClaim = intent.thumbnailClaim;
               } catch {
                 // Original remains usable when an optional thumbnail fails.
@@ -707,19 +794,23 @@ export function WeddingHubClient({
           setUploadSummary(`${completed} ${receipt}.`);
         } catch (error) {
           updateSelected(item.id, row => ({ ...row, status: "error", message: error instanceof Error ? error.message : "Uppladdning misslyckades" }));
+        } finally {
+          processed += 1;
+          setBatchProgress({ processed, total });
         }
       }
     } finally {
       setSelectedPhotos(current => current.filter(item => {
         if (item.status !== "done") return true;
-        revokeSelectedPhotoUrls(item);
+        revokeSelectedPhotoUrls(item, ownedPhotoUrlsRef.current);
         return false;
       }));
       uploadInFlightRef.current = false;
       setIsUploading(false);
+      setBatchProgress(null);
     }
     // Refresh once, without blocking the next file/batch or undoing verified receipts.
-    if (completed > 0) void refreshGallery().catch(() => undefined);
+    if (completed > 0) void refreshGallery();
   }, [canUpload, refreshGallery, selectedPhotos, updateSelected, wedding.photo_upload_requires_review]);
 
   return (
@@ -802,8 +893,14 @@ export function WeddingHubClient({
           <section ref={uploadQueueRef} tabIndex={-1} aria-label="Valda filer" className="scroll-mt-4 px-5 py-5">
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="font-serif text-2xl tracking-tight">Valda filer</h2>
-              <p className="text-xs text-[#6b6358]">{selectedPhotos.length} av {MAX_HUB_FILES_PER_REQUEST} bilder</p>
+              <p className="text-xs text-[#6b6358]">{selectedPhotos.length} bilder</p>
             </div>
+            {batchProgress ? (
+              <div className="mb-4" aria-live="polite">
+                <p className="mb-2 text-sm text-[#6b6358]">{batchProgress.processed} av {batchProgress.total} bilder behandlade</p>
+                <progress aria-label="Hela uppladdningen" className="block h-2 w-full accent-[#b34a2c]" max={batchProgress.total} value={batchProgress.processed} />
+              </div>
+            ) : null}
             {selectedPhotos.some(photo => photo.file.type === "image/heic" || photo.file.type === "image/heif") ? (
               <p className="mb-2 text-xs text-[#6b6358]">HEIC/HEIF kan sakna förhandsvisning i den här webbläsaren. Öppna originalet, eller välj JPEG för visning i fler webbläsare.</p>
             ) : null}
@@ -890,7 +987,10 @@ export function WeddingHubClient({
         </section>
 
         <section className="flex flex-1 flex-col px-5 py-5">
-          {activeTab === "flow" ? (
+          {!galleryUnavailable ? <p className="mb-4 text-center text-xs text-[#6b6358]" aria-live="polite">
+            Visar {photos.length} av {photoData.live.photos.totalPhotoCount} bilder
+          </p> : null}
+          {galleryUnavailable ? null : activeTab === "flow" ? (
             feed.length > 0 ? (
               <div className="grid gap-4">
                 {feed.map((entry) => (
@@ -941,6 +1041,18 @@ export function WeddingHubClient({
           ) : (
             <EmptyPhotos title="Galleriet är tomt">Bli först med att ladda upp en bild.</EmptyPhotos>
           )}
+          {galleryError ? (
+            <div className="mt-4 text-center" role="alert">
+              <p className="text-sm text-[#8a2b18]">{galleryError === "more" ? "Kunde inte ladda fler bilder." : "Kunde inte ladda bilderna. Försök igen."}</p>
+              <button className="mt-2 min-h-11 rounded px-4 text-sm underline underline-offset-4 disabled:opacity-50" disabled={galleryPending !== null} onClick={() => void requestGallery(galleryError)} type="button">Försök igen</button>
+            </div>
+          ) : null}
+          {photoData.live.photos.nextCursor && galleryError !== "more" ? (
+            <button className="mt-5 min-h-12 w-full rounded border border-[#15130f]/30 px-4 py-3 text-sm font-semibold active:bg-[#e6dcc7] disabled:opacity-50" disabled={galleryPending !== null} onClick={() => void requestGallery("more")} type="button">
+              {galleryPending === "more" ? "Laddar fler bilder…" : "Ladda fler bilder"}
+            </button>
+          ) : null}
+          {galleryPending === "refresh" ? <p className="mt-3 text-center text-xs text-[#6b6358]" aria-live="polite">Uppdaterar galleriet…</p> : null}
         </section>
       </section>
 
