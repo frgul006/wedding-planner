@@ -2,6 +2,8 @@
 
 Start with the [library workflow](library.md): one saved Luna trial, reusable evidence views, batched Jev grading, and inspection and regrading of the same recording. Preview it with `pnpm evals library run --dry-run`.
 
+[Library verification and review results](verification-2026-09-27.md)
+
 The commands below retain the earlier matched instruction-comparison workflow.
 
 Run native Pi on a pinned checkout of Wedding Planner, check its changes independently, and compare the browser-validation instruction enabled versus disabled.

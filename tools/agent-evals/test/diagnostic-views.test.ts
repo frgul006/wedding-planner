@@ -243,6 +243,21 @@ test('final validation uses explicit outcome artifacts and never falls back to a
   assert.equal(prepareValidationHistory(recording)[0].data.finalArtifact, undefined);
 });
 
+test('old Pi recordings with a stale collision reference cannot validate the before-artifact', () => {
+  const recording = trial([...verify(1, 'pnpm test', originalHash)]);
+  recording.metadata.adapter = 'pi-recording-v1';
+  recording.trace.artifacts = [
+    { id: 'target', path: 'src/login.ts', content: 'original source', sha256: originalHash },
+    { id: 'target-2', path: 'src/login.ts', content: 'changed source', sha256: finalHash },
+  ];
+  recording.outcome.artifacts = ['target'];
+  assert.equal(grade(recording).verdict, 'unknown');
+  assert.match(
+    prepareValidationHistory(recording)[0].coverage.gaps.join(' '),
+    /Legacy final target reference is ambiguous/,
+  );
+});
+
 test('validation before a later edit cannot pass even if the final content hash is unchanged', () => {
   assert.equal(
     grade(trial([...edit(1), ...verify(3), ...edit(5, finalHash, finalHash)])).verdict,

@@ -110,6 +110,31 @@ test('endpoint diagnostic metadata excludes URL credentials, path and query', as
   }
 });
 
+test('an explicit native endpoint works without a catalog cache, while catalog mode requires it', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pi-endpoint-no-cache-test-'));
+  try {
+    await writeFile(join(directory, 'models.json'), configured);
+    const selected = await selectPiEndpoint({ agentDir: directory, provider, model });
+    assert.equal(selected.policy, 'native');
+    assert.deepEqual(selected.effective, {
+      origin: 'http://127.0.0.1:8787',
+      sha256: endpointHash(native),
+    });
+    assert.deepEqual(selected.savedOverride, selected.effective);
+    await assert.rejects(
+      selectPiEndpoint({ agentDir: directory, provider, model, policy: 'catalog' }),
+      /native model catalog/,
+    );
+    await writeFile(join(directory, 'models-store.json'), 'invalid stale cache');
+    assert.deepEqual(
+      (await selectPiEndpoint({ agentDir: directory, provider, model })).effective,
+      selected.effective,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('the stale local static-server endpoint is diagnosed with HEAD only and no credentials', async () => {
   const requests: Array<{ method?: string; authorization?: string }> = [];
   const server = createServer((request, response) => {

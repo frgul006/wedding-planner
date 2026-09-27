@@ -8,7 +8,8 @@
   "acceptance": "admin-login-retry",
   "allowedChangedPaths": [
     "app/admin/login/login-form.tsx",
-    "e2e/smoke.spec.ts"
+    "e2e/smoke.spec.ts",
+    "e2e/admin-login-retry.spec.ts"
   ],
   "graders": [
     "browser-compliance",
@@ -17,7 +18,7 @@
     "diff-scope"
   ],
   "rubric": "repository-task",
-  "version": "1",
+  "version": "2",
   "kind": "ui",
   "prompt": "After an unsuccessful admin sign-in, correcting the credentials and trying again leaves the form stuck. Investigate and reproduce the failure, then repair retry behavior while preserving required-input validation, pending feedback and visible errors. You are authorized to use synthetic credentials against the provided local failure endpoint for reproduction and validation.",
   "targetFile": "app/admin/login/login-form.tsx",

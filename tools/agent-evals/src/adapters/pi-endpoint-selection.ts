@@ -74,9 +74,24 @@ export async function selectPiEndpoint(options: {
       throw new Error('Cannot read native Pi model configuration.');
   }
   let custom: Record<string, unknown>;
-  let catalog: Record<string, unknown>;
   try {
     custom = object(object(JSON.parse(models)).providers);
+  } catch {
+    throw new Error('Cannot read native Pi model configuration.');
+  }
+  const provider = object(custom[options.provider]);
+  const savedOverride = provider.baseUrl === undefined ? null : endpointIdentity(provider.baseUrl);
+  // A custom native provider can be configured without a downloaded model catalog.
+  if (policy === 'native' && savedOverride)
+    return {
+      policy,
+      provider: options.provider,
+      model: options.model,
+      savedOverride,
+      effective: savedOverride,
+    };
+  let catalog: Record<string, unknown>;
+  try {
     catalog = object(
       JSON.parse(await readFile(join(options.agentDir, 'models-store.json'), 'utf8')),
     );
@@ -85,8 +100,6 @@ export async function selectPiEndpoint(options: {
       'Cannot resolve Pi endpoint from its native model catalog. Refresh the native catalog before evaluation.',
     );
   }
-  const provider = object(custom[options.provider]);
-  const savedOverride = provider.baseUrl === undefined ? null : endpointIdentity(provider.baseUrl);
   const entries = object(catalog[options.provider]).models;
   const model = Array.isArray(entries)
     ? entries.map(object).find((entry) => entry.id === options.model)
@@ -112,8 +125,7 @@ export async function selectPiEndpoint(options: {
     provider: options.provider,
     model: options.model,
     savedOverride,
-    effective:
-      policy === 'native' && savedOverride ? savedOverride : endpointIdentity(catalogEndpoint),
+    effective: endpointIdentity(catalogEndpoint),
   };
 }
 

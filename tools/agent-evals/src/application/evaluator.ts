@@ -322,7 +322,7 @@ export function createEvaluator(options: {
         if (admitted) budget.used += reservation;
         for (const entry of record.requests) {
           await options.store.saveRequest(record.id, entry.request);
-          if (!admitted || signal?.aborted) {
+          if (!admitted || budget.used > allowance || signal?.aborted) {
             entry.error = signal?.aborted
               ? 'Cancelled before dispatch'
               : 'Aggregate judge budget exceeded before dispatch';
@@ -340,13 +340,7 @@ export function createEvaluator(options: {
                 response.answers.some((answer) => !verdicts.includes(answer.verdict)) ||
                 !response.model ||
                 response.raw === undefined ||
-                !Number.isFinite(response.usage.inputTokens) ||
-                response.usage.inputTokens < 0 ||
-                !Number.isFinite(response.usage.outputTokens) ||
-                response.usage.outputTokens < 0 ||
-                (response.usage.estimatedCostUsd !== null &&
-                  (!Number.isFinite(response.usage.estimatedCostUsd) ||
-                    response.usage.estimatedCostUsd < 0))
+                !validObservedUsage(response.usage)
               )
                 throw new Error('Invalid judge response membership');
               entry.response = response;
@@ -374,6 +368,9 @@ export function createEvaluator(options: {
                   : 'Judge request failed; no safe provider response was available';
             }
           }
+          const observedCost = (entry.response?.usage ?? entry.observedUsage)?.estimatedCostUsd;
+          if (entry.dispatched && observedCost != null)
+            budget.used += Math.max(0, observedCost - entry.request.reservedCostUsd);
           if (entry.error)
             for (const id of entry.request.jobIds)
               modelGrade(

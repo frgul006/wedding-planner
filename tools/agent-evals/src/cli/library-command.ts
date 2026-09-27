@@ -8,6 +8,7 @@ import { loadProfile, loadTask } from '../adapters/evaluation-config.ts';
 import { defaultEnvFile } from '../adapters/secrets.ts';
 import {
   diagnosis,
+  completedDiagnosis,
   falsifiableHypothesis,
   relevantProbe,
   finalValidation,
@@ -29,6 +30,9 @@ show reads local records without model calls. Core/adapter APIs are separately e
   --budget-usd N      Aggregate Jev admission estimate (default: 0.01, maximum: 1)
   --agent-source PATH Native Pi resource checkout (default: original checkout)
   --revision 1|2      Example diagnostic question version (default: 1)
+  --diagnosis-scope entire|completed-attempt
+                      Regrade the whole saved diagnosis (default), or only its
+                      initial statement through the first completed test attempt
   --no-judge          Run only the deterministic validation grader
   --dry-run           Preview the example without credentials, Pi or Jev
   --json              Machine-readable output
@@ -45,19 +49,20 @@ fail or unknown verdict is reported separately and does not change the exit code
 const gradingFailed = (record: GradingRecord) =>
   record.grades.some((grade) => grade.status !== 'completed');
 
-function exampleGraders(revision: number, noJudge: boolean): Grader[] {
+function exampleGraders(revision: number, noJudge: boolean, scoped: boolean): Grader[] {
   if (noJudge) return [finalValidation];
+  const view = scoped ? completedDiagnosis : diagnosis;
   const hypothesis =
     revision === 1
-      ? falsifiableHypothesis
+      ? { ...falsifiableHypothesis, view }
       : {
           ...falsifiableHypothesis,
           version: 2,
-          view: diagnosis,
+          view,
           question:
             'Before the probe, did the visible hypothesis predict a concrete observable result whose opposite would disprove it? A repair plan or a conclusion stated after the result is insufficient.',
         };
-  return [hypothesis, relevantProbe, finalValidation];
+  return [hypothesis, { ...relevantProbe, view }, finalValidation];
 }
 
 export async function libraryCommand(
@@ -81,6 +86,7 @@ export async function libraryCommand(
       'budget-usd': { type: 'string' },
       'agent-source': { type: 'string' },
       revision: { type: 'string' },
+      'diagnosis-scope': { type: 'string' },
     },
   });
   const [action = 'help', reference] = parsed.positionals;
@@ -98,6 +104,12 @@ export async function libraryCommand(
   )
     throw new Error('Use library run, library regrade RUN_ID, or library show RUN_ID');
   const revision = Number(parsed.values.revision ?? 1);
+  const diagnosisScope = parsed.values['diagnosis-scope'] ?? 'entire';
+  if (
+    !['entire', 'completed-attempt'].includes(diagnosisScope) ||
+    (parsed.values['diagnosis-scope'] !== undefined && action !== 'regrade')
+  )
+    throw new Error('Use --diagnosis-scope entire or completed-attempt with library regrade.');
   const budgetUsd = Number(parsed.values['budget-usd'] ?? 0.01);
   if (![1, 2].includes(revision) || !Number.isFinite(budgetUsd) || budgetUsd < 0 || budgetUsd > 1)
     throw new Error('Use revision 1 or 2 and a judge budget between 0 and 1 USD');
@@ -129,7 +141,11 @@ export async function libraryCommand(
     print({ run, trials: summaries }, JSON.stringify({ run, trials: summaries }, null, 2));
     return 0;
   }
-  const graders = exampleGraders(revision, parsed.values['no-judge'] ?? false);
+  const graders = exampleGraders(
+    revision,
+    parsed.values['no-judge'] ?? false,
+    diagnosisScope === 'completed-attempt',
+  );
   const task =
     action === 'run' ? await loadTask(context.repo, 'repository-login-retry') : undefined;
   const profile = action === 'run' ? await loadProfile(context.repo) : undefined;
@@ -152,6 +168,7 @@ export async function libraryCommand(
         : {}),
       judge: parsed.values['no-judge'] ? null : 'jev-1.13.0',
       revision,
+      diagnosisScope,
       budgetUsd,
       graders: graders.map((grader) => grader.id),
       store: directory,
@@ -168,7 +185,10 @@ export async function libraryCommand(
     const key = parseEnv(await readFile(keyFile, 'utf8')).TYPESAFE_API_KEY?.trim();
     if (!key) throw new Error(`TYPESAFE_API_KEY is missing or empty in ${keyFile}`);
     const { jevJudge } = await import('../adapters/jev-judge.ts');
-    judge = jevJudge({ apiKey: key });
+    judge = jevJudge({
+      apiKey: key,
+      ...(diagnosisScope === 'completed-attempt' ? { maxStateChars: 30_000 } : {}),
+    });
   }
   let runner;
   if (action === 'run') {

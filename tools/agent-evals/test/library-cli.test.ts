@@ -147,6 +147,27 @@ test('library preview reads the selected profile and tighter limits without nati
     const regrade = await context.invoke(['regrade', 'saved-run', '--dry-run', '--json']);
     assert.equal(regrade.code, 0, regrade.stderr);
     assert.equal(Object.hasOwn(JSON.parse(regrade.stdout), 'model'), false);
+    const scoped = await context.invoke([
+      'regrade',
+      'saved-run',
+      '--dry-run',
+      '--json',
+      '--diagnosis-scope',
+      'completed-attempt',
+      '--revision',
+      '2',
+    ]);
+    assert.equal(scoped.code, 0, scoped.stderr);
+    assert.equal(JSON.parse(scoped.stdout).diagnosisScope, 'completed-attempt');
+    assert.equal(JSON.parse(scoped.stdout).revision, 2);
+    const invalid = await context.invoke([
+      'run',
+      '--dry-run',
+      '--diagnosis-scope',
+      'completed-attempt',
+    ]);
+    assert.notEqual(invalid.code, 0);
+    assert.match(invalid.stderr, /with library regrade/);
   } finally {
     await context.dispose();
   }

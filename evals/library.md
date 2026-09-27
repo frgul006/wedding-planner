@@ -19,7 +19,20 @@ Two Jev questions check the prepared diagnostic evidence. A deterministic grader
 
 `regrade` changes the hypothesis question to require an observable prediction before the probe. It reads the saved trial and appends a grading record without launching Pi. `show` is entirely local. `--no-judge` selects only the deterministic check; `--dry-run` makes no calls. See `pnpm evals library --help` for paths and options.
 
+For an interrupted native trial with a completed diagnostic attempt, explicitly opt into the narrower `completedDiagnosis` view:
+
+```bash
+pnpm evals library regrade RUN_ID --diagnosis-scope completed-attempt --revision 1
+pnpm evals library regrade RUN_ID --diagnosis-scope completed-attempt --revision 2
+```
+
+This native-specific view audits recording continuity from the start through the first literal test attempt's completed turn. It submits the first visible hypothesis and every intervening tool action/result, including failures and authored test source. Earlier tool contents and all later activity are explicitly outside the semantic input. Coverage checks require matching native sources, paired calls/results, recorded context fingerprints and an observed stop after the boundary; unfamiliar formats or other capture gaps remain unknown. The original trial's status, gaps and bytes stay unchanged, and trial-wide validation still uses the original incomplete recording.
+
+Repeated output lines may use `line-dictionary-v1`: ordered dictionary references reconstruct the exact original text, including empty lines and line endings. This is deterministic deduplication, not a generated summary. Both the dictionary and its order are supplied to Jev and retained in the report. This scope permits up to 30,000 state characters while keeping the adapter's conservative model-context check. Human calibration of the questions and this representation remains outstanding; a model's pass does not establish that the task was repaired or that a test succeeded.
+
 The example bounds Pi to six minutes and 350,000 observed cumulative tokens, concurrency one, with no automatic trial retry. Its smoke profile selects Luna and preserves native provider, authentication, and saved reasoning without changing global settings. Jev uses pinned `jev-1.13.0`, no SDK retries, and a default aggregate reservation allowance of $0.01 per command. Admission estimates are not provider-enforced caps; in-flight agent usage can overshoot. Existing native provider retry settings remain observable.
+
+The included profiles explicitly select `pi.endpoint: "catalog"`. The private Pi configuration removes an endpoint-only provider override and verifies the catalog endpoint before prompting. Saved and effective endpoint identities are recorded; global configuration is untouched. Complex overrides containing credentials or model definitions are rejected instead of redirected. Set `pi.endpoint: "native"` to preserve a working custom endpoint. Doctor detects the known stale local static-server configuration without sending a model prompt.
 
 ## Author checks with ordinary functions
 
@@ -65,7 +78,12 @@ const validation = codeGrader({
 });
 // Supply a repository task, absolute checkout paths, and the privately loaded key.
 const evals = createEvaluator({
-  runner: piRunner({ sourceRepo, agentSource }),
+  runner: piRunner({
+    sourceRepo,
+    agentSource,
+    runtimeMs: 360_000,
+    maxTokens: 350_000,
+  }),
   judge: jevJudge({ apiKey: typesafeKey }),
   store: fileStore("evals/runs/my-suite"),
   budgetUsd: 0.01,
