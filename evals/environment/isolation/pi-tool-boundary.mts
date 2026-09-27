@@ -4,7 +4,32 @@ import { createHash } from 'node:crypto';
 import { readFile, realpath, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 
-export function parseDirectPlaywright(command) {
+import type {
+  BashParams,
+  BoundaryConfig,
+  FileParams,
+  NativePiModule,
+  NativeResult,
+  NativeUpdate,
+  PiExtension,
+} from './pi-tool-boundary-types.ts';
+
+interface ExecuteOptions {
+  signal?: AbortSignal;
+  timeout?: number;
+  onData?: (chunk: Buffer) => void;
+  input?: string | Uint8Array;
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+export function parseDirectPlaywright(command: string): string[] | null {
   if (/[\r\n]/.test(command)) {
     return null;
   }
@@ -27,14 +52,19 @@ export function parseDirectPlaywright(command) {
   return args;
 }
 
-const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const hash = (bytes: string | Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 
-const within = (root, path) => {
+const within = (root: string, path: string) => {
   const value = relative(root, path);
   return value === '' || (!value.startsWith('../') && value !== '..' && !isAbsolute(value));
 };
 
-export async function captureNativeOutput(directory, id, bytes, kind) {
+export async function captureNativeOutput(
+  directory: string | undefined,
+  id: string,
+  bytes: Buffer,
+  kind: string,
+) {
   if (!directory) {
     return { gap: 'This boundary does not retain full native output.' };
   }
@@ -67,10 +97,14 @@ export async function captureNativeOutput(directory, id, bytes, kind) {
   }
 }
 
-export default async function installBoundary(pi) {
-  const config = JSON.parse(await readFile(process.env.EVAL_ISOLATION_CONFIG, 'utf8'));
-  const native = await import(config.piModule);
-  const captureOutput = (id, bytes, kind) =>
+export default async function installBoundary(pi: PiExtension) {
+  const configPath = process.env.EVAL_ISOLATION_CONFIG;
+  if (!configPath) {
+    throw new Error('EVAL_ISOLATION_CONFIG is required');
+  }
+  const config = JSON.parse(await readFile(configPath, 'utf8')) as BoundaryConfig;
+  const native = (await import(config.piModule)) as NativePiModule;
+  const captureOutput = (id: string, bytes: Buffer, kind: string) =>
     captureNativeOutput(config.toolOutputDirectory, id, bytes, kind);
 
   const targetHash = async () => {
@@ -81,7 +115,7 @@ export default async function installBoundary(pi) {
     }
   };
 
-  async function checkedPath(path, writing = false) {
+  async function checkedPath(path: string, writing = false) {
     const absolute = resolve(config.workspace, path);
     const roots = writing
       ? config.writableDirectories
@@ -107,7 +141,7 @@ export default async function installBoundary(pi) {
         }
         break;
       } catch (error) {
-        if (error.code !== 'ENOENT') {
+        if (!isNodeError(error) || error.code !== 'ENOENT') {
           throw error;
         }
         const parent = dirname(existing);
@@ -120,7 +154,11 @@ export default async function installBoundary(pi) {
     return absolute;
   }
 
-  function execute(executable, args, { signal, timeout = 60, onData = () => {}, input } = {}) {
+  function execute(
+    executable: string,
+    args: string[],
+    { signal, timeout = 60, onData = () => {}, input }: ExecuteOptions = {},
+  ): Promise<{ exitCode: number | null; output: Buffer }> {
     return new Promise((resolveResult, reject) => {
       const child = spawn(
         '/usr/bin/sandbox-exec',
@@ -138,17 +176,19 @@ export default async function installBoundary(pi) {
           JSON.stringify({ pid: child.pid, startedAt: new Date().toISOString() }) + '\n',
         );
       }
-      const chunks = [];
+      const chunks: Buffer[] = [];
       const kill = () => {
         try {
-          process.kill(-child.pid, 'SIGKILL');
+          if (child.pid) {
+            process.kill(-child.pid, 'SIGKILL');
+          }
         } catch {}
       };
       const timer = setTimeout(kill, Math.min(timeout * 1000, config.commandTimeoutMs));
       signal?.addEventListener('abort', kill, { once: true });
       child.on('error', reject);
       for (const stream of [child.stdout, child.stderr]) {
-        stream.on('data', (chunk) => {
+        stream.on('data', (chunk: Buffer) => {
           chunks.push(chunk);
           onData(chunk);
         });
@@ -162,7 +202,11 @@ export default async function installBoundary(pi) {
     });
   }
 
-  async function fileOperation(operation, path, input) {
+  async function fileOperation(
+    operation: 'read' | 'access' | 'write' | 'mkdir',
+    path: string,
+    input?: string | Uint8Array,
+  ): Promise<Buffer> {
     await checkedPath(path, ['write', 'mkdir'].includes(operation));
     const result = await execute(config.nodeExecutable, [config.workerPath, operation, path], {
       input,
@@ -207,13 +251,19 @@ export default async function installBoundary(pi) {
   for (const tool of [read, edit, write]) {
     pi.registerTool({
       ...tool,
-      async execute(id, params, signal, onUpdate, ctx) {
+      async execute(
+        id: string,
+        params: FileParams,
+        signal?: AbortSignal,
+        onUpdate?: NativeUpdate,
+        ctx?: unknown,
+      ) {
         const before = await targetHash();
-        let result;
+        let result: NativeResult;
         try {
           result = await tool.execute(id, params, signal, onUpdate, ctx);
         } catch (error) {
-          result = { content: [{ type: 'text', text: error.message }], isError: true };
+          result = { content: [{ type: 'text', text: errorMessage(error) }], isError: true };
         }
         let sha256;
         let outputCapture;
@@ -245,10 +295,16 @@ export default async function installBoundary(pi) {
   }
   pi.registerTool({
     ...native.createBashTool(config.workspace),
-    async execute(id, params, signal, onUpdate, ctx) {
+    async execute(
+      id: string,
+      params: BashParams,
+      signal?: AbortSignal,
+      onUpdate?: NativeUpdate,
+      ctx?: unknown,
+    ) {
       const before = await targetHash();
       const direct = parseDirectPlaywright(params.command);
-      let execution;
+      let execution: { exitCode: number | null; output: Buffer } | undefined;
       const tool = native.createBashTool(config.workspace, {
         exposeSessionEnvironment: false,
         operations: {
@@ -268,13 +324,21 @@ export default async function installBoundary(pi) {
           },
         },
       });
-      let result;
+      let result: NativeResult;
       try {
         result = await tool.execute(id, params, signal, onUpdate, ctx);
       } catch (error) {
-        result = { content: [{ type: 'text', text: error.message }], isError: true };
+        result = { content: [{ type: 'text', text: errorMessage(error) }], isError: true };
       }
-      const evaluation = {
+      const evaluation: {
+        kind: string;
+        args: string[] | undefined;
+        exitCode: number | null | undefined;
+        targetBeforeHash: string | null;
+        targetAfterHash: string | null;
+        outputCapture: Awaited<ReturnType<typeof captureNativeOutput>> | undefined;
+        snapshot?: { path: string; content: string; sha256: string };
+      } = {
         kind: direct ? 'playwright-cli' : 'bash',
         args: direct ?? undefined,
         exitCode: execution?.exitCode,

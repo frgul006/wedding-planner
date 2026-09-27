@@ -3,7 +3,12 @@ import { createRequire } from 'node:module';
 
 const [testModule, executablePath, url, acceptance] = process.argv.slice(2);
 assert.equal(acceptance, 'admin-login-retry', 'Unknown repository acceptance check');
-const { chromium } = createRequire(import.meta.url)(testModule);
+assert.ok(testModule, 'A Playwright module path is required');
+assert.ok(executablePath, 'A browser executable path is required');
+assert.ok(url, 'A base URL is required');
+const { chromium } = createRequire(import.meta.url)(
+  testModule,
+) as typeof import('@playwright/test');
 
 const browser = await chromium.launch({
   executablePath,
@@ -12,9 +17,10 @@ const browser = await chromium.launch({
 });
 try {
   const page = await browser.newPage();
-  const errors = [];
+  const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   const response = await page.goto(url + '/admin/login');
+  assert.ok(response, 'Expected the login page navigation to return a response');
   assert.equal(response.status(), 200);
   const email = page.getByLabel('Email', { exact: true });
   const password = page.getByLabel('Password', { exact: true });
@@ -27,7 +33,7 @@ try {
   assert.equal(await button.count(), 1, 'Expected the requested visible submit button label');
   assert.equal(await button.getAttribute('type'), 'submit');
   let actionRequests = 0;
-  const actionResponses = [];
+  const actionResponses: Array<{ status: number; url: string }> = [];
   page.on('request', (request) => {
     if (request.method() === 'POST' && new URL(request.url()).pathname === '/admin/login') {
       actionRequests++;
@@ -42,15 +48,25 @@ try {
     }
   });
   await button.click();
-  assert.equal(await page.locator('form').evaluate((form) => form.checkValidity()), false);
+  assert.equal(
+    await page
+      .locator('form')
+      .evaluate<boolean, void, HTMLFormElement>((form) => form.checkValidity()),
+    false,
+  );
   await page.waitForTimeout(150);
   assert.equal(actionRequests, 0, 'Empty required inputs must prevent submission');
   await email.fill('evaluation@example.invalid');
   await password.fill('not-a-real-password');
-  assert.equal(await page.locator('form').evaluate((form) => form.checkValidity()), true);
+  assert.equal(
+    await page
+      .locator('form')
+      .evaluate<boolean, void, HTMLFormElement>((form) => form.checkValidity()),
+    true,
+  );
   // Delay this real Server Action request so the pending state can be observed reliably.
-  let release;
-  let pending = new Promise((resolve) => {
+  let release!: () => void;
+  let pending = new Promise<void>((resolve) => {
     release = resolve;
   });
   await page.route('**/admin/login', async (route) => {
@@ -97,7 +113,7 @@ try {
   assert.equal(actionRequests, 1, 'Required validation must still block empty retry credentials.');
   await email.fill('retry@example.invalid');
   await password.fill('another-not-real-password');
-  pending = new Promise((resolve) => {
+  pending = new Promise<void>((resolve) => {
     release = resolve;
   });
   const secondResponse = page.waitForResponse(

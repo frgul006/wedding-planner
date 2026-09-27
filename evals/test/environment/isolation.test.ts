@@ -169,7 +169,7 @@ test(
 
 test('only unambiguous native CLI commands receive an execution receipt', async () => {
   const { parseDirectPlaywright } = await import(
-    new URL('../../environment/isolation/pi-tool-boundary.mjs', import.meta.url).href
+    new URL('../../dist/isolation/pi-tool-boundary.mjs', import.meta.url).href
   );
   assert.deepEqual(parseDirectPlaywright('playwright-cli -s=trial snapshot'), [
     '-s=trial',
@@ -188,7 +188,7 @@ test('only unambiguous native CLI commands receive an execution receipt', async 
 
 test('full native output is retained privately beyond excerpt limits with capture-time redaction', async () => {
   const { captureNativeOutput } = await import(
-    new URL('../../environment/isolation/pi-tool-boundary.mjs', import.meta.url).href
+    new URL('../../dist/isolation/pi-tool-boundary.mjs', import.meta.url).href
   );
   const paths = await createTrialPaths();
   try {
@@ -231,7 +231,7 @@ test('full native output is retained privately beyond excerpt limits with captur
 
 test('a captured native tool error before execution is not a missing-output gap', async () => {
   const { default: installBoundary } = await import(
-    new URL('../../environment/isolation/pi-tool-boundary.mjs', import.meta.url).href
+    new URL('../../dist/isolation/pi-tool-boundary.mjs', import.meta.url).href
   );
   const root = await mkdtemp(join(tmpdir(), 'eval-tool-error-'));
   const originalConfig = process.env.EVAL_ISOLATION_CONFIG;

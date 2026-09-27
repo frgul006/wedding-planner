@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { locatePi, inspectPiResources } from 'agent-evals/pi';
+import { locatePi, inspectPiResources, sha256 } from 'agent-evals/pi';
 import { loginRetry } from '../tasks/login-retry.ts';
 import { prepareTrialEnvironment } from '../environment/prepare.ts';
 import { resolveSourceRepo } from '../environment/repository/source-repo.ts';
@@ -32,6 +32,17 @@ const previousConfig = process.env.EVAL_ISOLATION_CONFIG;
 process.env.EVAL_ISOLATION_CONFIG = trial.env.EVAL_ISOLATION_CONFIG;
 const observations: unknown[] = [];
 try {
+  for (const [field, name] of [
+    ['extensionSha256', 'pi-tool-boundary'],
+    ['fileWorkerSha256', 'file-worker'],
+    ['acceptanceScriptSha256', 'repository-acceptance'],
+  ] as const) {
+    assert.equal(
+      trial.provenance[field],
+      sha256(await readFile(join(trial.root, `control/${name}.mjs`))),
+      `Trial provenance must fingerprint the copied ${name} runtime.`,
+    );
+  }
   const { default: install } = await import(join(trial.root, 'control/pi-tool-boundary.mjs'));
   const tools = new Map<
     string,

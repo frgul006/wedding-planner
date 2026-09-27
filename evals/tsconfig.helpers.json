@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "noEmitOnError": true,
+    "rewriteRelativeImportExtensions": true,
+    "rootDir": "environment",
+    "outDir": "dist"
+  },
+  "include": [
+    "environment/isolation/pi-tool-boundary.mts",
+    "environment/isolation/file-worker.mts",
+    "environment/repository/repository-acceptance.mts"
+  ]
+}

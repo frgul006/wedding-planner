@@ -1,6 +1,5 @@
-import { cp, mkdir, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, symlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   minimalEnvironment,
   runSandboxCommand,
@@ -9,6 +8,8 @@ import {
   type SandboxCommandResult,
 } from './sandbox.ts';
 import type { LocalRuntime } from '../runtime/runtime.ts';
+import { copyRuntimeHelper } from '../runtime/runtime-helpers.ts';
+import type { BoundaryConfig } from './pi-tool-boundary-types.ts';
 import type { PreparedResources } from 'agent-evals/pi';
 import type { TrialPaths } from '../trial-paths.ts';
 
@@ -77,9 +78,8 @@ export async function prepareBoundary(options: {
   const { paths, runtime, resources } = options;
   await installRuntimeLaunchers(paths, runtime);
   await installBrowserConfiguration(paths, runtime);
-  const helpers = fileURLToPath(new URL('./', import.meta.url));
-  await cp(join(helpers, 'pi-tool-boundary.mjs'), paths.extension);
-  await cp(join(helpers, 'file-worker.mjs'), paths.fileWorker);
+  await copyRuntimeHelper('isolation/pi-tool-boundary', paths.extension);
+  await copyRuntimeHelper('isolation/file-worker', paths.fileWorker);
 
   const toolEnv = minimalEnvironment(
     paths.toolHome,
@@ -154,7 +154,7 @@ export async function prepareBoundary(options: {
       resourceDirectories: [resources.skillsDirectory],
       resourceFiles: [...resources.readableFiles, paths.browserConfig],
       commandTimeoutMs: options.runtimeMs,
-    }),
+    } satisfies BoundaryConfig),
   );
 
   return {

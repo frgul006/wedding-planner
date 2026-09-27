@@ -32,6 +32,8 @@ pnpm evals show RUN_ID
 pnpm evals regrade RUN_ID --config evals/config.ts
 ```
 
+`pnpm build:evals` also compiles the consumer’s three standalone runtime helpers from `.mts` (TypeScript ES modules) into ignored `evals/dist/`. Rebuild after editing those helpers. Trials copy the emitted `.mjs` files into private controls and run them with plain Node or Pi, without a TypeScript loader. Trial provenance records hashes of all three copied scripts alongside the authored environment source hash.
+
 `run` records one native Luna attempt at repairing the login form, then applies two diagnostic Jev questions and a deterministic validation check. The task describes a form stuck after an unsuccessful submission without naming a skill or revealing the cause. Independent acceptance exercises two real local Server Actions, required-input validation, pending state, and error feedback.
 
 `show` reads only saved records. `regrade` appends grades without starting Pi. `--code-only` selects deterministic graders and skips the judge factory. `--dry-run` loads trusted configuration but invokes neither factory. Use `--json` for machine-readable output and `pnpm evals --help` for generic options. Trial execution status and behavioral verdicts are separate: exit 1 means command setup/storage failed; exit 2 means recorded execution/preparation/grading failed. A completed `fail` or `unknown` verdict does not change the exit code.

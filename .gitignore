@@ -4,6 +4,7 @@
 /node_modules
 **/node_modules/
 /evals/runs/
+/evals/dist/
 /.pnp
 .pnp.*
 .yarn/*

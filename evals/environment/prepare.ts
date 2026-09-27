@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { copyFile, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
 import {
   verifyPrivatePiAuthentication,
   preparePiConfiguration,
@@ -21,6 +20,7 @@ import { cleanupPrivateTrial } from './runtime/cleanup.ts';
 import { verifySandboxRuntime } from './isolation/preflight.ts';
 import { reserveLocalPort, TrialProcesses } from './runtime/processes.ts';
 import { resolveLocalRuntime } from './runtime/runtime.ts';
+import { copyRuntimeHelper } from './runtime/runtime-helpers.ts';
 import { runSandboxCommand, type SandboxCommandResult } from './isolation/sandbox.ts';
 import { createTrialPaths } from './trial-paths.ts';
 import {
@@ -143,10 +143,7 @@ export async function prepareTrialEnvironment(
 
     const repositoryRuntime = await prepareRepositoryRuntime(paths, port);
     const acceptanceScript = join(paths.control, 'repository-acceptance.mjs');
-    await copyFile(
-      fileURLToPath(new URL('./repository/repository-acceptance.mjs', import.meta.url)),
-      acceptanceScript,
-    );
+    await copyRuntimeHelper('repository/repository-acceptance', acceptanceScript);
     const testModule = createRequire(join(resourceSource, 'package.json')).resolve(
       '@playwright/test',
     );
@@ -272,6 +269,8 @@ export async function prepareTrialEnvironment(
         isolation: 'macos-sandbox-exec-v1',
         profileSha256: sha256(await readFile(paths.profile)),
         extensionSha256: sha256(await readFile(paths.extension)),
+        fileWorkerSha256: sha256(await readFile(paths.fileWorker)),
+        acceptanceScriptSha256: sha256(await readFile(acceptanceScript)),
         suppressedExtensions: true,
         resourceProfile:
           'Native discovery of inspected winning resources in their original user/project scope; ancestry and selected system/context filenames preserved; profile deviations recorded in sourceProfile',
