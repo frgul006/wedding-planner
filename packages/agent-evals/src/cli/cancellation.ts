@@ -10,7 +10,9 @@ export function installCancellationHandlers(onCancel?: (signal: CancellationSign
   let exitCode: 130 | 143 | undefined;
   const cancel = (signal: CancellationSignal) => {
     // Repeated signals must not interrupt credential removal or evidence sealing.
-    if (controller.signal.aborted) return;
+    if (controller.signal.aborted) {
+      return;
+    }
     exitCode = signal === 'SIGINT' ? 130 : 143;
     controller.abort(new Error(`Evaluation cancelled by ${signal}`));
     onCancel?.(signal);

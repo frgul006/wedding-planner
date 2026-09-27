@@ -16,29 +16,74 @@ const require = createRequire(import.meta.url);
 // This consumer is authored independently and imports only the published surface.
 const graders = `
 import { codeGrader, modelGrader, type View } from 'agent-evals';
+
 const answer = {
-  id: 'answer', version: 1,
-  prepare(trial) { return [{
-    id: 'visible-answer', data: {text: trial.trace.events[0].data.text},
-    scope: 'The recorded assistant answer', sourceRefs: [trial.trace.events[0].id],
-    coverage: {complete: trial.trace.complete, gaps: trial.trace.gaps},
-    omissions: [], applicability: 'applicable' as const,
-  }]; }
+  id: 'answer',
+  version: 1,
+  prepare(trial) {
+    return [
+      {
+        id: 'visible-answer',
+        data: { text: trial.trace.events[0].data.text },
+        scope: 'The recorded assistant answer',
+        sourceRefs: [trial.trace.events[0].id],
+        coverage: { complete: trial.trace.complete, gaps: trial.trace.gaps },
+        omissions: [],
+        applicability: 'applicable' as const,
+      },
+    ];
+  },
 } satisfies View<{text: unknown}>;
-const rubric = {pass: 'Answer satisfies the question', fail: 'Answer contradicts it', unknown: 'Cannot determine'};
+
+const rubric = {
+  pass: 'Answer satisfies the question',
+  fail: 'Answer contradicts it',
+  unknown: 'Cannot determine',
+};
+
 export const graders = [
-  codeGrader({id: 'has-answer', version: 1, view: answer,
-    check: item => ({verdict: item.data.text ? 'pass' : 'fail', supportingRefs: item.sourceRefs})}),
-  modelGrader({id: 'clear', version: 1, view: answer, question: 'Is the answer clear?', rubric}),
-  modelGrader({id: 'relevant', version: 1, view: answer, question: 'Is the answer relevant?', rubric}),
+  codeGrader({
+    id: 'has-answer',
+    version: 1,
+    view: answer,
+    check: (item) => ({
+      verdict: item.data.text ? 'pass' : 'fail',
+      supportingRefs: item.sourceRefs,
+    }),
+  }),
+  modelGrader({
+    id: 'clear',
+    version: 1,
+    view: answer,
+    question: 'Is the answer clear?',
+    rubric,
+  }),
+  modelGrader({
+    id: 'relevant',
+    version: 1,
+    view: answer,
+    question: 'Is the answer relevant?',
+    rubric,
+  }),
 ];
 `;
 const config = `
 import type { EvalConfig } from 'agent-evals';
 import { graders } from './graders.ts';
+
 export default {
-  suite: {id: 'external-consumer', tasks: [{id: 'answer', version: 1, prompt: 'Explain a queue',
-    limits: {maxTurns: 4}}], graders},
+  suite: {
+    id: 'external-consumer',
+    tasks: [
+      {
+        id: 'answer',
+        version: 1,
+        prompt: 'Explain a queue',
+        limits: { maxTurns: 4 },
+      },
+    ],
+    graders,
+  },
   async createRunner(context) {
     const { createRunner } = await import('./runner.ts');
     return createRunner(context);
@@ -53,34 +98,73 @@ export default {
 const runner = `
 import { appendFile } from 'node:fs/promises';
 import type { EvalConfig, Runner } from 'agent-evals';
-export async function createRunner(context: Parameters<NonNullable<EvalConfig['createRunner']>>[0]): Promise<Runner> {
+
+export async function createRunner(
+  context: Parameters<NonNullable<EvalConfig['createRunner']>>[0],
+): Promise<Runner> {
   await appendFile('factories.log', 'runner\\n');
-  return {async run(task, request) { return {
-    id: request.trialId, task, status: 'completed',
-    trace: {events: [{id: 'answer-text', sequence: 1, timestamp: '2026-09-27',
-      actor: 'agent', type: 'message', data: {role: 'assistant', text: 'A queue preserves arrival order.\\n🧪'}
-    }], artifacts: [], contexts: [], complete: true, gaps: []},
-    outcome: {context, limits: request.limits}, metadata: {authoredFixture: true}
-  }; }};
+  return {
+    async run(task, request) {
+      return {
+        id: request.trialId,
+        task,
+        status: 'completed',
+        trace: {
+          events: [
+            {
+              id: 'answer-text',
+              sequence: 1,
+              timestamp: '2026-09-27',
+              actor: 'agent',
+              type: 'message',
+              data: {
+                role: 'assistant',
+                text: 'A queue preserves arrival order.\\n🧪',
+              },
+            },
+          ],
+          artifacts: [],
+          contexts: [],
+          complete: true,
+          gaps: [],
+        },
+        outcome: { context, limits: request.limits },
+        metadata: { authoredFixture: true },
+      };
+    },
+  };
 }
 `;
 const judge = `
 import { appendFile } from 'node:fs/promises';
 import type { Judge } from 'agent-evals';
+
 export async function createJudge(): Promise<Judge> {
   await appendFile('factories.log', 'judge\\n');
   return {
     id: 'offline-consumer-judge',
-    async prepare(jobs) { return [{
-      id: 'batch', jobIds: jobs.map(job => job.id), reservedCostUsd: 0.001,
-      body: {state: jobs[0].evidence, questions: jobs.map(job => ({id: job.id, question: job.question}))},
-      metadata: {fixture: true},
-    }]; },
-    async execute(request) { return {
-      answers: request.jobIds.map(jobId => ({jobId, verdict: 'pass'})),
-      raw: {fixture: 'one categorical batch'}, model: 'offline-fixture',
-      usage: {inputTokens: 20, outputTokens: 2, estimatedCostUsd: 0.0001},
-    }; },
+    async prepare(jobs) {
+      return [
+        {
+          id: 'batch',
+          jobIds: jobs.map((job) => job.id),
+          reservedCostUsd: 0.001,
+          body: {
+            state: jobs[0].evidence,
+            questions: jobs.map((job) => ({ id: job.id, question: job.question })),
+          },
+          metadata: { fixture: true },
+        },
+      ];
+    },
+    async execute(request) {
+      return {
+        answers: request.jobIds.map((jobId) => ({ jobId, verdict: 'pass' })),
+        raw: { fixture: 'one categorical batch' },
+        model: 'offline-fixture',
+        usage: { inputTokens: 20, outputTokens: 2, estimatedCostUsd: 0.0001 },
+      };
+    },
   };
 }
 `;
@@ -198,7 +282,10 @@ test(
         writeFile(path.join(consumer, 'judge.ts'), judge),
         writeFile(
           path.join(consumer, 'offline.mjs'),
-          `globalThis.fetch = async () => { throw new Error('Unexpected network dispatch'); };`,
+          `globalThis.fetch = async () => {
+  throw new Error('Unexpected network dispatch');
+};
+`,
         ),
         writeFile(
           path.join(consumer, 'public-api.ts'),
@@ -207,10 +294,11 @@ import { createEvaluator, type EvalConfig } from 'agent-evals';
 import { fileStore } from 'agent-evals/files';
 import { piRunner } from 'agent-evals/pi';
 import { jevJudge } from 'agent-evals/jev';
+
 export type Config = EvalConfig;
 export type PiOptions = Parameters<typeof piRunner>[0];
 export type JevOptions = Parameters<typeof jevJudge>[0];
-export const evaluator = createEvaluator({store: fileStore('.records')});
+export const evaluator = createEvaluator({ store: fileStore('.records') });
 `,
         ),
       ]);
@@ -262,7 +350,16 @@ export const evaluator = createEvaluator({store: fileStore('.records')});
             ],
             { cwd: consumer, timeout: 30_000 },
           );
-          const code = `import * as core from 'agent-evals'; import * as pi from 'agent-evals/pi'; import * as jev from 'agent-evals/jev'; import * as files from 'agent-evals/files'; if (!core.createEvaluator || !pi.piRunner || !jev.jevJudge || !files.fileStore) throw new Error('Missing public export');`;
+          const code = `
+import * as core from 'agent-evals';
+import * as pi from 'agent-evals/pi';
+import * as jev from 'agent-evals/jev';
+import * as files from 'agent-evals/files';
+
+if (!core.createEvaluator || !pi.piRunner || !jev.jevJudge || !files.fileStore) {
+  throw new Error('Missing public export');
+}
+`;
           await execute(
             process.execPath,
             ['--import', './offline.mjs', '--input-type=module', '--eval', code],
@@ -328,7 +425,7 @@ export const evaluator = createEvaluator({store: fileStore('.records')});
           await writeFile(
             path.join(consumer, 'graders.ts'),
             graders
-              .replace("id: 'clear', version: 1", "id: 'clear', version: 2")
+              .replace("    id: 'clear',\n    version: 1,", "    id: 'clear',\n    version: 2,")
               .replace('Is the answer clear?', 'Can a reader predict the removal order?'),
           );
           const regraded = JSON.parse((await invoke(['regrade', run.id, '--json'])).stdout);

@@ -32,8 +32,9 @@ export async function loadConfig(filename: string): Promise<EvalConfig> {
     exported && typeof exported === 'object' && '__esModule' in exported && exported.__esModule
       ? (exported as { default?: unknown }).default
       : exported;
-  if (!config || typeof config !== 'object' || Array.isArray(config))
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
     throw new Error('Config must default-export an EvalConfig object');
+  }
   const candidate = config as Partial<EvalConfig>;
   const suite = candidate.suite;
   if (
@@ -42,19 +43,24 @@ export async function loadConfig(filename: string): Promise<EvalConfig> {
     !suite.id.trim() ||
     !Array.isArray(suite.tasks) ||
     !Array.isArray(suite.graders)
-  )
+  ) {
     throw new Error('Config suite must have an id, tasks array, and graders array');
-  if (suite.graders.some((grader) => !grader || !['code', 'model'].includes(grader.kind)))
+  }
+  if (suite.graders.some((grader) => !grader || !['code', 'model'].includes(grader.kind))) {
     throw new Error('Config graders must declare kind code or model');
-  for (const name of ['createRunner', 'createJudge'] as const)
-    if (candidate[name] !== undefined && typeof candidate[name] !== 'function')
+  }
+  for (const name of ['createRunner', 'createJudge'] as const) {
+    if (candidate[name] !== undefined && typeof candidate[name] !== 'function') {
       throw new Error(`Config ${name} must be a factory function`);
+    }
+  }
   if (
     candidate.budgetUsd !== undefined &&
     (typeof candidate.budgetUsd !== 'number' ||
       !Number.isFinite(candidate.budgetUsd) ||
       candidate.budgetUsd < 0)
-  )
+  ) {
     throw new Error('Config budgetUsd must be a finite nonnegative number');
+  }
   return candidate as EvalConfig;
 }

@@ -11,8 +11,9 @@ export async function reserveLocalPort(): Promise<number> {
     listener.listen(0, '127.0.0.1', resolve);
   });
   const address = listener.address();
-  if (!address || typeof address === 'string')
+  if (!address || typeof address === 'string') {
     throw new Error('Cannot allocate local fixture port');
+  }
   await new Promise<void>((resolve, reject) =>
     listener.close((error) => (error ? reject(error) : resolve())),
   );
@@ -60,15 +61,19 @@ export class TrialProcesses {
         stdio: ['ignore', 'pipe', 'pipe'],
       },
     );
-    if (server.pid) this.register(server.pid);
+    if (server.pid) {
+      this.register(server.pid);
+    }
     let output = '';
-    for (const stream of [server.stdout, server.stderr])
+    for (const stream of [server.stdout, server.stderr]) {
       stream.on('data', (chunk) => {
         output = (output + String(chunk)).slice(-24_000);
       });
+    }
     server.on('error', (error) => {
       output += error.message;
     });
+
     for (let attempt = 0; attempt < 120; attempt++) {
       signal?.throwIfAborted();
       try {
@@ -78,13 +83,16 @@ export class TrialProcesses {
               signal: AbortSignal.any([AbortSignal.timeout(1000), ...(signal ? [signal] : [])]),
             })
           ).ok
-        )
+        ) {
           return;
+        }
       } catch {
         /* Compile the real route before admitting an agent. */
       }
       signal?.throwIfAborted();
-      if (server.exitCode !== null) break;
+      if (server.exitCode !== null) {
+        break;
+      }
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
     throw new Error(`Real Wedding Next.js server did not become ready: ${output}`);
@@ -97,8 +105,9 @@ export class TrialProcesses {
       for (const line of (await readFile(this.registryPath, 'utf8')).split('\n').filter(Boolean)) {
         try {
           const { pid } = JSON.parse(line) as { pid: number };
-          if (!Number.isInteger(pid) || pid <= 1 || pid === process.pid)
+          if (!Number.isInteger(pid) || pid <= 1 || pid === process.pid) {
             throw new Error('Invalid child group');
+          }
           groups.add(pid);
         } catch {
           malformed = true;
@@ -116,7 +125,8 @@ export class TrialProcesses {
       this.evaluatorGroups.clear();
       await writeFile(this.registryPath, '');
     }
-    if (malformed)
+    if (malformed) {
       throw new Error('Malformed process registry; some child groups could not be identified.');
+    }
   }
 }

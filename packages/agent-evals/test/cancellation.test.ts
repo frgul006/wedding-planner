@@ -37,9 +37,13 @@ for (const [signal, exitCode] of [
     const timeout = setTimeout(() => child.kill('SIGKILL'), 5000);
     child.stdout.on('data', (chunk) => {
       output += chunk;
-      if (String(chunk).includes('ready')) child.kill(signal);
+      if (String(chunk).includes('ready')) {
+        child.kill(signal);
+      }
       // A second interrupt must not bypass the in-progress cleanup.
-      if (String(chunk).includes('cancelling')) child.kill(signal);
+      if (String(chunk).includes('cancelling')) {
+        child.kill(signal);
+      }
     });
     child.stderr.on('data', (chunk) => {
       errors += chunk;

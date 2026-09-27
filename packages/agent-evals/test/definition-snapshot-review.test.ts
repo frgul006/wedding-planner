@@ -194,7 +194,9 @@ test('regrade retains one definition snapshot across all saved trials while disp
   context.after(() => rm(directory, { recursive: true, force: true }));
   const store = fileStore(directory);
   const ids = ['first-trial', 'second-trial'];
-  for (const id of ids) await store.saveTrial(recorded(id));
+  for (const id of ids) {
+    await store.saveTrial(recorded(id));
+  }
   await store.saveRun({
     id: 'saved-run',
     suiteId: 'original-suite',

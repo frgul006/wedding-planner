@@ -44,7 +44,9 @@ function fail(message: string): never {
 
 function positiveInteger(value: number | undefined, fallback: number): number {
   const result = value ?? fallback;
-  if (!Number.isSafeInteger(result) || result <= 0) fail('Jev limits must be positive integers.');
+  if (!Number.isSafeInteger(result) || result <= 0) {
+    fail('Jev limits must be positive integers.');
+  }
   return result;
 }
 
@@ -112,8 +114,9 @@ export function jevJudge(options: JevJudgeOptions): Judge {
     } catch {
       fail('Jev requires JSON-serializable inputs.');
     }
-    if (serialized.includes(JSON.stringify(apiKey).slice(1, -1)))
+    if (serialized.includes(JSON.stringify(apiKey).slice(1, -1))) {
       fail('Jev refused content containing its API credential.');
+    }
     return serialized;
   }
 
@@ -139,7 +142,9 @@ export function jevJudge(options: JevJudgeOptions): Judge {
   }
 
   function observedUsage(raw: unknown): JudgeResponse['usage'] | undefined {
-    if (!record(raw) || !record(raw.usage)) return;
+    if (!record(raw) || !record(raw.usage)) {
+      return;
+    }
     const usage = {
       inputTokens: raw.usage.input_tokens,
       outputTokens: raw.usage.output_tokens,
@@ -156,23 +161,32 @@ export function jevJudge(options: JevJudgeOptions): Judge {
     // all other JSON-safe content while removing known secret bytes, even in keys.
     const copied: unknown = JSON.parse(canonicalJson(raw));
     const redact = (value: unknown): unknown => {
-      if (typeof value === 'string') return value.replaceAll(apiKey, '[REDACTED]');
-      if (Array.isArray(value)) return value.map(redact);
-      if (record(value))
+      if (typeof value === 'string') {
+        return value.replaceAll(apiKey, '[REDACTED]');
+      }
+      if (Array.isArray(value)) {
+        return value.map(redact);
+      }
+      if (record(value)) {
         return Object.fromEntries(
           Object.entries(value).map(([key, entry]) => [
             key.replaceAll(apiKey, '[REDACTED]'),
             redact(entry),
           ]),
         );
+      }
       return value;
     };
     return redact(copied);
   }
 
   function validateResponse(raw: unknown, request: JudgeRequest): JudgeResponse {
-    if (!record(raw)) fail('Jev request failed or returned malformed data.');
-    if (raw.model !== JEV_MODEL) fail('Jev response model does not match the pinned model.');
+    if (!record(raw)) {
+      fail('Jev request failed or returned malformed data.');
+    }
+    if (raw.model !== JEV_MODEL) {
+      fail('Jev response model does not match the pinned model.');
+    }
     const questions = request.body.questions as SystemOneRequestPayload['questions'];
     if (!record(raw.answers) || !sameKeys(raw.answers, request.jobIds)) {
       fail('Jev response has missing or unexpected answer IDs.');
@@ -195,7 +209,9 @@ export function jevJudge(options: JevJudgeOptions): Judge {
       }
       const probabilities = answer.probabilities as Record<string, number>;
       const sum = Object.values(probabilities).reduce((total, value) => total + value, 0);
-      if (Math.abs(sum - 1) > 0.0001) fail('Jev returned an invalid probability distribution.');
+      if (Math.abs(sum - 1) > 0.0001) {
+        fail('Jev returned an invalid probability distribution.');
+      }
       if (probabilities[answer.choice] < Math.max(...Object.values(probabilities)) - 0.000001) {
         fail('Jev selected an answer inconsistent with its probability distribution.');
       }
@@ -206,7 +222,9 @@ export function jevJudge(options: JevJudgeOptions): Judge {
       };
     });
     const usage = observedUsage(raw);
-    if (!usage) fail('Jev returned invalid token usage.');
+    if (!usage) {
+      fail('Jev returned invalid token usage.');
+    }
     safeJson(raw);
     return {
       answers,
@@ -225,7 +243,9 @@ export function jevJudge(options: JevJudgeOptions): Judge {
         for (const job of jobs) {
           safeJson(job);
           validateJob(job);
-          if (ids.has(job.id)) fail('Jev jobs must have unique IDs.');
+          if (ids.has(job.id)) {
+            fail('Jev jobs must have unique IDs.');
+          }
           ids.add(job.id);
           // Storage IDs/hashes do not change the evidence the model sees. Exclude
           // only those bookkeeping fields when grouping identical submitted states.
@@ -256,8 +276,9 @@ export function jevJudge(options: JevJudgeOptions): Judge {
         const requests: JudgeRequest[] = [];
         for (const [state, group] of groups) {
           for (let offset = 0; offset < group.length; offset += maxQuestionsPerRequest) {
-            if (requests.length >= maxRequests)
+            if (requests.length >= maxRequests) {
               fail('Jev preparation exceeds the configured request limit.');
+            }
             const batch = group.slice(offset, offset + maxQuestionsPerRequest);
             const questions = Object.fromEntries(
               batch.map((job) => [
@@ -306,7 +327,9 @@ export function jevJudge(options: JevJudgeOptions): Judge {
     },
     async execute(request, signal) {
       try {
-        if (signal?.aborted) throw new APIUserAbortError();
+        if (signal?.aborted) {
+          throw new APIUserAbortError();
+        }
         const body = request.body as unknown as SystemOneRequestPayload;
         if (
           body.model !== JEV_MODEL ||
@@ -343,15 +366,23 @@ export function jevJudge(options: JevJudgeOptions): Judge {
       } catch (error) {
         // Only our explicitly credential-free errors may cross the adapter boundary.
         // Never attach SDK transport/auth bodies, headers, messages, or nested causes.
-        if (error instanceof JudgeExecutionError) throw error;
+        if (error instanceof JudgeExecutionError) {
+          throw error;
+        }
         if (signal?.aborted || error instanceof APIUserAbortError) {
           const cancellation = new Error('Jev request cancelled.');
           cancellation.name = 'AbortError';
           throw cancellation;
         }
-        if (error instanceof APITimeoutError) fail('Jev request timed out.');
-        if (error instanceof APIError) fail(`Jev request failed with HTTP ${error.status}.`);
-        if (error instanceof APIConnectionError) fail('Jev connection failed.');
+        if (error instanceof APITimeoutError) {
+          fail('Jev request timed out.');
+        }
+        if (error instanceof APIError) {
+          fail(`Jev request failed with HTTP ${error.status}.`);
+        }
+        if (error instanceof APIConnectionError) {
+          fail('Jev connection failed.');
+        }
         fail('Jev request failed or returned malformed data.');
       }
     },

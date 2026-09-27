@@ -82,7 +82,9 @@ function fixture(
     data: rawResult,
   }).observation;
   assert.equal(observation?.type, 'tool_completed');
-  if (observation?.type !== 'tool_completed') throw new Error('Invalid test observation');
+  if (observation?.type !== 'tool_completed') {
+    throw new Error('Invalid test observation');
+  }
   result.data = {
     callId: observation.callId,
     success: observation.success,
@@ -115,7 +117,9 @@ function fixture(
   };
   return { trial, call, result, rawCall, rawResult, capture };
 }
+
 type Fixture = ReturnType<typeof fixture>;
+
 const extract = ({ trial, call, result }: Fixture) =>
   extractChainedBrowserSnapshot(trial, call, result);
 
@@ -153,8 +157,9 @@ test('unsupported commands cannot gain snapshot credit from convincingly formatt
     'playwright-cli run-code "page.goto(location)" && playwright-cli snapshot',
     'playwright-cli snapshot; true',
     'playwright-cli goto $LOCAL_URL && playwright-cli snapshot',
-  ])
+  ]) {
     assert.equal(extract(fixture({ command })), undefined, command);
+  }
 });
 
 test('native chain requires exact call/result correspondence and unique actor pairing', () => {

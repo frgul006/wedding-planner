@@ -13,24 +13,36 @@ export const DEFAULT_TRIAL_LIMITS: Readonly<TrialLimits> = Object.freeze({
   maxTurns: 100,
   maxTokens: 1_000_000,
 });
+
 export const CACHED_TOKEN_WEIGHT = 0.1;
 /** Node timers must not overflow and silently become a one-millisecond deadline. */
+
 export const MAX_RUNTIME_MS = 2_147_483_647;
 
 /** Later layers override earlier fields. Undefined fields inherit; invalid values never do. */
+
 export function resolveTrialLimits(...layers: (Partial<TrialLimits> | undefined)[]): TrialLimits {
   const limits = { ...DEFAULT_TRIAL_LIMITS };
   for (const layer of layers) {
-    if (layer === undefined) continue;
-    if (layer === null || typeof layer !== 'object' || Array.isArray(layer))
+    if (layer === undefined) {
+      continue;
+    }
+    if (layer === null || typeof layer !== 'object' || Array.isArray(layer)) {
       throw new Error('Trial limits must be an object');
+    }
     for (const [key, value] of Object.entries(layer)) {
-      if (!Object.hasOwn(DEFAULT_TRIAL_LIMITS, key)) throw new Error(`Unknown trial limit: ${key}`);
-      if (value === undefined) continue;
-      if (!Number.isSafeInteger(value) || value <= 0)
+      if (!Object.hasOwn(DEFAULT_TRIAL_LIMITS, key)) {
+        throw new Error(`Unknown trial limit: ${key}`);
+      }
+      if (value === undefined) {
+        continue;
+      }
+      if (!Number.isSafeInteger(value) || value <= 0) {
         throw new Error(`${key} must be a positive safe integer`);
-      if (key === 'runtimeMs' && value > MAX_RUNTIME_MS)
+      }
+      if (key === 'runtimeMs' && value > MAX_RUNTIME_MS) {
         throw new Error(`runtimeMs must be at most ${MAX_RUNTIME_MS} (timer range)`);
+      }
       limits[key as keyof TrialLimits] = value;
     }
   }

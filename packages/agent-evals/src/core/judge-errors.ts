@@ -1,6 +1,7 @@
 import type { JudgeResponse } from './types.ts';
 
 /** A provider-independent preparation failure whose message is safe to retain. */
+
 export class JudgePreparationError extends Error {
   constructor(message: string) {
     super(message);
@@ -9,6 +10,7 @@ export class JudgePreparationError extends Error {
 }
 
 /** Only explicitly credential-free messages and optional provider data may cross this boundary. */
+
 export class JudgeExecutionError extends Error {
   constructor(
     message: string,
@@ -21,7 +23,9 @@ export class JudgeExecutionError extends Error {
 }
 
 export function validObservedUsage(value: unknown): value is JudgeResponse['usage'] {
-  if (!value || typeof value !== 'object') return false;
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
   const usage = value as JudgeResponse['usage'];
   return (
     Number.isSafeInteger(usage.inputTokens) &&

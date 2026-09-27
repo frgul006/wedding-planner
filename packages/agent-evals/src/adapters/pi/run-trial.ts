@@ -21,6 +21,7 @@ export interface RunTrialOptions {
   expectedModel: { provider: string; id: string; thinkingLevel: string };
   manifest: Record<string, unknown>;
 }
+
 export async function runTrial(
   options: RunTrialOptions,
   ports: { environment: TrialEnvironment; agent: AgentRunner; store: RunStore },
@@ -102,13 +103,14 @@ export async function runTrial(
       url: environment.url,
     });
     preparedSkills = availableSkills(environment.provenance);
-    if (preparedSkills.length)
+    if (preparedSkills.length) {
       lifecycle('environment', {
         type: 'skill_inventory',
         source: 'prepared-resource-files',
         skills: preparedSkills,
         note: 'Files copied by environment setup; native discovery and content loading are not yet observed.',
       });
+    }
     options.signal?.throwIfAborted();
     beforeArtifacts = (await environment.collectArtifacts()).map((artifact) => ({
       ...artifact,
@@ -152,11 +154,12 @@ export async function runTrial(
         try {
           finalObservation = await environment.finalize();
           artifacts = finalObservation.artifacts;
-          if (finalObservation.beforeArtifacts)
+          if (finalObservation.beforeArtifacts) {
             beforeArtifacts = finalObservation.beforeArtifacts.map((artifact) => ({
               ...artifact,
               id: artifact.id.startsWith('before-') ? artifact.id : `before-${artifact.id}`,
             }));
+          }
         } catch (error) {
           agent = { ...agent, status: 'infrastructure_error', error: 'Final observation failed' };
           lifecycle('evaluator', {
@@ -174,7 +177,9 @@ export async function runTrial(
         agent = { ...agent, status: 'infrastructure_error' };
       }
       try {
-        if (!finalObservation) artifacts = await environment.collectArtifacts();
+        if (!finalObservation) {
+          artifacts = await environment.collectArtifacts();
+        }
       } catch (error) {
         agent = { ...agent, status: 'infrastructure_error', error: 'Artifact collection failed' };
         lifecycle('evaluator', {
@@ -184,12 +189,13 @@ export async function runTrial(
       }
     }
   }
-  if (cleanupError)
+  if (cleanupError) {
     lifecycle('evaluator', {
       type: 'cleanup_error',
       message: cleanupError,
       statusBeforeCleanupFailure,
     });
+  }
   agent = { ...agent, limits: agent.limits ?? limits };
   const evidence: TrialEvidence = {
     task: { ...options.task },

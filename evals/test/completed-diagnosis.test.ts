@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 import type { EvidenceEvent, TrialEvidence } from 'agent-evals/pi';
 import { recordedTrialFromEvidence } from 'agent-evals/pi';
-import { completedDiagnosis, prepareCompletedDiagnosis } from '../views/diagnosis.ts';
+import { completedDiagnosis, prepareCompletedDiagnosis } from '../views/completed-diagnosis.ts';
 
 function recording(
   testOutput = 'Expected pending, received idle. Test failed before retry assertion.',

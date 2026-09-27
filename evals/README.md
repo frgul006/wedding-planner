@@ -2,13 +2,15 @@
 
 This directory consumes the shareable [`agent-evals` library and CLI](../packages/agent-evals/README.md). It owns Wedding's task, local environment, acceptance checks, evidence Views, and graders. It imports only public package entry points. The library provides execution/recording helpers, grading orchestration, provider adapters, and persistence.
 
-| Consumer file                                              | Responsibility                                                                   |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| [config.ts](config.ts)                                     | Compose the suite; lazily create the Pi runner and Jev judge                     |
-| [tasks/login-retry.ts](tasks/login-retry.ts)               | Natural task prompt, pinned revision, starting defect, and acceptance metadata   |
-| [environment/prepare.ts](environment/prepare.ts)           | Isolated local checkout, services, Pi resources, final observations, and cleanup |
-| [views/diagnosis.ts](views/diagnosis.ts)                   | Diagnostic evidence selection, semantic questions, and deterministic validation  |
-| [completed-attempt.config.ts](completed-attempt.config.ts) | Scoped regrading with a revised hypothesis question                              |
+| Consumer file                                                | Responsibility                                                                   |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| [config.ts](config.ts)                                       | Compose the suite; lazily create the Pi runner and Jev judge                     |
+| [tasks/login-retry.ts](tasks/login-retry.ts)                 | Natural task prompt, pinned revision, starting defect, and acceptance metadata   |
+| [environment/prepare.ts](environment/prepare.ts)             | Isolated local checkout, services, Pi resources, final observations, and cleanup |
+| [views/diagnosis.ts](views/diagnosis.ts)                     | Explicit diagnostic episodes and semantic questions                              |
+| [views/completed-diagnosis.ts](views/completed-diagnosis.ts) | First completed diagnostic test attempt and prefix audit                         |
+| [views/validation-history.ts](views/validation-history.ts)   | Agent edit and validation history with final-revision grading                    |
+| [completed-attempt.config.ts](completed-attempt.config.ts)   | Scoped regrading with a revised hypothesis question                              |
 
 ## Run the example
 

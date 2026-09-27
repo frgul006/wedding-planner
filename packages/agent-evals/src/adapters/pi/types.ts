@@ -1,7 +1,9 @@
 /** Native Pi recording and environment contracts. */
 import type { TrialLimits } from '../../core/trial-limits.ts';
 import type { EvaluationTask } from '../../core/types.ts';
+
 export type Actor = 'agent' | 'environment' | 'evaluator';
+
 export type TrialStatus =
   | 'completed'
   | 'cancelled'
@@ -57,6 +59,7 @@ export type EvaluationObservation =
       receipt: ToolReceipt;
     }
   | { type: 'skills_discovered'; skills: Array<{ path: string; name?: string }> };
+
 export interface EvidenceEvent {
   id: string;
   sequence: number;
@@ -66,6 +69,7 @@ export interface EvidenceEvent {
   data: Record<string, unknown>;
   observation?: EvaluationObservation;
 }
+
 export interface Artifact {
   id: string;
   path: string;
@@ -73,6 +77,7 @@ export interface Artifact {
   content: string;
   observedBy: 'evaluator';
 }
+
 export interface Usage {
   inputTokens: number;
   outputTokens: number;
@@ -81,6 +86,7 @@ export interface Usage {
   estimatedCostUsd: number | null;
   costSource: string;
 }
+
 export interface AgentResult {
   status: TrialStatus;
   startedAt: string;
@@ -105,6 +111,7 @@ export interface AgentResult {
     observed: number;
   };
 }
+
 export interface CommandCheck {
   id: string;
   actor: 'evaluator';
@@ -114,6 +121,7 @@ export interface CommandCheck {
   stderr: string;
   status: 'pass' | 'fail' | 'unknown';
 }
+
 export interface FinalObservation {
   artifacts: Artifact[];
   beforeArtifacts?: Artifact[];
@@ -121,6 +129,7 @@ export interface FinalObservation {
   changedFiles?: string[];
   checks?: CommandCheck[];
 }
+
 export interface TrialEvidence {
   /** Extra top-level fields occur in historical recordings; new tasks use metadata. */
   task: EvaluationTask & Record<string, unknown>;
@@ -135,6 +144,7 @@ export interface TrialEvidence {
   changedFiles?: string[];
   checks?: CommandCheck[];
 }
+
 export interface AgentRunRequest {
   signal?: AbortSignal;
   cwd: string;
@@ -149,13 +159,16 @@ export interface AgentRunRequest {
   /** Deliver every observation as it occurs; the trial recorder owns event retention. */
   onEvent: (event: EvidenceEvent) => void;
 }
+
 export interface AgentRunner {
   run(request: AgentRunRequest): Promise<AgentResult>;
 }
+
 export interface RunStore {
   save(name: string, value: unknown): Promise<void>;
   append(event: EvidenceEvent): void;
 }
+
 export interface PreparedEnvironment {
   root: string;
   workspace: string;
@@ -170,6 +183,7 @@ export interface PreparedEnvironment {
   finalize?(): Promise<FinalObservation>;
   cleanup(): Promise<void>;
 }
+
 export interface TrialEnvironment {
   prepare(task: EvaluationTask, id: string): Promise<PreparedEnvironment>;
 }

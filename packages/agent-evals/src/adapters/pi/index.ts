@@ -4,6 +4,7 @@ export {
   type PiEnvironmentContext,
   type PiBilling,
 } from './pi-runner.ts';
+
 export type {
   PreparedEnvironment,
   FinalObservation,
@@ -15,14 +16,13 @@ export type {
   ToolReceipt,
   BrowserOutput,
 } from './types.ts';
+export { inspectPi, locatePi } from './pi-inspection.ts';
 export {
-  inspectPi,
   inspectPiResources,
-  locatePi,
   type PiSource,
   type PiContextSource,
   type PiSkillSource,
-} from './pi-inspection.ts';
+} from './pi-resource-inspection.ts';
 export {
   preparePiConfiguration,
   isolatedPiSettings,

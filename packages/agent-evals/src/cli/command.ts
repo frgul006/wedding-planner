@@ -70,6 +70,7 @@ export async function command(
       'max-tokens': { type: 'string' },
     },
   });
+
   const [action = 'help', reference] = parsed.positionals;
   const print = (value: unknown, human?: string) =>
     process.stdout.write(
@@ -79,21 +80,31 @@ export async function command(
     print({ help }, help);
     return 0;
   }
+
   if (
     !['run', 'regrade', 'show'].includes(action) ||
     parsed.positionals.length > 2 ||
     (action === 'run' && reference) ||
     (action !== 'run' && !reference)
-  )
+  ) {
     throw new Error('Use run, regrade RUN_ID, or show RUN_ID');
-  for (const flag of ['repetitions', 'max-runtime-ms', 'max-turns', 'max-tokens'] as const)
-    if (parsed.values[flag] !== undefined && action !== 'run')
+  }
+
+  for (const flag of ['repetitions', 'max-runtime-ms', 'max-turns', 'max-tokens'] as const) {
+    if (parsed.values[flag] !== undefined && action !== 'run') {
       throw new Error(`--${flag} only applies to run`);
-  for (const flag of ['config', 'budget-usd', 'code-only', 'dry-run'] as const)
-    if (parsed.values[flag] !== undefined && action === 'show')
+    }
+  }
+
+  for (const flag of ['config', 'budget-usd', 'code-only', 'dry-run'] as const) {
+    if (parsed.values[flag] !== undefined && action === 'show') {
       throw new Error(`--${flag} only applies to run or regrade`);
-  if (parsed.values['code-only'] && parsed.values['budget-usd'] !== undefined)
+    }
+  }
+
+  if (parsed.values['code-only'] && parsed.values['budget-usd'] !== undefined) {
     throw new Error('--budget-usd cannot be combined with --code-only');
+  }
   const limitOverrides: Partial<TrialLimits> = {};
   for (const [flag, key] of [
     ['max-runtime-ms', 'runtimeMs'],
@@ -101,14 +112,20 @@ export async function command(
     ['max-tokens', 'maxTokens'],
   ] as const) {
     const value = parsed.values[flag];
-    if (value === undefined) continue;
-    if (!/^[1-9]\d*$/.test(value)) throw new Error(`--${flag} must be a positive integer`);
+    if (value === undefined) {
+      continue;
+    }
+    if (!/^[1-9]\d*$/.test(value)) {
+      throw new Error(`--${flag} must be a positive integer`);
+    }
     limitOverrides[key] = Number(value);
   }
   resolveTrialLimits(limitOverrides);
   const repetitions = Number(parsed.values.repetitions ?? 1);
-  if (!Number.isInteger(repetitions) || repetitions < 1 || repetitions > 10)
+  if (!Number.isInteger(repetitions) || repetitions < 1 || repetitions > 10) {
     throw new Error('--repetitions must be an integer between 1 and 10');
+  }
+
   const directory = path.resolve(context.cwd, parsed.values.store ?? '.agent-evals');
   const recordingsDirectory = path.join(directory, 'recordings');
   const gradingSummary = (record: GradingRecord) => ({
@@ -119,6 +136,7 @@ export async function command(
     report: path.join(directory, 'gradings', record.id, 'report.md'),
     usage: record.requests.map((entry) => entry.response?.usage ?? entry.observedUsage ?? null),
   });
+
   const store = fileStore(directory);
   if (action === 'show') {
     const run = await store.loadRun(reference!);
@@ -146,18 +164,23 @@ export async function command(
     ? config.suite.graders.filter((grader) => grader.kind === 'code')
     : config.suite.graders;
   const needsJudge = graders.some((grader) => grader.kind === 'model');
-  if (!needsJudge && parsed.values['budget-usd'] !== undefined)
+  if (!needsJudge && parsed.values['budget-usd'] !== undefined) {
     throw new Error('--budget-usd requires at least one selected model grader');
+  }
   const budgetFlag = parsed.values['budget-usd'];
   const budgetUsd = budgetFlag === undefined ? (config.budgetUsd ?? 0.01) : Number(budgetFlag);
-  if (budgetFlag?.trim() === '' || !Number.isFinite(budgetUsd) || budgetUsd < 0)
+  if (budgetFlag?.trim() === '' || !Number.isFinite(budgetUsd) || budgetUsd < 0) {
     throw new Error('--budget-usd must be a finite nonnegative number');
-  if (action === 'run' && !config.createRunner)
+  }
+  if (action === 'run' && !config.createRunner) {
     throw new Error('Config must provide createRunner for run');
-  if (needsJudge && !config.createJudge)
+  }
+  if (needsJudge && !config.createJudge) {
     throw new Error(
       'Config must provide createJudge for model graders; use --code-only to skip them',
     );
+  }
+
   if (parsed.values['dry-run']) {
     print({
       action,
@@ -193,15 +216,18 @@ export async function command(
       ? await config.createRunner!({ storeDirectory: directory, recordingsDirectory })
       : undefined;
   const evaluator = createEvaluator({ store, runner, judge, budgetUsd });
-  if (!parsed.values.json)
+
+  if (!parsed.values.json) {
     process.stderr.write(
       action === 'run'
         ? 'Running trials sequentially; saving evidence before grading…\n'
         : 'Preparing and grading saved evidence…\n',
     );
+  }
   const timer = setInterval(() => {
-    if (!parsed.values.json)
+    if (!parsed.values.json) {
       process.stderr.write('Evaluation is still running; captured evidence is being retained…\n');
+    }
   }, 30_000);
   try {
     if (action === 'run') {

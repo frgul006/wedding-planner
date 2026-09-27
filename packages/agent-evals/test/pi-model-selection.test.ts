@@ -41,11 +41,12 @@ test('an unavailable model cannot silently fall back or change the authenticated
     [{ provider: 'openai-codex', id: 'gpt-6-astra' }],
     [{ provider: 'openai', id: 'gpt-6-luna' }],
     [null],
-  ])
+  ]) {
     assert.throws(
       () => selectPiModel({ defaults, rpc: { availableModels } }, { model: 'gpt-6-luna' }),
       /openai-codex\/gpt-6-luna is unavailable.*No fallback model was selected/,
     );
+  }
 });
 
 test('model overrides reject blank values', () => {

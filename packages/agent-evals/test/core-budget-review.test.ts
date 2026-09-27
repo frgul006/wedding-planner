@@ -68,12 +68,13 @@ for (const responseKind of ['valid', 'invalid', 'non-JSON'] as const) {
       },
       async execute(request) {
         calls++;
-        if (responseKind !== 'valid')
+        if (responseKind !== 'valid') {
           throw new JudgeExecutionError(
             'Invalid authored response',
             responseKind === 'non-JSON' ? { unserializable: 1n } : { answers: {} },
             usage,
           );
+        }
         return {
           answers: request.jobIds.map((jobId) => ({ jobId, verdict: 'pass' as const })),
           raw: { observed: true },

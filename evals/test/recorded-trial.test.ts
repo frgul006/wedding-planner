@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 import type { EvidenceEvent, TrialEvidence } from 'agent-evals/pi';
 import { recordedTrialFromEvidence } from 'agent-evals/pi';
-import { checkValidationOrder, prepareValidationHistory } from '../views/diagnosis.ts';
+import { checkValidationOrder, prepareValidationHistory } from '../views/validation-history.ts';
 
 const hash = (content: string) => createHash('sha256').update(content).digest('hex');
 const context = {
@@ -13,7 +13,9 @@ const context = {
   content: 'Run tests.',
   sha256: hash('Run tests.'),
 };
+
 const environment = { recordedContexts: [context], contextCaptureGaps: [] };
+
 function recording(
   data: Record<string, unknown>[],
   status: TrialEvidence['agent']['status'] = 'completed',
@@ -58,12 +60,14 @@ function recording(
     },
   };
 }
+
 const start = {
   type: 'tool_execution_start',
   toolCallId: 'c1',
   toolName: 'bash',
   args: { command: 'pnpm test' },
 };
+
 const end = {
   type: 'tool_execution_end',
   toolCallId: 'c1',
@@ -73,6 +77,7 @@ const end = {
     details: { evaluation: { kind: 'bash', exitCode: 0 } },
   },
 };
+
 const settled = { type: 'agent_settled' };
 
 test('historical duplicate agent events do not change the authoritative saved trace', () => {

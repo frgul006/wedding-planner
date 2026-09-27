@@ -3,10 +3,8 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import test from 'node:test';
-import {
-  assertSupportedProjectRuntimeSettings,
-  inspectPiAuthentication,
-} from '../src/adapters/pi/pi-inspection.ts';
+import { assertSupportedProjectRuntimeSettings } from '../src/adapters/pi/pi-resource-inspection.ts';
+import { inspectPiAuthentication } from '../src/adapters/pi/pi-inspection.ts';
 
 test('trusted project runtime overrides cannot silently be replaced by global Pi settings', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-project-settings-test-'));

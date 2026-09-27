@@ -13,11 +13,13 @@ import type { PreparedResources } from 'agent-evals/pi';
 import type { TrialPaths } from './trial-paths.ts';
 
 const shellQuote = (value: string) => "'" + value.replaceAll("'", "'\"'\"'") + "'";
+
 export type RunSandboxedCommand = (
   executable: string,
   args: string[],
   timeoutMs?: number,
 ) => Promise<SandboxCommandResult>;
+
 export interface PreparedBoundary {
   toolEnv: Record<string, string>;
   agentEnv: Record<string, string>;
@@ -91,6 +93,7 @@ export async function prepareBoundary(options: {
   toolEnv.PLAYWRIGHT_BROWSERS_PATH = runtime.browser.cacheDirectory;
   toolEnv.PORT = String(options.port);
   Object.assign(toolEnv, options.toolEnvironment);
+
   const writableDirectories = [paths.workspace, paths.toolHome, paths.temporary];
   const readableDirectories = [
     '/System',
@@ -131,6 +134,7 @@ export async function prepareBoundary(options: {
       ],
     }),
   );
+
   await writeFile(
     paths.boundaryConfig,
     JSON.stringify({
@@ -152,6 +156,7 @@ export async function prepareBoundary(options: {
       commandTimeoutMs: options.runtimeMs,
     }),
   );
+
   return {
     toolEnv,
     agentEnv: {

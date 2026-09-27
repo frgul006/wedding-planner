@@ -38,11 +38,13 @@ export async function repositoryGit(
 async function validateDependencyLinks(root: string, directory = root): Promise<void> {
   for (const item of await readdir(directory, { withFileTypes: true })) {
     const path = join(directory, item.name);
-    if (item.isDirectory()) await validateDependencyLinks(root, path);
-    else if (item.isSymbolicLink()) {
+    if (item.isDirectory()) {
+      await validateDependencyLinks(root, path);
+    } else if (item.isSymbolicLink()) {
       const target = resolve(dirname(path), await readlink(path));
-      if (!isWithin(root, target) || !isWithin(root, await realpath(path)))
+      if (!isWithin(root, target) || !isWithin(root, await realpath(path))) {
         throw new Error(`Installed dependency links outside node_modules: ${relative(root, path)}`);
+      }
     }
   }
 }
@@ -56,10 +58,14 @@ export async function prepareRepositoryCheckout(options: {
   acceptance?: string;
 }) {
   const { paths, revision } = options;
-  if (options.acceptance !== 'admin-login-retry')
+  if (options.acceptance !== 'admin-login-retry') {
     throw new Error(`Unknown repository acceptance check: ${options.acceptance ?? 'missing'}`);
-  if (!/^[a-f0-9]{40}$/.test(revision))
+  }
+
+  if (!/^[a-f0-9]{40}$/.test(revision)) {
     throw new Error('Repository trials require a full pinned commit SHA.');
+  }
+
   const env = minimalEnvironment(paths.toolHome, paths.temporary, dirname(process.execPath));
   const tree = await repositoryGit(options.sourceRepo, ['ls-tree', '-r', '-z', revision], env);
   for (const item of tree.stdout.split('\0').filter(Boolean)) {
@@ -68,11 +74,13 @@ export async function prepareRepositoryCheckout(options: {
       !metadata?.startsWith('100') ||
       !path ||
       path.split('/').some((part) => /^(\.env(?!\.example$)|auth\.json$)/i.test(part))
-    )
+    ) {
       throw new Error(
         `Repository snapshot contains an unsupported symlink, submodule or private file: ${path ?? 'unknown'}`,
       );
+    }
   }
+
   await repositoryGit(paths.workspace, ['init', '-b', 'codex/eval-trial'], env);
   await repositoryGit(
     paths.workspace,
@@ -88,12 +96,14 @@ export async function prepareRepositoryCheckout(options: {
     env,
   );
   await repositoryGit(paths.workspace, ['checkout', '--detach', revision], env);
+
   const pinnedLock = await readFile(join(paths.workspace, 'pnpm-lock.yaml'));
   const installedLock = await readFile(join(options.dependencyRepo, 'pnpm-lock.yaml'));
-  if (!pinnedLock.equals(installedLock))
+  if (!pinnedLock.equals(installedLock)) {
     throw new Error(
       'The installed dependency checkout does not match the pinned repository lockfile. Install that revision separately before running.',
     );
+  }
   const dependencies = await realpath(join(options.dependencyRepo, 'node_modules'));
   const installedModulesLock = await readFile(join(dependencies, '.pnpm/lock.yaml'));
   // pnpm 12 prefixes the source lock with a separate package-manager document;
@@ -104,10 +114,12 @@ export async function prepareRepositoryCheckout(options: {
       .split(/^---\s*$/m)
       .at(-1)!
       .trim();
-  if (appLock(pinnedLock) !== appLock(installedModulesLock))
+  if (appLock(pinnedLock) !== appLock(installedModulesLock)) {
     throw new Error(
       'Installed node_modules does not match the pinned application dependency lock. Install that revision before running.',
     );
+  }
+
   await validateDependencyLinks(dependencies);
   // COPYFILE_FICLONE uses private copy-on-write files on APFS, never mutable hardlinks.
   await cp(dependencies, join(paths.workspace, 'node_modules'), {
@@ -116,13 +128,17 @@ export async function prepareRepositoryCheckout(options: {
     verbatimSymlinks: true,
     mode: constants.COPYFILE_FICLONE,
   });
-  for (const name of excludedResourceNames)
+
+  for (const name of excludedResourceNames) {
     await rm(join(paths.workspace, name), { recursive: true, force: true });
+  }
+
   const path = join(paths.workspace, 'app/admin/login/login-form.tsx');
   const original = await readFile(path, 'utf8');
   const needle = 'disabled={pending}';
-  if (original.split(needle).length !== 2)
+  if (original.split(needle).length !== 2) {
     throw new Error('Pinned login retry task no longer matches its authored defect.');
+  }
   await writeFile(path, original.replace(needle, 'disabled={pending || Boolean(state.error)}'));
   const seededPatch = (
     await repositoryGit(

@@ -8,9 +8,10 @@ import {
   type inspectPiResources,
   type PiContextSource,
   type PiSource,
-} from './pi-inspection.ts';
+} from './pi-resource-inspection.ts';
 
 export const sha256 = (value: string | Buffer) => createHash('sha256').update(value).digest('hex');
+
 export async function exists(path: string): Promise<boolean> {
   try {
     await stat(path);
@@ -22,24 +23,32 @@ export async function exists(path: string): Promise<boolean> {
 
 /** Resource scans omit secrets and child symlinks, even inside approved roots. */
 export async function resourceFilesIn(root: string): Promise<string[]> {
-  if (!(await exists(root))) return [];
+  if (!(await exists(root))) {
+    return [];
+  }
   const paths: string[] = [];
   for (const entry of await readdir(root, { withFileTypes: true })) {
     if (
       entry.isSymbolicLink() ||
       ['node_modules', '.git'].includes(entry.name) ||
       /^(\.env|auth\.json)/i.test(entry.name)
-    )
+    ) {
       continue;
+    }
     const path = join(root, entry.name);
-    if (entry.isDirectory()) paths.push(...(await resourceFilesIn(path)));
-    else if (entry.isFile()) paths.push(path);
+    if (entry.isDirectory()) {
+      paths.push(...(await resourceFilesIn(path)));
+    } else if (entry.isFile()) {
+      paths.push(path);
+    }
   }
   return paths.sort();
 }
 
 export async function copyResources(source: string, destination: string): Promise<void> {
-  if (!(await exists(source))) return;
+  if (!(await exists(source))) {
+    return;
+  }
   // Resolve the selected directory once; never follow arbitrary child symlinks.
   await cp(await realpath(source), destination, {
     recursive: true,
@@ -73,6 +82,7 @@ export interface ResourceMapping {
   origin?: string;
   name?: string;
 }
+
 export interface PreparedResources {
   recordedContexts: Array<TraceArtifact & { kind: string }>;
   contextCaptureGaps: string[];
@@ -136,7 +146,9 @@ export async function prepareResources(options: {
       const content = redact(
         typeof bytes === 'string' ? bytes : new TextDecoder('utf-8', { fatal: true }).decode(bytes),
       );
-      if (content.includes('\0')) throw new Error('Binary resource');
+      if (content.includes('\0')) {
+        throw new Error('Binary resource');
+      }
       recordedContexts.push({
         id: `context-${recordedContexts.length + 1}`,
         path,
@@ -199,13 +211,15 @@ export async function prepareResources(options: {
     const root =
       skill.scope === 'project' ? join(paths.workspace, '.agents/skills') : skillsDirectory;
     const destination = join(root, skill.name);
-    if (await exists(destination))
+    if (await exists(destination)) {
       throw new Error(`Duplicate selected skill destination: ${skill.name}`);
+    }
     await copyResources(dirname(skill.realPath), destination);
     const destinationPath = join(destination, 'SKILL.md');
     const destinationSha256 = sha256(await readFile(destinationPath));
-    if (destinationSha256 !== skill.sha256)
+    if (destinationSha256 !== skill.sha256) {
       throw new Error(`Selected skill changed while copying: ${skill.path}`);
+    }
     // Fingerprint the copied tree, not just SKILL.md: referenced helpers affect
     // behavior too. Relative paths keep the digest stable across trial roots.
     const files = await Promise.all(

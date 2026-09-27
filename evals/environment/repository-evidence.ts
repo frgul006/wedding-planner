@@ -15,6 +15,7 @@ const generated = new Set([
   'test-results',
   'playwright-report',
 ]);
+
 export interface RepositoryFile {
   path: string;
   sha256: string;
@@ -34,19 +35,22 @@ export async function snapshotRepository(workspace: string): Promise<Map<string,
         (generated.has(entry.name) ||
           entry.name === 'next-env.d.ts' ||
           entry.name.endsWith('.tsbuildinfo'))
-      )
+      ) {
         continue;
+      }
       const full = join(directory, entry.name);
       const path = relative(workspace, full);
-      if (entry.isDirectory()) await walk(full);
-      else if (entry.isSymbolicLink())
+      if (entry.isDirectory()) {
+        await walk(full);
+      } else if (entry.isSymbolicLink()) {
         throw new Error(`Final source contains an unsupported symlink: ${path}`);
-      else if (entry.isFile()) {
+      } else if (entry.isFile()) {
         await safeFile(workspace, path);
         const bytes = await readFile(full);
         total += bytes.length;
-        if (total > 32_000_000)
+        if (total > 32_000_000) {
           throw new Error('Repository evidence exceeds the 32 MB retained-source bound.');
+        }
         const binary = bytes.includes(0);
         files.set(path, {
           path,
@@ -87,6 +91,7 @@ export async function collectRepositoryEvidence(options: {
       return before?.sha256 !== after?.sha256 || before?.mode !== after?.mode;
     })
     .sort();
+
   const beforeArtifacts: Artifact[] = [];
   const artifacts = options.artifacts.map((item) => {
     const captured = final.get(item.path);
@@ -95,20 +100,28 @@ export async function collectRepositoryEvidence(options: {
   for (const [index, path] of changedFiles.entries()) {
     const before = options.baseline.get(path),
       after = final.get(path);
-    if (before) beforeArtifacts.push(artifact(`before-file-${index + 1}`, path, before.content));
-    if (after && !artifacts.some((item) => item.path === path))
+    if (before) {
+      beforeArtifacts.push(artifact(`before-file-${index + 1}`, path, before.content));
+    }
+    if (after && !artifacts.some((item) => item.path === path)) {
       artifacts.push(artifact(`final-file-${index + 1}`, path, after.content));
+    }
   }
+
   const patchDirectory = await mkdtemp(join(tmpdir(), 'wedding-eval-diff-'));
   let patchText = '';
   try {
-    for (const name of ['before', 'after']) await mkdir(join(patchDirectory, name));
+    for (const name of ['before', 'after']) {
+      await mkdir(join(patchDirectory, name));
+    }
     for (const path of changedFiles) {
       for (const [name, file] of [
         ['before', options.baseline.get(path)],
         ['after', final.get(path)],
       ] as const) {
-        if (!file) continue;
+        if (!file) {
+          continue;
+        }
         const destination = join(patchDirectory, name, path);
         await mkdir(dirname(destination), { recursive: true });
         await writeFile(
@@ -137,13 +150,16 @@ export async function collectRepositoryEvidence(options: {
       ).stdout;
     } catch (error) {
       const result = error as { code?: number; stdout?: string };
-      if (result.code !== 1 || typeof result.stdout !== 'string') throw error;
+      if (result.code !== 1 || typeof result.stdout !== 'string') {
+        throw error;
+      }
       patchText = result.stdout;
     }
     patchText = patchText.replaceAll('a/before/', 'a/').replaceAll('b/after/', 'b/');
   } finally {
     await rm(patchDirectory, { recursive: true, force: true });
   }
+
   artifacts.push(
     artifact(
       'repository-file-manifest',

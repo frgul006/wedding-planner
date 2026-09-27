@@ -5,29 +5,39 @@ import { readFile, realpath, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 
 export function parseDirectPlaywright(command) {
-  if (/[\r\n]/.test(command)) return null;
+  if (/[\r\n]/.test(command)) {
+    return null;
+  }
   // No shell substitutions, operators, assignments, aliases, or caller-selected executable.
   const tokens = command.trim().match(/(?:"[^"\\]*"|'[^']*'|[^\s"']+)/g);
-  if (!tokens || tokens.join(' ') !== command.trim().replace(/\s+/g, ' ')) return null;
-  const args = tokens.map((token) => (/^['"]/.test(token) ? token.slice(1, -1) : token));
-  if (args.shift() !== 'playwright-cli' || args.some((arg) => /[\n\r$`;&|<>\\]/.test(arg)))
+  if (!tokens || tokens.join(' ') !== command.trim().replace(/\s+/g, ' ')) {
     return null;
+  }
+  const args = tokens.map((token) => (/^['"]/.test(token) ? token.slice(1, -1) : token));
+  if (args.shift() !== 'playwright-cli' || args.some((arg) => /[\n\r$`;&|<>\\]/.test(arg))) {
+    return null;
+  }
   if (
     args.some((arg) =>
       /^--(?:config|browser|cdp|endpoint|extension|profile|persistent)(?:=|$)/.test(arg),
     )
-  )
+  ) {
     return null;
+  }
   return args;
 }
+
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
+
 const within = (root, path) => {
   const value = relative(root, path);
   return value === '' || (!value.startsWith('../') && value !== '..' && !isAbsolute(value));
 };
 
 export async function captureNativeOutput(directory, id, bytes, kind) {
-  if (!directory) return { gap: 'This boundary does not retain full native output.' };
+  if (!directory) {
+    return { gap: 'This boundary does not retain full native output.' };
+  }
   try {
     let content;
     let encoding = 'utf8';
@@ -62,6 +72,7 @@ export default async function installBoundary(pi) {
   const native = await import(config.piModule);
   const captureOutput = (id, bytes, kind) =>
     captureNativeOutput(config.toolOutputDirectory, id, bytes, kind);
+
   const targetHash = async () => {
     try {
       return hash(await fileOperation('read', config.targetFile));
@@ -69,6 +80,7 @@ export default async function installBoundary(pi) {
       return null;
     }
   };
+
   async function checkedPath(path, writing = false) {
     const absolute = resolve(config.workspace, path);
     const roots = writing
@@ -77,10 +89,11 @@ export default async function installBoundary(pi) {
     if (
       !roots.some((root) => within(root, absolute)) &&
       !(!writing && config.resourceFiles.includes(absolute))
-    )
+    ) {
       throw new Error(
         'Tool access is limited to the isolated trial and its instruction resources.',
       );
+    }
     // Resolve the nearest existing ancestor, so creation through an escaping symlink is also rejected.
     let existing = absolute;
     while (true) {
@@ -89,18 +102,24 @@ export default async function installBoundary(pi) {
         if (
           !roots.some((root) => within(root, actual)) &&
           !(!writing && config.resourceFiles.includes(actual))
-        )
+        ) {
           throw new Error('Symlink escapes the isolated trial.');
+        }
         break;
       } catch (error) {
-        if (error.code !== 'ENOENT') throw error;
+        if (error.code !== 'ENOENT') {
+          throw error;
+        }
         const parent = dirname(existing);
-        if (parent === existing) throw error;
+        if (parent === existing) {
+          throw error;
+        }
         existing = parent;
       }
     }
     return absolute;
   }
+
   function execute(executable, args, { signal, timeout = 60, onData = () => {}, input } = {}) {
     return new Promise((resolveResult, reject) => {
       const child = spawn(
@@ -113,11 +132,12 @@ export default async function installBoundary(pi) {
           stdio: ['pipe', 'pipe', 'pipe'],
         },
       );
-      if (child.pid)
+      if (child.pid) {
         appendFileSync(
           config.processRegistryPath,
           JSON.stringify({ pid: child.pid, startedAt: new Date().toISOString() }) + '\n',
         );
+      }
       const chunks = [];
       const kill = () => {
         try {
@@ -127,11 +147,12 @@ export default async function installBoundary(pi) {
       const timer = setTimeout(kill, Math.min(timeout * 1000, config.commandTimeoutMs));
       signal?.addEventListener('abort', kill, { once: true });
       child.on('error', reject);
-      for (const stream of [child.stdout, child.stderr])
+      for (const stream of [child.stdout, child.stderr]) {
         stream.on('data', (chunk) => {
           chunks.push(chunk);
           onData(chunk);
         });
+      }
       child.on('close', (exitCode) => {
         clearTimeout(timer);
         signal?.removeEventListener('abort', kill);
@@ -140,15 +161,18 @@ export default async function installBoundary(pi) {
       child.stdin.end(input);
     });
   }
+
   async function fileOperation(operation, path, input) {
     await checkedPath(path, ['write', 'mkdir'].includes(operation));
     const result = await execute(config.nodeExecutable, [config.workerPath, operation, path], {
       input,
     });
-    if (result.exitCode !== 0)
+    if (result.exitCode !== 0) {
       throw new Error(result.output.toString('utf8') || 'Isolated file operation failed');
+    }
     return result.output;
   }
+
   const read = native.createReadTool(config.workspace, {
     operations: {
       readFile: (path) => fileOperation('read', path),
@@ -157,6 +181,7 @@ export default async function installBoundary(pi) {
       },
     },
   });
+
   const edit = native.createEditTool(config.workspace, {
     operations: {
       readFile: (path) => fileOperation('read', path),
@@ -168,6 +193,7 @@ export default async function installBoundary(pi) {
       },
     },
   });
+
   const write = native.createWriteTool(config.workspace, {
     operations: {
       mkdir: async (path) => {
@@ -178,7 +204,7 @@ export default async function installBoundary(pi) {
       },
     },
   });
-  for (const tool of [read, edit, write])
+  for (const tool of [read, edit, write]) {
     pi.registerTool({
       ...tool,
       async execute(id, params, signal, onUpdate, ctx) {
@@ -195,8 +221,9 @@ export default async function installBoundary(pi) {
           try {
             const bytes = await fileOperation('read', resolve(config.workspace, params.path));
             sha256 = hash(bytes);
-            if (result.details?.truncation?.truncated)
+            if (result.details?.truncation?.truncated) {
               outputCapture = await captureOutput(id, bytes, 'read-source');
+            }
           } catch {}
         }
         return {
@@ -215,6 +242,7 @@ export default async function installBoundary(pi) {
         };
       },
     });
+  }
   pi.registerTool({
     ...native.createBashTool(config.workspace),
     async execute(id, params, signal, onUpdate, ctx) {
@@ -260,7 +288,7 @@ export default async function installBoundary(pi) {
         const daemon = execution.output
           .toString('utf8')
           .match(/### Browser[^\n]*opened with pid (\d+)/);
-        if (daemon)
+        if (daemon) {
           appendFileSync(
             config.processRegistryPath,
             JSON.stringify({
@@ -269,16 +297,18 @@ export default async function installBoundary(pi) {
               kind: 'playwright-daemon',
             }) + '\n',
           );
+        }
       }
       if (direct?.includes('snapshot') && execution?.exitCode === 0) {
         const output = execution.output.toString('utf8');
         const inline = output.match(/```ya?ml\r?\n([\s\S]*?)\r?\n```/);
-        if (inline)
+        if (inline) {
           evaluation.snapshot = {
             path: `tool-output:${id}`,
             content: inline[1],
             sha256: hash(inline[1]),
           };
+        }
         const paths = [...output.matchAll(/\.playwright-cli\/[^\s)\]"'<>]+\.ya?ml/g)].map(
           (match) => match[0],
         );
@@ -295,11 +325,12 @@ export default async function installBoundary(pi) {
           } catch {}
         }
       }
-      if (evaluation.snapshot)
+      if (evaluation.snapshot) {
         await writeFile(
           resolve(config.snapshotReceiptDirectory, hash(id) + '.json'),
           JSON.stringify(evaluation.snapshot),
         );
+      }
       return { ...result, details: { ...result.details, evaluation } };
     },
   });

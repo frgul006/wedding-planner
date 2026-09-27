@@ -1,9 +1,13 @@
 import type { TrialLimits } from './trial-limits.ts';
+
 export type { TrialLimits } from './trial-limits.ts';
 
 /** Portable authoring contracts. Vendor payloads belong in metadata, never in core rules. */
+
 export type Verdict = 'pass' | 'fail' | 'unknown' | 'not_applicable';
+
 export type Version = string | number;
+
 export interface TraceEvent {
   id: string;
   sequence: number;
@@ -13,12 +17,14 @@ export interface TraceEvent {
   data: Record<string, unknown>;
   source?: Record<string, unknown>;
 }
+
 export interface TraceArtifact {
   id: string;
   path: string;
   content: string;
   sha256: string;
 }
+
 export interface RecordedTrial {
   id: string;
   task: { id: string; version: Version; prompt: string; metadata?: Record<string, unknown> };
@@ -33,6 +39,7 @@ export interface RecordedTrial {
   outcome: Record<string, unknown>;
   metadata: Record<string, unknown>;
 }
+
 export interface PreparedItem<T = unknown> {
   id: string;
   data: T;
@@ -42,37 +49,45 @@ export interface PreparedItem<T = unknown> {
   omissions: string[];
   applicability: 'applicable' | 'not_applicable' | 'unknown';
 }
+
 export interface View<T = unknown> {
   id: string;
   version: Version;
   prepare(trial: RecordedTrial): PreparedItem<T>[] | Promise<PreparedItem<T>[]>;
 }
+
 export interface CheckResult {
   verdict: Verdict;
   reason?: string;
   /** Only explicitly supporting references; considered evidence is recorded separately. */
   supportingRefs?: string[];
 }
+
 interface GraderBase<T> {
   id: string;
   version: Version;
   view: View<T>;
 }
+
 export interface CodeGrader<T = unknown> extends GraderBase<T> {
   kind: 'code';
   check(item: PreparedItem<T>, trial: RecordedTrial): CheckResult | Promise<CheckResult>;
 }
+
 export interface ModelGrader<T = unknown> extends GraderBase<T> {
   kind: 'model';
   question: string;
   rubric: Record<'pass' | 'fail' | 'unknown', string> & Partial<Record<'not_applicable', string>>;
 }
+
 export type Grader<T = unknown> = CodeGrader<T> | ModelGrader<T>;
+
 export interface PreparedEvidence extends PreparedItem {
   view: { id: string; version: Version };
   serializationVersion: 'canonical-json-v1';
   contentHash: string;
 }
+
 export interface JudgmentJob {
   id: string;
   grader: { id: string; version: Version };
@@ -80,6 +95,7 @@ export interface JudgmentJob {
   question: string;
   rubric: ModelGrader['rubric'];
 }
+
 export interface JudgeRequest {
   id: string;
   jobIds: string[];
@@ -88,17 +104,20 @@ export interface JudgeRequest {
   metadata: Record<string, unknown>;
   reservedCostUsd: number;
 }
+
 export interface JudgeResponse {
   answers: Array<{ jobId: string; verdict: Verdict; metadata?: Record<string, unknown> }>;
   raw: unknown;
   model: string;
   usage: { inputTokens: number; outputTokens: number; estimatedCostUsd: number | null };
 }
+
 export interface Judge {
   id: string;
   prepare(jobs: readonly JudgmentJob[]): Promise<JudgeRequest[]>;
   execute(request: JudgeRequest, signal?: AbortSignal): Promise<JudgeResponse>;
 }
+
 export interface Grade extends CheckResult {
   grader: { id: string; version: Version };
   evidenceId: string;
@@ -106,6 +125,7 @@ export interface Grade extends CheckResult {
   status: 'completed' | 'preparation_error' | 'grader_error' | 'cancelled';
   metadata?: Record<string, unknown>;
 }
+
 export interface GradingRecord {
   id: string;
   trialId: string;
@@ -131,6 +151,7 @@ export interface GradingRecord {
     rule: string;
   }>;
 }
+
 export interface EvaluationTask {
   id: string;
   version: Version;
@@ -138,23 +159,27 @@ export interface EvaluationTask {
   limits?: Partial<TrialLimits>;
   metadata?: Record<string, unknown>;
 }
+
 export interface Runner {
   run(
     task: EvaluationTask,
     options: { trialId: string; signal?: AbortSignal; limits?: Partial<TrialLimits> },
   ): Promise<RecordedTrial>;
 }
+
 export interface Suite {
   id: string;
   tasks: EvaluationTask[];
   graders: Grader[];
 }
+
 export interface SuiteRun {
   id: string;
   suiteId: string;
   trialIds: string[];
   gradingIds: string[];
 }
+
 export interface Store {
   saveTrial(trial: RecordedTrial): Promise<void>;
   loadTrial(id: string): Promise<RecordedTrial>;

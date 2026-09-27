@@ -88,11 +88,12 @@ test('help and irrelevant/unknown flags fail without importing config', async ()
       ['run', '--code-only', '--budget-usd', '1'],
       ['run', '--unknown'],
       ['library', 'run'],
-    ])
+    ]) {
       await assert.rejects(
         context.invoke([...args, '--json']),
         failedWith(1, /only applies|cannot be combined|Unknown option|Use run/),
       );
+    }
   } finally {
     await context.dispose();
   }

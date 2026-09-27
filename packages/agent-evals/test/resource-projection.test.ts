@@ -22,7 +22,7 @@ import type {
   PiContextSource,
   PiSkillSource,
   inspectPiResources,
-} from '../src/adapters/pi/pi-inspection.ts';
+} from '../src/adapters/pi/pi-resource-inspection.ts';
 
 type NativeResources = Awaited<ReturnType<typeof inspectPiResources>>;
 const projectInstruction = '# Project\n\nPreserve this complete instruction text.\n';
@@ -147,8 +147,9 @@ test('historical contexts retain original and effective instructions and referen
       ),
     );
     assert.ok(prepared.contextCaptureGaps.some((gap) => gap.includes('binary.dat')));
-    for (const context of prepared.recordedContexts)
+    for (const context of prepared.recordedContexts) {
       assert.equal(context.sha256, sha256(context.content));
+    }
     assert.equal(
       new Set(prepared.recordedContexts.map((context) => context.id)).size,
       prepared.recordedContexts.length,
@@ -315,7 +316,9 @@ test('skill fingerprints track copied helpers while ignoring omitted files and t
     const helper = join(sourceDirectory, 'references/check.md');
     await selectedFile(helper, 'First helper version');
     const excluded = ['.env.local', 'auth.json', 'node_modules/tool.js', '.git/config'];
-    for (const file of excluded) await selectedFile(join(sourceDirectory, file), 'Excluded v1');
+    for (const file of excluded) {
+      await selectedFile(join(sourceDirectory, file), 'Excluded v1');
+    }
     const symlinkTarget = join(setup.root, 'outside-reference.md');
     await selectedFile(symlinkTarget, 'Outside approved root');
     await symlink(symlinkTarget, join(sourceDirectory, 'linked-reference.md'));
@@ -330,7 +333,9 @@ test('skill fingerprints track copied helpers while ignoring omitted files and t
       });
 
     const first = await prepare('first-trial');
-    for (const file of excluded) await writeFile(join(sourceDirectory, file), 'Excluded v2');
+    for (const file of excluded) {
+      await writeFile(join(sourceDirectory, file), 'Excluded v2');
+    }
     await writeFile(symlinkTarget, 'Changed outside approved root');
     const second = await prepare('second-trial');
     assert.deepEqual(

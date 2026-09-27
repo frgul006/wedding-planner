@@ -5,6 +5,7 @@
     "correctness": "error"
   },
   "rules": {
+    "curly": "error",
     "typescript/no-explicit-any": "error"
   },
   "ignorePatterns": ["node_modules/**", "coverage/**"]

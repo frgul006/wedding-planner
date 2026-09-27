@@ -21,8 +21,8 @@ export async function resolvePinnedPnpm(
     /* Try Corepack's installed cache. */
   }
   const corepackHome = process.env.COREPACK_HOME ?? join(homedir(), '.cache/node/corepack');
-  for (const cache of [corepackHome, join(homedir(), 'Library/Caches/node/corepack')])
-    for (const layout of ['v1/pnpm', 'pnpm'])
+  for (const cache of [corepackHome, join(homedir(), 'Library/Caches/node/corepack')]) {
+    for (const layout of ['v1/pnpm', 'pnpm']) {
       candidates.push(
         join(
           cache,
@@ -32,6 +32,8 @@ export async function resolvePinnedPnpm(
           Number(pinnedVersion.split('.')[0]) >= 12 ? 'pnpm.mjs' : 'pnpm.cjs',
         ),
       );
+    }
+  }
   for (const candidate of new Set(candidates)) {
     try {
       const executable = await realpath(candidate);
@@ -40,9 +42,13 @@ export async function resolvePinnedPnpm(
         name?: string;
         version?: string;
       };
-      if (manifest.name !== 'pnpm' || manifest.version !== pinnedVersion) continue;
+      if (manifest.name !== 'pnpm' || manifest.version !== pinnedVersion) {
+        continue;
+      }
       const actual = await version(nodeExecutable, [executable, '--version'], 'pinned pnpm');
-      if (actual === pinnedVersion) return { executable, directory, version: actual };
+      if (actual === pinnedVersion) {
+        return { executable, directory, version: actual };
+      }
     } catch {
       /* Missing cache entries and Corepack shims are not the runtime. */
     }
@@ -74,7 +80,9 @@ async function version(executable: string, args: string[], label: string): Promi
       maxBuffer: 64_000,
     });
     const output = result.stdout.trim();
-    if (output) return output;
+    if (output) {
+      return output;
+    }
   } catch {
     /* Translate local process failures into an actionable prerequisite. */
   }
@@ -87,7 +95,9 @@ export async function resolveHeadlessBrowser(
   architecture: 'arm64' | 'x64',
   revision: string,
 ) {
-  if (!/^\d+$/.test(revision)) throw new Error('Invalid Playwright browser revision');
+  if (!/^\d+$/.test(revision)) {
+    throw new Error('Invalid Playwright browser revision');
+  }
   try {
     cache = await realpath(cache);
   } catch {
@@ -123,7 +133,9 @@ export async function applicationBrowserRevision(sourceRepo: string): Promise<st
     const revision = registry.browsers?.find(
       (browser) => browser.name === 'chromium-headless-shell',
     )?.revision;
-    if (revision && /^\d+$/.test(revision)) return revision;
+    if (revision && /^\d+$/.test(revision)) {
+      return revision;
+    }
   } catch {
     /* Report one actionable dependency prerequisite. */
   }
@@ -165,8 +177,9 @@ export async function resolveLocalRuntime(
     );
   }
   const pinnedVersion = repository.packageManager?.match(/^pnpm@([0-9.]+)/)?.[1];
-  if (!pinnedVersion)
+  if (!pinnedVersion) {
     throw new Error('Pin the repository pnpm version in package.json before running evaluations.');
+  }
   const pnpm = await resolvePinnedPnpm(pinnedVersion, nodeExecutable);
 
   let playwrightExecutable: string;

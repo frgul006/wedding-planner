@@ -17,17 +17,19 @@ const object = (value: unknown): Record<string, unknown> =>
 
 const isHash = (value: unknown): value is string =>
   typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+
 const isPath = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0 && !value.includes('\0');
 
 /** The portable tool shape used both when recording and when auditing native sources. */
 export function portablePiTool(observation: EvaluationObservation | undefined) {
-  if (observation?.type === 'tool_started')
+  if (observation?.type === 'tool_started') {
     return {
       type: 'tool-call' as const,
       data: { callId: observation.callId, name: observation.name, args: observation.args },
     };
-  if (observation?.type === 'tool_completed')
+  }
+  if (observation?.type === 'tool_completed') {
     return {
       type: 'tool-result' as const,
       data: {
@@ -38,11 +40,14 @@ export function portablePiTool(observation: EvaluationObservation | undefined) {
         receipt: observation.receipt,
       },
     };
+  }
 }
 
 /** Results may add retained-output references; calls must match their whole native shape. */
 export function matchesPiTool(event: TraceEvent, tool: ReturnType<typeof portablePiTool>): boolean {
-  if (!tool || event.type !== tool.type) return false;
+  if (!tool || event.type !== tool.type) {
+    return false;
+  }
   const data =
     tool.type === 'tool-call'
       ? event.data
@@ -51,7 +56,9 @@ export function matchesPiTool(event: TraceEvent, tool: ReturnType<typeof portabl
 }
 
 export function visiblePiMessageText(message: Record<string, unknown>): string {
-  if (typeof message.content === 'string') return message.content;
+  if (typeof message.content === 'string') {
+    return message.content;
+  }
   return (Array.isArray(message.content) ? message.content : [])
     .flatMap((block) => {
       const value = object(block);
@@ -64,8 +71,12 @@ function targetFingerprint(receipt: Record<string, unknown>): TargetFingerprint 
   const result: TargetFingerprint = {};
   for (const field of ['targetBeforeHash', 'targetAfterHash'] as const) {
     const value = receipt[field];
-    if (value === undefined) continue; // A missing/deleted target is unobserved.
-    if (!isHash(value)) return;
+    if (value === undefined) {
+      continue;
+    } // A missing/deleted target is unobserved.
+    if (!isHash(value)) {
+      return;
+    }
     result[field] = value;
   }
   return result;
@@ -78,9 +89,12 @@ function snapshotReceipt(value: unknown, callId: string): SnapshotReceipt | unde
     typeof snapshot.content !== 'string' ||
     !snapshot.content ||
     !isHash(snapshot.sha256)
-  )
+  ) {
     return;
-  if (createHash('sha256').update(snapshot.content).digest('hex') !== snapshot.sha256) return;
+  }
+  if (createHash('sha256').update(snapshot.content).digest('hex') !== snapshot.sha256) {
+    return;
+  }
   if (snapshot.path === `tool-output:${callId}`) {
     return {
       source: 'tool-output',
@@ -92,8 +106,9 @@ function snapshotReceipt(value: unknown, callId: string): SnapshotReceipt | unde
   if (
     !/^\.playwright-cli\/[^\s\\]+\.ya?ml$/i.test(snapshot.path) ||
     snapshot.path.split('/').some((part) => part === '.' || part === '..')
-  )
+  ) {
     return;
+  }
   return {
     source: 'file',
     path: snapshot.path,
@@ -105,35 +120,51 @@ function snapshotReceipt(value: unknown, callId: string): SnapshotReceipt | unde
 /** Missing/invalid attestation is explicit; native success alone cannot replace it. */
 export function normalizeToolReceipt(value: unknown, text: string, callId: string): ToolReceipt {
   const raw = object(value);
-  if (!Object.keys(raw).length) return { kind: 'unknown', reason: 'missing' };
+  if (!Object.keys(raw).length) {
+    return { kind: 'unknown', reason: 'missing' };
+  }
   const kind = raw.kind;
-  if (typeof kind !== 'string') return { kind: 'unknown', reason: 'malformed' };
+  if (typeof kind !== 'string') {
+    return { kind: 'unknown', reason: 'malformed' };
+  }
   if (!['file-read', 'file-edit', 'file-write', 'bash', 'playwright-cli'].includes(kind)) {
     return { kind: 'unknown', reason: 'unsupported' };
   }
   const malformed: ToolReceipt = { kind: 'unknown', reason: 'malformed' };
   const target = targetFingerprint(raw);
-  if (!target) return malformed;
+  if (!target) {
+    return malformed;
+  }
   if (kind === 'file-read') {
-    if (!isPath(raw.path) || !isHash(raw.sha256)) return malformed;
+    if (!isPath(raw.path) || !isHash(raw.sha256)) {
+      return malformed;
+    }
     return { kind, path: raw.path, sha256: raw.sha256, ...target };
   }
   if (kind === 'file-edit' || kind === 'file-write') {
-    if (!isPath(raw.path)) return malformed;
+    if (!isPath(raw.path)) {
+      return malformed;
+    }
     return { kind, path: raw.path, ...target };
   }
-  if (typeof raw.exitCode !== 'number' || !Number.isInteger(raw.exitCode) || raw.exitCode < 0)
+  if (typeof raw.exitCode !== 'number' || !Number.isInteger(raw.exitCode) || raw.exitCode < 0) {
     return malformed;
+  }
   const browser = parsePlaywrightOutput(text);
-  if (kind === 'bash') return { kind, exitCode: raw.exitCode, browser, ...target };
+  if (kind === 'bash') {
+    return { kind, exitCode: raw.exitCode, browser, ...target };
+  }
   if (
     !Array.isArray(raw.args) ||
     !raw.args.length ||
     !raw.args.every((arg) => typeof arg === 'string' && arg.length > 0 && !arg.includes('\0'))
-  )
+  ) {
     return malformed;
+  }
   const snapshot = raw.snapshot === undefined ? undefined : snapshotReceipt(raw.snapshot, callId);
-  if (raw.snapshot !== undefined && !snapshot) return malformed;
+  if (raw.snapshot !== undefined && !snapshot) {
+    return malformed;
+  }
   return {
     kind: 'playwright-cli',
     args: raw.args,
@@ -149,7 +180,9 @@ function discoveredSkills(commands: unknown[]): Array<{ path: string; name?: str
   return commands.flatMap((value) => {
     const command = object(value);
     const path = object(command.sourceInfo).path ?? command.path;
-    if (command.source !== 'skill' || typeof path !== 'string') return [];
+    if (command.source !== 'skill' || typeof path !== 'string') {
+      return [];
+    }
     return [
       {
         path,
@@ -161,13 +194,16 @@ function discoveredSkills(commands: unknown[]): Array<{ path: string; name?: str
 
 /** Native framing, result flags and tool output are decoded only at this seam. */
 export function normalizePiEvent(event: EvidenceEvent): EvidenceEvent {
-  if (event.kind !== 'pi') return event;
+  if (event.kind !== 'pi') {
+    return event;
+  }
   const data = event.data;
   let observation: EvaluationObservation | undefined;
   if (data.type === 'response' && data.command === 'get_commands' && data.success === true) {
     const commands = object(data.data).commands;
-    if (Array.isArray(commands))
+    if (Array.isArray(commands)) {
       observation = { type: 'skills_discovered', skills: discoveredSkills(commands) };
+    }
   } else if (typeof data.toolCallId === 'string') {
     if (data.type === 'tool_execution_start') {
       observation = {

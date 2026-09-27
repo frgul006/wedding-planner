@@ -4,7 +4,8 @@ import { parseEnv } from 'node:util';
 import type { EvalConfig } from 'agent-evals';
 import type { JevJudgeOptions } from 'agent-evals/jev';
 import { loginRetry } from './tasks/login-retry.ts';
-import { falsifiableHypothesis, relevantProbe, finalValidation } from './views/diagnosis.ts';
+import { falsifiableHypothesis, relevantProbe } from './views/diagnosis.ts';
+import { finalValidation } from './views/validation-history.ts';
 
 const sourceRepo = path.resolve(import.meta.dirname, '..');
 
@@ -16,7 +17,9 @@ export async function createJudge(options: Pick<JevJudgeOptions, 'maxStateChars'
   } catch {
     throw new Error('Cannot read the Wedding .env.local judge credential.');
   }
-  if (!apiKey?.trim()) throw new Error('TYPESAFE_API_KEY is missing from the Wedding .env.local.');
+  if (!apiKey?.trim()) {
+    throw new Error('TYPESAFE_API_KEY is missing from the Wedding .env.local.');
+  }
   const { jevJudge } = await import('agent-evals/jev');
   return jevJudge({ ...options, apiKey });
 }

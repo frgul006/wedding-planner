@@ -3,123 +3,188 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import test from 'node:test';
-import {
-  JsonlDecoder,
-  modelMetadata,
-  PiRpcRunner,
-  UsageAccumulator,
-} from '../src/adapters/pi/pi-rpc.js';
+import { PiRpcRunner } from '../src/adapters/pi/pi-rpc.js';
 import type { AgentRunRequest, EvidenceEvent } from '../src/adapters/pi/types.js';
 import { endpointHash } from '../src/adapters/pi/pi-endpoint-selection.ts';
 import { DEFAULT_TRIAL_LIMITS, type TrialLimits } from '../src/core/trial-limits.ts';
 
-test('strict LF framing preserves Unicode separators, CRLF, and split UTF-8', () => {
-  const received: Record<string, unknown>[] = [];
-  const decoder = new JsonlDecoder((value) => received.push(value));
-  const bytes = Buffer.from(
-    `${JSON.stringify({ text: 'café\u2028same record\u2029still same' })}\r\n`,
-  );
-  for (const byte of bytes) decoder.push(Buffer.from([byte]));
-  decoder.finish();
-  assert.deepEqual(received, [{ text: 'café\u2028same record\u2029still same' }]);
-});
-
-test('malformed, oversized, and unfinished JSONL records fail visibly', () => {
-  assert.throws(() => new JsonlDecoder(() => {}).push(Buffer.from('not-json\n')), SyntaxError);
-  assert.throws(() => new JsonlDecoder(() => {}, 5).push(Buffer.from('{"x":123}\n')), /size limit/);
-  const decoder = new JsonlDecoder(() => {});
-  decoder.push(Buffer.from('{"x":'));
-  assert.throws(() => decoder.finish(), /incomplete JSONL/);
-});
-
-test('streaming usage is cumulative per message and final usage is counted once', () => {
-  const accumulator = new UsageAccumulator();
-  assert.equal(accumulator.value().estimatedCostUsd, null);
-  assert.equal(accumulator.value().costSource, 'Unknown: no successful usage response');
-  const usage = { input: 10, output: 3, cacheRead: 5, cacheWrite: 0, cost: { total: 0.1 } };
-  accumulator.accept({ type: 'message_update', usage });
-  accumulator.accept({ type: 'message_update', usage: { ...usage, output: 4 } });
-  assert.equal(accumulator.value().outputTokens, 4);
-  accumulator.accept({
-    type: 'message_end',
-    message: { role: 'assistant', usage: { ...usage, output: 4 } },
-  });
-  assert.equal(accumulator.value().inputTokens, 10);
-  assert.equal(accumulator.value().outputTokens, 4);
-  assert.equal(accumulator.value().estimatedCostUsd, 0.1);
-  accumulator.accept({ type: 'message_start' });
-  accumulator.accept({ type: 'message_end', message: { role: 'toolResult', usage } });
-  assert.equal(accumulator.value().inputTokens, 20);
-  assert.equal(accumulator.value().estimatedCostUsd, 0.2);
-});
-
-test('model metadata excludes provider credentials and request headers', () => {
-  assert.deepEqual(
-    modelMetadata({
-      id: 'test',
-      provider: 'openai-codex',
-      headers: { Authorization: 'secret' },
-      apiKey: 'secret',
-      cost: { input: 1 },
-    }),
-    { id: 'test', provider: 'openai-codex', cost: { input: 1 } },
-  );
-});
-
 const fakeRpc = String.raw`#!/usr/bin/env node
-const send = event => process.stdout.write(JSON.stringify(event) + '\n');
+const send = (event) => process.stdout.write(JSON.stringify(event) + '\n');
 const scenario = process.env.EVAL_RPC_SCENARIO;
-const model = { provider: 'openai-codex', id: 'test-model', baseUrl: 'https://chatgpt.com/backend-api', headers: { Authorization: 'must-not-persist' } };
-const usage = { input: 10, output: 5, cacheRead: scenario === 'cached' ? 1000 : 0, cacheWrite: scenario === 'cached' ? 20 : 0, cost: { total: scenario === 'high-cost' ? 25 : 0.01 } };
+const model = {
+  provider: 'openai-codex',
+  id: 'test-model',
+  baseUrl: 'https://chatgpt.com/backend-api',
+  headers: { Authorization: 'must-not-persist' },
+};
+const usage = {
+  input: 10,
+  output: 5,
+  cacheRead: scenario === 'cached' ? 1000 : 0,
+  cacheWrite: scenario === 'cached' ? 20 : 0,
+  cost: { total: scenario === 'high-cost' ? 25 : 0.01 },
+};
 let pending = '';
-process.stdin.on('data', chunk => {
+process.stdin.on('data', (chunk) => {
   pending += chunk;
   let index;
   while ((index = pending.indexOf('\n')) !== -1) {
-    const command = JSON.parse(pending.slice(0, index)); pending = pending.slice(index + 1);
+    const command = JSON.parse(pending.slice(0, index));
+    pending = pending.slice(index + 1);
+
     if (scenario === 'startup-hang') continue;
-    if (command.type === 'get_state') send({ type: 'response', id: command.id, command: command.type, success: true, data: { model, thinkingLevel: 'xhigh' } });
-    else if (command.type === 'prompt') {
-      if (scenario === 'reject') { send({ type: 'response', id: command.id, command: 'prompt', success: false, error: 'not accepted' }); continue; }
+    if (command.type === 'get_state') {
+      send({
+        type: 'response',
+        id: command.id,
+        command: command.type,
+        success: true,
+        data: { model, thinkingLevel: 'xhigh' },
+      });
+    } else if (command.type === 'prompt') {
+      if (scenario === 'reject') {
+        send({
+          type: 'response',
+          id: command.id,
+          command: 'prompt',
+          success: false,
+          error: 'not accepted',
+        });
+        continue;
+      }
+
       send({ type: 'response', id: command.id, command: 'prompt', success: true });
       send({ type: 'agent_start' });
       send({ type: 'turn_start' });
-      if (scenario === 'exit') { process.exit(7); }
-      if (scenario === 'malformed') { process.stdout.write('not JSON\n'); continue; }
+      if (scenario === 'exit') {
+        process.exit(7);
+      }
+      if (scenario === 'malformed') {
+        process.stdout.write('not JSON\n');
+        continue;
+      }
       if (scenario === 'hang') continue;
-      if (scenario === 'cancel-active') { send({ type: 'message_end', message: { role: 'assistant', usage } }); continue; }
-      if (scenario === 'budget') { send({ type: 'message_update', usage: { ...usage, input: 100000 } }); continue; }
+      if (scenario === 'cancel-active') {
+        send({ type: 'message_end', message: { role: 'assistant', usage } });
+        continue;
+      }
+      if (scenario === 'budget') {
+        send({ type: 'message_update', usage: { ...usage, input: 100000 } });
+        continue;
+      }
       if (scenario === 'multi-turn') {
-        for (let turn=1; turn<=3; turn++) {
-          if (turn>1) send({type:'turn_start'});
-          for(let tool=1; tool<=3; tool++) send({type:'tool_execution_start',toolCallId:turn+'-'+tool,toolName:'bash',args:{command:'true'}});
-          send({type:'message_update',usage});
-          send({type:'message_update',usage});
-          send({type:'message_end',message:{role:'assistant',usage,stopReason:'toolUse'}});
-          for(let tool=1; tool<=3; tool++) send({type:'tool_execution_end',toolCallId:turn+'-'+tool,isError:false,result:{content:[]}});
-          send({type:'turn_end',message:{role:'assistant'},toolResults:[]});
+        for (let turn = 1; turn <= 3; turn++) {
+          if (turn > 1) {
+            send({ type: 'turn_start' });
+          }
+          for (let tool = 1; tool <= 3; tool++) {
+            send({
+              type: 'tool_execution_start',
+              toolCallId: turn + '-' + tool,
+              toolName: 'bash',
+              args: { command: 'true' },
+            });
+          }
+          send({ type: 'message_update', usage });
+          send({ type: 'message_update', usage });
+          send({
+            type: 'message_end',
+            message: { role: 'assistant', usage, stopReason: 'toolUse' },
+          });
+          for (let tool = 1; tool <= 3; tool++) {
+            send({
+              type: 'tool_execution_end',
+              toolCallId: turn + '-' + tool,
+              isError: false,
+              result: { content: [] },
+            });
+          }
+          send({ type: 'turn_end', message: { role: 'assistant' }, toolResults: [] });
         }
-        send({type:'agent_settled'});continue;
+        send({ type: 'agent_settled' });
+        continue;
       }
-      send({ type: 'tool_execution_start', toolName: 'bash', toolCallId: 'browser', args: { command: 'playwright-cli snapshot' } });
-      send({ type: 'tool_execution_end', toolName: 'bash', toolCallId: 'browser', isError: false, result: { content: [{ type: 'text', text: 'snapshot' }] } });
+
+      send({
+        type: 'tool_execution_start',
+        toolName: 'bash',
+        toolCallId: 'browser',
+        args: { command: 'playwright-cli snapshot' },
+      });
+      send({
+        type: 'tool_execution_end',
+        toolName: 'bash',
+        toolCallId: 'browser',
+        isError: false,
+        result: { content: [{ type: 'text', text: 'snapshot' }] },
+      });
       if (scenario === 'recovered-retry') {
-        send({ type: 'message_end', message: { role: 'assistant', usage, stopReason: 'error', errorMessage: 'temporary provider error' } });
-        send({type:'turn_end',message:{role:'assistant'},toolResults:[]});
-        send({type:'turn_start'});
+        send({
+          type: 'message_end',
+          message: { role: 'assistant', usage, stopReason: 'error', errorMessage: 'temporary provider error' },
+        });
+        send({ type: 'turn_end', message: { role: 'assistant' }, toolResults: [] });
+        send({ type: 'turn_start' });
       }
-      send({ type: 'message_end', message: { role: 'assistant', usage, stopReason: scenario === 'provider-error' ? 'error' : 'stop', errorMessage: scenario === 'provider-error' ? 'provider unavailable' : undefined } });
+
+      send({
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          usage,
+          stopReason: scenario === 'provider-error' ? 'error' : 'stop',
+          errorMessage: scenario === 'provider-error' ? 'provider unavailable' : undefined,
+        },
+      });
       send({ type: 'turn_end', message: { role: 'assistant' }, toolResults: [] });
       send({ type: 'agent_end', willRetry: false });
-      if(scenario==='synchronous-settle') send({type:'agent_settled'});
-      else setTimeout(() => { send({ type: 'test_event_after_agent_end' }); send({ type: 'agent_settled' }); }, 30);
-    } else if(command.type==='get_session_stats' && ['delayed-stats','delayed-totals'].includes(scenario)) setTimeout(() => send({type:'response',id:command.id,command:command.type,success:true,data:scenario==='delayed-totals'?{tokens:{input:1000,output:10,cacheRead:9000,cacheWrite:0},cost:0.1}:{}}), 1100);
-    else if(command.type==='get_session_stats' && scenario==='late-totals') send({type:'response',id:command.id,command:command.type,success:true,data:{tokens:{input:1000,output:10,cacheRead:9000,cacheWrite:0},cost:0.1}});
-    else send({ type: 'response', id: command.id, command: command.type, success: true, data: {} });
+      if (scenario === 'synchronous-settle') {
+        send({ type: 'agent_settled' });
+      } else {
+        setTimeout(() => {
+          send({ type: 'test_event_after_agent_end' });
+          send({ type: 'agent_settled' });
+        }, 30);
+      }
+    } else if (
+      command.type === 'get_session_stats' &&
+      ['delayed-stats', 'delayed-totals'].includes(scenario)
+    ) {
+      setTimeout(() => {
+        const data =
+          scenario === 'delayed-totals'
+            ? { tokens: { input: 1000, output: 10, cacheRead: 9000, cacheWrite: 0 }, cost: 0.1 }
+            : {};
+        send({
+          type: 'response',
+          id: command.id,
+          command: command.type,
+          success: true,
+          data,
+        });
+      }, 1100);
+    } else if (command.type === 'get_session_stats' && scenario === 'late-totals') {
+      send({
+        type: 'response',
+        id: command.id,
+        command: command.type,
+        success: true,
+        data: { tokens: { input: 1000, output: 10, cacheRead: 9000, cacheWrite: 0 }, cost: 0.1 },
+      });
+    } else {
+      send({ type: 'response', id: command.id, command: command.type, success: true, data: {} });
+    }
   }
 });
-process.stdin.on('end', () => { if (scenario !== 'startup-hang') process.exit(0); });
-if (scenario === 'startup-hang') { process.on('SIGTERM', () => {}); setInterval(() => {}, 1000); }
+process.stdin.on('end', () => {
+  if (scenario !== 'startup-hang') {
+    process.exit(0);
+  }
+});
+if (scenario === 'startup-hang') {
+  process.on('SIGTERM', () => {});
+  setInterval(() => {}, 1000);
+}
 `;
 
 async function trial(
@@ -174,52 +239,6 @@ test('native RPC run waits for agent_settled and attributes controller versus ag
     ),
   );
   assert.equal(JSON.stringify(result).includes('must-not-persist'), false);
-});
-
-test('native compaction usage is counted and reconciled with session totals without duplication', () => {
-  const accumulator = new UsageAccumulator();
-  const usage = { input: 10, output: 3, cacheRead: 5, cost: { total: 0.1 } };
-  accumulator.accept({ type: 'message_end', message: { role: 'assistant', usage } });
-  accumulator.accept({ type: 'compaction_end', result: { usage } });
-  assert.equal(accumulator.value().inputTokens, 20);
-  assert.equal(accumulator.value().estimatedCostUsd, 0.2);
-  accumulator.accept({
-    type: 'response',
-    command: 'get_session_stats',
-    data: { tokens: { input: 20, output: 6, cacheRead: 10 }, cost: 0.2 },
-  });
-  assert.equal(accumulator.value().inputTokens, 20);
-  assert.equal(accumulator.value().estimatedCostUsd, 0.2);
-});
-
-test('empty initialized session totals do not turn missing provider usage into zero cost', () => {
-  const accumulator = new UsageAccumulator();
-  accumulator.accept({ type: 'message_end', message: { role: 'assistant', stopReason: 'error' } });
-  accumulator.accept({
-    type: 'response',
-    command: 'get_session_stats',
-    data: {
-      tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      cost: 0,
-    },
-  });
-  assert.equal(accumulator.value().estimatedCostUsd, null);
-  accumulator.accept({
-    type: 'message_end',
-    message: {
-      role: 'assistant',
-      usage: {
-        input: 4,
-        output: 1,
-        cost: { total: 0 },
-      },
-    },
-  });
-  assert.equal(
-    accumulator.value().estimatedCostUsd,
-    0,
-    'A provider-reported zero remains a known estimate',
-  );
 });
 
 test('provider errors are agent errors; rejected prompts and process failures are infrastructure errors', async () => {
@@ -489,7 +508,9 @@ test('cancelling an active Pi request sends native abort, closes the child, and 
   const result = await trial('cancel-active', {
     signal: controller.signal,
     onEvent(event) {
-      if (event.data.type === 'message_end') controller.abort();
+      if (event.data.type === 'message_end') {
+        controller.abort();
+      }
     },
   });
   assert.equal(result.status, 'cancelled');
@@ -509,7 +530,9 @@ test('cancellation during stuck startup kills a child that ignores native abort 
   const result = await trial('startup-hang', {
     signal: controller.signal,
     onEvent(event) {
-      if (event.data.type === 'pi_started') controller.abort();
+      if (event.data.type === 'pi_started') {
+        controller.abort();
+      }
     },
   });
   assert.equal(result.status, 'cancelled');

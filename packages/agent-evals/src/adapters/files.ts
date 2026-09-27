@@ -4,9 +4,12 @@ import type { GradingRecord, JudgeRequest, RecordedTrial, Store, SuiteRun } from
 import { contentHash, immutableCopy } from '../core/serialization.ts';
 
 const safeId = (id: string) => {
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,179}$/.test(id)) throw new Error('Invalid saved record ID');
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,179}$/.test(id)) {
+    throw new Error('Invalid saved record ID');
+  }
   return id;
 };
+
 const json = (value: unknown) => JSON.stringify(value, null, 2);
 
 export function renderGradingRecord(record: GradingRecord): string {
@@ -116,8 +119,9 @@ export function fileStore(directory: string): Store & { directory: string } {
     if (
       envelope.serializationVersion !== 'canonical-json-v1' ||
       envelope.contentHash !== (await contentHash(envelope.value))
-    )
+    ) {
       throw new Error('Saved record integrity check failed');
+    }
     return envelope.value;
   }
   return {
@@ -125,14 +129,17 @@ export function fileStore(directory: string): Store & { directory: string } {
     saveTrial: (trial) => save(path.join(root, 'trials', `${safeId(trial.id)}.json`), trial),
     async loadTrial(id) {
       const trial = await load<RecordedTrial>(path.join(root, 'trials', `${safeId(id)}.json`));
-      if (trial.id !== id || !trial.trace || !Array.isArray(trial.trace.events))
+      if (trial.id !== id || !trial.trace || !Array.isArray(trial.trace.events)) {
         throw new Error('Invalid saved trial');
+      }
       return trial;
     },
     saveRun: (run) => save(path.join(root, 'runs', `${safeId(run.id)}.json`), run),
     async loadRun(id) {
       const run = await load<SuiteRun>(path.join(root, 'runs', `${safeId(id)}.json`));
-      if (run.id !== id || !Array.isArray(run.trialIds)) throw new Error('Invalid saved run');
+      if (run.id !== id || !Array.isArray(run.trialIds)) {
+        throw new Error('Invalid saved run');
+      }
       return run;
     },
     async saveRequest(gradingId: string, request: JudgeRequest) {
@@ -144,8 +151,9 @@ export function fileStore(directory: string): Store & { directory: string } {
     async saveGrading(record) {
       record = immutableCopy(record);
       const trial = await this.loadTrial(record.trialId);
-      if ((await contentHash(trial)) !== record.trialHash)
+      if ((await contentHash(trial)) !== record.trialHash) {
         throw new Error('Grading refers to different trial content');
+      }
       const folder = path.join(root, 'gradings', safeId(record.id));
       await save(path.join(folder, 'grading.json'), record);
       await writeFile(path.join(folder, 'report.md'), renderGradingRecord(record), {
@@ -157,7 +165,9 @@ export function fileStore(directory: string): Store & { directory: string } {
       safeId(trialId);
       const folders = await readdir(path.join(root, 'gradings')).catch(
         (error: NodeJS.ErrnoException) => {
-          if (error.code === 'ENOENT') return [];
+          if (error.code === 'ENOENT') {
+            return [];
+          }
           throw error;
         },
       );
@@ -169,10 +179,14 @@ export function fileStore(directory: string): Store & { directory: string } {
           record = await load<GradingRecord>(file);
         } catch (error) {
           // Interrupted grading journals remain on disk; history lists final records only.
-          if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+            continue;
+          }
           throw error;
         }
-        if (record.trialId === trialId) records.push(record);
+        if (record.trialId === trialId) {
+          records.push(record);
+        }
       }
       return records;
     },

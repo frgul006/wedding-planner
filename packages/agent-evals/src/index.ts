@@ -1,4 +1,5 @@
-export { codeGrader, modelGrader, createEvaluator, rollupGrades } from './core/evaluator.ts';
+export { codeGrader, modelGrader, rollupGrades } from './core/grading-definition.ts';
+export { createEvaluator } from './core/evaluator.ts';
 export type * from './core/types.ts';
 export {
   DEFAULT_TRIAL_LIMITS,

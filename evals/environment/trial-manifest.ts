@@ -16,12 +16,17 @@ async function treeHash(directory: string): Promise<string> {
       a.name.localeCompare(b.name),
     );
     for (const entry of entries) {
-      if (entry.name === 'node_modules') continue;
+      if (entry.name === 'node_modules') {
+        continue;
+      }
       const file = path.join(folder, entry.name);
-      if (entry.isDirectory()) await visit(file);
-      else if (entry.isFile())
+      if (entry.isDirectory()) {
+        await visit(file);
+      } else if (entry.isFile()) {
         records.push(`${path.relative(directory, file)}:${hashText(await readFile(file, 'utf8'))}`);
-      else throw new Error(`Unexpected symlink in versioned evaluation input: ${file}`);
+      } else {
+        throw new Error(`Unexpected symlink in versioned evaluation input: ${file}`);
+      }
     }
   }
   await visit(directory);

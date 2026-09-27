@@ -23,8 +23,9 @@ test('isolated native settings preserve conversation policy and omit unsafe conf
     'compaction',
     'retry',
     'transport',
-  ] as const)
+  ] as const) {
     assert.deepEqual(native[key], saved[key]);
+  }
   assert.deepEqual(native.packages, []);
   assert.deepEqual(native.extensions, []);
   assert.equal(native.defaultProjectTrust, 'always');

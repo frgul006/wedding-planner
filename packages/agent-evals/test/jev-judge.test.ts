@@ -338,8 +338,11 @@ test('Jev pinned model, endpoint and disabled logging override ambient SDK setti
       TYPESAFE_BASE_URL: original.base,
       TYPESAFE_LOG_LEVEL: original.log,
     })) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
     }
   }
 });
@@ -569,7 +572,8 @@ test('Jev refuses a mutated request or reduced cost reservation before dispatch'
     judge.execute({ ...request, reservedCostUsd: 0 }),
     /reservation is insufficient/,
   );
-  for (const jobIds of [[], ['diagnosis', 'diagnosis'], ['other']])
+  for (const jobIds of [[], ['diagnosis', 'diagnosis'], ['other']]) {
     await assert.rejects(judge.execute({ ...request, jobIds }), /integrity check/);
+  }
   assert.equal(calls, 0);
 });

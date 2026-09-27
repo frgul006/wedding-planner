@@ -6,13 +6,18 @@ import { redact } from '../redaction.ts';
 import type { EvidenceEvent, RunStore } from './types.ts';
 
 export const hash = (value: string) => createHash('sha256').update(value).digest('hex');
+
 export class FileRunStore implements RunStore {
   constructor(readonly directory: string) {}
+
   async save(name: string, value: unknown) {
-    if (!/^[\w.-]+$/.test(name)) throw new Error('Invalid evidence filename');
+    if (!/^[\w.-]+$/.test(name)) {
+      throw new Error('Invalid evidence filename');
+    }
     const body = typeof value === 'string' ? value : JSON.stringify(value, null, 2) + '\n';
     await writeFile(path.join(this.directory, name), redact(body), { mode: 0o600 });
   }
+
   append(event: EvidenceEvent) {
     appendFileSync(
       path.join(this.directory, 'transcript.jsonl'),
@@ -20,10 +25,12 @@ export class FileRunStore implements RunStore {
       { mode: 0o600 },
     );
   }
+
   async seal(names: string[]) {
     const digests: Record<string, string> = {};
-    for (const name of names)
+    for (const name of names) {
       digests[name] = hash(await readFile(path.join(this.directory, name), 'utf8'));
+    }
     await this.save('integrity.json', { algorithm: 'sha256', files: digests });
   }
 }

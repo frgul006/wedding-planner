@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 const [testModule, executablePath, url, acceptance] = process.argv.slice(2);
 assert.equal(acceptance, 'admin-login-retry', 'Unknown repository acceptance check');
 const { chromium } = createRequire(import.meta.url)(testModule);
+
 const browser = await chromium.launch({
   executablePath,
   headless: true,
@@ -28,15 +29,17 @@ try {
   let actionRequests = 0;
   const actionResponses = [];
   page.on('request', (request) => {
-    if (request.method() === 'POST' && new URL(request.url()).pathname === '/admin/login')
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/admin/login') {
       actionRequests++;
+    }
   });
   page.on('response', (response) => {
     if (
       response.request().method() === 'POST' &&
       new URL(response.url()).pathname === '/admin/login'
-    )
+    ) {
       actionResponses.push({ status: response.status(), url: response.url() });
+    }
   });
   await button.click();
   assert.equal(await page.locator('form').evaluate((form) => form.checkValidity()), false);
@@ -51,7 +54,9 @@ try {
     release = resolve;
   });
   await page.route('**/admin/login', async (route) => {
-    if (route.request().method() === 'POST') await pending;
+    if (route.request().method() === 'POST') {
+      await pending;
+    }
     await route.continue();
   });
   await button.click();

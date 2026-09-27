@@ -22,9 +22,11 @@ test('per-trial defaults inherit fieldwise and explicit higher limits are never 
 });
 
 test('invalid limits cannot silently disable stopping or overflow the runtime timer', () => {
-  for (const key of ['runtimeMs', 'maxTurns', 'maxTokens'])
-    for (const value of [0, -1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, null, '10'])
+  for (const key of ['runtimeMs', 'maxTurns', 'maxTokens']) {
+    for (const value of [0, -1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, null, '10']) {
       assert.throws(() => resolveTrialLimits({ [key]: value } as Partial<TrialLimits>));
+    }
+  }
   assert.throws(() => resolveTrialLimits({ runtimeMs: 2_147_483_648 }), /timer range/);
   assert.throws(
     () => resolveTrialLimits({ maxTurn: 2 } as Partial<TrialLimits>),

@@ -337,8 +337,9 @@ test('a toy consumer records redacted native evidence without a catalog, server 
     assert.ok(JSON.stringify(trial).includes('[REDACTED_API_KEY]'));
     const directory = join(recordingsDirectory, 'attempt-1');
     assert.equal(trial.metadata.recordingDirectory, directory);
-    for (const file of ['grades.json', 'grading-results.json'])
+    for (const file of ['grades.json', 'grading-results.json']) {
       await assert.rejects(readFile(join(directory, file), 'utf8'), { code: 'ENOENT' });
+    }
     assert.ok(
       (await readFile(join(directory, 'integrity.json'), 'utf8')).includes('transcript.jsonl'),
     );
@@ -358,10 +359,11 @@ test('billing policy admits only verified subscription auth or a positive API do
     prepareEnvironment: async () => environment(),
   };
   try {
-    for (const amount of [0, -1, Number.POSITIVE_INFINITY])
+    for (const amount of [0, -1, Number.POSITIVE_INFINITY]) {
       assert.throws(() =>
         piRunner({ ...options, billing: { type: 'api', maxEstimatedCostUsd: amount } }),
       );
+    }
     const runner = piRunner(
       { ...options, billing },
       {

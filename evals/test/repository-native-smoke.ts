@@ -17,14 +17,17 @@ const resources = await inspectPiResources({
   packageRoot: pi.packageRoot,
   agentDir,
 });
+
 const task = loginRetry;
 console.log(`Preparing pinned Wedding checkout for ${task.id} (no model prompt).`);
+
 const trial = await prepareTrialEnvironment({
   sourceRepo,
   task,
   pi: { ...pi, agentDir, resources },
   runtimeMs: 300_000,
 });
+
 const previousConfig = process.env.EVAL_ISOLATION_CONFIG;
 process.env.EVAL_ISOLATION_CONFIG = trial.env.EVAL_ISOLATION_CONFIG;
 const observations: unknown[] = [];
@@ -173,11 +176,15 @@ try {
   try {
     await trial.cleanup();
   } finally {
-    if (previousConfig === undefined) delete process.env.EVAL_ISOLATION_CONFIG;
-    else process.env.EVAL_ISOLATION_CONFIG = previousConfig;
+    if (previousConfig === undefined) {
+      delete process.env.EVAL_ISOLATION_CONFIG;
+    } else {
+      process.env.EVAL_ISOLATION_CONFIG = previousConfig;
+    }
   }
 }
-for (const name of ['auth.json', 'models.json', 'models-store.json'])
+for (const name of ['auth.json', 'models.json', 'models-store.json']) {
   await assert.rejects(access(join(trial.root, 'control/pi', name)));
+}
 await assert.rejects(fetch(trial.url));
 console.log('Cleanup verified: private Pi configuration removed; local server stopped.');

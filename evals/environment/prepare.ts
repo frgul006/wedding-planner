@@ -44,6 +44,7 @@ export interface TrialEnvironmentOptions {
   runtimeMs?: number;
   signal?: AbortSignal;
 }
+
 export interface PreparedTrialEnvironment extends PreparedEnvironment {
   url: string;
   runCommand(executable: string, args: string[]): Promise<SandboxCommandResult>;
@@ -69,20 +70,25 @@ export async function prepareTrialEnvironment(
     repository && typeof repository === 'object' && 'revision' in repository
       ? repository.revision
       : undefined;
+
   if (
     typeof revision !== 'string' ||
     !/^[a-f0-9]{40}$/.test(revision) ||
     metadata?.acceptance !== 'admin-login-retry' ||
     metadata.targetFile !== loginRetry.metadata.targetFile
-  )
+  ) {
     throw new Error('The Wedding environment requires the pinned admin-login-retry task metadata.');
+  }
+
   const targetFile = metadata.targetFile;
   const acceptance = metadata.acceptance;
+
   const manifest = await createTrialManifest(
     sourceRepo,
     options.task,
     options.pi.conversationSettings ?? {},
   );
+
   const runtime = await resolveLocalRuntime(sourceRepo, resourceSource);
   const selection = validateResourceSelection(resourceSource, options.pi.resources);
   const paths = await createTrialPaths(selection.ancestors.length);
@@ -113,17 +119,20 @@ export async function prepareTrialEnvironment(
       paths,
       acceptance,
     });
+
     const repositoryFiles = await snapshotRepository(paths.workspace);
     const resources = await prepareResources({
       sourceRepo: resourceSource,
       paths,
       native: options.pi.resources,
     });
+
     const fixtureFiles = [...repositoryFiles.values()].map(({ path, sha256: digest }) => ({
       path,
       sha256: digest,
     }));
     options.signal?.throwIfAborted();
+
     const port = await reserveLocalPort();
     const url = `http://127.0.0.1:${port}`;
     const agentContext = [
@@ -131,6 +140,7 @@ export async function prepareTrialEnvironment(
       'This isolated runtime supports the webpack bundler. Use pnpm build --webpack for a production build; the default Turbopack build requires process/port access outside this boundary.',
       'This environment has no running database or authentication service. The local login failure path is available; successful sign-in and seeded-database E2E flows cannot complete here.',
     ].join('\n\n');
+
     const repositoryRuntime = await prepareRepositoryRuntime(paths, port);
     const acceptanceScript = join(paths.control, 'repository-acceptance.mjs');
     await copyFile(
@@ -140,6 +150,7 @@ export async function prepareTrialEnvironment(
     const testModule = createRequire(join(resourceSource, 'package.json')).resolve(
       '@playwright/test',
     );
+
     boundary = await prepareBoundary({
       paths,
       runtime,
@@ -154,12 +165,14 @@ export async function prepareTrialEnvironment(
       trustedReadableFiles: [repositoryRuntime.fontResponses],
       trustedReadableDirectories: [join(resourceSource, 'node_modules')],
     });
+
     const { run } = boundary;
     await writeFile(
       paths.profile,
       (await readFile(paths.profile, 'utf8')) +
         `\n(deny file-write* (subpath ${JSON.stringify(join(paths.workspace, 'node_modules'))}))\n`,
     );
+
     const verifyAcceptance = async () => {
       const evaluatorProfile = join(paths.control, 'evaluator.sb');
       await writeFile(
@@ -183,6 +196,7 @@ export async function prepareTrialEnvironment(
         90_000,
       );
     };
+
     options.signal?.throwIfAborted();
     await processes.startRepository(
       paths,
@@ -198,6 +212,7 @@ export async function prepareTrialEnvironment(
     // validity reserved for the actual bounded Pi execution.
     const authentication = await preparePiConfiguration(options.pi, paths, runtimeMs);
     options.signal?.throwIfAborted();
+
     const effectiveDiscovery = await verifyPreparedResources(
       paths,
       options.pi.packageRoot,
@@ -210,6 +225,7 @@ export async function prepareTrialEnvironment(
       runtimeMs,
     });
     options.signal?.throwIfAborted();
+
     await repositoryGit(paths.workspace, ['add', '-A'], boundary.toolEnv);
     await repositoryGit(
       paths.workspace,
@@ -225,6 +241,7 @@ export async function prepareTrialEnvironment(
       ],
       boundary.toolEnv,
     );
+
     const baselineCommit = (
       await repositoryGit(paths.workspace, ['rev-parse', 'HEAD'], boundary.toolEnv)
     ).stdout.trim();
@@ -343,11 +360,13 @@ export async function prepareTrialEnvironment(
             checks.push(await verifyAcceptance());
           }
         } catch (error) {
-          if (!options.signal?.aborted) throw error;
+          if (!options.signal?.aborted) {
+            throw error;
+          }
         } finally {
           await processes.stop();
         }
-        if (!checks.some((check) => check.id === 'repository-browser-acceptance'))
+        if (!checks.some((check) => check.id === 'repository-browser-acceptance')) {
           checks.push({
             id: 'repository-browser-acceptance',
             actor: 'evaluator',
@@ -357,6 +376,7 @@ export async function prepareTrialEnvironment(
             stderr: 'Acceptance cancelled before browser verification.',
             status: 'unknown',
           });
+        }
         const afterChecks = await snapshotRepository(paths.workspace);
         const stable =
           JSON.stringify([...finalSource.values()]) === JSON.stringify([...afterChecks.values()]);

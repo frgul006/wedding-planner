@@ -17,6 +17,7 @@ const resources = await inspectPiResources({
   packageRoot: pi.packageRoot,
   agentDir,
 });
+
 const trial = await prepareTrialEnvironment({
   sourceRepo,
   task: loginRetry,
@@ -57,7 +58,8 @@ try {
   console.log('Cache root remains inaccessible; only the pinned browser installation is readable.');
 } finally {
   await trial.cleanup();
-  for (const name of ['auth.json', 'models.json', 'models-store.json'])
+  for (const name of ['auth.json', 'models.json', 'models-store.json']) {
     await assert.rejects(access(join(trial.root, 'control/pi', name)));
+  }
   await rm(trial.root, { recursive: true, force: true });
 }

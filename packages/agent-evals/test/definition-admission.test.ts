@@ -41,7 +41,7 @@ test('invalid grader definitions fail before starting or recording a native atte
       }),
     ],
   ];
-  for (const graders of invalid)
+  for (const graders of invalid) {
     await assert.rejects(
       evaluator.run({
         id: 'invalid-suite',
@@ -50,6 +50,7 @@ test('invalid grader definitions fail before starting or recording a native atte
       }),
       /Grader IDs|shared view object|require a question/,
     );
+  }
   assert.equal(attempts, 0);
   assert.deepEqual(await readdir(directory), []);
 });

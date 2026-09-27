@@ -10,11 +10,14 @@ import { canonicalJson, type RecordedTrial, type TraceEvent } from 'agent-evals'
 import { isBrowserSnapshotChain } from './browser-command-chain.ts';
 
 type ObjectValue = Record<string, unknown>;
+
 const object = (value: unknown): ObjectValue =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as ObjectValue)
     : {};
+
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
+
 const same = (left: unknown, right: unknown) =>
   canonicalJson({ value: left }) === canonicalJson({ value: right });
 
@@ -32,7 +35,9 @@ export function extractChainedBrowserSnapshot(
   result: TraceEvent | undefined,
 ): ChainedBrowserSnapshot | undefined {
   const command = object(call.data.args).command;
-  if (typeof command !== 'string' || !isBrowserSnapshotChain(command)) return;
+  if (typeof command !== 'string' || !isBrowserSnapshotChain(command)) {
+    return;
+  }
   const unknown = (message: string): ChainedBrowserSnapshot => ({ unknown: message });
   if (
     call.actor !== 'agent' ||
@@ -59,10 +64,12 @@ export function extractChainedBrowserSnapshot(
             event.data.callId === call.data.callId,
         ).length !== 1,
     )
-  )
+  ) {
     return unknown('The browser chain lacks a unique, ordered agent call/result pair.');
-  if (call.source?.kind !== 'pi' || result.source?.kind !== 'pi')
+  }
+  if (call.source?.kind !== 'pi' || result.source?.kind !== 'pi') {
     return unknown('Native Pi source is unavailable for the browser chain.');
+  }
   const rawCall = object(call.source.payload);
   const rawResult = object(result.source.payload);
   const started = normalizePiEvent({ ...call, kind: 'pi', data: rawCall }).observation;
@@ -75,10 +82,13 @@ export function extractChainedBrowserSnapshot(
     !matchesPiTool(call, portablePiTool(started)) ||
     !matchesPiTool(result, portablePiTool(completed)) ||
     completed.receipt.kind !== 'bash'
-  )
+  ) {
     return unknown('The browser chain differs from its native command/result attestation.');
+  }
   // An attested failure does not need a successful snapshot to establish failure.
-  if (!completed.success || completed.receipt.exitCode !== 0) return {};
+  if (!completed.success || completed.receipt.exitCode !== 0) {
+    return {};
+  }
 
   const capture = object(object(object(rawResult.result).details).evaluation).outputCapture;
   const descriptor = object(capture);
@@ -97,8 +107,9 @@ export function extractChainedBrowserSnapshot(
     output.path !== descriptor.path ||
     output.sha256 !== descriptor.sha256 ||
     hash(output.content) !== output.sha256
-  )
+  ) {
     return unknown('The browser chain lacks hash-verified native UTF-8 command output.');
+  }
 
   const browser = parsePlaywrightOutput(output.content);
   const content = browser.finalInlineSnapshot;
@@ -109,10 +120,11 @@ export function extractChainedBrowserSnapshot(
   const paired = suffix.match(
     /^### Page\r?\n- Page URL: ([^\s]+)\r?\n(?:- Page Title: [^\r\n]*\r?\n)?### Snapshot\r?\n```yaml\r?\n([\s\S]*?)\r?\n```(?:\r?\n)?$/,
   );
-  if (!content || !paired || paired[2] !== content || browser.pageUrls.at(-1) !== paired[1])
+  if (!content || !paired || paired[2] !== content || browser.pageUrls.at(-1) !== paired[1]) {
     return {
       unknown: 'The retained output lacks a final explicit snapshot paired with its own Page URL.',
     };
+  }
   return {
     browser,
     snapshot: { content, sha256: hash(content), sourceRef: output.id },

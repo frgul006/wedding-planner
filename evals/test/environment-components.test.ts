@@ -27,10 +27,11 @@ test('browser selection requires the pinned revision and current architecture wi
         `chrome-headless-shell-mac-${architecture}`,
       );
       await mkdir(directory, { recursive: true });
-      if (executable)
+      if (executable) {
         await writeFile(join(directory, 'chrome-headless-shell'), 'synthetic executable', {
           mode: 0o700,
         });
+      }
       return directory;
     };
     const arm = await install(10, 'arm64');
@@ -109,8 +110,9 @@ test('resource copying resolves the approved root but never includes secrets or 
     await symlink(source, join(root, 'approved-skill'));
     await copyResources(join(root, 'approved-skill'), destination);
     assert.equal(await readFile(join(destination, 'SKILL.md'), 'utf8'), '# Synthetic skill');
-    for (const name of ['.env.local', 'auth.json', 'linked-secret'])
+    for (const name of ['.env.local', 'auth.json', 'linked-secret']) {
       await assert.rejects(access(join(destination, name)));
+    }
     assert.deepEqual(await resourceFilesIn(destination), [join(destination, 'SKILL.md')]);
   } finally {
     await rm(root, { recursive: true, force: true });

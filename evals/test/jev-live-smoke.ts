@@ -166,7 +166,9 @@ async function main() {
   const apiKey = parseEnv(
     await readFile(path.join(root, '.env.local'), 'utf8'),
   ).TYPESAFE_API_KEY?.trim();
-  if (!apiKey) throw new Error('TYPESAFE_API_KEY is missing or empty in the worktree .env.local.');
+  if (!apiKey) {
+    throw new Error('TYPESAFE_API_KEY is missing or empty in the worktree .env.local.');
+  }
   const store = fileStore(directory);
   const judge = jevJudge({ apiKey, maxRequests: 1, timeoutMs: 30_000 });
   const evaluator = createEvaluator({ store, judge, budgetUsd: 0.005 });

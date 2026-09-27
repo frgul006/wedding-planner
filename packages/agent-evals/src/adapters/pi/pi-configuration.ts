@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { exists } from './resources.ts';
 import { preparePrivatePiAuthentication, type PrivateAuthentication } from './native-auth.ts';
-import type { inspectPiResources } from './pi-inspection.ts';
+import type { inspectPiResources } from './pi-resource-inspection.ts';
 import { projectPiModelsConfiguration, type PiEndpointSelection } from './pi-endpoint-selection.ts';
 
 export interface InspectedPi {
@@ -61,12 +61,14 @@ export async function preparePiConfiguration(
   if (
     pi.conversationSettings &&
     JSON.stringify(piConversationSettings(original)) !== JSON.stringify(pi.conversationSettings)
-  )
+  ) {
     throw new Error(
       'Native Pi conversation settings changed after inspection. Start a new trial to freeze the new configuration.',
     );
-  if (typeof provider !== 'string' || !provider)
+  }
+  if (typeof provider !== 'string' || !provider) {
     throw new Error('Select a provider in native Pi before preparing a trial.');
+  }
   const authentication = await preparePrivatePiAuthentication({
     packageRoot: pi.packageRoot,
     agentDirectory: pi.agentDir,
@@ -76,7 +78,9 @@ export async function preparePiConfiguration(
   });
   for (const destination of paths.privateFiles) {
     const name = basename(destination);
-    if (name === 'auth.json') continue;
+    if (name === 'auth.json') {
+      continue;
+    }
     const source = join(pi.agentDir, name);
     if (await exists(source)) {
       const content = await readFile(source);

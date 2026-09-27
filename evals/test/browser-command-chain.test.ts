@@ -21,7 +21,7 @@ test('literal navigation and interactions end in one explicit snapshot', () => {
 
 test('all session option forms can identify the same session across commands', () => {
   const forms = ['-s=trial_2', '--session=trial_2', '-s trial_2', '--session "trial_2"'];
-  for (const first of forms)
+  for (const first of forms) {
     for (const second of forms) {
       assert.equal(
         isBrowserSnapshotChain(
@@ -30,6 +30,7 @@ test('all session option forms can identify the same session across commands', (
         true,
       );
     }
+  }
 });
 
 test('quoted literal values accept spaces, operators, empty strings, quotes and Unicode', () => {
@@ -58,8 +59,9 @@ test('quoted literal values accept spaces, operators, empty strings, quotes and 
 });
 
 test('sleep accepts finite nonnegative numeric seconds with no units or extra arguments', () => {
-  for (const value of ['0', '1', '0.25', '.5', '1.', '+2', '1e-3', '2E2'])
+  for (const value of ['0', '1', '0.25', '.5', '1.', '+2', '1e-3', '2E2']) {
     assert.ok(isBrowserSnapshotChain(`sleep ${value} && playwright-cli snapshot`), value);
+  }
   for (const value of [
     '',
     '-1',
@@ -72,8 +74,9 @@ test('sleep accepts finite nonnegative numeric seconds with no units or extra ar
     '1 2',
     '--help',
     '""',
-  ])
+  ]) {
     assert.equal(isBrowserSnapshotChain(`sleep ${value} && playwright-cli snapshot`), false, value);
+  }
 });
 
 test('unsupported shell grammar and executables never become browser evidence', () => {
@@ -114,13 +117,15 @@ test('unsupported shell grammar and executables never become browser evidence', 
     'playwright-cli fill e1 !history && playwright-cli snapshot',
     'playwright-cli fill e1 "unfinished && playwright-cli snapshot',
     "playwright-cli fill e1 'unfinished && playwright-cli snapshot",
-  ])
+  ]) {
     assert.equal(isBrowserSnapshotChain(command), false, command);
-  for (const character of ['\n', '\r', '\t', '\0', '\x1b', '\x7f', '\x85', '\u2028', '\u2029'])
+  }
+  for (const character of ['\n', '\r', '\t', '\0', '\x1b', '\x7f', '\x85', '\u2028', '\u2029']) {
     assert.equal(
       isBrowserSnapshotChain(`playwright-cli fill e1 "a${character}b" && playwright-cli snapshot`),
       false,
     );
+  }
 });
 
 test('browser actions have exact arity, literal targets, consistent sessions and one final snapshot', () => {
@@ -163,8 +168,9 @@ test('browser actions have exact arity, literal targets, consistent sessions and
     'playwright-cli --session --other click e1 && playwright-cli snapshot',
     'playwright-cli -s=one --session=one click e1 && playwright-cli -s=one snapshot',
     'playwright-cli click e1 -s=one && playwright-cli -s=one snapshot',
-  ])
+  ]) {
     assert.equal(isBrowserSnapshotChain(command), false, command);
+  }
 });
 
 test('unsupported actual invocations remain candidates across chains and ordinary wrappers', () => {
@@ -193,8 +199,9 @@ test('unsupported actual invocations remain candidates across chains and ordinar
     'env bash -c "playwright-cli snapshot"',
     'echo "$(playwright-cli snapshot)"',
     'echo `playwright-cli snapshot`',
-  ])
+  ]) {
     assert.ok(classifyVerificationCommand(command), command);
+  }
 });
 
 test('quoted documentation and executable discovery are not verification candidates', () => {
@@ -217,8 +224,9 @@ test('quoted documentation and executable discovery are not verification candida
     'echo "\\$(playwright-cli snapshot)"',
     'echo "\\`playwright-cli snapshot\\`"',
     'echo harmless # $(playwright-cli snapshot)',
-  ])
+  ]) {
     assert.equal(classifyVerificationCommand(command), undefined, command);
+  }
 });
 
 test('browser commands with uninterpreted verification words remain uncertain', () => {
@@ -228,8 +236,9 @@ test('browser commands with uninterpreted verification words remain uncertain', 
     'playwright-cli fill e1 snapshot',
     'playwright-cli fill e1 "pnpm test"',
     'playwright-cli open https://example.test/snapshot',
-  ])
+  ]) {
     assert.deepEqual(classifyVerificationCommand(command), {}, command);
+  }
 });
 
 test('literal verification categories preserve assignment prefixes and union mixed checks', () => {
@@ -240,8 +249,9 @@ test('literal verification categories preserve assignment prefixes and union mix
     'npx playwright test retry.spec.ts',
     'pnpm exec vitest run',
     'npm test',
-  ])
+  ]) {
     assert.deepEqual(classifyVerificationCommand(command), { checkKinds: ['test'] }, command);
+  }
   assert.deepEqual(classifyVerificationCommand('pnpm lint && npm run build'), {
     checkKinds: ['lint', 'build'],
   });
@@ -274,6 +284,7 @@ test('ambiguous grammar or an arbitrary executable cannot be narrowed to one ver
     'playwright-cli run-code "arbitrary code"',
     'playwright-cli snapshot --config=custom.js',
     'pnpm test || pnpm build',
-  ])
+  ]) {
     assert.equal(classifyVerificationCommand(command)?.checkKinds, undefined, command);
+  }
 });

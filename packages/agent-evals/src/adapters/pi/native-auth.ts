@@ -35,7 +35,9 @@ function requireCredential(
 }
 
 function requireValidity(credential: Credential, minimumValidityMs: number, now: number): void {
-  if (credential.type !== 'oauth') return;
+  if (credential.type !== 'oauth') {
+    return;
+  }
   if (
     typeof credential.expires !== 'number' ||
     !Number.isFinite(credential.expires) ||
@@ -77,8 +79,9 @@ export async function copyPreparedAuthentication(
   const before = await readSelected();
   if (before.type === 'oauth') {
     try {
-      if (!(await native.ensureValidity(options.provider, minimumValidityMs)))
+      if (!(await native.ensureValidity(options.provider, minimumValidityMs))) {
         throw new Error('Authentication unavailable');
+      }
     } catch {
       // Native errors can contain credentials or provider response bodies.
       throw new Error(

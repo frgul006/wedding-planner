@@ -20,10 +20,13 @@ async function captureWorkspaceFile(
   try {
     const file = await safeFile(paths.workspace, candidate);
     const info = await stat(file);
-    if (info.size > 256_000 || !/\.(md|html|ya?ml|json|log|txt|[cm]?[jt]sx?|css)$/.test(file))
+    if (info.size > 256_000 || !/\.(md|html|ya?ml|json|log|txt|[cm]?[jt]sx?|css)$/.test(file)) {
       return;
+    }
     const result = await run(nodeExecutable, [paths.fileWorker, 'read', file], 5000);
-    if (result.exitCode !== 0) return;
+    if (result.exitCode !== 0) {
+      return;
+    }
     return {
       path: candidate,
       content: result.stdout,
@@ -78,7 +81,9 @@ export async function collectTrialArtifacts(options: {
       options.nodeExecutable,
       options.run,
     );
-    if (captured) append(captured);
+    if (captured) {
+      append(captured);
+    }
   }
   for (const file of await readdir(paths.snapshotReceipts)) {
     append(parseSnapshotReceipt(await readFile(join(paths.snapshotReceipts, file), 'utf8')));

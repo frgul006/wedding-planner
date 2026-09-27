@@ -61,8 +61,9 @@ export function piRunner(
   } = {},
 ): Runner {
   const { prepareEnvironment, ...configuration } = options;
-  if (typeof prepareEnvironment !== 'function')
+  if (typeof prepareEnvironment !== 'function') {
     throw new Error('A Pi runner requires a prepareEnvironment callback.');
+  }
   const config = immutableCopy(configuration);
   if (
     config.billing.type === 'subscription'
@@ -70,10 +71,11 @@ export function piRunner(
       : config.billing.type !== 'api' ||
         !Number.isFinite(config.billing.maxEstimatedCostUsd) ||
         config.billing.maxEstimatedCostUsd <= 0
-  )
+  ) {
     throw new Error(
       'Subscription billing requires a null cost limit; API billing requires a positive finite dollar limit.',
     );
+  }
   const agentSource = resolve(config.agentSource);
   const recordingsDirectory = resolve(config.recordingsDirectory);
   const inspect = dependencies.inspect ?? inspectPi;
@@ -86,8 +88,9 @@ export function piRunner(
         ...request,
         ...(request.limits === undefined ? {} : { limits: immutableCopy(request.limits) }),
       };
-      if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,179}$/.test(request.trialId))
+      if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,179}$/.test(request.trialId)) {
         throw new Error('Use a filesystem-safe trial ID.');
+      }
       const limits = immutableCopy(resolveTrialLimits(config.limits, task.limits, request.limits));
       request.signal?.throwIfAborted();
       const directory = join(recordingsDirectory, request.trialId);
@@ -106,10 +109,11 @@ export function piRunner(
       if (
         config.billing.type === 'subscription' &&
         (settings.provider !== 'openai-codex' || inspection.authentication.type !== 'oauth')
-      )
+      ) {
         throw new Error(
           'Subscription billing requires verified openai-codex OAuth. Choose API billing for other authentication.',
         );
+      }
       const pi = immutableCopy({ ...inspection, defaults: settings, endpointSelection });
       await store.save('inspection.json', {
         ...inspection,

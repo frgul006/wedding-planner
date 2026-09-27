@@ -223,8 +223,9 @@ test('snapshot receipts verify content fingerprints and distinguish retained fil
     const snapshot = { path, content, sha256: digest(content) };
     const normalized = normalizeToolReceipt({ ...receipt, snapshot }, '', 'call');
     assert.equal(normalized.kind, 'playwright-cli');
-    if (normalized.kind === 'playwright-cli')
+    if (normalized.kind === 'playwright-cli') {
       assert.deepEqual(normalized.snapshot, { source, ...snapshot });
+    }
   }
   for (const snapshot of [
     { path: 'tool-output:another-call', content, sha256: digest(content) },

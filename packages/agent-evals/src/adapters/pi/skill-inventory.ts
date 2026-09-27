@@ -1,8 +1,10 @@
 type ObjectValue = Record<string, unknown>;
+
 const record = (value: unknown): ObjectValue =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as ObjectValue)
     : {};
+
 export interface InventorySkill {
   path: string;
   available: boolean;
@@ -13,10 +15,14 @@ export interface InventorySkill {
 
 /** Prepared files prove availability only; agent resource discovery is separate. */
 export function availableSkills(provenance: ObjectValue): InventorySkill[] {
-  if (!Array.isArray(provenance.resources)) return [];
+  if (!Array.isArray(provenance.resources)) {
+    return [];
+  }
   return provenance.resources.flatMap((value) => {
     const resource = record(value);
-    if (typeof resource.path !== 'string' || !/(?:^|\/)SKILL\.md$/.test(resource.path)) return [];
+    if (typeof resource.path !== 'string' || !/(?:^|\/)SKILL\.md$/.test(resource.path)) {
+      return [];
+    }
     return [
       {
         path: resource.path,

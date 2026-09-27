@@ -181,8 +181,9 @@ test('only unambiguous native CLI commands receive an execution receipt', async 
     'playwright-cli snapshot\ncat answer',
     'playwright-cli open $(cat secret)',
     'playwright-cli open --config=mutable.json',
-  ])
+  ]) {
     assert.equal(parseDirectPlaywright(command), null);
+  }
 });
 
 test('full native output is retained privately beyond excerpt limits with capture-time redaction', async () => {
@@ -280,8 +281,11 @@ test('a captured native tool error before execution is not a missing-output gap'
       undefined,
     );
   } finally {
-    if (originalConfig === undefined) delete process.env.EVAL_ISOLATION_CONFIG;
-    else process.env.EVAL_ISOLATION_CONFIG = originalConfig;
+    if (originalConfig === undefined) {
+      delete process.env.EVAL_ISOLATION_CONFIG;
+    } else {
+      process.env.EVAL_ISOLATION_CONFIG = originalConfig;
+    }
     await rm(root, { recursive: true, force: true });
   }
 });
@@ -302,7 +306,9 @@ test('malformed registry cleanup cannot retain private authentication or model c
       }),
       SyntaxError,
     );
-    for (const path of credentials) await assert.rejects(access(path));
+    for (const path of credentials) {
+      await assert.rejects(access(path));
+    }
   } finally {
     await rm(root, { recursive: true, force: true });
   }

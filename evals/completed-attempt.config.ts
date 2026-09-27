@@ -1,11 +1,8 @@
 import type { EvalConfig } from 'agent-evals';
 import config, { createJudge } from './config.ts';
-import {
-  completedDiagnosis,
-  falsifiableHypothesis,
-  relevantProbe,
-  finalValidation,
-} from './views/diagnosis.ts';
+import { falsifiableHypothesis, relevantProbe } from './views/diagnosis.ts';
+import { completedDiagnosis } from './views/completed-diagnosis.ts';
+import { finalValidation } from './views/validation-history.ts';
 
 /** Regrade the first completed diagnostic attempt, with the sharper hypothesis question. */
 export default {

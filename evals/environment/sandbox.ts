@@ -9,12 +9,16 @@ export interface SandboxConfiguration {
   readableFiles: string[];
   port: number;
 }
+
 const quoted = (value: string) => JSON.stringify(value);
+
 export function sandboxProfile(config: SandboxConfiguration): string {
-  if (process.platform !== 'darwin')
+  if (process.platform !== 'darwin') {
     throw new Error('The pilot requires macOS sandbox-exec; no unsandboxed fallback is permitted.');
-  if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65535)
+  }
+  if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65535) {
     throw new Error('Invalid fixture port');
+  }
   return [
     '(version 1)',
     '(deny default)',
@@ -41,17 +45,21 @@ export function sandboxProfile(config: SandboxConfiguration): string {
     `(allow network-bind network-inbound (local ip "localhost:${config.port}"))`,
   ].join('\n');
 }
+
 export function isWithin(root: string, path: string): boolean {
   const child = relative(root, path);
   return child === '' || (!child.startsWith('..' + '/') && child !== '..' && !isAbsolute(child));
 }
+
 /** Used for artifact capture; rejects escapes, including symlinks. The OS profile enforces tool access separately. */
 export async function safeFile(root: string, path: string): Promise<string> {
   const actual = await realpath(resolve(root, path));
-  if (!isWithin(await realpath(root), actual) || !(await stat(actual)).isFile())
+  if (!isWithin(await realpath(root), actual) || !(await stat(actual)).isFile()) {
     throw new Error('Artifact escaped the trial workspace');
+  }
   return actual;
 }
+
 export function minimalEnvironment(
   home: string,
   temporary: string,
@@ -73,11 +81,13 @@ export function minimalEnvironment(
     NO_COLOR: '1',
   };
 }
+
 export interface SandboxCommandResult {
   stdout: string;
   stderr: string;
   exitCode: number | null;
 }
+
 export async function runSandboxCommand(
   profilePath: string,
   executable: string,
@@ -91,12 +101,13 @@ export async function runSandboxCommand(
     signal?: AbortSignal;
   },
 ): Promise<SandboxCommandResult> {
-  if (options.signal?.aborted)
+  if (options.signal?.aborted) {
     return {
       stdout: '',
       stderr: 'Acceptance cancelled before dispatch.',
       exitCode: null,
     };
+  }
   return new Promise((resolveResult, reject) => {
     const child = spawn('/usr/bin/sandbox-exec', ['-f', profilePath, executable, ...args], {
       cwd: options.cwd,
@@ -104,7 +115,9 @@ export async function runSandboxCommand(
       detached: true,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
-    if (child.pid) options.onSpawn?.(child.pid);
+    if (child.pid) {
+      options.onSpawn?.(child.pid);
+    }
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (chunk) => {
@@ -115,12 +128,16 @@ export async function runSandboxCommand(
     });
     const kill = () => {
       try {
-        if (child.pid) process.kill(-child.pid, 'SIGKILL');
+        if (child.pid) {
+          process.kill(-child.pid, 'SIGKILL');
+        }
       } catch {}
     };
     const timer = setTimeout(kill, options.timeoutMs ?? 15_000);
     options.signal?.addEventListener('abort', kill, { once: true });
-    if (options.signal?.aborted) kill();
+    if (options.signal?.aborted) {
+      kill();
+    }
     const release = () => {
       clearTimeout(timer);
       options.signal?.removeEventListener('abort', kill);
@@ -140,6 +157,7 @@ export async function runSandboxCommand(
     child.stdin.end(options.input);
   });
 }
+
 export async function resolveExecutable(executable: string): Promise<string> {
   for (const directory of (process.env.PATH ?? '').split(':')) {
     try {
@@ -151,6 +169,7 @@ export async function resolveExecutable(executable: string): Promise<string> {
   }
   throw new Error(`Required executable unavailable: ${executable}`);
 }
+
 export function runtimeRoot(executable: string): string {
   return dirname(dirname(executable));
 }

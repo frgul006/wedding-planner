@@ -1,13 +1,20 @@
+export const nonVerifyingArgument =
+  /^(?:-[hv]|--(?:help|version|list(?:Tests)?|watch|passWithNoTests|dry-run))(?:=|$)/i;
+
 /** A literal subset of shell words; this parser never evaluates or executes text. */
+
 function literalCommands(command: string, candidatesOnly = false): string[][] | undefined {
-  if (!candidatesOnly && /[$`\\]/.test(command)) return;
+  if (!candidatesOnly && /[$`\\]/.test(command)) {
+    return;
+  }
   for (const character of command) {
     const code = character.charCodeAt(0);
     if (
       !candidatesOnly &&
       (code < 32 || (code >= 127 && code <= 159) || code === 0x2028 || code === 0x2029)
-    )
+    ) {
       return;
+    }
   }
   const commands: string[][] = [];
   let words: string[] = [];
@@ -15,7 +22,9 @@ function literalCommands(command: string, candidatesOnly = false): string[][] | 
   let started = false;
   let quote: "'" | '"' | undefined;
   const finishWord = () => {
-    if (started) words.push(word);
+    if (started) {
+      words.push(word);
+    }
     word = '';
     started = false;
   };
@@ -30,13 +39,18 @@ function literalCommands(command: string, candidatesOnly = false): string[][] | 
       continue;
     }
     if (quote) {
-      if (character === quote) quote = undefined;
-      else word += character;
+      if (character === quote) {
+        quote = undefined;
+      } else {
+        word += character;
+      }
       continue;
     }
     if (candidatesOnly && character === '#' && !started) {
       const newline = command.indexOf('\n', index);
-      if (newline === -1) break;
+      if (newline === -1) {
+        break;
+      }
       index = newline - 1;
       continue;
     }
@@ -45,33 +59,47 @@ function literalCommands(command: string, candidatesOnly = false): string[][] | 
       started = true;
     } else if (candidatesOnly && ';|&()\r\n'.includes(character)) {
       finishWord();
-      if (words.length) commands.push(words);
+      if (words.length) {
+        commands.push(words);
+      }
       words = [];
     } else if (character === ' ' || (candidatesOnly && character === '\t')) {
       finishWord();
     } else if (character === '&' && command[index + 1] === '&') {
       finishWord();
-      if (!words.length) return;
+      if (!words.length) {
+        return;
+      }
       commands.push(words);
       words = [];
       index++;
     } else {
       // Outside quotes, shell operators, comments, globs and expansions are unsupported.
-      if (!candidatesOnly && ';&|<>#*?[]{}()~!^'.includes(character)) return;
+      if (!candidatesOnly && ';&|<>#*?[]{}()~!^'.includes(character)) {
+        return;
+      }
       word += character;
       started = true;
     }
   }
-  if (quote && !candidatesOnly) return;
+  if (quote && !candidatesOnly) {
+    return;
+  }
   finishWord();
-  if (!words.length && !candidatesOnly) return;
-  if (words.length) commands.push(words);
+  if (!words.length && !candidatesOnly) {
+    return;
+  }
+  if (words.length) {
+    commands.push(words);
+  }
   return commands;
 }
 
 function unwrapInvocation(words: string[]): string[] | undefined {
   let tokens = [...words];
-  while (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0] ?? '')) tokens.shift();
+  while (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0] ?? '')) {
+    tokens.shift();
+  }
   // Recognize a few ordinary wrappers only to preserve uncertainty, never credit.
   for (let wrappers = 0; wrappers < 8; wrappers++) {
     const name = tokens[0];
@@ -81,43 +109,66 @@ function unwrapInvocation(words: string[]): string[] | undefined {
         if (
           /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0]!) ||
           ['-i', '--ignore-environment', '--'].includes(tokens[0]!)
-        )
+        ) {
           tokens.shift();
-        else if (['-u', '--unset'].includes(tokens[0]!)) tokens.splice(0, 2);
-        else if (tokens[0]!.startsWith('--unset=')) tokens.shift();
-        else break;
+        } else if (['-u', '--unset'].includes(tokens[0]!)) {
+          tokens.splice(0, 2);
+        } else if (tokens[0]!.startsWith('--unset=')) {
+          tokens.shift();
+        } else {
+          break;
+        }
       }
     } else if (name === 'command') {
       tokens.shift();
-      if (tokens[0] === '-v' || tokens[0] === '-V') return;
-      if (tokens[0] === '-p') tokens.shift();
-      if (tokens[0] === '--') tokens.shift();
+      if (tokens[0] === '-v' || tokens[0] === '-V') {
+        return;
+      }
+      if (tokens[0] === '-p') {
+        tokens.shift();
+      }
+      if (tokens[0] === '--') {
+        tokens.shift();
+      }
     } else if (name === 'exec' || name === 'nohup' || name === 'builtin') {
       tokens.shift();
-      if (tokens[0] === '--') tokens.shift();
+      if (tokens[0] === '--') {
+        tokens.shift();
+      }
     } else if (name === 'timeout' && /^\d+(?:\.\d+)?[smhd]?$/.test(tokens[1] ?? '')) {
       tokens = tokens.slice(2);
-    } else break;
+    } else {
+      break;
+    }
   }
   return tokens;
 }
 
 function candidateInvocation(words: string[]): boolean {
   const tokens = unwrapInvocation(words);
-  if (!tokens) return false;
+  if (!tokens) {
+    return false;
+  }
   const [executable, ...args] = tokens;
   const name = executable?.split('/').at(-1);
   if (
     (name === 'npx' || (['pnpm', 'npm'].includes(name ?? '') && args[0] === 'exec')) &&
     args.includes('playwright-cli')
-  )
+  ) {
     return candidateInvocation(args.slice(args.indexOf('playwright-cli')));
-  if (['bash', 'sh', 'zsh', 'eval'].includes(name ?? ''))
+  }
+  if (['bash', 'sh', 'zsh', 'eval'].includes(name ?? '')) {
     return args.some((arg) => /\bplaywright-cli\b/.test(arg) && /\bsnapshot\b/.test(arg));
+  }
   if (name === 'playwright-cli') {
-    if (args.some((arg) => /^(?:--help|--version|-h|-v)$/.test(arg))) return false;
-    if (/^(?:-s|--session)=/.test(args[0] ?? '')) args.shift();
-    else if (args[0] === '-s' || args[0] === '--session') args.splice(0, 2);
+    if (args.some((arg) => /^(?:--help|--version|-h|-v)$/.test(arg))) {
+      return false;
+    }
+    if (/^(?:-s|--session)=/.test(args[0] ?? '')) {
+      args.shift();
+    } else if (args[0] === '-s' || args[0] === '--session') {
+      args.splice(0, 2);
+    }
     // A fill value named "snapshot" is data, not a browser action.
     const action = args.find((arg) =>
       ['open', 'goto', 'fill', 'click', 'snapshot', 'close'].includes(arg),
@@ -142,18 +193,27 @@ function hasVerificationSubstitution(command: string): boolean {
       continue;
     }
     if (quote === "'") {
-      if (character === "'") quote = undefined;
+      if (character === "'") {
+        quote = undefined;
+      }
       continue;
     }
     if (!quote && character === '#' && (index === 0 || /\s/.test(command[index - 1]!))) {
       const newline = command.indexOf('\n', index);
-      if (newline === -1) break;
+      if (newline === -1) {
+        break;
+      }
       index = newline;
       continue;
     }
-    if (character === '`' || (character === '$' && command[index + 1] === '(')) substitution = true;
-    if (character === '"') quote = quote === '"' ? undefined : '"';
-    else if (!quote && character === "'") quote = "'";
+    if (character === '`' || (character === '$' && command[index + 1] === '(')) {
+      substitution = true;
+    }
+    if (character === '"') {
+      quote = quote === '"' ? undefined : '"';
+    } else if (!quote && character === "'") {
+      quote = "'";
+    }
   }
   // Substitution is deliberately not interpreted. A potentially invoked browser
   // check remains unknown, matching the legacy ambiguity detector's policy.
@@ -163,6 +223,7 @@ function hasVerificationSubstitution(command: string): boolean {
 type VerificationKind = 'test' | 'lint' | 'build' | 'browser_snapshot';
 
 /** Potential verification plus any provable categories; this never grants execution credit. */
+
 export function classifyVerificationCommand(
   command: string,
 ): { checkKinds?: VerificationKind[] } | undefined {
@@ -175,45 +236,76 @@ export function classifyVerificationCommand(
       /^(?:pnpm|npm|npx|bash|sh|zsh|playwright-cli)\b/.test(command.trim()) &&
       /\b(?:test|lint|build|snapshot|vitest|jest)\b/.test(command)
     )
-  )
+  ) {
     return;
+  }
   // Ambiguous shell syntax may affect every required check.
-  if (!commands) return {};
-  if (browserSnapshotChain(commands)) return { checkKinds: ['browser_snapshot'] };
+  if (!commands) {
+    return {};
+  }
+  if (browserSnapshotChain(commands)) {
+    return { checkKinds: ['browser_snapshot'] };
+  }
   const kinds = new Set<VerificationKind>();
   for (const words of commands) {
     const tokens = unwrapInvocation(words);
-    if (!tokens?.length) return {};
+    if (!tokens?.length) {
+      return {};
+    }
     let name: string | undefined = tokens[0];
     const args = tokens.slice(1);
     // Package executors keep the invoked program in a literal command position.
     const packageExecutor =
       name === 'npx' || (['pnpm', 'npm'].includes(name!) && args[0] === 'exec');
     if (packageExecutor) {
-      if (name !== 'npx') args.shift();
+      if (name !== 'npx') {
+        args.shift();
+      }
       name = args.shift();
     }
-    if (!packageExecutor && ['echo', 'printf', 'sleep', 'cd', 'true', 'false'].includes(name ?? ''))
+    if (
+      !packageExecutor &&
+      ['echo', 'printf', 'sleep', 'cd', 'true', 'false'].includes(name ?? '')
+    ) {
       continue;
-    if (name === 'playwright' && args[0] === 'test') kinds.add('test');
-    else if (name === 'vitest' || name === 'jest') kinds.add('test');
-    else if (name === 'pnpm' || name === 'npm') {
-      if (args[0] === 'run') args.shift();
-      if (/^test(?::[\w-]+)?$/.test(args[0] ?? '')) kinds.add('test');
-      else if (args[0] === 'lint' || args[0] === 'build') kinds.add(args[0]);
-      else return {};
+    }
+    if (name === 'playwright' && args[0] === 'test') {
+      kinds.add('test');
+    } else if (name === 'vitest' || name === 'jest') {
+      kinds.add('test');
+    } else if (name === 'pnpm' || name === 'npm') {
+      if (args[0] === 'run') {
+        args.shift();
+      }
+      if (/^test(?::[\w-]+)?$/.test(args[0] ?? '')) {
+        kinds.add('test');
+      } else if (args[0] === 'lint' || args[0] === 'build') {
+        kinds.add(args[0]);
+      } else {
+        return {};
+      }
     } else if (name === 'playwright-cli') {
-      if (/^(?:-s|--session)=/.test(args[0] ?? '')) args.shift();
-      else if (args[0] === '-s' || args[0] === '--session') args.splice(0, 2);
-      if (args.length === 1 && args[0] === 'snapshot') kinds.add('browser_snapshot');
-      else return {};
-    } else return {};
+      if (/^(?:-s|--session)=/.test(args[0] ?? '')) {
+        args.shift();
+      } else if (args[0] === '-s' || args[0] === '--session') {
+        args.splice(0, 2);
+      }
+      if (args.length === 1 && args[0] === 'snapshot') {
+        kinds.add('browser_snapshot');
+      } else {
+        return {};
+      }
+    } else {
+      return {};
+    }
   }
   return { checkKinds: [...kinds] };
 }
 
 function isHttpUrl(value: string): boolean {
-  if (!/^https?:\/\//i.test(value)) return false;
+  if (!/^https?:\/\//i.test(value)) {
+    return false;
+  }
   try {
     const url = new URL(value);
     return url.protocol === 'http:' || url.protocol === 'https:';
@@ -226,13 +318,16 @@ function isHttpUrl(value: string): boolean {
  * Recognize an && chain of literal browser actions and sleeps with one final
  * explicit snapshot. Recognition alone does not establish execution or evidence.
  */
+
 export function isBrowserSnapshotChain(command: string): boolean {
   const commands = literalCommands(command);
   return commands !== undefined && browserSnapshotChain(commands);
 }
 
 function browserSnapshotChain(commands: string[][]): boolean {
-  if (commands.length < 2) return false;
+  if (commands.length < 2) {
+    return false;
+  }
   let session: string | null | undefined;
   for (const [index, words] of commands.entries()) {
     const [executable, ...tokens] = words;
@@ -243,11 +338,14 @@ function browserSnapshotChain(commands: string[][]): boolean {
         tokens.length !== 1 ||
         !/^\+?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(seconds!) ||
         !Number.isFinite(Number(seconds))
-      )
+      ) {
         return false;
+      }
       continue;
     }
-    if (executable !== 'playwright-cli') return false;
+    if (executable !== 'playwright-cli') {
+      return false;
+    }
     let commandSession: string | null = null;
     if (/^(?:-s|--session)=/.test(tokens[0] ?? '')) {
       commandSession = tokens.shift()!.split('=').slice(1).join('=');
@@ -255,16 +353,24 @@ function browserSnapshotChain(commands: string[][]): boolean {
       tokens.shift();
       commandSession = tokens.shift() ?? '';
     }
-    if (commandSession !== null && !/^[A-Za-z0-9_][A-Za-z0-9_-]*$/.test(commandSession))
+    if (commandSession !== null && !/^[A-Za-z0-9_][A-Za-z0-9_-]*$/.test(commandSession)) {
       return false;
-    if (session !== undefined && session !== commandSession) return false;
+    }
+    if (session !== undefined && session !== commandSession) {
+      return false;
+    }
     session = commandSession;
     const action = tokens.shift();
     if (action === 'snapshot') {
-      if (index !== commands.length - 1 || tokens.length !== 0) return false;
-    } else if (index === commands.length - 1) return false;
-    else if (action === 'open' || action === 'goto') {
-      if (tokens.length !== 1 || !isHttpUrl(tokens[0]!)) return false;
+      if (index !== commands.length - 1 || tokens.length !== 0) {
+        return false;
+      }
+    } else if (index === commands.length - 1) {
+      return false;
+    } else if (action === 'open' || action === 'goto') {
+      if (tokens.length !== 1 || !isHttpUrl(tokens[0]!)) {
+        return false;
+      }
     } else if (action === 'fill') {
       // The native CLI parses options across all argv, including quoted fill text.
       // A lone dash is positional; other leading-dash values can change behavior.
@@ -272,11 +378,16 @@ function browserSnapshotChain(commands: string[][]): boolean {
         tokens.length !== 2 ||
         !/^e\d+$/.test(tokens[0]!) ||
         (tokens[1]!.startsWith('-') && tokens[1] !== '-')
-      )
+      ) {
         return false;
+      }
     } else if (action === 'click') {
-      if (tokens.length !== 1 || !/^e\d+$/.test(tokens[0]!)) return false;
-    } else return false;
+      if (tokens.length !== 1 || !/^e\d+$/.test(tokens[0]!)) {
+        return false;
+      }
+    } else {
+      return false;
+    }
   }
   return true;
 }

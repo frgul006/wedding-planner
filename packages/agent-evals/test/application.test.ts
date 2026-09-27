@@ -216,7 +216,9 @@ test('final artifact collection failure still cleans up and leaves missing outco
   let cleaned = false;
   const environment = prepared({
     async collectArtifacts() {
-      if (++collections === 1) return [target];
+      if (++collections === 1) {
+        return [target];
+      }
       throw new Error('Artifact capture interrupted');
     },
     async cleanup() {
@@ -393,8 +395,9 @@ test('final artifacts are observed after tool descendants stop', async () => {
   let collections = 0;
   const environment = prepared({
     async collectArtifacts() {
-      if (++collections > 1)
+      if (++collections > 1) {
         assert.equal(stopped, true, 'final evidence cannot race active tool children');
+      }
       return [target];
     },
     async cleanup() {
