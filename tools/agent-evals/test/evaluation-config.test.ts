@@ -47,9 +47,9 @@ const profile = {
 test('profile limits default high and task-specific limits accept values above old ceilings', () => {
   const { runtimeMs: _runtime, maxAgentTokens: _tokens, ...withoutLimits } = profile;
   const defaults = profileSchema.parse(withoutLimits);
-  assert.equal(defaults.runtimeMs, 3_600_000);
-  assert.equal(defaults.maxAgentTurns, 500);
-  assert.equal(defaults.maxAgentTokens, 5_000_000);
+  assert.equal(defaults.runtimeMs, 1_800_000);
+  assert.equal(defaults.maxAgentTurns, 100);
+  assert.equal(defaults.maxAgentTokens, 1_000_000);
   const limits = { runtimeMs: 7_200_000, maxTurns: 1000, maxTokens: 10_000_000 };
   assert.deepEqual(taskSchema.parse({ ...task, limits }).limits, limits);
   assert.equal(

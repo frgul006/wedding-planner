@@ -55,7 +55,7 @@ Private native recordings and grading reports remain under ignored `evals/runs/`
 
 ## Per-trial budgets and completed native follow-up
 
-The subsequent budget revision removes the hidden library ceilings and the former profile maxima. Defaults are now one hour of agent execution, 500 completed native turns, and 5,000,000 weighted tokens per trial. Profiles, task definitions and explicit per-run overrides can configure each field. Any reached limit requests an abort; the first cause, threshold and observed counter are retained. Cached reads and writes count at 0.1, with raw usage preserved. Task and run configuration are copied before asynchronous preparation.
+The subsequent budget revision removed the hidden library ceilings and the former profile maxima. At the time of the completed native follow-up below, defaults were one hour of agent execution, 500 completed native turns, and 5,000,000 weighted tokens per trial. The defaults were later reduced to 30 minutes, 100 completed turns and 1,000,000 weighted tokens; the saved trial retains its original configured limits. Profiles, task definitions and explicit per-run overrides can configure each field. Any reached limit requests an abort; the first cause, threshold and observed counter are retained. Cached reads and writes count at 0.1, with raw usage preserved. Task and run configuration are copied before asynchronous preparation.
 
 A fresh `pnpm evals library run --no-judge --json` completed under those defaults:
 

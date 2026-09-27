@@ -30,7 +30,7 @@ This native-specific view audits recording continuity from the start through the
 
 Repeated output lines may use `line-dictionary-v1`: ordered dictionary references reconstruct the exact original text, including empty lines and line endings. This is deterministic deduplication, not a generated summary. Both the dictionary and its order are supplied to Jev and retained in the report. This scope permits up to 30,000 state characters while keeping the adapter's conservative model-context check. Human calibration of the questions and this representation remains outstanding; a model's pass does not establish that the task was repaired or that a test succeeded.
 
-The default per-trial agent limits are **one hour, 500 completed turns, and 5,000,000 weighted tokens**. Any reached limit stops that trial; counters reset for each repetition. A turn is one assistant response plus its resulting tool calls/results, including failed attempts and native retries. Token accounting is `input + output + 0.1 × (cacheRead + cacheWrite)` across all calls. Raw provider usage remains unchanged in the record; the weighting is a harness policy, not a dollar bill. Runtime includes Pi startup and agent execution, excluding environment preparation, final acceptance checks, and grading. Concurrency is one, with no automatic trial retry. Its smoke profile selects Luna and preserves native provider, authentication, and saved reasoning without changing global settings. Jev uses pinned `jev-1.13.0`, no SDK retries, and a default aggregate reservation allowance of $0.01 per command. Admission estimates are not provider-enforced caps; in-flight agent usage can overshoot. Existing native provider retry settings remain observable.
+The default per-trial agent limits are **30 minutes, 100 completed turns, and 1,000,000 weighted tokens**. Any reached limit stops that trial; counters reset for each repetition. A turn is one assistant response plus its resulting tool calls/results, including failed attempts and native retries. Token accounting is `input + output + 0.1 × (cacheRead + cacheWrite)` across all calls. Raw provider usage remains unchanged in the record; the weighting is a harness policy, not a dollar bill. Runtime includes Pi startup and agent execution, excluding environment preparation, final acceptance checks, and grading. Concurrency is one, with no automatic trial retry. Its smoke profile selects Luna and preserves native provider, authentication, and saved reasoning without changing global settings. Jev uses pinned `jev-1.13.0`, no SDK retries, and a default aggregate reservation allowance of $0.01 per command. Admission estimates are not provider-enforced caps; in-flight agent usage can overshoot. Existing native provider retry settings remain observable.
 
 Override any limit for an individual run (positive whole numbers):
 
@@ -98,7 +98,7 @@ const evals = createEvaluator({
 });
 const run = await evals.run({
   id: "retry",
-  tasks: [{ ...task, limits: { runtimeMs: 3_600_000, maxTurns: 500, maxTokens: 5_000_000 } }],
+  tasks: [{ ...task, limits: { runtimeMs: 1_800_000, maxTurns: 100, maxTokens: 1_000_000 } }],
   graders: [hypothesis, validation],
 });
 await evals.regrade(run.id, {

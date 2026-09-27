@@ -47,7 +47,7 @@ show reads local records without model calls. Core/adapter APIs are separately e
   --json              Machine-readable output
 
 Pi uses its existing subscription and saved reasoning, with the smoke profile's
-model (currently Luna). Defaults are one hour, 500 turns and 5,000,000 weighted
+model (currently Luna). Defaults are 30 minutes, 100 turns and 1,000,000 weighted
 tokens per trial. Profile < task limits < explicit run flags; any limit hit stops
 the trial. Runtime covers Pi startup/execution, excluding environment setup and grading.
 No automatic agent retries. Jev uses its

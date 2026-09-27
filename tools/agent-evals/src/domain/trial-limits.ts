@@ -9,9 +9,9 @@ export interface TrialLimits {
 }
 
 export const DEFAULT_TRIAL_LIMITS: Readonly<TrialLimits> = Object.freeze({
-  runtimeMs: 3_600_000,
-  maxTurns: 500,
-  maxTokens: 5_000_000,
+  runtimeMs: 1_800_000,
+  maxTurns: 100,
+  maxTokens: 1_000_000,
 });
 export const CACHED_TOKEN_WEIGHT = 0.1;
 /** Node timers must not overflow and silently become a one-millisecond deadline. */

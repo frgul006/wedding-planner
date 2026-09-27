@@ -5,9 +5,9 @@ import type { TrialLimits } from '../src/index.ts';
 
 test('per-trial defaults inherit fieldwise and explicit higher limits are never clamped', () => {
   assert.deepEqual(resolveTrialLimits(), {
-    runtimeMs: 3_600_000,
-    maxTurns: 500,
-    maxTokens: 5_000_000,
+    runtimeMs: 1_800_000,
+    maxTurns: 100,
+    maxTokens: 1_000_000,
   });
   assert.deepEqual(
     resolveTrialLimits({ maxTurns: 10 }, { runtimeMs: 7_200_000, maxTokens: 10_000_000 }),
@@ -18,7 +18,7 @@ test('per-trial defaults inherit fieldwise and explicit higher limits are never 
     },
   );
   assert.equal(resolveTrialLimits({ maxTurns: 3 }, { maxTurns: undefined }).maxTurns, 3);
-  assert.equal(DEFAULT_TRIAL_LIMITS.maxTurns, 500);
+  assert.equal(DEFAULT_TRIAL_LIMITS.maxTurns, 100);
 });
 
 test('invalid limits cannot silently disable stopping or overflow the runtime timer', () => {

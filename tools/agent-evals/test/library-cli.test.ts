@@ -143,7 +143,7 @@ test('library preview reads the selected profile and per-trial limits without na
     assert.equal(nativePlan.endpointPolicy, 'native');
     assert.equal(nativePlan.runtimeMs, 900_000);
     assert.equal(nativePlan.maxTokens, 1_500_000);
-    assert.equal(nativePlan.maxTurns, 500);
+    assert.equal(nativePlan.maxTurns, 100);
     assert.equal(nativePlan.cachedTokenWeight, 0.1);
 
     const regrade = await context.invoke(['regrade', 'saved-run', '--dry-run', '--json']);

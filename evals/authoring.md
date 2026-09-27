@@ -106,7 +106,7 @@ An environment's `finalize()` stops agent descendants, checks the final applicat
 
 Profiles set the harness, runtime/budget bounds and grader configuration. The optional `pi.model` selects an exact model ID in the saved provider's catalog without changing global Pi settings; omit it to retain the saved model. The included `smoke` and `controlled` profiles both select `gpt-6-luna` and differ only in Pi conversation policy: native settings versus disabled compaction/retries. Both retain the explicitly restricted tool surface described in [the setup guide](README.md).
 
-Trial limits resolve field by field: built-in defaults, then profile values, then the task's optional `limits`, then explicit CLI flags. The defaults are one hour, 500 completed assistant turns and 5,000,000 weighted tokens per trial. Profile fields are `runtimeMs`, `maxAgentTurns` and `maxAgentTokens`; task fields use this shape:
+Trial limits resolve field by field: built-in defaults, then profile values, then the task's optional `limits`, then explicit CLI flags. The defaults are 30 minutes, 100 completed assistant turns and 1,000,000 weighted tokens per trial. Profile fields are `runtimeMs`, `maxAgentTurns` and `maxAgentTokens`; task fields use this shape:
 
 ```json
 "limits": {

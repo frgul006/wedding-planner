@@ -62,7 +62,7 @@ Considered sources are recorded separately from explicit supporting references. 
 
 The existing registry-based CLI and paired experiments remain supported. Their saved-run format and OpenAI rubric adapter continue to work; they are separate from the new library store and Jev grading path. `piRunner` reuses the established isolation, recording, cleanup and independent acceptance infrastructure, then exposes the retained recording through the portable trial contract.
 
-Legacy `run` and `experiment` accept `--max-runtime-ms`, `--max-turns` and `--max-tokens`. Each trial resolves built-in defaults (one hour, 500 completed assistant turns, 5,000,000 weighted tokens), profile fields, task `limits`, then explicit flags. Input/output tokens count fully; cached reads/writes count at 10%. The effective profile reaches harness preparation before environment deadlines are set. Dry runs and `profiles` show the limits; raw provider usage is retained separately. See [task limit examples](../../evals/authoring.md#compare-configurations).
+Legacy `run` and `experiment` accept `--max-runtime-ms`, `--max-turns` and `--max-tokens`. Each trial resolves built-in defaults (30 minutes, 100 completed assistant turns, 1,000,000 weighted tokens), profile fields, task `limits`, then explicit flags. Input/output tokens count fully; cached reads/writes count at 10%. The effective profile reaches harness preparation before environment deadlines are set. Dry runs and `profiles` show the limits; raw provider usage is retained separately. See [task limit examples](../../evals/authoring.md#compare-configurations).
 
 ## Validation
 
