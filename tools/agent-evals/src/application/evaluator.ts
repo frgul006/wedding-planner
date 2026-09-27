@@ -13,10 +13,12 @@ import type {
   Store,
   Suite,
   SuiteRun,
+  TrialLimits,
   Verdict,
   View,
 } from '../domain/library.ts';
 import { canonicalJson, contentHash, immutableCopy } from './serialization.ts';
+import { resolveTrialLimits } from '../domain/trial-limits.ts';
 import {
   JudgePreparationError,
   JudgeResponseError,
@@ -417,7 +419,12 @@ export function createEvaluator(options: {
     },
     async run(
       suite: Suite,
-      input: { repetitions?: number; concurrency?: number; signal?: AbortSignal } = {},
+      input: {
+        repetitions?: number;
+        concurrency?: number;
+        signal?: AbortSignal;
+        limits?: Partial<TrialLimits>;
+      } = {},
     ) {
       suite = {
         id: suite.id,
@@ -425,6 +432,11 @@ export function createEvaluator(options: {
         graders: snapshotGraders(suite.graders),
       };
       if (!options.runner) throw new Error('A runner is required to create trials');
+      const runLimits = input.limits === undefined ? undefined : immutableCopy(input.limits);
+      // Validate every task before dispatching any agent. Runner-specific defaults remain
+      // the runner's responsibility; only authored overrides cross this boundary.
+      resolveTrialLimits(runLimits);
+      for (const task of suite.tasks) resolveTrialLimits(task.limits, runLimits);
       const repetitions = input.repetitions ?? 1;
       if (
         !Number.isInteger(repetitions) ||
@@ -447,7 +459,11 @@ export function createEvaluator(options: {
             const trialId = identity('trial');
             let trial: RecordedTrial;
             try {
-              trial = await options.runner.run(task, { trialId, signal: input.signal });
+              trial = await options.runner.run(task, {
+                trialId,
+                signal: input.signal,
+                ...(task.limits || runLimits ? { limits: { ...task.limits, ...runLimits } } : {}),
+              });
             } catch {
               trial = {
                 id: trialId,

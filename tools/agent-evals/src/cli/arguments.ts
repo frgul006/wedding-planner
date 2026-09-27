@@ -21,8 +21,12 @@ const options = {
   pairs: { type: 'string' },
   factor: { type: 'string' },
   'agent-source': { type: 'string' },
+  'max-runtime-ms': { type: 'string' },
+  'max-turns': { type: 'string' },
+  'max-tokens': { type: 'string' },
 } as const;
 
+const trialLimitFlags = ['max-runtime-ms', 'max-turns', 'max-tokens'] as const;
 const profileFlags = [
   'profile',
   'budget-usd',
@@ -41,6 +45,7 @@ const commandFlags = {
   doctor: [...profileFlags, 'grader-env-file', 'no-grader', 'agent-source', 'semantic'],
   run: [
     ...profileFlags,
+    ...trialLimitFlags,
     'task',
     'variant',
     'grader-env-file',
@@ -52,6 +57,7 @@ const commandFlags = {
   ],
   experiment: [
     ...profileFlags,
+    ...trialLimitFlags,
     'semantic',
     'grader-env-file',
     'no-grader',
@@ -121,6 +127,11 @@ export function parseCommand(argv: string[]): CliRequest {
   }
   if (parsed.values.semantic && parsed.values['no-grader'])
     throw new Error('Choose --semantic or --no-grader, not both.');
+  for (const flag of trialLimitFlags) {
+    const value = parsed.values[flag];
+    if (value !== undefined && (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(Number(value))))
+      throw new Error(`--${flag} must be a positive safe whole number written in decimal digits.`);
+  }
   if (parsed.values.graders !== undefined) {
     const ids = parsed.values.graders.split(',').map((id) => id.trim());
     if (
@@ -182,7 +193,7 @@ const topicHelp: Partial<Record<Command, string>> = {
   pnpm evals experiment repository-ui-copy --pairs 3 --semantic --budget-usd 0.03
 
 Each pair runs enabled and disabled sequentially; ordering alternates between pairs.
-The API allowance covers the entire experiment. Pi retains its subscription bounds.
+The API allowance covers the entire experiment. Trial limits apply to each attempt.
 All attempts and judgments are retained, including unsuccessful outcomes.
 
 Options
@@ -190,6 +201,9 @@ Options
   --semantic                   Opt into bounded semantic API grading
   --dry-run                    Preview schedule and total reservation offline
   --agent-source PATH          Native Pi profile checkout (default: original checkout)
+  --max-runtime-ms NUMBER       Override each trial's runtime limit in milliseconds
+  --max-turns NUMBER            Override each trial's completed assistant-turn limit
+  --max-tokens NUMBER           Override weighted tokens (cached tokens count at 10%)
 
 Produces one report and a shareable allowlisted review bundle. Raw text stays private.
 Exit 0 means the matched experiment completed, not that every observed grade passed.
@@ -241,6 +255,11 @@ Options
   --agent-source PATH          Native Pi profile checkout (default: original checkout)
   --dry-run                    Validate and preview locally; no Pi, API or browser calls
   --retry-of RUN               Link a manual retry; preserve the original failure
+  --max-runtime-ms NUMBER       Override this trial's runtime limit in milliseconds
+  --max-turns NUMBER            Override this trial's completed assistant-turn limit
+  --max-tokens NUMBER           Override weighted tokens (cached tokens count at 10%)
+
+Limits resolve in order: built-in defaults, profile, task limits, explicit CLI flags.
 
 smoke --task NAME remains an alias for run NAME.
 Ctrl-C requests cancellation, cleanup and preservation of a started trial's evidence.

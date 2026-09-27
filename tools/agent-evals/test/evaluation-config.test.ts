@@ -7,6 +7,7 @@ import {
   catalogNames,
   loadProfile,
   loadTask,
+  profileSchema,
   taskSchema,
   treeHash,
 } from '../src/adapters/evaluation-config.ts';
@@ -42,6 +43,26 @@ const profile = {
     pricingCheckedOn: '2026-09-07',
   },
 };
+
+test('profile limits default high and task-specific limits accept values above old ceilings', () => {
+  const { runtimeMs: _runtime, maxAgentTokens: _tokens, ...withoutLimits } = profile;
+  const defaults = profileSchema.parse(withoutLimits);
+  assert.equal(defaults.runtimeMs, 3_600_000);
+  assert.equal(defaults.maxAgentTurns, 500);
+  assert.equal(defaults.maxAgentTokens, 5_000_000);
+  const limits = { runtimeMs: 7_200_000, maxTurns: 1000, maxTokens: 10_000_000 };
+  assert.deepEqual(taskSchema.parse({ ...task, limits }).limits, limits);
+  assert.equal(
+    profileSchema.parse({
+      ...profile,
+      runtimeMs: limits.runtimeMs,
+      maxAgentTokens: limits.maxTokens,
+    }).runtimeMs,
+    limits.runtimeMs,
+  );
+  assert.equal(taskSchema.safeParse({ ...task, limits: { maxTurns: 0 } }).success, false);
+  assert.equal(profileSchema.safeParse({ ...profile, runtimeMs: 2_147_483_648 }).success, false);
+});
 
 test('repository tasks select a pinned source revision, TSX target, acceptance and graders', () => {
   const configured = taskSchema.parse({

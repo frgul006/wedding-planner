@@ -6,6 +6,7 @@ import test from 'node:test';
 import { piRunner } from '../src/adapters/pi-runner.ts';
 import { hash } from '../src/adapters/file-run-store.ts';
 import type { HarnessFactory } from '../src/adapters/harnesses.ts';
+import type { TrialLimits } from '../src/index.ts';
 
 const task = { id: 'sample', version: '1', prompt: 'Repair this synthetic file.' };
 const profile = {
@@ -53,6 +54,128 @@ async function setup() {
   await writeFile(join(root, 'evals/fixtures/wedding-copy/index.html'), 'Original');
   return root;
 }
+
+test('each Pi trial resolves independent limits before environment preparation and records them', async () => {
+  const root = await setup();
+  const prepared: TrialLimits[] = [];
+  const dispatched: TrialLimits[] = [];
+  const prepareHarness: HarnessFactory = async ({ profile }) => {
+    prepared.push({
+      runtimeMs: profile.runtimeMs,
+      maxTurns: profile.maxAgentTurns,
+      maxTokens: profile.maxAgentTokens,
+    });
+    return {
+      description: 'Offline budget trial',
+      expectedModel: { provider: 'openai-codex', id: 'gpt-6-luna', thinkingLevel: 'xhigh' },
+      inspection: {},
+      manifest: {},
+      environment: {
+        async prepare() {
+          return {
+            root,
+            workspace: root,
+            url: 'http://127.0.0.1:1234',
+            env: {},
+            agentArgs: [],
+            provenance: {},
+            async collectArtifacts() {
+              return [];
+            },
+            async cleanup() {},
+          };
+        },
+      },
+      agent: {
+        async run(request) {
+          dispatched.push({
+            runtimeMs: request.runtimeMs,
+            maxTurns: request.maxTurns!,
+            maxTokens: request.maxTokens,
+          });
+          return {
+            status: 'completed',
+            startedAt: '',
+            endedAt: '',
+            exitCode: 0,
+            signal: null,
+            events: [],
+            model: null,
+            thinkingLevel: null,
+            usage: {
+              inputTokens: 0,
+              outputTokens: 0,
+              cacheReadTokens: 0,
+              cacheWriteTokens: 0,
+              estimatedCostUsd: null,
+              costSource: 'offline',
+            },
+          };
+        },
+      },
+    };
+  };
+  try {
+    const definitionFile = join(root, 'evals/tasks/sample.json');
+    const definition = JSON.parse(await readFile(definitionFile, 'utf8'));
+    await writeFile(
+      definitionFile,
+      JSON.stringify({ ...definition, limits: { maxTurns: 300, maxTokens: 6_000_000 } }),
+    );
+    const runner = piRunner(
+      { sourceRepo: root, agentSource: root, limits: { runtimeMs: 7_200_000, maxTurns: 200 } },
+      { prepareHarness },
+    );
+    const first = await runner.run(
+      { ...task, limits: { maxTurns: 400 } },
+      { trialId: 'first', limits: { maxTokens: 8_000_000 } },
+    );
+    await runner.run(task, { trialId: 'second', limits: { runtimeMs: 1000, maxTurns: 2 } });
+    const expected = [
+      { runtimeMs: 7_200_000, maxTurns: 400, maxTokens: 8_000_000 },
+      { runtimeMs: 1000, maxTurns: 2, maxTokens: 6_000_000 },
+    ];
+    assert.deepEqual(prepared, expected);
+    assert.deepEqual(dispatched, expected);
+    assert.deepEqual(first.metadata.limits, expected[0]);
+    assert.equal(first.metadata.cachedTokenWeight, 0.1);
+    await assert.rejects(
+      runner.run(task, { trialId: 'invalid', limits: { maxTurns: 0 } }),
+      /positive safe integer/,
+    );
+    assert.equal(prepared.length, 2);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('direct Pi runs snapshot caller-owned limits and identity before asynchronous preparation', async () => {
+  const root = await setup();
+  const options = { sourceRepo: root, agentSource: root, limits: { runtimeMs: 1000 } };
+  const authoredTask = { ...task, limits: { maxTurns: 3 } };
+  const request = { trialId: 'snapshot', limits: { maxTokens: 100 } };
+  let prepared = false;
+  const runner = piRunner(options, {
+    prepareHarness: async ({ profile }) => {
+      prepared = true;
+      assert.equal(profile.runtimeMs, 1000);
+      assert.equal(profile.maxAgentTurns, 3);
+      assert.equal(profile.maxAgentTokens, 100);
+      throw new Error('Stop before native dispatch');
+    },
+  });
+  try {
+    options.limits.runtimeMs = 2000;
+    const running = runner.run(authoredTask, request);
+    authoredTask.limits.maxTurns = 30;
+    request.limits.maxTokens = 1000;
+    request.trialId = '../unsafe-mutated-id';
+    await assert.rejects(running, /Stop before native dispatch/);
+    assert.equal(prepared, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test('Pi bridge saves incremental redacted evidence and applies no graders or task metadata to the prompt', async () => {
   const root = await setup();

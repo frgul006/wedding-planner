@@ -4,6 +4,17 @@ import { readFile, readdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import type { Task } from '../domain/types.ts';
+import { DEFAULT_TRIAL_LIMITS, MAX_RUNTIME_MS } from '../domain/trial-limits.ts';
+
+const positiveInteger = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+const runtimeLimit = positiveInteger.max(MAX_RUNTIME_MS);
+const trialLimitsSchema = z
+  .object({
+    runtimeMs: runtimeLimit.optional(),
+    maxTurns: positiveInteger.optional(),
+    maxTokens: positiveInteger.optional(),
+  })
+  .strict();
 
 const identifier = z
   .string()
@@ -40,6 +51,7 @@ export const taskSchema = z
     fixture: identifier.default('wedding-copy'),
     rubric: identifier.default('task-clarity'),
     prompt: z.string().min(1),
+    limits: trialLimitsSchema.optional(),
     targetFile: relativeFile,
     expectedText: z.string().min(1),
     flowPath: z
@@ -87,8 +99,9 @@ export const profileSchema = z
       })
       .strict()
       .default({ runtime: 'native' }),
-    runtimeMs: z.number().int().positive().max(900_000),
-    maxAgentTokens: z.number().int().positive().max(1_500_000),
+    runtimeMs: runtimeLimit.default(DEFAULT_TRIAL_LIMITS.runtimeMs),
+    maxAgentTurns: positiveInteger.default(DEFAULT_TRIAL_LIMITS.maxTurns),
+    maxAgentTokens: positiveInteger.default(DEFAULT_TRIAL_LIMITS.maxTokens),
     agentBilling: z.enum(['subscription', 'api']),
     maxAgentEstimatedCostUsd: z.number().positive().max(0.95).nullable(),
     estimatedApiBudgetUsd: z.number().positive().max(1),

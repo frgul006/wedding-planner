@@ -10,6 +10,10 @@ import test from 'node:test';
 import { FileRunStore } from '../src/adapters/file-run-store.ts';
 import { readSavedRun, selectGrading } from '../src/adapters/saved-runs.ts';
 import type { TrialEvidence } from '../src/domain/types.ts';
+import { createTrialPlan } from '../src/cli/live-plan.ts';
+import { parseCommand } from '../src/cli/arguments.ts';
+import { ConsoleOutput } from '../src/cli/output.ts';
+import { DEFAULT_TRIAL_LIMITS } from '../src/domain/trial-limits.ts';
 
 const require = createRequire(import.meta.url);
 const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
@@ -170,6 +174,109 @@ test('one-command experiments preview actual repository tasks and admit the enti
         return true;
       },
     );
+  });
+});
+
+test('trial plans resolve defaults, profile, task and explicit limits before harness preparation', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'eval-limit-precedence-'));
+  const repo = fileURLToPath(new URL('../../../', import.meta.url));
+  try {
+    for (const folder of ['tasks', 'profiles', 'rubrics', 'fixtures/wedding-copy'])
+      await mkdir(join(root, 'evals', folder), { recursive: true });
+    await writeFile(join(root, 'evals/fixtures/wedding-copy/index.html'), 'Before');
+    await writeFile(join(root, 'evals/rubrics/task-clarity.md'), 'A test rubric.');
+    const task = JSON.parse(await readFile(join(repo, 'evals/tasks/ui-copy.json'), 'utf8'));
+    const profile = JSON.parse(await readFile(join(repo, 'evals/profiles/smoke.json'), 'utf8'));
+    delete profile.runtimeMs;
+    delete profile.maxAgentTokens;
+    delete profile.maxAgentTurns;
+    const taskFile = join(root, 'evals/tasks/ui-copy.json');
+    const profileFile = join(root, 'evals/profiles/smoke.json');
+    const save = async () => {
+      await writeFile(taskFile, JSON.stringify(task));
+      await writeFile(profileFile, JSON.stringify(profile));
+    };
+    const plan = (flags: string[] = []) =>
+      createTrialPlan({
+        repo: root,
+        callerCwd: root,
+        request: parseCommand([
+          'run',
+          'ui-copy',
+          '--dry-run',
+          '--agent-source',
+          root,
+          '--grader-env-file',
+          join(root, 'unused.env'),
+          ...flags,
+        ]),
+        output: new ConsoleOutput(true),
+      });
+    const limits = (value: Awaited<ReturnType<typeof createTrialPlan>>) => ({
+      runtimeMs: value.profile.runtimeMs,
+      maxTurns: value.profile.maxAgentTurns,
+      maxTokens: value.profile.maxAgentTokens,
+    });
+    await save();
+    assert.deepEqual(limits(await plan()), DEFAULT_TRIAL_LIMITS);
+    Object.assign(profile, { runtimeMs: 120_000, maxAgentTurns: 9, maxAgentTokens: 10_000 });
+    await save();
+    assert.deepEqual(limits(await plan()), { runtimeMs: 120_000, maxTurns: 9, maxTokens: 10_000 });
+    task.limits = { runtimeMs: 240_000, maxTokens: 20_000 };
+    await save();
+    assert.deepEqual(limits(await plan()), { runtimeMs: 240_000, maxTurns: 9, maxTokens: 20_000 });
+    assert.deepEqual(limits(await plan(['--max-turns', '15'])), {
+      runtimeMs: 240_000,
+      maxTurns: 15,
+      maxTokens: 20_000,
+    });
+    assert.deepEqual(
+      limits(
+        await plan([
+          '--max-runtime-ms',
+          '1800000',
+          '--max-turns',
+          '700',
+          '--max-tokens',
+          '7000000',
+        ]),
+      ),
+      { runtimeMs: 1_800_000, maxTurns: 700, maxTokens: 7_000_000 },
+    );
+    assert.equal(await readFile(profileFile, 'utf8'), JSON.stringify(profile));
+    assert.equal(await readFile(taskFile, 'utf8'), JSON.stringify(task));
+    await assert.rejects(plan(['--max-runtime-ms', '2147483648']), /runtimeMs|timer range/);
+    task.limits.maxTokens = 0;
+    await save();
+    await assert.rejects(plan(), /Invalid evaluation configuration/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('run, experiment and profiles expose weighted token and turn limits without dispatch', async () => {
+  await offlineCli(async (invoke) => {
+    const flags = ['--max-runtime-ms', '1800000', '--max-turns', '700', '--max-tokens', '7000000'];
+    for (const command of ['run', 'experiment']) {
+      const preview = JSON.parse(
+        (await invoke([command, 'ui-copy', '--dry-run', '--json', ...flags])).stdout,
+      );
+      assert.equal(preview.profile.runtimeMs, 1_800_000);
+      assert.equal(preview.profile.maxAgentTurns, 700);
+      assert.equal(preview.profile.maxAgentTokens, 7_000_000);
+      assert.equal(preview.cachedTokenWeight, 0.1);
+      const human = (await invoke([command, 'ui-copy', '--dry-run', ...flags])).stdout;
+      assert.match(human, /7,000,000 weighted tokens · 700 completed assistant turns · 30m 00s/);
+      assert.match(human, /Cached tokens count at 10%/);
+    }
+    const profiles = JSON.parse((await invoke(['profiles', '--json'])).stdout);
+    assert.equal(profiles.cachedTokenWeight, 0.1);
+    assert(
+      profiles.profiles.every((profile: { maxAgentTurns: number }) => profile.maxAgentTurns > 0),
+    );
+    const human = (await invoke(['profiles'])).stdout;
+    assert.match(human, /WEIGHTED TOKENS\s+TURNS/);
+    assert.match(human, /Cached tokens count at 10%/);
   });
 });
 

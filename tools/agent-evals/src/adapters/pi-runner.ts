@@ -2,11 +2,17 @@ import { mkdir, readFile, readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { Runner } from '../domain/library.ts';
 import type { TrialEvidence } from '../domain/types.ts';
+import {
+  CACHED_TOKEN_WEIGHT,
+  resolveTrialLimits,
+  type TrialLimits,
+} from '../domain/trial-limits.ts';
 import { runTrial } from '../application/run-trial.ts';
 import { loadProfile, loadTask, profileSchema } from './evaluation-config.ts';
 import { FileRunStore } from './file-run-store.ts';
 import { preparePiHarness } from './pi-harness.ts';
 import { recordedTrialFromEvidence } from './recorded-trial.ts';
+import { immutableCopy } from '../application/serialization.ts';
 
 export interface PiRunnerOptions {
   sourceRepo: string;
@@ -14,7 +20,9 @@ export interface PiRunnerOptions {
   profile?: string;
   variant?: 'enabled' | 'disabled';
   runtimeMs?: number;
+  maxTurns?: number;
   maxTokens?: number;
+  limits?: Partial<TrialLimits>;
 }
 
 /** Native Pi execution only. Preparing views and applying judges belong to the evaluator. */
@@ -22,20 +30,40 @@ export function piRunner(
   options: PiRunnerOptions,
   dependencies: { prepareHarness?: typeof preparePiHarness } = {},
 ): Runner {
+  options = immutableCopy(options);
   const sourceRepo = resolve(options.sourceRepo);
   const agentSource = resolve(options.agentSource);
   return {
     async run(task, request) {
+      task = immutableCopy(task);
+      request = {
+        ...request,
+        ...(request.limits === undefined ? {} : { limits: immutableCopy(request.limits) }),
+      };
+      resolveTrialLimits(task.limits, request.limits);
       if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,179}$/.test(request.trialId))
         throw new Error('Use a filesystem-safe trial ID.');
       const definition = await loadTask(sourceRepo, task.id);
       if (String(task.version) !== definition.version || task.prompt !== definition.prompt)
         throw new Error('Pi task version and prompt must match the pinned task catalog entry.');
       const originalProfile = await loadProfile(sourceRepo, options.profile);
+      const limits = resolveTrialLimits(
+        {
+          runtimeMs: originalProfile.runtimeMs,
+          maxTurns: originalProfile.maxAgentTurns,
+          maxTokens: originalProfile.maxAgentTokens,
+        },
+        { runtimeMs: options.runtimeMs, maxTurns: options.maxTurns, maxTokens: options.maxTokens },
+        options.limits,
+        definition.limits,
+        task.limits,
+        request.limits,
+      );
       const profile = profileSchema.parse({
         ...originalProfile,
-        runtimeMs: options.runtimeMs ?? originalProfile.runtimeMs,
-        maxAgentTokens: options.maxTokens ?? originalProfile.maxAgentTokens,
+        runtimeMs: limits.runtimeMs,
+        maxAgentTurns: limits.maxTurns,
+        maxAgentTokens: limits.maxTokens,
       });
       if (profile.harness !== 'pi') throw new Error('piRunner requires a Pi evaluation profile.');
       const variant = options.variant ?? 'enabled';
@@ -63,6 +91,7 @@ export function piRunner(
           task: definition,
           variant,
           runtimeMs: profile.runtimeMs,
+          maxTurns: profile.maxAgentTurns,
           maxTokens: profile.maxAgentTokens,
           maxEstimatedCostUsd: profile.maxAgentEstimatedCostUsd,
           expectedModel: harness.expectedModel,
@@ -89,6 +118,8 @@ export function piRunner(
         ...trial.metadata,
         legacyDirectory: directory,
         legacyIntegrity: join(directory, 'integrity.json'),
+        limits,
+        cachedTokenWeight: CACHED_TOKEN_WEIGHT,
       };
       return trial;
     },

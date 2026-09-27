@@ -12,6 +12,7 @@ import type {
 } from '../domain/types.ts';
 import { flattenGrades, gradeEvidence } from './grade-evidence.ts';
 import { availableSkills, discoveredSkills, type InventorySkill } from './skill-inventory.ts';
+import { resolveTrialLimits } from '../domain/trial-limits.ts';
 
 export interface RunTrialOptions {
   signal?: AbortSignal;
@@ -20,6 +21,7 @@ export interface RunTrialOptions {
   variant: 'enabled' | 'disabled';
   runtimeMs: number;
   maxTokens: number;
+  maxTurns?: number;
   maxEstimatedCostUsd: number | null;
   expectedModel: { provider: string; id: string; thinkingLevel: string };
   executable?: string;
@@ -29,6 +31,11 @@ export async function runTrial(
   options: RunTrialOptions,
   ports: { environment: TrialEnvironment; agent: AgentRunner; graders: Grader[]; store: RunStore },
 ) {
+  const limits = resolveTrialLimits(options.task.limits, {
+    runtimeMs: options.runtimeMs,
+    maxTokens: options.maxTokens,
+    maxTurns: options.maxTurns,
+  });
   const startedAt = new Date().toISOString();
   const events: EvidenceEvent[] = [];
   const agentEvents: EvidenceEvent[] = [];
@@ -89,6 +96,7 @@ export async function runTrial(
       estimatedCostUsd: null,
       costSource: 'Unknown: agent did not return usage',
     },
+    limits,
   };
   let artifacts: TrialEvidence['artifacts'] = [];
   let manifestMetadata = options.manifest;
@@ -97,6 +105,7 @@ export async function runTrial(
     id: options.id,
     startedAt,
     status: 'preparing',
+    limits,
   });
   try {
     options.signal?.throwIfAborted();
@@ -141,8 +150,7 @@ export async function runTrial(
       executable: options.executable,
       prompt: [options.task.prompt, environment.agentContext].filter(Boolean).join('\n\n'),
       expectedModel: options.expectedModel,
-      runtimeMs: options.runtimeMs,
-      maxTokens: options.maxTokens,
+      ...limits,
       maxEstimatedCostUsd: options.maxEstimatedCostUsd,
       onEvent: (event) => {
         if (recordedAgentEventIds.has(event.id)) return;
@@ -229,6 +237,7 @@ export async function runTrial(
       statusBeforeCleanupFailure,
     });
   agent.events = agentEvents;
+  agent = { ...agent, limits: agent.limits ?? limits };
   const evidence: TrialEvidence = {
     task: options.task,
     variant: options.variant,
@@ -264,6 +273,9 @@ export async function runTrial(
     statusBeforeCleanupFailure,
     attempts: [{ attempt: 1, status: agent.status, error: agent.error, retries: 0 }],
     agentUsage: agent.usage,
+    limits: agent.limits,
+    limitUsage: agent.limitUsage,
+    limitHit: agent.limitHit,
   };
   await ports.store.save('manifest.json', manifest);
   return { evidence, grades, gradingResults, manifest };

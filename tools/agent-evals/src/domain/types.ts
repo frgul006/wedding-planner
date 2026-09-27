@@ -1,4 +1,5 @@
 /** Agent Evaluation bounded context. These contracts have no runtime dependencies. */
+import type { TrialLimits } from './trial-limits.ts';
 export type Verdict = 'pass' | 'fail' | 'unknown' | 'not-applicable';
 export type Actor = 'agent' | 'environment' | 'evaluator';
 export type TrialStatus =
@@ -85,6 +86,7 @@ export interface Task {
   acceptance?: string;
   allowedChangedPaths?: string[];
   graders?: string[];
+  limits?: Partial<TrialLimits>;
 }
 export interface Usage {
   inputTokens: number;
@@ -105,6 +107,19 @@ export interface AgentResult {
   thinkingLevel: string | null;
   events: EvidenceEvent[];
   error?: string;
+  limits?: TrialLimits;
+  limitUsage?: {
+    runtimeMs: number;
+    turns: number;
+    turnsStarted: number;
+    weightedTokens: number;
+    cachedTokenWeight: number;
+  };
+  limitHit?: {
+    kind: 'runtimeMs' | 'maxTurns' | 'maxTokens' | 'maxEstimatedCostUsd';
+    threshold: number;
+    observed: number;
+  };
 }
 export interface Grade {
   grader: string;
@@ -159,6 +174,7 @@ export interface AgentRunRequest {
   prompt: string;
   runtimeMs: number;
   maxTokens: number;
+  maxTurns?: number;
   /** Null disables dollar admission/abort controls for subscription-funded agents. */
   maxEstimatedCostUsd: number | null;
   executable?: string;

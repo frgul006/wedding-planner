@@ -11,6 +11,7 @@ import { defaultEnvFile } from '../adapters/secrets.ts';
 import { EstimatedBudget, estimateCost } from '../domain/budget.ts';
 import { selectedModelGraderCount } from '../adapters/task-graders.ts';
 import { harnesses } from '../adapters/harnesses.ts';
+import { resolveTrialLimits, type TrialLimits } from '../domain/trial-limits.ts';
 import type { CommandContext } from './context.ts';
 
 export interface ManualRetry {
@@ -39,6 +40,17 @@ export function profileOverrides(context: CommandContext) {
     graderModel: values['grader-model'],
     graderInputPrice: values['grader-input-price'],
     graderOutputPrice: values['grader-output-price'],
+  };
+}
+
+function trialLimitOverrides(context: CommandContext): Partial<TrialLimits> {
+  const values = context.request.values;
+  return {
+    ...(values['max-runtime-ms'] !== undefined
+      ? { runtimeMs: Number(values['max-runtime-ms']) }
+      : {}),
+    ...(values['max-turns'] !== undefined ? { maxTurns: Number(values['max-turns']) } : {}),
+    ...(values['max-tokens'] !== undefined ? { maxTokens: Number(values['max-tokens']) } : {}),
   };
 }
 
@@ -79,10 +91,26 @@ export function reserveBudget(
 export async function createTrialPlan(context: CommandContext): Promise<TrialPlan> {
   const { repo, callerCwd, request } = context;
   const taskName = request.args[0] ?? request.values.task ?? 'repository-ui-copy';
-  const [task, profile] = await Promise.all([
+  const [task, selectedProfile] = await Promise.all([
     loadTask(repo, taskName),
     loadProfile(repo, request.values.profile, profileOverrides(context)),
   ]);
+  const limits = resolveTrialLimits(
+    {
+      runtimeMs: selectedProfile.runtimeMs,
+      maxTurns: selectedProfile.maxAgentTurns,
+      maxTokens: selectedProfile.maxAgentTokens,
+    },
+    task.limits,
+    trialLimitOverrides(context),
+  );
+  // Harness preparation also derives the environment deadline from this profile.
+  const profile: EvaluationProfile = {
+    ...selectedProfile,
+    runtimeMs: limits.runtimeMs,
+    maxAgentTurns: limits.maxTurns,
+    maxAgentTokens: limits.maxTokens,
+  };
   const modelGraderCount = selectedModelGraderCount(task);
   if (request.values.semantic && modelGraderCount === 0)
     throw new Error('This task has no configured API graders; omit --semantic.');

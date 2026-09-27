@@ -106,6 +106,25 @@ An environment's `finalize()` stops agent descendants, checks the final applicat
 
 Profiles set the harness, runtime/budget bounds and grader configuration. The optional `pi.model` selects an exact model ID in the saved provider's catalog without changing global Pi settings; omit it to retain the saved model. The included `smoke` and `controlled` profiles both select `gpt-6-luna` and differ only in Pi conversation policy: native settings versus disabled compaction/retries. Both retain the explicitly restricted tool surface described in [the setup guide](README.md).
 
+Trial limits resolve field by field: built-in defaults, then profile values, then the task's optional `limits`, then explicit CLI flags. The defaults are one hour, 500 completed assistant turns and 5,000,000 weighted tokens per trial. Profile fields are `runtimeMs`, `maxAgentTurns` and `maxAgentTokens`; task fields use this shape:
+
+```json
+"limits": {
+  "runtimeMs": 1800000,
+  "maxTurns": 200,
+  "maxTokens": 2000000
+}
+```
+
+Omit a field to inherit it. Values must be positive safe integers; runtime also stays within Node's timer range (2,147,483,647 milliseconds). The runtime limit covers agent execution, including Pi startup; environment setup and finalization are separate. A turn counts a completed assistant response with its tool executions. The token limit counts input and output tokens at full weight, and cached reads and writes at 10%; raw provider usage remains in the recording. These agent limits are separate from the API dollar allowance and apply independently to every trial in an experiment.
+
+Use `--max-runtime-ms`, `--max-turns` and `--max-tokens` on legacy `run` and `experiment` commands. The resolved limits are applied before preparing the harness and retained in the trial's effective profile. Dry runs and `profiles` display the token weighting and turn bounds.
+
+```bash
+pnpm evals run repository-docs --max-runtime-ms 1800000 --max-turns 200 --max-tokens 2000000 --dry-run
+pnpm evals experiment repository-ui-copy --max-turns 100 --dry-run
+```
+
 ```bash
 pnpm evals run repository-docs --profile smoke
 pnpm evals run repository-docs --profile controlled

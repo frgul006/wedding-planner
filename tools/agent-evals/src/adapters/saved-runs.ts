@@ -5,6 +5,15 @@ import type { Grade, GradingResult, TrialEvidence } from '../domain/types.ts';
 import { normalizeLegacyEvidence } from './pi-evidence.ts';
 import { FileRunStore, hash } from './file-run-store.ts';
 import { readJson } from './evaluation-config.ts';
+import { MAX_RUNTIME_MS } from '../domain/trial-limits.ts';
+
+const trialLimitsSchema = z
+  .object({
+    runtimeMs: z.number().int().positive().max(MAX_RUNTIME_MS),
+    maxTurns: z.number().int().positive(),
+    maxTokens: z.number().int().positive(),
+  })
+  .strict();
 
 const gradeSchema = z.object({
   grader: z.string(),
@@ -215,6 +224,7 @@ function validateEvidence(value: unknown): TrialEvidence {
         targetFile: z.string(),
         expectedText: z.string(),
         flowPath: z.string(),
+        limits: trialLimitsSchema.partial().optional(),
       })
       .passthrough(),
     variant: z.enum(['enabled', 'disabled']),
@@ -285,6 +295,25 @@ function validateEvidence(value: unknown): TrialEvidence {
             .passthrough(),
         ),
         error: z.string().optional(),
+        limits: trialLimitsSchema.optional(),
+        limitUsage: z
+          .object({
+            runtimeMs: z.number().nonnegative(),
+            turns: z.number().int().nonnegative(),
+            turnsStarted: z.number().int().nonnegative(),
+            weightedTokens: z.number().nonnegative(),
+            cachedTokenWeight: z.number().nonnegative(),
+          })
+          .strict()
+          .optional(),
+        limitHit: z
+          .object({
+            kind: z.enum(['runtimeMs', 'maxTurns', 'maxTokens', 'maxEstimatedCostUsd']),
+            threshold: z.number().positive(),
+            observed: z.number().nonnegative(),
+          })
+          .strict()
+          .optional(),
       })
       .passthrough(),
   });

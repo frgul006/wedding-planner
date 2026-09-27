@@ -98,3 +98,50 @@ test('experiment flags describe a bounded whole experiment and reject conflictin
   assert.throws(() => parseCommand(['compare', 'a', 'b', '--factor', 'anything']), /--factor/);
   assert.match(helpText('experiment'), /entire experiment/);
 });
+
+test('trial limit flags accept explicit positive integers only on run and experiment', () => {
+  for (const command of ['run', 'experiment', 'smoke']) {
+    const parsed = parseCommand([
+      command,
+      '--max-runtime-ms',
+      '3600000',
+      '--max-turns',
+      '750',
+      '--max-tokens',
+      '7000000',
+    ]);
+    assert.equal(parsed.values['max-runtime-ms'], '3600000');
+    assert.equal(parsed.values['max-turns'], '750');
+    assert.equal(parsed.values['max-tokens'], '7000000');
+  }
+  for (const flag of ['max-runtime-ms', 'max-turns', 'max-tokens']) {
+    for (const value of [
+      '',
+      '0',
+      '-1',
+      '1.5',
+      '1e3',
+      '0x10',
+      ' 10',
+      '01',
+      'NaN',
+      'Infinity',
+      '9007199254740992',
+    ])
+      assert.throws(
+        () => parseCommand(['run', `--${flag}=${value}`]),
+        /positive safe whole number/,
+      );
+    for (const command of ['doctor', 'regrade', 'profiles'])
+      assert.throws(() => parseCommand([command, `--${flag}=10`]), /does not apply/);
+  }
+  assert.equal(
+    parseCommand(['run', '--max-turns=9007199254740991']).values['max-turns'],
+    '9007199254740991',
+  );
+  for (const command of ['run', 'experiment'] as const) {
+    assert.match(helpText(command), /--max-runtime-ms/);
+    assert.match(helpText(command), /--max-turns/);
+    assert.match(helpText(command), /cached tokens count at 10%/);
+  }
+});

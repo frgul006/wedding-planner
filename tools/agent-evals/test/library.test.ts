@@ -62,6 +62,53 @@ async function setup() {
   return { folder, store, dispose: () => rm(folder, { recursive: true, force: true }) };
 }
 
+test('suite budgets are per trial and run overrides preserve task fields across repetitions', async () => {
+  const context = await setup();
+  const seen: unknown[] = [];
+  const evaluator = createEvaluator({
+    store: context.store,
+    runner: {
+      async run(task, request) {
+        seen.push(request.limits);
+        return { ...trial(request.trialId), task };
+      },
+    },
+  });
+  try {
+    const tasks = [
+      { id: 'small', version: 1, prompt: 'Small task', limits: { runtimeMs: 1000, maxTurns: 10 } },
+      {
+        id: 'large',
+        version: 1,
+        prompt: 'Large task',
+        limits: { runtimeMs: 7_200_000, maxTurns: 1000 },
+      },
+    ];
+    const run = await evaluator.run(
+      { id: 'budgets', tasks, graders: [] },
+      { repetitions: 2, limits: { maxTokens: 9_000_000, maxTurns: 700 } },
+    );
+    assert.equal(run.trialIds.length, 4);
+    assert.deepEqual(seen, [
+      { runtimeMs: 1000, maxTurns: 700, maxTokens: 9_000_000 },
+      { runtimeMs: 7_200_000, maxTurns: 700, maxTokens: 9_000_000 },
+      { runtimeMs: 1000, maxTurns: 700, maxTokens: 9_000_000 },
+      { runtimeMs: 7_200_000, maxTurns: 700, maxTokens: 9_000_000 },
+    ]);
+    await assert.rejects(
+      evaluator.run({
+        id: 'invalid',
+        tasks: [...tasks, { ...tasks[0]!, limits: { maxTurns: 0 } }],
+        graders: [],
+      }),
+      /positive safe integer/,
+    );
+    assert.equal(seen.length, 4, 'all configurations validated before the first dispatch');
+  } finally {
+    await context.dispose();
+  }
+});
+
 test('two graders share one prepared view; exact requests precede dispatch and results retain sources', async () => {
   const context = await setup();
   try {

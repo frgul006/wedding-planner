@@ -183,6 +183,41 @@ test('saved run selectors accept IDs, caller-relative paths and latest by trial 
   });
 });
 
+test('saved runs retain valid per-trial limit accounting and reject malformed measurements', async () => {
+  await fixture(async (repo) => {
+    const store = await saveTrial(repo);
+    const enriched: TrialEvidence = {
+      ...evidence,
+      task: { ...evidence.task, limits: { maxTurns: 12 } },
+      agent: {
+        ...evidence.agent,
+        limits: { runtimeMs: 3_600_000, maxTurns: 12, maxTokens: 5_000_000 },
+        limitUsage: {
+          runtimeMs: 400,
+          turns: 12,
+          turnsStarted: 12,
+          weightedTokens: 200.5,
+          cachedTokenWeight: 0.1,
+        },
+        limitHit: { kind: 'maxTurns', threshold: 12, observed: 12 },
+      },
+    };
+    const seal = () =>
+      store.seal(['manifest.json', 'evidence.json', 'grades.json', 'semantic.json', 'report.md']);
+    await store.save('evidence.json', enriched);
+    await seal();
+    const loaded = await readSavedRun(store.directory);
+    assert.deepEqual(loaded.evidence.task.limits, enriched.task.limits);
+    assert.deepEqual(loaded.evidence.agent.limits, enriched.agent.limits);
+    assert.deepEqual(loaded.evidence.agent.limitUsage, enriched.agent.limitUsage);
+    assert.deepEqual(loaded.evidence.agent.limitHit, enriched.agent.limitHit);
+    enriched.agent.limitUsage!.weightedTokens = -1;
+    await store.save('evidence.json', enriched);
+    await seal();
+    await assert.rejects(readSavedRun(store.directory), /weightedTokens/);
+  });
+});
+
 test('empty result catalogs are useful and diagnostic folders are excluded', async () => {
   await fixture(async (repo) => {
     assert.deepEqual(await listRuns(repo), []);

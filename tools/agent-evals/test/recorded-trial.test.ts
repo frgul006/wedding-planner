@@ -128,6 +128,24 @@ test('a finished trace can be complete even when required behavior never happene
   );
 });
 
+test('portable outcomes preserve raw usage and recorded weighted limit accounting', () => {
+  const evidence = recording([settled], 'budget_exceeded');
+  evidence.agent.limits = { runtimeMs: 3_600_000, maxTurns: 500, maxTokens: 5000 };
+  evidence.agent.limitUsage = {
+    runtimeMs: 500,
+    turns: 3,
+    turnsStarted: 4,
+    weightedTokens: 5000.1,
+    cachedTokenWeight: 0.1,
+  };
+  evidence.agent.limitHit = { kind: 'maxTokens', threshold: 5000, observed: 5000.1 };
+  const trial = recordedTrialFromEvidence('trial-limits', evidence, environment);
+  assert.deepEqual(trial.outcome.limits, evidence.agent.limits);
+  assert.deepEqual(trial.outcome.limitUsage, evidence.agent.limitUsage);
+  assert.deepEqual(trial.outcome.limitHit, evidence.agent.limitHit);
+  assert.deepEqual(trial.outcome.usage, evidence.agent.usage);
+});
+
 test('legacy contexts, interrupted execution and unmatched tool calls are explicit capture gaps', () => {
   const trial = recordedTrialFromEvidence('trial-interrupted', recording([start], 'timeout'));
   assert.equal(trial.trace.complete, false);

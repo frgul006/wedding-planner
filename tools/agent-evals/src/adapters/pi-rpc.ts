@@ -10,6 +10,7 @@ import type {
 } from '../domain/types.js';
 import { normalizePiEvent } from './pi-evidence.ts';
 import { endpointHash } from './pi-endpoint-selection.ts';
+import { CACHED_TOKEN_WEIGHT, resolveTrialLimits, weightedTokens } from '../domain/trial-limits.ts';
 
 type JsonObject = Record<string, unknown>;
 export const object = (value: unknown): JsonObject =>
@@ -277,17 +278,18 @@ export class PiRpcRunner implements AgentRunner {
   async run(request: AgentRunRequest): Promise<AgentResult> {
     if (request.env.OPENAI_API_KEY)
       throw new Error('Grader OPENAI_API_KEY must not enter the Pi process environment');
-    for (const [name, value] of Object.entries({
+    const limits = resolveTrialLimits({
       runtimeMs: request.runtimeMs,
       maxTokens: request.maxTokens,
-      ...(request.maxEstimatedCostUsd === null
-        ? {}
-        : { maxEstimatedCostUsd: request.maxEstimatedCostUsd }),
-    })) {
-      if (!Number.isFinite(value) || value <= 0)
-        throw new Error(`${name} must be finite and greater than zero`);
-    }
+      maxTurns: request.maxTurns,
+    });
+    if (
+      request.maxEstimatedCostUsd !== null &&
+      (!Number.isFinite(request.maxEstimatedCostUsd) || request.maxEstimatedCostUsd <= 0)
+    )
+      throw new Error('maxEstimatedCostUsd must be finite and greater than zero');
     const startedAt = new Date().toISOString();
+    const startedClock = performance.now();
     const events: EvidenceEvent[] = [];
     const usage = new UsageAccumulator();
     let model: JsonObject | null = null;
@@ -298,6 +300,16 @@ export class PiRpcRunner implements AgentRunner {
     let stopping = false;
     let hasAgentError = false;
     let callbackFailed = false;
+    let turns = 0;
+    let turnsStarted = 0;
+    let limitHit: AgentResult['limitHit'];
+    const limitUsage = (): NonNullable<AgentResult['limitUsage']> => ({
+      runtimeMs: performance.now() - startedClock,
+      turns,
+      turnsStarted,
+      weightedTokens: weightedTokens(usage.value()),
+      cachedTokenWeight: CACHED_TOKEN_WEIGHT,
+    });
     let rpc: RpcProcess;
     let resolveDone!: () => void;
     const done = new Promise<void>((resolve) => {
@@ -325,18 +337,30 @@ export class PiRpcRunner implements AgentRunner {
         }
       }
     };
-    const stop = (next: TrialStatus, message: string) => {
-      if (stopping || settled) return;
+    const stop = (next: TrialStatus, message: string, hit?: AgentResult['limitHit']) => {
+      // Final session totals can expose paid usage only after agent_settled.
+      // Record that observed token/cost breach, but never replace an earlier stop.
+      if (stopping || (settled && hit?.kind !== 'maxTokens' && hit?.kind !== 'maxEstimatedCostUsd'))
+        return;
       stopping = true;
       status = next;
       error = message;
-      emit('evaluator', 'lifecycle', { type: 'stop_requested', reason: next, message });
+      limitHit = hit;
+      emit('evaluator', 'lifecycle', {
+        type: 'stop_requested',
+        reason: next,
+        message,
+        limits,
+        limitUsage: limitUsage(),
+        ...(hit ? { limitHit: hit } : {}),
+      });
       resolveDone();
       // Interrupt startup requests as well as generation. A provider may never emit usage.
-      void rpc
-        ?.request('abort', {}, 500)
-        .catch(() => undefined)
-        .then(() => rpc.close());
+      if (!settled)
+        void rpc
+          ?.request('abort', {}, 500)
+          .catch(() => undefined)
+          .then(() => rpc.close());
     };
     if (request.signal?.aborted) {
       emit('evaluator', 'lifecycle', {
@@ -351,6 +375,8 @@ export class PiRpcRunner implements AgentRunner {
         exitCode: null,
         signal: null,
         usage: usage.value(),
+        limits,
+        limitUsage: limitUsage(),
         model,
         thinkingLevel,
         events,
@@ -367,6 +393,17 @@ export class PiRpcRunner implements AgentRunner {
       onEvent: (event) => {
         emit(event.type === 'response' ? 'evaluator' : 'agent', 'pi', event);
         usage.accept(event);
+        if (event.type === 'turn_start') turnsStarted++;
+        if (event.type === 'turn_end') turns++;
+        // Timers can be delayed by synchronous event/evidence processing. Never
+        // accept a late settlement merely because the timer callback ran later.
+        const elapsed = limitUsage().runtimeMs;
+        if (!settled && elapsed >= limits.runtimeMs)
+          stop('timeout', `Agent runtime exceeded ${limits.runtimeMs}ms`, {
+            kind: 'runtimeMs',
+            threshold: limits.runtimeMs,
+            observed: elapsed,
+          });
         if (event.type === 'message_end') {
           const message = object(event.message);
           if (
@@ -390,22 +427,29 @@ export class PiRpcRunner implements AgentRunner {
         if (event.type === 'extension_ui_request')
           stop('infrastructure_error', 'Trial requested interactive extension UI');
         const measured = usage.value();
-        const tokens =
-          measured.inputTokens +
-          measured.outputTokens +
-          measured.cacheReadTokens +
-          measured.cacheWriteTokens;
-        if (tokens >= request.maxTokens)
+        const tokens = weightedTokens(measured);
+        if (tokens >= limits.maxTokens)
           stop(
             'budget_exceeded',
-            `Observed token budget reached (${tokens} >= ${request.maxTokens})`,
+            `Observed weighted token budget reached (${tokens} >= ${limits.maxTokens}; cached tokens × ${CACHED_TOKEN_WEIGHT})`,
+            { kind: 'maxTokens', threshold: limits.maxTokens, observed: tokens },
           );
+        if (turns >= limits.maxTurns)
+          stop('budget_exceeded', `Completed turn limit reached (${turns} >= ${limits.maxTurns})`, {
+            kind: 'maxTurns',
+            threshold: limits.maxTurns,
+            observed: turns,
+          });
         if (
           request.maxEstimatedCostUsd !== null &&
           measured.estimatedCostUsd !== null &&
           measured.estimatedCostUsd >= request.maxEstimatedCostUsd
         )
-          stop('budget_exceeded', 'Observed estimated agent cost budget reached');
+          stop('budget_exceeded', 'Observed estimated agent cost budget reached', {
+            kind: 'maxEstimatedCostUsd',
+            threshold: request.maxEstimatedCostUsd,
+            observed: measured.estimatedCostUsd,
+          });
         if (event.type === 'agent_settled') {
           settled = true;
           resolveDone();
@@ -420,8 +464,13 @@ export class PiRpcRunner implements AgentRunner {
         );
     });
     const timeout = setTimeout(
-      () => stop('timeout', `Agent runtime exceeded ${request.runtimeMs}ms`),
-      request.runtimeMs,
+      () =>
+        stop('timeout', `Agent runtime exceeded ${limits.runtimeMs}ms`, {
+          kind: 'runtimeMs',
+          threshold: limits.runtimeMs,
+          observed: limitUsage().runtimeMs,
+        }),
+      limits.runtimeMs,
     );
     const cancel = () => stop('cancelled', 'Evaluation cancelled by user.');
     request.signal?.addEventListener('abort', cancel, { once: true });
@@ -430,17 +479,20 @@ export class PiRpcRunner implements AgentRunner {
         type: 'pi_started',
         executable: request.executable ?? 'pi',
         args: ['--mode', 'rpc', '--no-session', ...(request.args ?? [])],
-        runtimeMs: request.runtimeMs,
-        maxTokens: request.maxTokens,
+        ...limits,
+        limits,
+        cachedTokenWeight: CACHED_TOKEN_WEIGHT,
+        turnDefinition:
+          'One completed assistant response and its resulting tool calls/results; counts native turn_end, including retries. Hitting the limit stops even at an otherwise natural completion boundary.',
         maxEstimatedCostUsd: request.maxEstimatedCostUsd,
         agentCostLimitEnabled: request.maxEstimatedCostUsd !== null,
         agentCostEstimateIsBilling: false,
         budgetEnforcement:
           request.maxEstimatedCostUsd === null
-            ? 'Subscription agent: dollar threshold disabled; catalog cost remains informational. Observed token abort and bounded runtime remain enabled; a streaming request may overshoot the token limit.'
-            : 'Observed token and estimated-cost abort; a streaming request may overshoot; runtime termination is bounded',
+            ? 'Subscription agent: dollar threshold disabled; catalog cost remains informational. Runtime, completed-turn and weighted-token limits apply independently. Cached tokens count at 0.1; observed limits can overshoot in flight.'
+            : 'Independent runtime, completed-turn, weighted-token and estimated-cost limits; observed usage may overshoot in flight.',
       });
-      const state = await rpc.request('get_state', {}, Math.min(request.runtimeMs, 15_000));
+      const state = await rpc.request('get_state', {}, Math.min(limits.runtimeMs, 15_000));
       model = modelMetadata(state.model);
       thinkingLevel = typeof state.thinkingLevel === 'string' ? state.thinkingLevel : null;
       if (!model) throw new Error('Pi has no active model');
@@ -500,6 +552,9 @@ export class PiRpcRunner implements AgentRunner {
       endedAt: new Date().toISOString(),
       ...exit,
       usage: usage.value(),
+      limits,
+      limitUsage: limitUsage(),
+      ...(limitHit ? { limitHit } : {}),
       model,
       thinkingLevel,
       events,

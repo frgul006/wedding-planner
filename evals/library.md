@@ -30,7 +30,17 @@ This native-specific view audits recording continuity from the start through the
 
 Repeated output lines may use `line-dictionary-v1`: ordered dictionary references reconstruct the exact original text, including empty lines and line endings. This is deterministic deduplication, not a generated summary. Both the dictionary and its order are supplied to Jev and retained in the report. This scope permits up to 30,000 state characters while keeping the adapter's conservative model-context check. Human calibration of the questions and this representation remains outstanding; a model's pass does not establish that the task was repaired or that a test succeeded.
 
-The example bounds Pi to six minutes and 350,000 observed cumulative tokens, concurrency one, with no automatic trial retry. Its smoke profile selects Luna and preserves native provider, authentication, and saved reasoning without changing global settings. Jev uses pinned `jev-1.13.0`, no SDK retries, and a default aggregate reservation allowance of $0.01 per command. Admission estimates are not provider-enforced caps; in-flight agent usage can overshoot. Existing native provider retry settings remain observable.
+The default per-trial agent limits are **one hour, 500 completed turns, and 5,000,000 weighted tokens**. Any reached limit stops that trial; counters reset for each repetition. A turn is one assistant response plus its resulting tool calls/results, including failed attempts and native retries. Token accounting is `input + output + 0.1 × (cacheRead + cacheWrite)` across all calls. Raw provider usage remains unchanged in the record; the weighting is a harness policy, not a dollar bill. Runtime includes Pi startup and agent execution, excluding environment preparation, final acceptance checks, and grading. Concurrency is one, with no automatic trial retry. Its smoke profile selects Luna and preserves native provider, authentication, and saved reasoning without changing global settings. Jev uses pinned `jev-1.13.0`, no SDK retries, and a default aggregate reservation allowance of $0.01 per command. Admission estimates are not provider-enforced caps; in-flight agent usage can overshoot. Existing native provider retry settings remain observable.
+
+Override any limit for an individual run (positive whole numbers):
+
+```bash
+pnpm evals library run --max-runtime-ms 7200000 --max-turns 1000 --max-tokens 10000000 --dry-run
+```
+
+Remove `--dry-run` to execute. There is no hidden six-minute or 350k clamp. `--profile NAME` selects another runtime profile; each task JSON or TypeScript task can define `limits: { runtimeMs, maxTurns, maxTokens }`. The Pi adapter resolves shared defaults, profile values, runner defaults (`piRunner({ limits: ... })`), task limits, then explicit per-trial `runner.run(task, { trialId, limits })` overrides. `evals.run(suite, { limits: ... })` applies explicit overrides to every trial in that invocation; other task fields keep their own values. Limits are resolved before preparing the environment so authentication and tool deadlines use the same runtime. Runtime values must fit the platform timer range; turns and tokens must be positive safe integers. Longer OAuth trials require credentials that remain valid for the configured duration; preparation fails visibly if the provider cannot supply that validity.
+
+Saved evidence includes the effective limits, completed and started turn counts, weighted token usage, cache weight, and the first limit hit with its threshold and observed value. Reaching a limit is reported as an incomplete trial, even if the final response happens to coincide with the boundary. In-flight usage can exceed a token ceiling before Pi reports it; an abort is requested on the first observed hit. The agent's process is shut down and evidence/final state are retained. Grading budgets remain separate from these per-trial execution limits.
 
 The included profiles explicitly select `pi.endpoint: "catalog"`. The private Pi configuration removes an endpoint-only provider override and verifies the catalog endpoint before prompting. Saved and effective endpoint identities are recorded; global configuration is untouched. Complex overrides containing credentials or model definitions are rejected instead of redirected. Set `pi.endpoint: "native"` to preserve a working custom endpoint. Doctor detects the known stale local static-server configuration without sending a model prompt.
 
@@ -81,8 +91,6 @@ const evals = createEvaluator({
   runner: piRunner({
     sourceRepo,
     agentSource,
-    runtimeMs: 360_000,
-    maxTokens: 350_000,
   }),
   judge: jevJudge({ apiKey: typesafeKey }),
   store: fileStore("evals/runs/my-suite"),
@@ -90,7 +98,7 @@ const evals = createEvaluator({
 });
 const run = await evals.run({
   id: "retry",
-  tasks: [task],
+  tasks: [{ ...task, limits: { runtimeMs: 3_600_000, maxTurns: 500, maxTokens: 5_000_000 } }],
   graders: [hypothesis, validation],
 });
 await evals.regrade(run.id, {

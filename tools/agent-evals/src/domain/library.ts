@@ -1,3 +1,6 @@
+import type { TrialLimits } from './trial-limits.ts';
+export type { TrialLimits } from './trial-limits.ts';
+
 /** Portable authoring contracts. Vendor payloads belong in metadata, never in core rules. */
 export type Verdict = 'pass' | 'fail' | 'unknown' | 'not_applicable';
 export type Version = string | number;
@@ -131,12 +134,13 @@ export interface EvaluationTask {
   id: string;
   version: Version;
   prompt: string;
+  limits?: Partial<TrialLimits>;
   metadata?: Record<string, unknown>;
 }
 export interface Runner {
   run(
     task: EvaluationTask,
-    options: { trialId: string; signal?: AbortSignal },
+    options: { trialId: string; signal?: AbortSignal; limits?: Partial<TrialLimits> },
   ): Promise<RecordedTrial>;
 }
 export interface Suite {

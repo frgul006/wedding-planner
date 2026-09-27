@@ -115,7 +115,7 @@ async function saveTrial(store: ReturnType<typeof fileStore>, requiredChecks: st
   });
 }
 
-test('library preview reads the selected profile and tighter limits without native Pi or credentials', async () => {
+test('library preview reads the selected profile and per-trial limits without native Pi or credentials', async () => {
   const context = await setup();
   try {
     const result = await context.invoke(['run', '--dry-run', '--json']);
@@ -141,8 +141,10 @@ test('library preview reads the selected profile and tighter limits without nati
     const nativePlan = JSON.parse(nativeDefault.stdout);
     assert.equal(nativePlan.model, 'native saved model (resolved before prompting)');
     assert.equal(nativePlan.endpointPolicy, 'native');
-    assert.equal(nativePlan.runtimeMs, 360_000);
-    assert.equal(nativePlan.maxTokens, 350_000);
+    assert.equal(nativePlan.runtimeMs, 900_000);
+    assert.equal(nativePlan.maxTokens, 1_500_000);
+    assert.equal(nativePlan.maxTurns, 500);
+    assert.equal(nativePlan.cachedTokenWeight, 0.1);
 
     const regrade = await context.invoke(['regrade', 'saved-run', '--dry-run', '--json']);
     assert.equal(regrade.code, 0, regrade.stderr);
@@ -196,6 +198,44 @@ test('library run retains a preparation failure and returns a nonzero execution 
     assert.equal(trial.trace.complete, false);
     const gradings = await context.store.listGradings(trial.id);
     assert.equal(gradings[0]!.rollups[0]!.verdict, 'unknown');
+  } finally {
+    await context.dispose();
+  }
+});
+
+test('library dry-run resolves task and explicit limits without the former hidden ceilings', async () => {
+  const context = await setup();
+  try {
+    const taskFile = path.join(context.repo, 'evals/tasks/repository-login-retry.json');
+    const task = JSON.parse(await readFile(taskFile, 'utf8'));
+    task.limits = { runtimeMs: 7_200_000, maxTurns: 750, maxTokens: 8_000_000 };
+    await writeFile(taskFile, JSON.stringify(task));
+    const fromTask = await context.invoke(['run', '--dry-run', '--json']);
+    assert.equal(fromTask.code, 0, fromTask.stderr);
+    const taskPlan = JSON.parse(fromTask.stdout);
+    for (const [key, value] of Object.entries(task.limits)) assert.equal(taskPlan[key], value);
+    const explicit = await context.invoke([
+      'run',
+      '--dry-run',
+      '--json',
+      '--max-turns',
+      '2',
+      '--max-tokens',
+      '10000000',
+    ]);
+    assert.equal(explicit.code, 0, explicit.stderr);
+    const plan = JSON.parse(explicit.stdout);
+    assert.equal(plan.runtimeMs, 7_200_000);
+    assert.equal(plan.maxTurns, 2);
+    assert.equal(plan.maxTokens, 10_000_000);
+    for (const args of [
+      ['run', '--dry-run', '--max-turns', '0'],
+      ['run', '--dry-run', '--max-tokens', 'NaN'],
+      ['run', '--dry-run', '--max-runtime-ms', '2147483648'],
+      ['regrade', 'saved-run', '--dry-run', '--max-turns', '1'],
+      ['show', 'saved-run', '--max-tokens', '2'],
+    ])
+      assert.notEqual((await context.invoke(args)).code, 0, args.join(' '));
   } finally {
     await context.dispose();
   }

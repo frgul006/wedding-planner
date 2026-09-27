@@ -7,6 +7,11 @@ import { fileStore } from '../adapters/library-file-store.ts';
 import { loadProfile, loadTask } from '../adapters/evaluation-config.ts';
 import { defaultEnvFile } from '../adapters/secrets.ts';
 import {
+  CACHED_TOKEN_WEIGHT,
+  resolveTrialLimits,
+  type TrialLimits,
+} from '../domain/trial-limits.ts';
+import {
   diagnosis,
   completedDiagnosis,
   falsifiableHypothesis,
@@ -29,6 +34,10 @@ show reads local records without model calls. Core/adapter APIs are separately e
   --key-file PATH     Reads only TYPESAFE_API_KEY (default: worktree .env.local)
   --budget-usd N      Aggregate Jev admission estimate (default: 0.01, maximum: 1)
   --agent-source PATH Native Pi resource checkout (default: original checkout)
+  --profile NAME      Runtime profile for run (default: smoke)
+  --max-runtime-ms N  Per-trial agent deadline in milliseconds
+  --max-turns N       Per-trial completed assistant turns (including tool results)
+  --max-tokens N      Per-trial weighted token limit (cached tokens count 0.1×)
   --revision 1|2      Example diagnostic question version (default: 1)
   --diagnosis-scope entire|completed-attempt
                       Regrade the whole saved diagnosis (default), or only its
@@ -38,8 +47,10 @@ show reads local records without model calls. Core/adapter APIs are separately e
   --json              Machine-readable output
 
 Pi uses its existing subscription and saved reasoning, with the smoke profile's
-model (currently Luna). Limits are at most six minutes and 350,000 observed
-cumulative tokens, or tighter profile limits. No automatic agent retries. Jev uses its
+model (currently Luna). Defaults are one hour, 500 turns and 5,000,000 weighted
+tokens per trial. Profile < task limits < explicit run flags; any limit hit stops
+the trial. Runtime covers Pi startup/execution, excluding environment setup and grading.
+No automatic agent retries. Jev uses its
 separate key, version jev-1.13.0, concurrency 1 and no retries. These estimates are
 application limits, not provider-enforced caps. Limits can overshoot in flight.
 Exit 2 means execution, preparation or grading failed. A completed behavioral
@@ -85,6 +96,10 @@ export async function libraryCommand(
       'key-file': { type: 'string' },
       'budget-usd': { type: 'string' },
       'agent-source': { type: 'string' },
+      profile: { type: 'string' },
+      'max-runtime-ms': { type: 'string' },
+      'max-turns': { type: 'string' },
+      'max-tokens': { type: 'string' },
       revision: { type: 'string' },
       'diagnosis-scope': { type: 'string' },
     },
@@ -103,6 +118,21 @@ export async function libraryCommand(
     (action !== 'run' && !reference)
   )
     throw new Error('Use library run, library regrade RUN_ID, or library show RUN_ID');
+  const limitOverrides: Partial<TrialLimits> = {};
+  for (const [flag, key] of [
+    ['max-runtime-ms', 'runtimeMs'],
+    ['max-turns', 'maxTurns'],
+    ['max-tokens', 'maxTokens'],
+  ] as const) {
+    const value = parsed.values[flag];
+    if (value === undefined) continue;
+    if (action !== 'run') throw new Error(`--${flag} only applies to library run`);
+    if (!/^[1-9]\d*$/.test(value)) throw new Error(`--${flag} must be a positive integer`);
+    limitOverrides[key] = Number(value);
+  }
+  resolveTrialLimits(limitOverrides);
+  if (parsed.values.profile !== undefined && action !== 'run')
+    throw new Error('--profile only applies to library run');
   const revision = Number(parsed.values.revision ?? 1);
   const diagnosisScope = parsed.values['diagnosis-scope'] ?? 'entire';
   if (
@@ -148,10 +178,20 @@ export async function libraryCommand(
   );
   const task =
     action === 'run' ? await loadTask(context.repo, 'repository-login-retry') : undefined;
-  const profile = action === 'run' ? await loadProfile(context.repo) : undefined;
+  const profile =
+    action === 'run' ? await loadProfile(context.repo, parsed.values.profile) : undefined;
   const agentModel = profile?.pi.model ?? 'native saved model (resolved before prompting)';
-  const runtimeMs = Math.min(profile?.runtimeMs ?? 360_000, 360_000);
-  const maxTokens = Math.min(profile?.maxAgentTokens ?? 350_000, 350_000);
+  const limits = resolveTrialLimits(
+    profile
+      ? {
+          runtimeMs: profile.runtimeMs,
+          maxTurns: profile.maxAgentTurns,
+          maxTokens: profile.maxAgentTokens,
+        }
+      : undefined,
+    task?.limits,
+    limitOverrides,
+  );
   if (parsed.values['dry-run']) {
     const plan = {
       action,
@@ -162,8 +202,8 @@ export async function libraryCommand(
             profile: profile.id,
             model: agentModel,
             endpointPolicy: profile.pi.endpoint ?? 'native',
-            runtimeMs,
-            maxTokens,
+            ...limits,
+            cachedTokenWeight: CACHED_TOKEN_WEIGHT,
           }
         : {}),
       judge: parsed.values['no-judge'] ? null : 'jev-1.13.0',
@@ -198,15 +238,14 @@ export async function libraryCommand(
       agentSource: parsed.values['agent-source']
         ? path.resolve(context.callerCwd, parsed.values['agent-source'])
         : path.dirname(defaultEnvFile(context.repo)),
-      runtimeMs,
-      maxTokens,
+      profile: parsed.values.profile,
     });
   }
   const evaluator = createEvaluator({ store, runner, judge, budgetUsd });
   if (!parsed.values.json)
     process.stderr.write(
       action === 'run'
-        ? `Running one ${agentModel} trial; saving evidence before grading…\n`
+        ? `Running one ${agentModel} trial; limits: ${limits.runtimeMs}ms, ${limits.maxTurns} turns, ${limits.maxTokens} weighted tokens (cached ×0.1); saving evidence before grading…\n`
         : 'Preparing and grading saved evidence; Pi will not run…\n',
     );
   const timer = setInterval(() => {
@@ -240,6 +279,7 @@ export async function libraryCommand(
         concurrency: 1,
         repetitions: 1,
         signal: context.signal,
+        limits,
       });
       const trials = await Promise.all(
         run.trialIds.map(async (id) => {

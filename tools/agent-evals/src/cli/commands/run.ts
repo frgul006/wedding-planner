@@ -3,6 +3,7 @@ import { timestampId, type CommandContext } from '../context.ts';
 import { formatDuration, trialSummary } from '../output.ts';
 import { gradingCost } from '../grading-view.ts';
 import { executeTrial, prepareExecution } from '../trial-execution.ts';
+import { CACHED_TOKEN_WEIGHT } from '../../domain/trial-limits.ts';
 
 export async function runCommand(context: CommandContext): Promise<number> {
   const plan = await createTrialPlan(context);
@@ -11,6 +12,7 @@ export async function runCommand(context: CommandContext): Promise<number> {
       {
         dryRun: true,
         ...plan,
+        cachedTokenWeight: CACHED_TOKEN_WEIGHT,
         budget: { limitUsd: plan.budget.limitUsd, reservedEstimateUsd: plan.budget.reservedUsd },
       },
       `Ready to run · ${plan.task.id} · instruction ${plan.variant}
@@ -21,7 +23,8 @@ Agent profile source: ${plan.agentSource}
 Harness: ${plan.profile.harness}/${plan.profile.pi.runtime}
 Agent model: ${plan.profile.pi.model ?? 'native saved model'}
 Task source: ${plan.task.environment === 'repository' ? `repository@${plan.task.repository!.revision}` : `fixture:${plan.task.fixture}`}
-Bounds: ${plan.profile.maxAgentTokens.toLocaleString('en-US')} observed tokens · ${formatDuration(plan.profile.runtimeMs)}
+Bounds per trial: ${plan.profile.maxAgentTokens.toLocaleString('en-US')} weighted tokens · ${plan.profile.maxAgentTurns.toLocaleString('en-US')} completed assistant turns · ${formatDuration(plan.profile.runtimeMs)}
+Cached tokens count at ${CACHED_TOKEN_WEIGHT * 100}% toward the token limit.
 API grader: ${plan.useGrader ? plan.profile.grader.model : 'disabled (opt in with --semantic)'}
 API reservation: $${plan.budget.reservedUsd.toFixed(6)} of $${plan.budget.limitUsd}
 

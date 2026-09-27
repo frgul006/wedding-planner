@@ -1,8 +1,8 @@
 {
   "id": "local-pi-controlled-v2",
   "concurrency": 1,
-  "runtimeMs": 900000,
-  "maxAgentTokens": 1500000,
+  "runtimeMs": 3600000,
+  "maxAgentTokens": 5000000,
   "maxAgentEstimatedCostUsd": null,
   "estimatedApiBudgetUsd": 1,
   "agentRetries": 0,
@@ -24,5 +24,6 @@
     "runtime": "controlled",
     "model": "gpt-6-luna",
     "endpoint": "catalog"
-  }
+  },
+  "maxAgentTurns": 500
 }

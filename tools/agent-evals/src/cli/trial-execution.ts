@@ -52,6 +52,7 @@ export async function executeTrial(
       task: plan.task,
       variant: plan.variant,
       runtimeMs: plan.profile.runtimeMs,
+      maxTurns: plan.profile.maxAgentTurns,
       maxTokens: plan.profile.maxAgentTokens,
       maxEstimatedCostUsd: plan.profile.maxAgentEstimatedCostUsd,
       expectedModel: harness.expectedModel,

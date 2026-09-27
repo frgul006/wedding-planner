@@ -3,6 +3,7 @@ import type { CommandContext } from '../context.ts';
 import { formatDuration, table } from '../output.ts';
 import { selectedGraderIds } from '../../adapters/task-graders.ts';
 import { harnesses } from '../../adapters/harnesses.ts';
+import { CACHED_TOKEN_WEIGHT } from '../../domain/trial-limits.ts';
 
 export async function catalogCommand(context: CommandContext): Promise<number> {
   const { repo, request, output } = context;
@@ -39,23 +40,35 @@ Add a task: evals/authoring.md`,
       })),
     );
     output.result(
-      { profiles },
+      { profiles, cachedTokenWeight: CACHED_TOKEN_WEIGHT },
       `Profiles
 
 ${table(
-  ['NAME', 'HARNESS', 'PI BILLING', 'TOKEN LIMIT', 'DEADLINE', 'API ALLOWANCE', 'GRADER'],
+  [
+    'NAME',
+    'HARNESS',
+    'PI BILLING',
+    'WEIGHTED TOKENS',
+    'TURNS',
+    'DEADLINE',
+    'API ALLOWANCE',
+    'GRADER',
+  ],
   profiles.map((profile) => [
     profile.name,
     `${profile.harness}/${profile.pi.runtime}`,
     profile.agentBilling,
     profile.maxAgentTokens.toLocaleString('en-US'),
+    profile.maxAgentTurns.toLocaleString('en-US'),
     formatDuration(profile.runtimeMs),
     `$${profile.estimatedApiBudgetUsd}`,
     profile.grader.model,
   ]),
 )}
 
-Select one with --profile NAME. API allowances are application estimates.`,
+Select one with --profile NAME. Task limits and explicit CLI flags override profile limits.
+Cached tokens count at ${CACHED_TOKEN_WEIGHT * 100}% of their observed count; turns count completed assistant responses.
+API allowances are application estimates.`,
     );
     return 0;
   }

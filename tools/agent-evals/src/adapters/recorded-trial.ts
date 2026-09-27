@@ -218,6 +218,9 @@ export function recordedTrialFromEvidence(
       artifacts: finalArtifactIds,
       patch: patchId,
       usage: evidence.agent.usage,
+      limits: evidence.agent.limits,
+      limitUsage: evidence.agent.limitUsage,
+      limitHit: evidence.agent.limitHit,
       error: evidence.agent.error,
     },
     metadata: {

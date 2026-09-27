@@ -138,6 +138,50 @@ function prepared(overrides: Partial<PreparedEnvironment> = {}): PreparedEnviron
   };
 }
 
+test('resolved per-trial limits reach the agent and remain in evidence and manifest', async () => {
+  const limits = { runtimeMs: 100, maxTokens: 10, maxTurns: 3 };
+  const limitUsage = {
+    runtimeMs: 75,
+    turns: 3,
+    turnsStarted: 3,
+    weightedTokens: 8.5,
+    cachedTokenWeight: 0.1,
+  };
+  const limitHit = { kind: 'maxTurns' as const, threshold: 3, observed: 3 };
+  const saved = new Map<string, unknown>();
+  const result = await runTrial(
+    { ...options, task: { ...task, limits: { maxTurns: 7 } }, maxTurns: 3 },
+    {
+      environment: {
+        async prepare() {
+          return prepared();
+        },
+      },
+      agent: {
+        async run(request) {
+          assert.equal(request.runtimeMs, limits.runtimeMs);
+          assert.equal(request.maxTokens, limits.maxTokens);
+          assert.equal(request.maxTurns, limits.maxTurns);
+          return { ...completed(), status: 'budget_exceeded', limits, limitUsage, limitHit };
+        },
+      },
+      graders: [],
+      store: {
+        async save(name, value) {
+          saved.set(name, value);
+        },
+        append() {},
+      },
+    },
+  );
+  assert.deepEqual(result.evidence.agent.limits, limits);
+  assert.deepEqual(result.evidence.agent.limitHit, limitHit);
+  assert.deepEqual(result.manifest.limitUsage, limitUsage);
+  assert.deepEqual(result.manifest.limits, limits);
+  assert.deepEqual(result.manifest.limitHit, limitHit);
+  assert.equal(saved.get('evidence.json'), result.evidence);
+});
+
 test('saved comparison invariants include the prepared resource fingerprint and runtime', async () => {
   const saved = new Map<string, unknown>();
   const runtime = { node: { version: '24.15.0' } };

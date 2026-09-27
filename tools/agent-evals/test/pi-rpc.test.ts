@@ -11,6 +11,7 @@ import {
 } from '../src/adapters/pi-rpc.js';
 import type { AgentRunRequest } from '../src/domain/types.js';
 import { endpointHash } from '../src/adapters/pi-endpoint-selection.ts';
+import { DEFAULT_TRIAL_LIMITS } from '../src/domain/trial-limits.ts';
 
 test('strict LF framing preserves Unicode separators, CRLF, and split UTF-8', () => {
   const received: Record<string, unknown>[] = [];
@@ -69,7 +70,7 @@ const fakeRpc = String.raw`#!/usr/bin/env node
 const send = event => process.stdout.write(JSON.stringify(event) + '\n');
 const scenario = process.env.EVAL_RPC_SCENARIO;
 const model = { provider: 'openai-codex', id: 'test-model', baseUrl: 'https://chatgpt.com/backend-api', headers: { Authorization: 'must-not-persist' } };
-const usage = { input: 10, output: 5, cacheRead: 0, cacheWrite: 0, cost: { total: scenario === 'high-cost' ? 25 : 0.01 } };
+const usage = { input: 10, output: 5, cacheRead: scenario === 'cached' ? 1000 : 0, cacheWrite: scenario === 'cached' ? 20 : 0, cost: { total: scenario === 'high-cost' ? 25 : 0.01 } };
 let pending = '';
 process.stdin.on('data', chunk => {
   pending += chunk;
@@ -82,18 +83,38 @@ process.stdin.on('data', chunk => {
       if (scenario === 'reject') { send({ type: 'response', id: command.id, command: 'prompt', success: false, error: 'not accepted' }); continue; }
       send({ type: 'response', id: command.id, command: 'prompt', success: true });
       send({ type: 'agent_start' });
+      send({ type: 'turn_start' });
       if (scenario === 'exit') { process.exit(7); }
       if (scenario === 'malformed') { process.stdout.write('not JSON\n'); continue; }
       if (scenario === 'hang') continue;
       if (scenario === 'cancel-active') { send({ type: 'message_end', message: { role: 'assistant', usage } }); continue; }
       if (scenario === 'budget') { send({ type: 'message_update', usage: { ...usage, input: 100000 } }); continue; }
+      if (scenario === 'multi-turn') {
+        for (let turn=1; turn<=3; turn++) {
+          if (turn>1) send({type:'turn_start'});
+          for(let tool=1; tool<=3; tool++) send({type:'tool_execution_start',toolCallId:turn+'-'+tool,toolName:'bash',args:{command:'true'}});
+          send({type:'message_update',usage});
+          send({type:'message_update',usage});
+          send({type:'message_end',message:{role:'assistant',usage,stopReason:'toolUse'}});
+          for(let tool=1; tool<=3; tool++) send({type:'tool_execution_end',toolCallId:turn+'-'+tool,isError:false,result:{content:[]}});
+          send({type:'turn_end',message:{role:'assistant'},toolResults:[]});
+        }
+        send({type:'agent_settled'});continue;
+      }
       send({ type: 'tool_execution_start', toolName: 'bash', toolCallId: 'browser', args: { command: 'playwright-cli snapshot' } });
       send({ type: 'tool_execution_end', toolName: 'bash', toolCallId: 'browser', isError: false, result: { content: [{ type: 'text', text: 'snapshot' }] } });
-      if (scenario === 'recovered-retry') send({ type: 'message_end', message: { role: 'assistant', usage, stopReason: 'error', errorMessage: 'temporary provider error' } });
+      if (scenario === 'recovered-retry') {
+        send({ type: 'message_end', message: { role: 'assistant', usage, stopReason: 'error', errorMessage: 'temporary provider error' } });
+        send({type:'turn_end',message:{role:'assistant'},toolResults:[]});
+        send({type:'turn_start'});
+      }
       send({ type: 'message_end', message: { role: 'assistant', usage, stopReason: scenario === 'provider-error' ? 'error' : 'stop', errorMessage: scenario === 'provider-error' ? 'provider unavailable' : undefined } });
+      send({ type: 'turn_end', message: { role: 'assistant' }, toolResults: [] });
       send({ type: 'agent_end', willRetry: false });
-      setTimeout(() => { send({ type: 'test_event_after_agent_end' }); send({ type: 'agent_settled' }); }, 30);
-    } else send({ type: 'response', id: command.id, command: command.type, success: true, data: {} });
+      if(scenario==='synchronous-settle') send({type:'agent_settled'});
+      else setTimeout(() => { send({ type: 'test_event_after_agent_end' }); send({ type: 'agent_settled' }); }, 30);
+    } else if(command.type==='get_session_stats' && scenario==='late-totals') send({type:'response',id:command.id,command:command.type,success:true,data:{tokens:{input:1000,output:10,cacheRead:9000,cacheWrite:0},cost:0.1}});
+    else send({ type: 'response', id: command.id, command: command.type, success: true, data: {} });
   }
 });
 process.stdin.on('end', () => { if (scenario !== 'startup-hang') process.exit(0); });
@@ -239,6 +260,114 @@ test('subscription dollar exemption preserves token limits and runtime deadlines
   assert.match(budget.error ?? '', /token budget/);
   const timeout = await trial('hang', { maxEstimatedCostUsd: null, runtimeMs: 100 });
   assert.equal(timeout.status, 'timeout');
+});
+
+test('cached reads and writes count at one tenth while raw usage is retained', async () => {
+  const allowed = await trial('cached', { maxTokens: 118, maxEstimatedCostUsd: null });
+  assert.equal(allowed.status, 'completed');
+  assert.equal(allowed.usage.inputTokens, 10);
+  assert.equal(allowed.usage.outputTokens, 5);
+  assert.equal(allowed.usage.cacheReadTokens, 1000);
+  assert.equal(allowed.usage.cacheWriteTokens, 20);
+  assert.equal(allowed.limitUsage?.weightedTokens, 117);
+  assert.equal(allowed.limitUsage?.cachedTokenWeight, 0.1);
+  const capped = await trial('cached', { maxTokens: 117, maxEstimatedCostUsd: null });
+  assert.equal(capped.status, 'budget_exceeded');
+  assert.deepEqual(capped.limitHit, { kind: 'maxTokens', threshold: 117, observed: 117 });
+  assert.equal(capped.usage.cacheReadTokens, 1000);
+});
+
+test('a completed native turn includes multiple tools and deltas; the first cap hit remains stable', async () => {
+  const result = await trial('multi-turn', {
+    maxTurns: 1,
+    maxTokens: 30,
+    maxEstimatedCostUsd: null,
+  });
+  assert.equal(result.status, 'budget_exceeded');
+  assert.deepEqual(result.limitHit, { kind: 'maxTurns', threshold: 1, observed: 1 });
+  const stops = result.events.filter((event) => event.data.type === 'stop_requested');
+  assert.equal(stops.length, 1);
+  assert.equal((stops[0]!.data.limitUsage as { turns: number }).turns, 1);
+  assert.equal((stops[0]!.data.limitUsage as { weightedTokens: number }).weightedTokens, 15);
+  const prior = result.events.filter((event) => event.sequence < stops[0]!.sequence);
+  assert.equal(prior.filter((event) => event.data.type === 'tool_execution_end').length, 3);
+  assert.equal(prior.filter((event) => event.data.type === 'message_update').length, 2);
+  assert.equal(prior.filter((event) => event.data.type === 'turn_end').length, 1);
+});
+
+test('hitting the completed-turn boundary stops even when that response would naturally finish', async () => {
+  const capped = await trial('pass', { maxTurns: 1, maxEstimatedCostUsd: null });
+  assert.equal(capped.status, 'budget_exceeded');
+  assert.equal(capped.limitHit?.kind, 'maxTurns');
+  assert.equal(capped.limitUsage?.turns, 1);
+  const below = await trial('pass', { maxTurns: 2, maxEstimatedCostUsd: null });
+  assert.equal(below.status, 'completed');
+  assert.equal(below.limitUsage?.turns, 1);
+  assert.equal(below.limitUsage?.turnsStarted, 1);
+  assert.equal(below.limitHit, undefined);
+  const retried = await trial('recovered-retry', { maxTurns: 3, maxEstimatedCostUsd: null });
+  assert.equal(retried.status, 'completed');
+  assert.equal(retried.limitUsage?.turns, 2);
+  const tokenFirst = await trial('pass', { maxTokens: 15, maxTurns: 1, maxEstimatedCostUsd: null });
+  assert.equal(tokenFirst.limitHit?.kind, 'maxTokens');
+  assert.equal(tokenFirst.events.filter((event) => event.data.type === 'stop_requested').length, 1);
+});
+
+test('late authoritative session usage exceeding a token cap cannot silently pass after settlement', async () => {
+  const result = await trial('late-totals', { maxTokens: 1900, maxEstimatedCostUsd: null });
+  assert.equal(result.status, 'budget_exceeded');
+  assert.equal(result.limitUsage?.weightedTokens, 1910);
+  assert.deepEqual(result.limitHit, { kind: 'maxTokens', threshold: 1900, observed: 1910 });
+  assert.ok(
+    result.events.find((event) => event.data.type === 'agent_settled')!.sequence <
+      result.events.find((event) => event.data.type === 'stop_requested')!.sequence,
+  );
+});
+
+test('runtime stop is observable even if synchronous evidence handling delays its timer', async () => {
+  let blocked = false;
+  const result = await trial('synchronous-settle', {
+    runtimeMs: 1000,
+    maxTurns: 1,
+    maxEstimatedCostUsd: null,
+    onEvent(event) {
+      if (event.data.type === 'message_end') {
+        blocked = true;
+        const until = performance.now() + 1100;
+        while (performance.now() < until) {
+          /* Simulate a synchronous evidence writer. */
+        }
+      }
+    },
+  });
+  assert.equal(blocked, true);
+  assert.equal(result.status, 'timeout');
+  assert.equal(result.limitHit?.kind, 'runtimeMs');
+  assert.ok(result.limitHit!.observed >= 1000);
+  assert.equal(result.events.filter((event) => event.data.type === 'stop_requested').length, 1);
+});
+
+test('omitted turn caps inherit the high default and invalid caps fail before starting Pi', async () => {
+  const result = await trial('pass');
+  assert.equal(result.limits?.maxTurns, DEFAULT_TRIAL_LIMITS.maxTurns);
+  for (const override of [
+    { maxTurns: 0 },
+    { maxTurns: 1.5 },
+    { maxTurns: Number.POSITIVE_INFINITY },
+    { maxTokens: -1 },
+    { runtimeMs: 2_147_483_648 },
+  ]) {
+    let events = 0;
+    await assert.rejects(() =>
+      trial('pass', {
+        ...override,
+        onEvent() {
+          events++;
+        },
+      }),
+    );
+    assert.equal(events, 0);
+  }
 });
 
 test('non-null dollar limits must remain finite and positive', async () => {
