@@ -2,6 +2,9 @@
 
 # dependencies
 /node_modules
+**/node_modules/
+/evals/runs/
+/evals/dist/
 /.pnp
 .pnp.*
 .yarn/*
@@ -47,3 +50,7 @@ supabase/.temp/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Built evaluation package and generic local records
+/packages/agent-evals/dist/
+.agent-evals/

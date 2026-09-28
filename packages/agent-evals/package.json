@@ -1,0 +1,60 @@
+{
+  "name": "agent-evals",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "cli": "node dist/cli.js",
+    "test": "tsx --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --config .oxlintrc.json --deny-warnings src test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check",
+    "build": "node scripts/build.mjs",
+    "prepack": "node scripts/build.mjs"
+  },
+  "dependencies": {
+    "@typesafe-ai/sdk": "0.6.0",
+    "zod": "^4.5.4",
+    "tsx": "^4.23.13"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "prettier": "3.9.6",
+    "typescript": "^6.0.3",
+    "oxlint": "1.81.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./pi": {
+      "types": "./dist/adapters/pi/index.d.ts",
+      "import": "./dist/adapters/pi/index.js",
+      "default": "./dist/adapters/pi/index.js"
+    },
+    "./jev": {
+      "types": "./dist/adapters/jev/index.d.ts",
+      "import": "./dist/adapters/jev/index.js",
+      "default": "./dist/adapters/jev/index.js"
+    },
+    "./files": {
+      "types": "./dist/adapters/files/index.d.ts",
+      "import": "./dist/adapters/files/index.js",
+      "default": "./dist/adapters/files/index.js"
+    }
+  },
+  "description": "Record coding-agent trials, inspect grading evidence, and regrade saved recordings.",
+  "engines": {
+    "node": "^24.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "bin": {
+    "agent-evals": "./dist/cli.js"
+  }
+}

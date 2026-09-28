@@ -1,0 +1,408 @@
+import { appendFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readFile, realpath, writeFile } from 'node:fs/promises';
+import { dirname, isAbsolute, relative, resolve } from 'node:path';
+
+import type {
+  BashParams,
+  BoundaryConfig,
+  FileParams,
+  NativePiModule,
+  NativeResult,
+  NativeUpdate,
+  PiExtension,
+} from './pi-tool-boundary-types.ts';
+
+interface ExecuteOptions {
+  signal?: AbortSignal;
+  timeout?: number;
+  onData?: (chunk: Buffer) => void;
+  input?: string | Uint8Array;
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+export function parseDirectPlaywright(command: string): string[] | null {
+  if (/[\r\n]/.test(command)) {
+    return null;
+  }
+  // No shell substitutions, operators, assignments, aliases, or caller-selected executable.
+  const tokens = command.trim().match(/(?:"[^"\\]*"|'[^']*'|[^\s"']+)/g);
+  if (!tokens || tokens.join(' ') !== command.trim().replace(/\s+/g, ' ')) {
+    return null;
+  }
+  const args = tokens.map((token) => (/^['"]/.test(token) ? token.slice(1, -1) : token));
+  if (args.shift() !== 'playwright-cli' || args.some((arg) => /[\n\r$`;&|<>\\]/.test(arg))) {
+    return null;
+  }
+  if (
+    args.some((arg) =>
+      /^--(?:config|browser|cdp|endpoint|extension|profile|persistent)(?:=|$)/.test(arg),
+    )
+  ) {
+    return null;
+  }
+  return args;
+}
+
+const hash = (bytes: string | Uint8Array) => createHash('sha256').update(bytes).digest('hex');
+
+const within = (root: string, path: string) => {
+  const value = relative(root, path);
+  return value === '' || (!value.startsWith('../') && value !== '..' && !isAbsolute(value));
+};
+
+export async function captureNativeOutput(
+  directory: string | undefined,
+  id: string,
+  bytes: Buffer,
+  kind: string,
+) {
+  if (!directory) {
+    return { gap: 'This boundary does not retain full native output.' };
+  }
+  try {
+    let content;
+    let encoding = 'utf8';
+    try {
+      content = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      content = content
+        .replace(/\bsk-[A-Za-z0-9_-]{12,}/g, '[REDACTED_API_KEY]')
+        .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[REDACTED_JWT]')
+        .replace(/(Bearer\s+)[A-Za-z0-9._~-]+/gi, '$1[REDACTED]');
+    } catch {
+      content = bytes.toString('base64');
+      encoding = 'base64';
+    }
+    const receipt = {
+      path: `native-output:${id}`,
+      content,
+      sha256: hash(content),
+      kind,
+      encoding,
+    };
+    await writeFile(resolve(directory, hash(id) + '.json'), JSON.stringify(receipt), {
+      mode: 0o600,
+    });
+    return { path: receipt.path, sha256: receipt.sha256, kind, encoding };
+  } catch {
+    return { gap: 'Full native output could not be persisted in the private recording.' };
+  }
+}
+
+export default async function installBoundary(pi: PiExtension) {
+  const configPath = process.env.EVAL_ISOLATION_CONFIG;
+  if (!configPath) {
+    throw new Error('EVAL_ISOLATION_CONFIG is required');
+  }
+  const config = JSON.parse(await readFile(configPath, 'utf8')) as BoundaryConfig;
+  const native = (await import(config.piModule)) as NativePiModule;
+  const captureOutput = (id: string, bytes: Buffer, kind: string) =>
+    captureNativeOutput(config.toolOutputDirectory, id, bytes, kind);
+
+  const targetHash = async () => {
+    try {
+      return hash(await fileOperation('read', config.targetFile));
+    } catch {
+      return null;
+    }
+  };
+
+  async function checkedPath(path: string, writing = false) {
+    const absolute = resolve(config.workspace, path);
+    const roots = writing
+      ? config.writableDirectories
+      : [config.workspace, ...config.resourceDirectories];
+    if (
+      !roots.some((root) => within(root, absolute)) &&
+      !(!writing && config.resourceFiles.includes(absolute))
+    ) {
+      throw new Error(
+        'Tool access is limited to the isolated trial and its instruction resources.',
+      );
+    }
+    // Resolve the nearest existing ancestor, so creation through an escaping symlink is also rejected.
+    let existing = absolute;
+    while (true) {
+      try {
+        const actual = await realpath(existing);
+        if (
+          !roots.some((root) => within(root, actual)) &&
+          !(!writing && config.resourceFiles.includes(actual))
+        ) {
+          throw new Error('Symlink escapes the isolated trial.');
+        }
+        break;
+      } catch (error) {
+        if (!isNodeError(error) || error.code !== 'ENOENT') {
+          throw error;
+        }
+        const parent = dirname(existing);
+        if (parent === existing) {
+          throw error;
+        }
+        existing = parent;
+      }
+    }
+    return absolute;
+  }
+
+  function execute(
+    executable: string,
+    args: string[],
+    { signal, timeout = 60, onData = () => {}, input }: ExecuteOptions = {},
+  ): Promise<{ exitCode: number | null; output: Buffer }> {
+    return new Promise((resolveResult, reject) => {
+      const child = spawn(
+        '/usr/bin/sandbox-exec',
+        ['-f', config.profilePath, executable, ...args],
+        {
+          cwd: config.workspace,
+          env: config.toolEnv,
+          detached: true,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        },
+      );
+      if (child.pid) {
+        appendFileSync(
+          config.processRegistryPath,
+          JSON.stringify({ pid: child.pid, startedAt: new Date().toISOString() }) + '\n',
+        );
+      }
+      const chunks: Buffer[] = [];
+      const kill = () => {
+        try {
+          if (child.pid) {
+            process.kill(-child.pid, 'SIGKILL');
+          }
+        } catch {}
+      };
+      const timer = setTimeout(kill, Math.min(timeout * 1000, config.commandTimeoutMs));
+      signal?.addEventListener('abort', kill, { once: true });
+      child.on('error', reject);
+      for (const stream of [child.stdout, child.stderr]) {
+        stream.on('data', (chunk: Buffer) => {
+          chunks.push(chunk);
+          onData(chunk);
+        });
+      }
+      child.on('close', (exitCode) => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', kill);
+        resolveResult({ exitCode, output: Buffer.concat(chunks) });
+      });
+      child.stdin.end(input);
+    });
+  }
+
+  async function fileOperation(
+    operation: 'read' | 'access' | 'write' | 'mkdir',
+    path: string,
+    input?: string | Uint8Array,
+  ): Promise<Buffer> {
+    await checkedPath(path, ['write', 'mkdir'].includes(operation));
+    const result = await execute(config.nodeExecutable, [config.workerPath, operation, path], {
+      input,
+    });
+    if (result.exitCode !== 0) {
+      throw new Error(result.output.toString('utf8') || 'Isolated file operation failed');
+    }
+    return result.output;
+  }
+
+  const read = native.createReadTool(config.workspace, {
+    operations: {
+      readFile: (path) => fileOperation('read', path),
+      access: async (path) => {
+        await fileOperation('access', path);
+      },
+    },
+  });
+
+  const edit = native.createEditTool(config.workspace, {
+    operations: {
+      readFile: (path) => fileOperation('read', path),
+      access: async (path) => {
+        await fileOperation('access', path);
+      },
+      writeFile: async (path, content) => {
+        await fileOperation('write', path, content);
+      },
+    },
+  });
+
+  const write = native.createWriteTool(config.workspace, {
+    operations: {
+      mkdir: async (path) => {
+        await fileOperation('mkdir', path);
+      },
+      writeFile: async (path, content) => {
+        await fileOperation('write', path, content);
+      },
+    },
+  });
+  for (const tool of [read, edit, write]) {
+    pi.registerTool({
+      ...tool,
+      async execute(
+        id: string,
+        params: FileParams,
+        signal?: AbortSignal,
+        onUpdate?: NativeUpdate,
+        ctx?: unknown,
+      ) {
+        const before = await targetHash();
+        let result: NativeResult;
+        try {
+          result = await tool.execute(id, params, signal, onUpdate, ctx);
+        } catch (error) {
+          result = { content: [{ type: 'text', text: errorMessage(error) }], isError: true };
+        }
+        let sha256;
+        let outputCapture;
+        if (tool.name === 'read') {
+          try {
+            const bytes = await fileOperation('read', resolve(config.workspace, params.path));
+            sha256 = hash(bytes);
+            if (result.details?.truncation?.truncated) {
+              outputCapture = await captureOutput(id, bytes, 'read-source');
+            }
+          } catch {}
+        }
+        return {
+          ...result,
+          details: {
+            ...result.details,
+            evaluation: {
+              kind: `file-${tool.name}`,
+              path: params.path,
+              sha256,
+              outputCapture,
+              targetBeforeHash: before,
+              targetAfterHash: await targetHash(),
+            },
+          },
+        };
+      },
+    });
+  }
+  pi.registerTool({
+    ...native.createBashTool(config.workspace),
+    async execute(
+      id: string,
+      params: BashParams,
+      signal?: AbortSignal,
+      onUpdate?: NativeUpdate,
+      ctx?: unknown,
+    ) {
+      const before = await targetHash();
+      const direct = parseDirectPlaywright(params.command);
+      let execution: { exitCode: number | null; output: Buffer } | undefined;
+      const tool = native.createBashTool(config.workspace, {
+        exposeSessionEnvironment: false,
+        operations: {
+          exec: async (command, _cwd, options) => {
+            execution = await execute(
+              direct ? config.nodeExecutable : '/bin/bash',
+              direct
+                ? [
+                    config.playwrightExecutable,
+                    ...direct,
+                    ...(direct.includes('open') ? [`--config=${config.browserConfigPath}`] : []),
+                  ]
+                : ['--noprofile', '--norc', '-c', command],
+              options,
+            );
+            return { exitCode: execution.exitCode };
+          },
+        },
+      });
+      let result: NativeResult;
+      try {
+        result = await tool.execute(id, params, signal, onUpdate, ctx);
+      } catch (error) {
+        result = { content: [{ type: 'text', text: errorMessage(error) }], isError: true };
+      }
+      const evaluation: {
+        kind: string;
+        args: string[] | undefined;
+        exitCode: number | null | undefined;
+        targetBeforeHash: string | null;
+        targetAfterHash: string | null;
+        outputCapture: Awaited<ReturnType<typeof captureNativeOutput>> | undefined;
+        snapshot?: { path: string; content: string; sha256: string };
+      } = {
+        kind: direct ? 'playwright-cli' : 'bash',
+        args: direct ?? undefined,
+        exitCode: execution?.exitCode,
+        targetBeforeHash: before,
+        targetAfterHash: await targetHash(),
+        outputCapture: execution
+          ? await captureOutput(id, execution.output, 'command-output')
+          : undefined,
+      };
+      if (direct && execution) {
+        const daemon = execution.output
+          .toString('utf8')
+          .match(/### Browser[^\n]*opened with pid (\d+)/);
+        if (daemon) {
+          appendFileSync(
+            config.processRegistryPath,
+            JSON.stringify({
+              pid: Number(daemon[1]),
+              startedAt: new Date().toISOString(),
+              kind: 'playwright-daemon',
+            }) + '\n',
+          );
+        }
+      }
+      if (direct?.includes('snapshot') && execution?.exitCode === 0) {
+        const output = execution.output.toString('utf8');
+        const inline = output.match(/```ya?ml\r?\n([\s\S]*?)\r?\n```/);
+        if (inline) {
+          evaluation.snapshot = {
+            path: `tool-output:${id}`,
+            content: inline[1],
+            sha256: hash(inline[1]),
+          };
+        }
+        const paths = [...output.matchAll(/\.playwright-cli\/[^\s)\]"'<>]+\.ya?ml/g)].map(
+          (match) => match[0],
+        );
+        for (const path of paths) {
+          try {
+            const actual = await checkedPath(resolve(config.workspace, path));
+            const content = await fileOperation('read', actual);
+            evaluation.snapshot = {
+              path,
+              content: content.toString('utf8'),
+              sha256: hash(content),
+            };
+            break;
+          } catch {}
+        }
+      }
+      if (evaluation.snapshot) {
+        await writeFile(
+          resolve(config.snapshotReceiptDirectory, hash(id) + '.json'),
+          JSON.stringify(evaluation.snapshot),
+        );
+      }
+      return { ...result, details: { ...result.details, evaluation } };
+    },
+  });
+  pi.registerCommand('eval-sandbox-ready-v1', {
+    description: 'Evaluation tool boundary installed',
+    handler: async () => {},
+  });
+  pi.on('session_start', async () => {
+    pi.setActiveTools(['read', 'bash', 'edit', 'write']);
+  });
+}

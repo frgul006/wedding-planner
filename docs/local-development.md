@@ -304,3 +304,7 @@ pnpm supabase:status
 - The app has a temporary Supabase health endpoint at `/api/health/supabase`.
 - Admin auth docs are in `docs/admin-auth.md`.
 - The public homepage is still the default Vercel/Next.js template page.
+
+## Coding-agent evaluations
+
+The shareable TypeScript library and CLI live under `packages/agent-evals`. This repository consumes its public exports from `evals/config.ts`, which composes Wedding tasks, graders, and a local Pi environment. Start with `pnpm build:evals` and `pnpm evals run --config evals/config.ts --dry-run`. See [Agent Evaluation](../evals/README.md) for prerequisites, independent acceptance checks, and separate trial/grader budgets. Trials use local-only settings rather than this checkout's application credentials.
