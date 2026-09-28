@@ -205,7 +205,7 @@ test(
         }),
       );
       // Seed the tarball and the library's pinned graph for an offline frozen
-      // install. Reuse pnpm's dependency and policy metadata caches, not workspace links.
+      // install. This graph was already verified when installing the workspace.
       const lockDocuments = (
         await readFile(path.join(packageDirectory, '../../pnpm-lock.yaml'), 'utf8')
       ).split('\n---\n');
@@ -267,10 +267,20 @@ test(
         path.join(consumer, 'pnpm-lock.yaml'),
         [...lockDocuments.slice(0, -1), consumerLock].join('\n---\n'),
       );
-      await execute('pnpm', ['install', '--frozen-lockfile', '--offline', '--ignore-scripts'], {
-        cwd: consumer,
-        timeout: 60_000,
-      });
+      // Rechecking registry policies would need uncached cross-platform metadata.
+      // Trust only this fixture's pinned graph; keep integrity and offline checks.
+      await execute(
+        'pnpm',
+        ['install', '--frozen-lockfile', '--offline', '--ignore-scripts', '--trust-lockfile'],
+        {
+          cwd: consumer,
+          timeout: 60_000,
+          env: {
+            ...process.env,
+            PNPM_CONFIG_CACHE_DIR: path.join(directory, 'empty-metadata-cache'),
+          },
+        },
+      );
       await Promise.all([
         writeFile(path.join(consumer, 'evals.config.ts'), config),
         writeFile(path.join(consumer, 'graders.ts'), graders),
