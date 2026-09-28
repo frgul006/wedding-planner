@@ -189,6 +189,9 @@ test(
       const manifest = JSON.parse(
         await readFile(path.join(packageDirectory, 'package.json'), 'utf8'),
       );
+      const workspaceManifest = JSON.parse(
+        await readFile(path.join(packageDirectory, '../../package.json'), 'utf8'),
+      );
       const archiveReference = `file:../${path.basename(archive)}`;
       await writeFile(
         path.join(consumer, 'package.json'),
@@ -196,17 +199,17 @@ test(
           name: 'independent-consumer',
           private: true,
           type: 'module',
+          packageManager: workspaceManifest.packageManager,
           dependencies: { 'agent-evals': archiveReference },
           devDependencies: { '@types/node': manifest.devDependencies['@types/node'] },
         }),
       );
-      // Seed the tarball and the library's pinned graph so a frozen install needs
-      // neither registry metadata nor workspace links. Only dependency bytes are cached.
-      const workspaceLock = (
+      // Seed the tarball and the library's pinned graph for an offline frozen
+      // install. Reuse pnpm's dependency and policy metadata caches, not workspace links.
+      const lockDocuments = (
         await readFile(path.join(packageDirectory, '../../pnpm-lock.yaml'), 'utf8')
-      )
-        .split('\n---\n')
-        .at(-1)!;
+      ).split('\n---\n');
+      const workspaceLock = lockDocuments.at(-1)!;
       const importer = workspaceLock.match(
         /\n  packages\/agent-evals:\n([\s\S]*?)(?=\n  \S|\npackages:)/,
       )?.[1];
@@ -259,22 +262,15 @@ test(
     dependencies: ${JSON.stringify(dependencies)}
 `,
         );
-      await writeFile(path.join(consumer, 'pnpm-lock.yaml'), consumerLock);
-      await execute(
-        'pnpm',
-        [
-          'install',
-          '--frozen-lockfile',
-          '--offline',
-          '--ignore-scripts',
-          '--cache-dir',
-          path.join(directory, 'empty-metadata-cache'),
-        ],
-        {
-          cwd: consumer,
-          timeout: 60_000,
-        },
+      // Preserve pnpm 12's separate package-manager lock alongside the dependency graph.
+      await writeFile(
+        path.join(consumer, 'pnpm-lock.yaml'),
+        [...lockDocuments.slice(0, -1), consumerLock].join('\n---\n'),
       );
+      await execute('pnpm', ['install', '--frozen-lockfile', '--offline', '--ignore-scripts'], {
+        cwd: consumer,
+        timeout: 60_000,
+      });
       await Promise.all([
         writeFile(path.join(consumer, 'evals.config.ts'), config),
         writeFile(path.join(consumer, 'graders.ts'), graders),
